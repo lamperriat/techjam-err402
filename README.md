@@ -46,6 +46,19 @@ The command writes per-session results and aggregate metrics to `results.json`.
 The included weak BM25 starter scores Hit Rate@10 `0.125`, MRR `0.068034`, and
 MTTC `9.81` on the released public set. See `docs/baseline_results.json`.
 
+## LLM Client Configuration
+
+Install the OpenAI-compatible client dependencies:
+
+```bash
+python3 -m pip install -r requirements.txt
+```
+
+Copy `.env.example` to `.env` and set `LLM_API_KEY`, `LLM_MODEL`, and, for a
+third-party OpenAI-compatible service, `LLM_BASE_URL`. The client sends
+non-streaming chat-completion requests in JSON-object mode and records the
+provider-reported prompt and completion token counts.
+
 ## Agent Interface
 
 ```python

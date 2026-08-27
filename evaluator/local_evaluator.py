@@ -8,6 +8,14 @@ import statistics
 import uuid
 from collections import defaultdict
 from pathlib import Path
+from typing import Protocol
+
+class AgentBase(Protocol):
+    def reset(self, session_id: str, user_profile: dict) -> None:
+        ...
+
+    def respond(self, session_id: str, user_message: str, turn: int, top_k: int) -> dict:
+        ...
 
 from starter.agent import Agent
 
@@ -214,7 +222,7 @@ def materialize_hidden_fields(sample: dict, products: dict[str, dict]) -> tuple[
 
 
 def evaluate(
-    agent: Agent,
+    agent: AgentBase,
     samples: list[dict],
     catalog_ids: set[str],
     categories: dict[str, list[str]],
