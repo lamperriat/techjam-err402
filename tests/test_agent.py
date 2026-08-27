@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from starter.agent import Agent
+from starter.agent import BaselineAgent
 from utils.llm_client import TokenUsage
 
 
@@ -21,7 +21,7 @@ class AgentTest(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            agent = Agent(catalog_path)
+            agent = BaselineAgent(catalog_path)
             self.addCleanup(agent.connection.close)
             agent.reset("test-session", {})
             response = agent.respond("test-session", "Test product", turn=1, top_k=10)

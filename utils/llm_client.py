@@ -10,6 +10,7 @@ from typing import Any
 
 from dotenv import load_dotenv
 from openai import OpenAI
+from openai.types.completion_usage import CompletionUsage
 
 
 LOGGER = logging.getLogger(__name__)
@@ -84,7 +85,7 @@ class LLMClient:
             response_format={"type": "json_object"},
             stream=False,
         )
-        self._record_usage(getattr(response, "usage", None))
+        self._record_usage(response.usage)
 
         content = response.choices[0].message.content if response.choices else None
         if not content:
@@ -117,11 +118,18 @@ class LLMClient:
         self._unreported_usage = TokenUsage()
         return usage
 
-    def _record_usage(self, usage: object) -> None:
-        call_usage = TokenUsage(
-            prompt_tokens=max(0, int(getattr(usage, "prompt_tokens", 0) or 0)),
-            completion_tokens=max(0, int(getattr(usage, "completion_tokens", 0) or 0)),
-        )
+    def _record_usage(self, usage: CompletionUsage | None) -> None:
+        if usage is None:
+            LOGGER.warning(
+                "Model %s response did not include token usage",
+                self.config.model,
+            )
+            call_usage = TokenUsage()
+        else:
+            call_usage = TokenUsage(
+                prompt_tokens=usage.prompt_tokens,
+                completion_tokens=usage.completion_tokens,
+            )
         self.last_usage = call_usage
         self.total_usage += call_usage
         self._unreported_usage += call_usage

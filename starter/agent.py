@@ -34,7 +34,8 @@ def _terms(text: str) -> list[str]:
     ]
 
 
-class Agent:
+
+class BaselineAgent:
     """Editable weak baseline with BM25 retrieval and an initialized LLM client."""
 
     def __init__(self, catalog_path: str | Path = "data/catalog.jsonl") -> None:

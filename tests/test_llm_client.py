@@ -93,6 +93,21 @@ class LLMClientTest(unittest.TestCase):
         self.assertEqual(client.total_usage, TokenUsage(30, 6))
 
     @patch("utils.llm_client.OpenAI")
+    def test_logs_when_response_omits_usage(self, openai: Mock) -> None:
+        openai.return_value = self.sdk_client
+        response = self._response("{}")
+        response.usage = None
+        self.sdk_client.chat.completions.create.return_value = response
+        client = LLMClient(self.config)
+
+        with self.assertLogs("utils.llm_client", level="WARNING") as logs:
+            client.generate_json([{"role": "user", "content": "Return JSON"}])
+
+        self.assertIn("did not include token usage", logs.output[0])
+        self.assertEqual(client.last_usage, TokenUsage())
+        self.assertEqual(client.total_usage, TokenUsage())
+
+    @patch("utils.llm_client.OpenAI")
     def test_logs_invalid_json_and_still_records_its_usage(self, openai: Mock) -> None:
         openai.return_value = self.sdk_client
         self.sdk_client.chat.completions.create.return_value = self._response(

@@ -17,7 +17,7 @@ class AgentBase(Protocol):
     def respond(self, session_id: str, user_message: str, turn: int, top_k: int) -> dict:
         ...
 
-from starter.agent import Agent
+from starter.agent import BaselineAgent
 
 
 MAX_TURNS = 10
@@ -311,7 +311,7 @@ def main() -> None:
     args = parser.parse_args()
     samples = load_jsonl(args.dataset)
     catalog_ids, categories, products = catalog_index(args.catalog)
-    result = evaluate(Agent(args.catalog), samples, catalog_ids, categories, products)
+    result = evaluate(BaselineAgent(args.catalog), samples, catalog_ids, categories, products)
     Path(args.output).write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({key: value for key, value in result.items() if key != "sessions"}, indent=2))
 
