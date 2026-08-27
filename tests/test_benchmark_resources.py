@@ -1,0 +1,191 @@
+from __future__ import annotations
+
+import json
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+from scripts.benchmark_resources import (
+    SessionCapture,
+    TurnCapture,
+    _nearest_rank,
+    build_benchmark,
+    build_route_audit,
+    latency_summary,
+)
+
+
+PRODUCTS = [
+    {
+        "parent_asin": "TARGET-BLUE",
+        "title": "Women's blue cotton casual dress",
+        "categories": ["Clothing", "Women", "Dresses"],
+        "features": ["cotton", "blue", "casual"],
+        "details": {"material": "cotton", "color": "blue"},
+        "description": ["summer dress with pockets"],
+        "store": "Example",
+        "price": 49.0,
+    },
+    {
+        "parent_asin": "OTHER-RED",
+        "title": "Women's red polyester formal dress",
+        "categories": ["Clothing", "Women", "Dresses"],
+        "features": ["polyester", "red", "formal"],
+        "details": {"material": "polyester", "color": "red"},
+        "description": ["formal dress"],
+        "store": "Example",
+        "price": 59.0,
+    },
+    {
+        "parent_asin": "OTHER-SHOE",
+        "title": "Men's black mesh running shoe",
+        "categories": ["Clothing", "Men", "Shoes"],
+        "features": ["black", "mesh", "running"],
+        "details": {"material": "mesh", "color": "black"},
+        "description": ["wide training sneaker"],
+        "store": "Example",
+        "price": 69.0,
+    },
+]
+
+
+class BenchmarkResourcesTest(unittest.TestCase):
+    def _files(self, directory: str) -> tuple[Path, Path]:
+        root = Path(directory)
+        catalog = root / "catalog.jsonl"
+        dataset = root / "public.jsonl"
+        catalog.write_text(
+            "".join(json.dumps(product) + "\n" for product in PRODUCTS),
+            encoding="utf-8",
+        )
+        samples = [
+            {
+                "sample_id": "public_tiny_1",
+                "scenario_type": "buying",
+                "user_profile": {"summary": "neutral"},
+                "ground_truth": {"parent_asin": "TARGET-BLUE"},
+            },
+            {
+                "sample_id": "public_tiny_2",
+                "scenario_type": "browsing",
+                "user_profile": {"summary": "neutral"},
+                "ground_truth": {"parent_asin": "OTHER-SHOE"},
+            },
+        ]
+        dataset.write_text(
+            "".join(json.dumps(sample) + "\n" for sample in samples),
+            encoding="utf-8",
+        )
+        return catalog, dataset
+
+    def test_nearest_rank_latency_summary_uses_observed_values(self) -> None:
+        values = [1.0, 2.0, 3.0, 4.0, 100.0]
+        self.assertEqual(_nearest_rank(values, 0.50), 3.0)
+        self.assertEqual(_nearest_rank(values, 0.95), 100.0)
+        summary = latency_summary([1_000_000, 2_000_000, 3_000_000])
+        self.assertEqual(summary["count"], 3)
+        self.assertEqual(summary["p50_ms"], 2.0)
+        self.assertEqual(summary["p99_ms"], 3.0)
+        self.assertEqual(summary["max_ms"], 3.0)
+
+    def test_posthoc_audit_excludes_pre_override_rank_and_lists_miss(self) -> None:
+        sample = {
+            "sample_id": "public_override",
+            "scenario_type": "intent_override",
+            "user_profile": {},
+            "ground_truth": {"parent_asin": "TARGET"},
+            "intent_card": {
+                "target_category": "dress",
+                "hard_constraints": ["blue"],
+                "soft_preferences": ["casual"],
+            },
+            "behavior": {
+                "scenario_type": "intent_override",
+                "override": {"turn": 3, "new_value": "blue", "message": "blue"},
+            },
+        }
+        captures = [SessionCapture(turns=[
+            TurnCapture(1, {
+                "broad": ("TARGET",),
+                "strict": ("TARGET",),
+                "fused": ("TARGET",),
+            }),
+            TurnCapture(3, {
+                "broad": tuple([f"B{i}" for i in range(14)] + ["TARGET"]),
+                "strict": (),
+                "fused": tuple([f"F{i}" for i in range(14)] + ["TARGET"]),
+            }),
+        ])]
+        evaluator_result = {
+            "sessions": [{"sample_id": "public_override", "hit": False}]
+        }
+
+        audit = build_route_audit([sample], evaluator_result, captures, {})
+
+        self.assertEqual(audit["routes"]["fused"]["recall_at_k"]["10"], 0.0)
+        self.assertEqual(audit["routes"]["fused"]["recall_at_k"]["20"], 1.0)
+        self.assertEqual(
+            audit["public_misses"][0]["best_route_ranks"],
+            {"broad": 15, "strict": None, "fused": 15},
+        )
+        self.assertEqual(
+            audit["public_misses"][0]["best_route_turns"],
+            {"broad": 3, "strict": None, "fused": 3},
+        )
+        self.assertEqual(audit["public_misses"][0]["best_fused_rank"], 15)
+        self.assertEqual(audit["public_misses"][0]["best_fused_turn"], 3)
+        self.assertNotIn(1, audit["public_misses"][0]["observed_eligible_turns"])
+
+    def test_two_run_smoke_is_deterministic_target_blind_and_no_key(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            catalog, dataset = self._files(directory)
+            with patch.dict(
+                "os.environ",
+                {"OPENAI_API_KEY": "must-not-appear-in-artifact"},
+                clear=False,
+            ):
+                artifact = build_benchmark(
+                    catalog,
+                    dataset,
+                    runs=2,
+                    sample_limit=2,
+                    rss_sample_ms=1.0,
+                )
+
+        serialized = json.dumps(artifact)
+        self.assertEqual(artifact["determinism"]["status"], "passed")
+        self.assertTrue(artifact["all_runs_no_key_default_verified"])
+        self.assertNotIn("must-not-appear-in-artifact", serialized)
+        self.assertNotIn("OPENAI_API_KEY", serialized)
+        for run in artifact["runs"]:
+            self.assertGreater(run["respond_call_count"], 0)
+            self.assertEqual(
+                run["respond_call_count"], run["respond_latency"]["count"]
+            )
+            self.assertIn("p95_ms", run["respond_latency"])
+            self.assertIn("index_build", run["timing_seconds"])
+            self.assertIn("evaluator_wall", run["timing_seconds"])
+            self.assertIn("run_peak_rss_bytes", run["memory"])
+            self.assertEqual(
+                run["route_audit"]["cutoffs"], [10, 20, 50, 80, 120]
+            )
+            self.assertTrue(
+                run["no_key_default"]["agent_closed_before_posthoc_label_join"]
+            )
+
+    def test_runtime_selection_rejects_empty_sample(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            catalog, dataset = self._files(directory)
+            with self.assertRaisesRegex(ValueError, "sample selection is empty"):
+                build_benchmark(
+                    catalog,
+                    dataset,
+                    runs=1,
+                    scenarios=("boundary",),
+                    rss_sample_ms=1.0,
+                )
+
+
+if __name__ == "__main__":
+    unittest.main()
