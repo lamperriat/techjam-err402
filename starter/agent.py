@@ -6,12 +6,22 @@ import re
 import sqlite3
 import threading
 import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
+from starter.attributes import (
+    SCHEMA_VERSION as ATTRIBUTE_SCHEMA_VERSION,
+    ProductAttributeView,
+    build_conversation_constraint_view,
+    build_product_attribute_view,
+)
+from starter.reranker import RERANK_TOP_N, SCORER_VERSION, rerank_top_n
+
 
 TOKEN_RE = re.compile(r"[a-z0-9]+", re.IGNORECASE)
+ATTRIBUTE_CACHE_LIMIT = 10_000
 CATEGORY_PATTERNS = (
     re.compile(
         r"^\s*(?:i(?:'m| am)\s+)?(?:looking|searching|shopping)\s+for\s+"
@@ -451,6 +461,7 @@ class Agent:
         llm_client: Any | None = None,
         question_policy: str | None = None,
         trace_sink: Callable[[dict[str, Any]], None] | None = None,
+        rerank_mode: str | None = None,
     ) -> None:
         self.catalog_path = Path(catalog_path)
         self.llm_client = llm_client
@@ -462,9 +473,16 @@ class Agent:
             raise ValueError(
                 "question_policy must be one of: conservative, boundary, fast"
             )
+        self.rerank_mode = (
+            rerank_mode or os.getenv("TECHJAM_RERANK_MODE", "off")
+        ).strip().lower()
+        if self.rerank_mode not in {"off", "shadow", "active"}:
+            raise ValueError("rerank_mode must be one of: off, shadow, active")
         self.connection = sqlite3.connect(":memory:", check_same_thread=False)
         self._lock = threading.RLock()
         self._sessions: dict[str, SessionState] = {}
+        self._ranking_diagnostics: dict[int, dict[str, Any]] = {}
+        self._attribute_view_cache: OrderedDict[str, ProductAttributeView] = OrderedDict()
         self._build_index()
 
     def _trace(
@@ -515,17 +533,26 @@ class Agent:
 
     def reset(self, session_id: str, user_profile: dict) -> None:
         with self._lock:
+            previous = self._sessions.get(session_id)
+            if previous is not None:
+                self._ranking_diagnostics.pop(id(previous), None)
             self._sessions[session_id] = SessionState(profile=dict(user_profile))
             self._trace(session_id, None, "session", {
                 "memory_mode": "versioned multi-turn state",
                 "question_policy": self.question_policy,
+                "rerank_mode": self.rerank_mode,
+                "rerank_top_n": RERANK_TOP_N,
+                "reranker_version": SCORER_VERSION,
+                "attribute_schema_version": ATTRIBUTE_SCHEMA_VERSION,
                 "profile_keys_received": sorted(str(key) for key in user_profile),
             })
 
     def drop_session(self, session_id: str) -> None:
         """Release optional development-session state after a replay or Lab eviction."""
         with self._lock:
-            self._sessions.pop(session_id, None)
+            state = self._sessions.pop(session_id, None)
+            if state is not None:
+                self._ranking_diagnostics.pop(id(state), None)
 
     @staticmethod
     def _is_override(message: str) -> bool:
@@ -728,25 +755,34 @@ class Agent:
         query_terms = self._query_terms(state)
         broad_expression = self._fts_expression(query_terms)
         if not broad_expression:
-            return {"broad": [], "strict": [], "fused": []}
+            empty = {
+                route: []
+                for route in ("broad", "strict", "fused", "reranked", "final")
+            }
+            self._ranking_diagnostics[id(state)] = self._empty_rerank_diagnostics()
+            return empty
 
         broad_rows = self.connection.execute(
-            "SELECT parent_asin FROM products WHERE products MATCH ? "
+            "SELECT rowid, parent_asin FROM products WHERE products MATCH ? "
             "ORDER BY bm25(products, 0.0, 6.0, 4.0, 2.5, 2.5, 1.5, 1.0) LIMIT 120",
             (broad_expression,),
         ).fetchall()
-        broad_ids = [str(row[0]) for row in broad_rows]
+        broad_ids = [str(row[1]) for row in broad_rows]
+        candidate_rowids = {str(row[1]): int(row[0]) for row in broad_rows}
 
         strict_ids: list[str] = []
         if len(query_terms) >= 2:
             strict_expression = self._strict_fts_expression(query_terms)
             if strict_expression:
                 strict_rows = self.connection.execute(
-                    "SELECT parent_asin FROM products WHERE products MATCH ? "
+                    "SELECT rowid, parent_asin FROM products WHERE products MATCH ? "
                     "ORDER BY bm25(products, 0.0, 6.0, 4.0, 2.5, 2.5, 1.5, 1.0) LIMIT 80",
                     (strict_expression,),
                 ).fetchall()
-                strict_ids = [str(row[0]) for row in strict_rows]
+                strict_ids = [str(row[1]) for row in strict_rows]
+                candidate_rowids.update(
+                    (str(row[1]), int(row[0])) for row in strict_rows
+                )
 
         broad_rank = {asin: rank for rank, asin in enumerate(broad_ids, start=1)}
         strict_rank = {asin: rank for rank, asin in enumerate(strict_ids, start=1)}
@@ -759,7 +795,104 @@ class Agent:
                 asin,
             ),
         )
-        return {"broad": broad_ids, "strict": strict_ids, "fused": fused_ids}
+        reranked_ids = list(fused_ids)
+        diagnostics = self._empty_rerank_diagnostics()
+        if self.rerank_mode != "off" and fused_ids:
+            fusion_scores = {
+                asin: self._fusion_score(asin, broad_rank, strict_rank)
+                for asin in fused_ids[:RERANK_TOP_N]
+            }
+            product_views, cache_stats = self._load_product_attribute_views(
+                fused_ids[:RERANK_TOP_N], candidate_rowids
+            )
+            intent = build_conversation_constraint_view(
+                state.category_text,
+                state.active_terms,
+                state.excluded_terms,
+            )
+            reranked_ids, breakdowns = rerank_top_n(
+                fused_ids,
+                fusion_scores,
+                product_views,
+                intent,
+            )
+            diagnostics = {
+                **diagnostics,
+                "pool_size": min(len(fused_ids), RERANK_TOP_N),
+                "attribute_cache": cache_stats,
+                "breakdowns": {
+                    asin: breakdown.as_dict() for asin, breakdown in breakdowns.items()
+                },
+            }
+        final_ids = reranked_ids if self.rerank_mode == "active" else list(fused_ids)
+        self._ranking_diagnostics[id(state)] = diagnostics
+        return {
+            "broad": broad_ids,
+            "strict": strict_ids,
+            "fused": fused_ids,
+            "reranked": reranked_ids,
+            "final": final_ids,
+        }
+
+    def _empty_rerank_diagnostics(self) -> dict[str, Any]:
+        return {
+            "mode": self.rerank_mode,
+            "top_n": RERANK_TOP_N,
+            "pool_size": 0,
+            "scorer_version": SCORER_VERSION,
+            "attribute_schema_version": ATTRIBUTE_SCHEMA_VERSION,
+            "attribute_cache": {"hits": 0, "misses": 0, "size": len(self._attribute_view_cache)},
+            "breakdowns": {},
+        }
+
+    def _load_product_attribute_views(
+        self,
+        parent_asins: list[str],
+        candidate_rowids: dict[str, int],
+    ) -> tuple[dict[str, ProductAttributeView], dict[str, int]]:
+        views: dict[str, ProductAttributeView] = {}
+        missing: list[str] = []
+        for asin in parent_asins:
+            cached = self._attribute_view_cache.get(asin)
+            if cached is None:
+                missing.append(asin)
+                continue
+            self._attribute_view_cache.move_to_end(asin)
+            views[asin] = cached
+        rowids = [candidate_rowids[asin] for asin in missing if asin in candidate_rowids]
+        if not rowids:
+            return views, {
+                "hits": len(views),
+                "misses": len(missing),
+                "size": len(self._attribute_view_cache),
+            }
+        placeholders = ",".join("?" for _ in rowids)
+        rows = self.connection.execute(
+            "SELECT rowid, parent_asin, title, categories, features, details, store, description "
+            f"FROM products WHERE rowid IN ({placeholders})",
+            rowids,
+        ).fetchall()
+        for row in rows:
+            asin = str(row[1])
+            view = build_product_attribute_view({
+                "parent_asin": row[1],
+                "title": row[2],
+                "categories": row[3],
+                "features": row[4],
+                "details": row[5],
+                "store": row[6],
+                "description": row[7],
+            })
+            views[asin] = view
+            self._attribute_view_cache[asin] = view
+            self._attribute_view_cache.move_to_end(asin)
+            while len(self._attribute_view_cache) > ATTRIBUTE_CACHE_LIMIT:
+                self._attribute_view_cache.popitem(last=False)
+        return views, {
+            "hits": len(parent_asins) - len(missing),
+            "misses": len(missing),
+            "size": len(self._attribute_view_cache),
+        }
 
     def debug_rankings(self, session_id: str) -> dict[str, list[str]]:
         """Return the exact route rankings used by the current Agent."""
@@ -767,6 +900,18 @@ class Agent:
             if session_id not in self._sessions:
                 raise KeyError(f"Unknown session_id: {session_id}")
             return self._rank_candidates(self._sessions[session_id])
+
+    def debug_rerank_diagnostics(self, session_id: str) -> dict[str, Any]:
+        """Return target-blind component scores for the current candidate pool."""
+        with self._lock:
+            if session_id not in self._sessions:
+                raise KeyError(f"Unknown session_id: {session_id}")
+            state = self._sessions[session_id]
+            diagnostics = self._ranking_diagnostics.get(id(state))
+            if diagnostics is None:
+                self._rank_candidates(state)
+                diagnostics = self._ranking_diagnostics[id(state)]
+            return json.loads(json.dumps(diagnostics))
 
     @staticmethod
     def _select_question(state: SessionState, turn: int) -> str | None:
@@ -809,6 +954,10 @@ class Agent:
             "version_anchor_turn": state.version_anchor_turn,
             "prefer_other_next": state.prefer_other_next,
             "question_policy": self.question_policy,
+            "rerank_mode": self.rerank_mode,
+            "rerank_top_n": RERANK_TOP_N,
+            "reranker_version": SCORER_VERSION,
+            "attribute_schema_version": ATTRIBUTE_SCHEMA_VERSION,
             "category_text": state.category_text,
             "active_terms": list(state.active_terms),
             "excluded_terms": sorted(state.excluded_terms),
@@ -874,7 +1023,7 @@ class Agent:
             rankings = self._rank_candidates(state)
             recommendations = [
                 {"parent_asin": asin}
-                for asin in rankings["fused"][: min(max(top_k, 1), 10)]
+                for asin in rankings["final"][: min(max(top_k, 1), 10)]
             ]
             if self.trace_sink is not None:
                 broad_rank = {
@@ -883,27 +1032,54 @@ class Agent:
                 strict_rank = {
                     asin: rank for rank, asin in enumerate(rankings["strict"], start=1)
                 }
-                top_results = [
-                    {
-                        "parent_asin": asin,
-                        "broad_rank": broad_rank.get(asin),
-                        "strict_rank": strict_rank.get(asin),
-                        "fusion_score": round(
-                            self._fusion_score(asin, broad_rank, strict_rank), 8
-                        ),
+                route_ranks = {
+                    route: {
+                        asin: rank for rank, asin in enumerate(identifiers, start=1)
                     }
-                    for asin in rankings["fused"][:10]
-                ]
+                    for route, identifiers in rankings.items()
+                }
+                rerank_diagnostics = self._ranking_diagnostics.get(
+                    id(state), self._empty_rerank_diagnostics()
+                )
+                breakdowns = rerank_diagnostics["breakdowns"]
+
+                def result_rows(route: str) -> list[dict[str, Any]]:
+                    return [
+                        {
+                            "parent_asin": asin,
+                            "broad_rank": broad_rank.get(asin),
+                            "strict_rank": strict_rank.get(asin),
+                            "fused_rank": route_ranks["fused"].get(asin),
+                            "reranked_rank": route_ranks["reranked"].get(asin),
+                            "final_rank": route_ranks["final"].get(asin),
+                            "fusion_score": round(
+                                self._fusion_score(asin, broad_rank, strict_rank), 8
+                            ),
+                            "rerank": breakdowns.get(asin),
+                        }
+                        for asin in rankings[route][:10]
+                    ]
+
+                raw_fused_top_results = result_rows("fused")
+                reranked_top_results = result_rows("reranked")
+                final_top_results = result_rows("final")
                 self._trace(session_id, turn, "retrieval", {
-                    "engine": "SQLite FTS5 BM25 + weighted RRF",
-                    "candidate_count": len(rankings["fused"]),
+                    "engine": "SQLite FTS5 BM25 + weighted RRF + constraint reranker",
+                    "candidate_count": len(rankings["final"]),
                     "route_counts": {
-                        "broad": len(rankings["broad"]),
-                        "strict": len(rankings["strict"]),
-                        "fused": len(rankings["fused"]),
+                        route: len(identifiers) for route, identifiers in rankings.items()
                     },
                     "fusion_formula": "1/(60+broad_rank) + 1.8/(20+strict_rank)",
-                    "top_results": top_results,
+                    "rerank": {
+                        key: value
+                        for key, value in rerank_diagnostics.items()
+                        if key != "breakdowns"
+                    },
+                    "rerank_affects_output": self.rerank_mode == "active",
+                    "raw_fused_top_results": raw_fused_top_results,
+                    "reranked_top_results": reranked_top_results,
+                    "final_top_results": final_top_results,
+                    "top_results": final_top_results,
                 })
 
             ask_attribute = self._select_question(state, turn)

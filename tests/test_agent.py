@@ -57,6 +57,17 @@ class AgentTest(unittest.TestCase):
         self.assertEqual(response["usage"], {"prompt_tokens": 0, "completion_tokens": 0})
         self.assertTrue(response["recommendations"])
         self.assertEqual(agent.question_policy, "fast")
+        self.assertEqual(agent.rerank_mode, "off")
+
+    def test_rerank_mode_validation_and_environment_default(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            catalog = self._catalog(directory)
+            with patch.dict("os.environ", {"TECHJAM_RERANK_MODE": "shadow"}):
+                agent = Agent(catalog)
+            self.addCleanup(agent.connection.close)
+            self.assertEqual(agent.rerank_mode, "shadow")
+            with self.assertRaisesRegex(ValueError, "rerank_mode"):
+                Agent(catalog, rerank_mode="unknown")
 
     def test_reports_injected_llm_usage(self) -> None:
         llm_client = Mock()
@@ -594,7 +605,7 @@ class AgentTest(unittest.TestCase):
                 else:
                     self.assertNotEqual(second["ask_attribute"], "other")
 
-    def test_debug_rankings_expose_broad_strict_and_fused_routes(self) -> None:
+    def test_debug_rankings_expose_all_routes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             agent = Agent(self._catalog(directory))
             self.addCleanup(agent.connection.close)
@@ -602,8 +613,66 @@ class AgentTest(unittest.TestCase):
             agent.respond("routes", "blue cotton dress", 1, 10)
             rankings = agent.debug_rankings("routes")
 
-        self.assertEqual(set(rankings), {"broad", "strict", "fused"})
+        self.assertEqual(
+            set(rankings), {"broad", "strict", "fused", "reranked", "final"}
+        )
         self.assertIn("A-BLUE-COTTON", rankings["fused"])
+        self.assertEqual(rankings["fused"], rankings["reranked"])
+        self.assertEqual(rankings["fused"], rankings["final"])
+
+    def test_shadow_is_output_safe_and_active_uses_reranked_route(self) -> None:
+        products = [
+            {
+                "parent_asin": "FORMAL-FIRST",
+                "title": "Women's formal dresses",
+                "categories": ["Clothing", "Women", "Dresses"],
+                "features": ["formal"],
+            },
+            {
+                "parent_asin": "CASUAL-SECOND",
+                "title": "Women's casual dresses",
+                "categories": ["Clothing", "Women", "Dresses"],
+                "features": ["casual"],
+            },
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            catalog = Path(directory) / "catalog.jsonl"
+            catalog.write_text(
+                "".join(json.dumps(product) + "\n" for product in products),
+                encoding="utf-8",
+            )
+            agents = {
+                mode: Agent(catalog, rerank_mode=mode)
+                for mode in ("off", "shadow", "active")
+            }
+            for agent in agents.values():
+                self.addCleanup(agent.connection.close)
+            responses = {}
+            rankings = {}
+            for mode, agent in agents.items():
+                agent.reset(mode, {})
+                responses[mode] = agent.respond(
+                    mode,
+                    "I'm looking for women's dresses. not too formal",
+                    1,
+                    10,
+                )
+                rankings[mode] = agent.debug_rankings(mode)
+
+        self.assertEqual(rankings["off"]["fused"], rankings["off"]["reranked"])
+        self.assertEqual(rankings["shadow"]["final"], rankings["shadow"]["fused"])
+        self.assertEqual(rankings["active"]["final"], rankings["active"]["reranked"])
+        self.assertNotEqual(rankings["shadow"]["fused"], rankings["shadow"]["reranked"])
+        self.assertEqual(responses["off"], responses["shadow"])
+        diagnostics = agents["shadow"].debug_rerank_diagnostics("shadow")
+        self.assertEqual(diagnostics["mode"], "shadow")
+        self.assertEqual(diagnostics["pool_size"], 2)
+        self.assertEqual(set(diagnostics["breakdowns"]), {"FORMAL-FIRST", "CASUAL-SECOND"})
+        self.assertNotIn("target", json.dumps(diagnostics).lower())
+        self.assertEqual(
+            responses["active"]["recommendations"][0]["parent_asin"],
+            "CASUAL-SECOND",
+        )
 
     def test_response_contract_and_final_turn(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -638,7 +707,12 @@ class AgentTest(unittest.TestCase):
             layers, {"session", "parse", "retrieval", "state", "policy", "output"}
         )
         retrieval = next(event["data"] for event in events if event["layer"] == "retrieval")
-        self.assertEqual(set(retrieval["route_counts"]), {"broad", "strict", "fused"})
+        self.assertEqual(
+            set(retrieval["route_counts"]),
+            {"broad", "strict", "fused", "reranked", "final"},
+        )
+        self.assertEqual(retrieval["rerank"]["mode"], "off")
+        self.assertEqual(retrieval["top_results"], retrieval["final_top_results"])
         serialized = json.dumps(events).lower()
         self.assertNotIn("ground_truth", serialized)
         self.assertNotIn("target_asin", serialized)
