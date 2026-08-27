@@ -208,6 +208,9 @@ def make_handler(
                 if parsed.path == "/api/jobs/tests":
                     self._send_json(runtime.start_tests(), 202)
                     return
+                if parsed.path == "/api/jobs/generalization":
+                    self._send_json(runtime.start_generalization(), 202)
+                    return
                 if parsed.path.startswith("/api/jobs/") and parsed.path.endswith("/cancel"):
                     job_id = parsed.path.removeprefix("/api/jobs/").removesuffix("/cancel")
                     self._send_json(runtime.cancel_job(job_id))

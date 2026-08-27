@@ -2,13 +2,14 @@
 
 This tracked document records only code and behavior that exist in the repository and have been verified. Planning, hypotheses, and unvalidated designs belong in ignored `docs/internal_plan.md`; the current working-tree architecture belongs in ignored `docs/current_architecture.md`.
 
-Last updated: 2026-08-27 SGT.
+Last updated: 2026-08-28 SGT.
 
-## Current verified integration baseline
+## Current verified P1 implementation
 
-- Branch: `pre-v06-integration`
-- Integration commit: `5fed7a7` (`feat: integrate stateful sparse shopping agent`)
-- Parent checkpoint: `f4e435b` (`feat: add agent layer workbench`)
+- Branch: `p1-generalization`
+- P1 parent checkpoint: `66cb1cf` (`docs: finalize integration verification`)
+- Stateful Agent integration: `5fed7a7` (`feat: integrate stateful sparse shopping agent`)
+- Workbench baseline: `f4e435b` (`feat: add agent layer workbench`)
 - Official upstream main checked on 2026-08-27: `34078351e1c3615e5505a2e829600b56a542e462`
 - Runtime: Python 3.11.16 in the existing `tiktok` Conda environment
 - Catalog: 50,000 parseable rows and 50,000 unique non-empty `parent_asin` values
@@ -23,13 +24,13 @@ The integrated Agent was run against the complete released 200-session evaluator
 | --- | ---: | ---: | ---: | ---: |
 | Buying | 80 | 0.925000 | 0.586265 | 3.175000 |
 | Browsing | 80 | 0.975000 | 0.600724 | 3.012500 |
-| Intent Override | 30 | 0.900000 | 0.655265 | 4.700000 |
+| Intent Override | 30 | 0.900000 | 0.655265 | 4.666667 |
 | Boundary | 10 | 0.900000 | 0.643452 | 4.000000 |
-| Overall | 200 | 0.940000 | 0.605258 | 3.380000 |
+| Overall | 200 | 0.940000 | 0.605258 | 3.375000 |
 
-Overall Efficiency is `0.762000`; recommended TechnicalScore is `0.803977`; prompt and completion token usage are both zero.
+Overall Efficiency is `0.762500`; recommended TechnicalScore is `0.804077`; prompt and completion token usage are both zero.
 
-The complete parsed JSON, including all 200 ordered session rows, is equal to the independently verified v0.6 handoff result. Raw Windows output may use CRLF while the reference uses LF; JSON semantic equality and normalized content are identical.
+Compared with the independently verified v0.6 handoff result, Hit Rate@10 and MRR are unchanged. The pending-question lifecycle lets one interrupted clarification be asked again, improving Intent Override MTTC from `4.700000` to `4.666667` and overall MTTC from `3.380000` to `3.375000`. Because session turns changed, the complete P1 JSON is intentionally not byte-for-byte or semantically identical to the v0.6 result.
 
 The pre-integration Workbench checkpoint reproduced the official weak baseline at HR@10 `0.125`, MRR `0.068034`, MTTC `9.81`, Efficiency `0.119`, and TechnicalScore `0.10671`. The current gain therefore comes from the stateful sparse Agent integration, not from the browser observer.
 
@@ -45,6 +46,7 @@ These are public-development metrics, not a claim about the private 800 sessions
 - active category;
 - active and excluded retrieval terms;
 - known, asked, and exhausted attribute classes;
+- pending clarification attribute and originating turn;
 - per-turn terms and attribute classes;
 - version, version anchor, and override count;
 - the fast-policy `prefer_other_next` event.
@@ -55,18 +57,23 @@ The SQLite connection uses `check_same_thread=False`; state and query operations
 
 ### Parsing and state transitions
 
-Implemented deterministic parsing includes:
+Implemented deterministic parsing now produces a target-blind `ParsedTurn` and includes:
 
-- explicit shopping-category extraction;
-- public-protocol constraint fragments;
+- anchored natural shopping openers such as looking/searching/shopping, need/want, show/find, and help-find;
+- separation of category text, vague browsing suffixes, and actual constraint fragments;
 - material, color, size, style, use-case, and budget class detection;
-- simple `not`, `no`, and `without` negative-term extraction, including `not too X`;
-- no-preference/exhausted attribute handling;
-- explicit ignore/change-mind/replace detection;
+- conservative `not`, `no`, and `without` negative-term extraction, including `not too X` while excluding false negations such as `not only`, `not quite`, and `not sure`;
+- explicit and pending-context no-preference/exhausted attribute handling;
+- explicit ignore/disregard/forget, change-mind, no-longer, switch/replace, and context-bound `instead` detection;
+- explicit `old -> new` spans are replaced selectively while vague `ignore earlier` events retain the auditable version-anchor behavior;
+- loose `I need/want/show me` category openers establish the first goal only; later short color/material replies remain constraints, while product-head spans support explicit category switches;
+- retry detection separated from negative constraints;
 - repeated override version-anchor movement;
 - category-goal changes that clear the previous goal's term and question lifecycle.
 
 A plain sentence such as `Actually, cotton sounds fine` no longer triggers an override solely because it contains `actually`.
+
+A selected clarification remains pending until the next ordinary user response. If an evaluator Override interrupts the expected answer, the pending attribute is released instead of being permanently marked asked; an interrupted `other` fallback also restores its disclosure preference.
 
 ### Sparse retrieval and fusion
 
@@ -115,7 +122,7 @@ The local Workbench is a loopback-only development control plane, not part of of
 - Overview: runtime, Git, source fingerprint, data/hash/index health, metrics, and truthful algorithm registry.
 - Session Diagnostics: deterministic public replay, actual Agent events, output validation, and post-hoc score diagnosis.
 - Catalog & Index: 50k catalog browsing, field-weighted BM25 search, and raw product JSON.
-- Runs & Experiments: fixed test/evaluator jobs, progress, logs, cancellation, metrics, and versioned manifests.
+- Runs & Experiments: fixed test/evaluator/generalization jobs, progress, logs, cancellation, metrics, and versioned manifests.
 - Lab: target-free calls to the real `reset/respond` interface with opaque session IDs.
 - Documents: read-only allowlisted project documentation and source.
 
@@ -143,10 +150,40 @@ Completed replays and evicted Lab sessions release Agent and recorder state.
 - CSP and frame protections;
 - fixed allowlisted test/evaluation/Lab/shutdown controls;
 - no arbitrary shell or filesystem browser;
-- loaded-vs-disk Agent/evaluator plus catalog/public-set fingerprints, with stale-runtime blocking for every replay, evaluation, and Lab call;
+- loaded-vs-disk Agent/evaluator/generalization runner plus catalog/public-set fingerprints, with stale-runtime blocking for every replay, evaluation, generalization, and Lab call;
 - evaluation provenance captured before the background job and rechecked before artifact finalization, so a manifest cannot mix loaded code/data with later disk hashes.
 
 The Workbench must not be publicly deployed or connected to private final labels.
+
+## P1 generalization and reliability gate
+
+`scripts/evaluate_generalization.py` adds a deterministic, target-blind robustness runner without changing the released evaluator. Its `PerturbedAgent` wrapper transforms only the visible `user_message` before delegating to `Agent.respond`; it is never given sample ID, scenario, target ID, intent card, or prior result.
+
+The frozen phrase registry contains independent development, challenge, and audit wording for shopping openers, requirement disclosures, no-preference responses, overrides, and retry feedback. It records a hash over every regex/replacement and suite composition, applied-rule coverage/counts, examples, per-suite metrics, deltas, and paired session changes using the official per-session score contribution. A released-public suite fails instead of reporting robustness if any selected rule transforms zero messages. The current registry SHA-256 is `7ebc55c38f3389da2d2d01f549763c2c6b39908f89b60095fafb2c1964cc940b`.
+
+Released-public phrase results before and after P1:
+
+| Phrase suite | Before HR@10 | Before Score | After HR@10 | After Score |
+| --- | ---: | ---: | ---: | ---: |
+| Canonical | 0.940000 | 0.803977 | 0.940000 | 0.804077 |
+| Combined development | 0.845000 | 0.700243 | 0.940000 | 0.804077 |
+| Combined challenge | 0.835000 | 0.687278 | 0.940000 | 0.804077 |
+| Combined audit | not used for the initial baseline | not used for the initial baseline | 0.940000 | 0.804077 |
+
+After P1, every individual suite plus the combined development, challenge, and audit suites has the same released-public HR@10, MRR, MTTC, and TechnicalScore as canonical. The all-suite robust hit count is 188/200 (`0.940000`). This demonstrates resilience to these frozen equivalent phrasings; it does not prove unrestricted natural-language understanding.
+
+The same runner can build 200 deterministic catalog-derived sessions after excluding every released-public target. The fixed seed `track4-p1-product-disjoint-v1` produces SHA-256 `38c6a9fedd4a3e02d8f581e2d04d8467203d7275c3ff0eb691a57f5025c010ae`, 200 unique targets, zero public-target overlap, and an 80 Buying / 80 Browsing / 30 Intent Override / 10 Boundary split.
+
+| Derived suite | Before HR@10 | Before Score | After HR@10 | After Score |
+| --- | ---: | ---: | ---: | ---: |
+| Canonical | 0.935000 | 0.813096 | 0.935000 | 0.812855 |
+| Combined development | 0.855000 | 0.740916 | 0.935000 | 0.812855 |
+| Combined challenge | 0.835000 | 0.727386 | 0.935000 | 0.812855 |
+| Combined audit | not used for the initial baseline | not used for the initial baseline | 0.935000 | 0.812855 |
+
+The pending-question change slightly lowers derived canonical Score by `0.000241`: derived Buying HR changes from `0.950000` to `0.937500`, while Intent Override HR improves from `0.966667` to `1.000000` and its MTTC from `3.966667` to `3.800000`. This mixed scenario result is recorded rather than hidden. The derived corpus is a local metadata-based stress set, not organizer private data, and is not a prediction of private evaluation performance.
+
+The Workbench exposes this fixed run as **运行泛化压力测试** and `POST /api/jobs/generalization`. Evaluation and generalization jobs are mutually exclusive because both build repeated 50,000-product in-memory indexes. The versioned artifact records Git state, source/input hashes, corpus metadata, phrase transforms, metrics, and robustness summaries.
 
 ## Strict result verification
 
@@ -163,13 +200,14 @@ This replaces the handoff comparator behavior that printed aggregate deltas but 
 
 ## Verification completed
 
-- 32 Python unit/integration tests pass.
-- Agent tests cover accumulation, category changes, negative phrases, false override prevention, first/repeated/selective overrides, Boundary exhaustion, question policies, broad/strict/fused routes, output cap/final turn, optional usage, and target-blind trace events.
+- 55 Python unit/integration tests pass.
+- Agent tests cover accumulation, natural openers/requirements/no-preference, pending-question interruption, category changes, negative phrases and false negations, false override prevention, first/repeated/selective overrides, Boundary exhaustion, question policies, broad/strict/fused routes, output cap/final turn, optional usage, and target-blind trace events.
+- Generalization tests cover phrase payload preservation, adapter input isolation, and deterministic stratified public-target-disjoint generation.
 - Comparator tests cover formatting/line-ending equality, session-level mismatch, missing keys/list order, and invalid JSON.
-- Existing evaluator, LLM client, Workbench replay, catalog/Lab/background evaluation, HTTP token/cross-site, and exclusive-listener tests pass.
+- Existing evaluator, LLM client, Workbench replay, catalog/Lab/background evaluation, HTTP token/cross-site, and exclusive-listener tests pass. A controlled fake-process orchestration test also covers the fixed generalization command, six-step progress, evaluation mutex, result/manifest parsing, source provenance, and stale-source rejection.
 - `node --check observer/static/app.js` passes.
 - The complete 200-session evaluator completed successfully with no LLM environment variables.
-- `scripts/compare_results.py --assert-equal` reports a strict match against the independently verified v0.6 result.
+- The final direct public evaluator result strictly matches the canonical result produced through the target-blind robustness wrapper.
 - A headless Chrome smoke test rendered the live loopback Workbench against 50,000 indexed products and 200 sessions; Overview, state/fusion pipeline, public Trace, two-turn Lab state, and background Tests were exercised successfully with `restart_required=false`.
 
 ## Provenance and audit corrections
@@ -187,10 +225,10 @@ Documentation must therefore say “official scoring behavior preserved,” not 
 
 ## Current limitations
 
-1. The state model is a term/turn ledger, not a normalized slot-level IntentGraph. An override can still remove unrelated preferences introduced in the same anchor turn.
-2. Parser patterns are strongly aligned with the released simulator's English templates.
+1. The state model is a term/turn ledger, not a normalized slot-level IntentGraph. Explicit old→new spans are selective, but a vague `ignore earlier` override can still remove unrelated preferences introduced in the same anchor turn.
+2. The parser now passes three frozen equivalent-phrase families, but it remains deterministic and English-pattern based; this is not unrestricted semantic parsing.
 3. The default fast policy benefits from the public simulator's `other` disclosure behavior. This is protocol adaptation, not direct label leakage, but it creates public-strategy overfitting risk.
-4. There is no independent product-disjoint or phrase-perturbed holdout result yet.
+4. The product-disjoint corpus is derived from the same frozen catalog and official simulator, so it tests target overlap and wording robustness but is not an independent approximation of the private distribution.
 5. Clarification uses a fixed order, not candidate entropy or expected information gain.
 6. No explicit Buying/Browsing router is implemented; hidden scenario labels are never available to the Agent.
 7. Profile data is stored but not used for personalization.
@@ -200,6 +238,16 @@ Documentation must therefore say “official scoring behavior preserved,” not 
 The current implementation should be described as a **versioned stateful sparse retrieval and weighted-RRF baseline with heuristic clarification**, not as the complete IntentGraph target architecture.
 
 ## Change history
+
+### 2026-08-27 — P1 generalization and intent-state reliability (`p1-generalization`)
+
+- Added frozen target-blind development/challenge/audit phrase suites and deterministic public-target-disjoint derived sessions.
+- Recorded pre-change failures before expanding parser recognition, preserving a causal before/after comparison.
+- Added `ParsedTurn`, broader but conservative phrase recognition, and category/constraint separation without changing retrieval weights.
+- Added a pending-question lifecycle so Override messages do not silently consume unanswered clarification opportunities.
+- Added a fixed Workbench robustness action, provenance manifests, progress/logs, experiment comparison, and source-stale protection.
+- Expanded the test suite from 32 to 55 tests; public HR/MRR remain unchanged while overall MTTC improves by `0.005`.
+- Rejected immediate activation of feature-first/candidate-aware clarification because a read-only experiment improved overall score but reduced Boundary HR from `0.9` to `0.8`; candidate evidence will be developed in shadow mode first.
 
 ### 2026-08-27 — v0.6 integration into Workbench (`5fed7a7`)
 

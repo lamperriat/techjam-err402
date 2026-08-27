@@ -163,6 +163,355 @@ class AgentTest(unittest.TestCase):
         self.assertEqual(snapshot["override_count"], 0)
         self.assertTrue({"red", "formal", "cotton", "blue"} <= set(snapshot["query_terms"]))
 
+    def test_natural_opener_requirement_and_no_preference_are_parsed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            agent = Agent(self._catalog(directory))
+            self.addCleanup(agent.connection.close)
+            agent.reset("natural", {})
+            first = agent.respond(
+                "natural",
+                "I am shopping for women's dresses. My main requirement is cotton.",
+                1,
+                10,
+            )
+            second = agent.respond(
+                "natural", "No strong preference on color; choose what fits best.", 2, 10
+            )
+            snapshot = agent.debug_snapshot("natural")
+            agent.reset("generic-no-preference", {})
+            pending = agent.respond(
+                "generic-no-preference", "I need women's dresses. cotton", 1, 10
+            )["ask_attribute"]
+            agent.respond("generic-no-preference", "You can decide.", 2, 10)
+            generic_snapshot = agent.debug_snapshot("generic-no-preference")
+            agent.reset("unanchored-no-preference", {})
+            agent.respond("unanchored-no-preference", "You can decide.", 1, 10)
+            unanchored_snapshot = agent.debug_snapshot("unanchored-no-preference")
+
+        self.assertEqual(first["ask_attribute"], "color")
+        self.assertEqual(second["ask_attribute"], "other")
+        self.assertEqual(snapshot["category_text"], "women's dresses")
+        self.assertTrue({"dresses", "cotton"} <= set(snapshot["query_terms"]))
+        self.assertIn("color", snapshot["exhausted_attributes"])
+        self.assertEqual(snapshot["excluded_terms"], [])
+        self.assertIn(pending, generic_snapshot["exhausted_attributes"])
+        self.assertEqual(unanchored_snapshot["exhausted_attributes"], [])
+
+    def test_override_reopens_interrupted_question(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            agent = Agent(self._catalog(directory))
+            self.addCleanup(agent.connection.close)
+            agent.reset("interrupted", {})
+            agent.respond(
+                "interrupted", "I need women's dresses. red formal", 1, 10
+            )
+            agent.respond(
+                "interrupted", "The main thing that matters is cotton.", 2, 10
+            )
+            response = agent.respond(
+                "interrupted",
+                "Forget my previous choice. Please prioritize: casual.",
+                3,
+                10,
+            )
+            snapshot = agent.debug_snapshot("interrupted")
+
+        self.assertEqual(response["ask_attribute"], "color")
+        self.assertNotIn("color", snapshot["asked_attributes"])
+        self.assertEqual(snapshot["pending_attribute"], "color")
+        self.assertFalse({"red", "formal"} & set(snapshot["query_terms"]))
+        self.assertTrue({"cotton", "casual"} <= set(snapshot["query_terms"]))
+
+    def test_override_reopens_interrupted_other_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            agent = Agent(self._catalog(directory))
+            self.addCleanup(agent.connection.close)
+            agent.reset("other-interrupted", {})
+            first = agent.respond(
+                "other-interrupted", "I need women's dresses. cotton", 1, 10
+            )
+            second = agent.respond(
+                "other-interrupted", f"No preference on {first['ask_attribute']}.", 2, 10
+            )
+            third = agent.respond(
+                "other-interrupted",
+                "Changed my mind. What I need is: casual.",
+                3,
+                10,
+            )
+            snapshot = agent.debug_snapshot("other-interrupted")
+
+        self.assertEqual(second["ask_attribute"], "other")
+        self.assertEqual(third["ask_attribute"], "other")
+        self.assertEqual(snapshot["pending_attribute"], "other")
+
+    def test_attribute_override_does_not_become_a_category_change(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            agent = Agent(self._catalog(directory))
+            self.addCleanup(agent.connection.close)
+            agent.reset("attribute-instead", {})
+            agent.respond(
+                "attribute-instead", "I'm looking for women's dresses. red", 1, 10
+            )
+            agent.respond("attribute-instead", "I want blue instead.", 2, 10)
+            snapshot = agent.debug_snapshot("attribute-instead")
+
+        self.assertEqual(snapshot["category_text"], "women's dresses")
+        self.assertEqual(snapshot["override_count"], 1)
+        self.assertIn("blue", snapshot["query_terms"])
+        self.assertNotIn("red", snapshot["query_terms"])
+        self.assertNotIn("instead", snapshot["query_terms"])
+
+    def test_plain_followup_i_want_is_an_attribute_not_a_category(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            agent = Agent(self._catalog(directory))
+            self.addCleanup(agent.connection.close)
+            agent.reset("plain-followup-want", {})
+            agent.respond(
+                "plain-followup-want", "I need women's dresses. cotton", 1, 10
+            )
+            agent.respond("plain-followup-want", "I want blue.", 2, 10)
+            snapshot = agent.debug_snapshot("plain-followup-want")
+
+        self.assertEqual(snapshot["category_text"], "women's dresses")
+        self.assertEqual(snapshot["override_count"], 0)
+        self.assertTrue({"dresses", "cotton", "blue"} <= set(snapshot["query_terms"]))
+
+    def test_strict_looking_followup_without_product_head_is_a_constraint(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            agent = Agent(self._catalog(directory))
+            self.addCleanup(agent.connection.close)
+            agent.reset("looking-followup", {})
+            agent.respond(
+                "looking-followup", "I'm looking for women's dresses. cotton", 1, 10
+            )
+            agent.respond("looking-followup", "I'm looking for blue.", 2, 10)
+            snapshot = agent.debug_snapshot("looking-followup")
+
+        self.assertEqual(snapshot["category_text"], "women's dresses")
+        self.assertTrue({"dresses", "cotton", "blue"} <= set(snapshot["query_terms"]))
+
+    def test_override_replacement_patterns_keep_only_the_new_span(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            catalog = self._catalog(directory)
+            for session, message in (
+                ("switch-span", "Switch from red to blue."),
+                ("no-longer-span", "I no longer want red; cotton is fine instead."),
+                ("no-longer-comma", "I no longer want red, blue please."),
+            ):
+                with self.subTest(message=message):
+                    agent = Agent(catalog)
+                    self.addCleanup(agent.connection.close)
+                    agent.reset(session, {})
+                    agent.respond(
+                        session, "I'm looking for women's dresses. red", 1, 10
+                    )
+                    agent.respond(session, message, 2, 10)
+                    snapshot = agent.debug_snapshot(session)
+                    self.assertNotIn("red", snapshot["query_terms"])
+                    self.assertEqual(snapshot["override_count"], 1)
+                    expected = "cotton" if session == "no-longer-span" else "blue"
+                    self.assertIn(expected, snapshot["query_terms"])
+
+    def test_additional_override_grammars_keep_the_replacement(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            catalog = self._catalog(directory)
+            for session, message in (
+                ("instead-of-span", "Instead of red, I want blue."),
+                ("replace-with-span", "Replace red with blue."),
+                ("changed-colon", "I changed my mind: blue."),
+                ("changed-sentence", "I changed my mind. I want blue."),
+            ):
+                with self.subTest(message=message):
+                    agent = Agent(catalog)
+                    self.addCleanup(agent.connection.close)
+                    agent.reset(session, {})
+                    agent.respond(
+                        session, "I'm looking for women's dresses. red", 1, 10
+                    )
+                    agent.respond(session, message, 2, 10)
+                    snapshot = agent.debug_snapshot(session)
+                    self.assertEqual(snapshot["override_count"], 1)
+                    self.assertIn("blue", snapshot["query_terms"])
+                    self.assertNotIn("red", snapshot["query_terms"])
+
+    def test_override_without_replacement_adds_no_command_noise(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            catalog = self._catalog(directory)
+            for session, message in (
+                ("no-longer-only", "I no longer want red."),
+                ("changed-only", "I changed my mind."),
+            ):
+                with self.subTest(message=message):
+                    agent = Agent(catalog)
+                    self.addCleanup(agent.connection.close)
+                    agent.reset(session, {})
+                    agent.respond(
+                        session, "I'm looking for women's dresses. red", 1, 10
+                    )
+                    agent.respond(session, message, 2, 10)
+                    snapshot = agent.debug_snapshot(session)
+                    self.assertNotIn("red", snapshot["query_terms"])
+                    self.assertFalse(
+                        {"changed", "mind", "longer"} & set(snapshot["query_terms"])
+                    )
+
+    def test_explicit_switch_can_change_the_category_goal(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            agent = Agent(self._catalog(directory))
+            self.addCleanup(agent.connection.close)
+            agent.reset("category-switch", {})
+            agent.respond(
+                "category-switch", "I'm looking for women's dresses. red", 1, 10
+            )
+            agent.respond("category-switch", "Switch from dresses to men's shoes.", 2, 10)
+            snapshot = agent.debug_snapshot("category-switch")
+
+        self.assertEqual(snapshot["category_text"], "men's shoes")
+        self.assertFalse({"dresses", "red"} & set(snapshot["query_terms"]))
+        self.assertIn("shoes", snapshot["query_terms"])
+
+    def test_attribute_switch_inside_category_keeps_the_category_head(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            agent = Agent(self._catalog(directory))
+            self.addCleanup(agent.connection.close)
+            agent.reset("category-attribute-switch", {})
+            agent.respond(
+                "category-attribute-switch",
+                "I'm looking for red dresses. cotton",
+                1,
+                10,
+            )
+            agent.respond(
+                "category-attribute-switch", "Switch from red to blue.", 2, 10
+            )
+            snapshot = agent.debug_snapshot("category-attribute-switch")
+
+        self.assertEqual(snapshot["category_text"], "dresses")
+        self.assertIn("dresses", snapshot["query_terms"])
+        self.assertIn("blue", snapshot["query_terms"])
+        self.assertNotIn("red", snapshot["query_terms"])
+
+    def test_brand_switch_inside_category_keeps_product_and_other_constraints(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            agent = Agent(self._catalog(directory))
+            self.addCleanup(agent.connection.close)
+            agent.reset("brand-category-switch", {})
+            agent.respond(
+                "brand-category-switch",
+                "I'm looking for Nike running shoes. cotton",
+                1,
+                10,
+            )
+            agent.respond(
+                "brand-category-switch", "Switch from Nike to Adidas.", 2, 10
+            )
+            snapshot = agent.debug_snapshot("brand-category-switch")
+
+        self.assertEqual(snapshot["category_text"], "running shoes")
+        self.assertTrue({"shoes", "cotton", "adidas"} <= set(snapshot["query_terms"]))
+        self.assertNotIn("nike", snapshot["query_terms"])
+
+    def test_full_product_span_switch_changes_the_category_goal(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            agent = Agent(self._catalog(directory))
+            self.addCleanup(agent.connection.close)
+            agent.reset("full-category-switch", {})
+            agent.respond(
+                "full-category-switch", "I'm looking for red dresses. cotton", 1, 10
+            )
+            agent.respond(
+                "full-category-switch", "Switch from red dresses to blue shoes.", 2, 10
+            )
+            snapshot = agent.debug_snapshot("full-category-switch")
+
+        self.assertEqual(snapshot["category_text"], "blue shoes")
+        self.assertFalse({"red", "dresses", "cotton"} & set(snapshot["query_terms"]))
+        self.assertTrue({"blue", "shoes"} <= set(snapshot["query_terms"]))
+
+    def test_selective_override_reopens_removed_attribute_lifecycle(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            agent = Agent(self._catalog(directory))
+            self.addCleanup(agent.connection.close)
+            agent.reset("selective-lifecycle", {})
+            first = agent.respond(
+                "selective-lifecycle", "I'm looking for women's dresses. red", 1, 10
+            )
+            self.assertEqual(first["ask_attribute"], "material")
+            agent.respond("selective-lifecycle", "cotton", 2, 10)
+            third = agent.respond(
+                "selective-lifecycle", "I no longer want cotton.", 3, 10
+            )
+            snapshot = agent.debug_snapshot("selective-lifecycle")
+
+        self.assertNotIn("cotton", snapshot["query_terms"])
+        self.assertIn("red", snapshot["query_terms"])
+        self.assertNotIn("material", snapshot["known_attributes"])
+        self.assertNotIn("material", snapshot["asked_attributes"])
+        self.assertEqual(third["ask_attribute"], "material")
+
+    def test_no_preference_keeps_a_separate_positive_constraint(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            agent = Agent(self._catalog(directory))
+            self.addCleanup(agent.connection.close)
+            agent.reset("compound-no-preference", {})
+            agent.respond(
+                "compound-no-preference", "I need women's dresses. cotton", 1, 10
+            )
+            agent.respond(
+                "compound-no-preference",
+                "No preference on color, but I must have pockets.",
+                2,
+                10,
+            )
+            snapshot = agent.debug_snapshot("compound-no-preference")
+
+        self.assertIn("color", snapshot["exhausted_attributes"])
+        self.assertIn("pockets", snapshot["query_terms"])
+
+    def test_natural_dont_want_negation_keeps_the_positive_alternative(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            agent = Agent(self._catalog(directory))
+            self.addCleanup(agent.connection.close)
+            agent.reset("natural-negation", {})
+            agent.respond(
+                "natural-negation",
+                "I'm looking for women's dresses. I don't want polyester; cotton is fine.",
+                1,
+                10,
+            )
+            snapshot = agent.debug_snapshot("natural-negation")
+
+        self.assertIn("polyester", snapshot["excluded_terms"])
+        self.assertNotIn("polyester", snapshot["query_terms"])
+        self.assertIn("cotton", snapshot["query_terms"])
+        self.assertNotIn("don", snapshot["query_terms"])
+
+    def test_category_words_and_false_negations_do_not_pollute_state(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            agent = Agent(self._catalog(directory))
+            self.addCleanup(agent.connection.close)
+            agent.reset("clean-events", {})
+            agent.respond(
+                "clean-events",
+                "Show me women's casual dresses, but I'm still exploring.",
+                1,
+                10,
+            )
+            agent.respond("clean-events", "not only cotton but breathable", 2, 10)
+            agent.respond(
+                "clean-events",
+                "These are not a match yet. Could you ask one focused question?",
+                3,
+                10,
+            )
+            snapshot = agent.debug_snapshot("clean-events")
+
+        self.assertEqual(snapshot["category_text"], "women's casual dresses")
+        self.assertNotIn("style", snapshot["known_attributes"])
+        self.assertIn("cotton", snapshot["query_terms"])
+        self.assertEqual(snapshot["excluded_terms"], [])
+
     def test_category_change_clears_old_goal_lifecycle(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             agent = Agent(self._catalog(directory))

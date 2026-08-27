@@ -9,15 +9,16 @@ The current Agent is a versioned stateful sparse baseline. It accumulates active
 Implemented:
 
 - no-credential Agent startup;
-- versioned multi-turn state with category, active/excluded terms, attribute lifecycle, and override anchor;
+- versioned multi-turn state with category, active/excluded terms, answered/exhausted/pending attribute lifecycle, and override anchor;
+- target-blind `ParsedTurn` events with broader opener, requirement, no-preference, retry, and conservative override recognition;
 - broad OR Top-120 and strict AND Top-80 field-weighted BM25 routes;
 - deterministic weighted RRF and catalog-backed Top 10 output;
 - fast, boundary, and conservative clarification policies;
-- complete public result HR@10 `0.94`, MRR `0.605258`, MTTC `3.38`, and TechnicalScore `0.803977`;
+- complete public result HR@10 `0.94`, MRR `0.605258`, MTTC `3.375`, and TechnicalScore `0.804077`;
 - optional, versioned development trace events;
 - public-session post-hoc diagnostics;
 - catalog and in-memory index inspection;
-- browser-controlled unit tests and 200-session evaluation;
+- browser-controlled unit tests, 200-session evaluation, and fixed P1 generalization stress run;
 - versioned local experiment artifacts;
 - a manual Agent playground;
 - a read-only project document library.
@@ -86,6 +87,7 @@ The UI intentionally separates **actual** Agent events from **post-hoc** public-
 
 - start the fixed repository unit-test command;
 - start the released public evaluator, which preserves the official scoring behavior, with a fresh Agent index;
+- start the fixed target-blind robustness gate over the released public corpus and a deterministic public-target-disjoint derived corpus;
 - see current session, progress, elapsed time, and captured logs;
 - request cancellation;
 - compare the official baseline, current `results.json`, and timestamped local experiments.
@@ -96,9 +98,15 @@ The Workbench does not accept arbitrary shell commands. A successful evaluation 
 experiments/<timestamp>_public_eval/
   manifest.json
   results.json
+
+experiments/<timestamp>_generalization/
+  manifest.json
+  results.json
 ```
 
-The manifest records Git state, catalog/dataset and Agent/evaluator source hashes, runtime/evaluation settings, functional elapsed time, and metrics so stale results are easier to detect. Elapsed time is a single functional-run observation, not a controlled benchmark.
+The manifests record Git state, catalog/dataset and relevant Agent/evaluator/generalization source hashes, runtime settings, functional elapsed time, and metrics so stale results are easier to detect. The generalization result also records the frozen suite registry hash, transformation counts/examples, paired session changes, and derived-corpus seed/sample hash/overlap audit. Elapsed time is a single functional-run observation, not a controlled benchmark.
+
+The derived corpus is generated from catalog metadata after excluding every released-public target. It is useful for product-disjoint stress testing, but it is not organizer private data and must not be presented as a hidden-leaderboard estimate.
 
 ### 交互 Lab
 
@@ -145,7 +153,7 @@ The Observer uses a fresh random session ID for every replay. The target-rank pr
 - Production Agent code does not import the Observer, evaluator, public dataset, or results.
 - The optional trace callback is absent during normal evaluator runs, so diagnostics do not become ranking features.
 
-The runtime records loaded and on-disk hashes for `starter/agent.py`, the evaluator, the catalog, and the public set. If any monitored file changes after startup, the page shows a restart warning and blocks evaluation, every replay, and Lab execution. Evaluation rechecks those fingerprints before artifact finalization, and the manifest uses a captured start-of-run provenance snapshot. This prevents the long-running server from mixing imported old code or cached data with later disk files and hashes.
+The runtime records loaded and on-disk hashes for `starter/agent.py`, the evaluator, the P1 generalization runner, the catalog, and the public set. If any monitored file changes after startup, the page shows a restart warning and blocks evaluation, generalization, every replay, and Lab execution. Background runs recheck those fingerprints before artifact finalization, and manifests use a captured start-of-run provenance snapshot. This prevents the long-running server from mixing imported old code or cached data with later disk files and hashes.
 
 ## HTTP API
 
@@ -169,6 +177,7 @@ Fixed control endpoints:
 
 ```text
 POST /api/jobs/evaluation
+POST /api/jobs/generalization
 POST /api/jobs/tests
 POST /api/jobs/<job_id>/cancel
 POST /api/lab/reset

@@ -35,6 +35,11 @@ DOCUMENTS = {
     "architecture": ("Current architecture", "docs/current_architecture.md", "Local only"),
     "source_agent": ("Current Agent source", "starter/agent.py", "Source"),
     "source_evaluator": ("Local evaluator (official scoring behavior)", "evaluator/local_evaluator.py", "Source"),
+    "source_generalization": (
+        "P1 generalization evaluator",
+        "scripts/evaluate_generalization.py",
+        "Source",
+    ),
     "source_runtime": ("Workbench runtime source", "observer/runtime.py", "Source"),
     "source_trace": ("Session trace source", "observer/trace.py", "Source"),
     "source_server": ("Workbench HTTP source", "observer/server.py", "Source"),
@@ -179,6 +184,7 @@ class WorkbenchRuntime:
         self._source_paths = {
             "agent": self.project_root / "starter" / "agent.py",
             "evaluator": self.project_root / "evaluator" / "local_evaluator.py",
+            "generalization": self.project_root / "scripts" / "evaluate_generalization.py",
         }
         self._input_paths = {
             "catalog": self.catalog_path,
@@ -507,7 +513,10 @@ class WorkbenchRuntime:
     def _new_job(self, kind: str) -> tuple[JobRecord, bool]:
         with self._lock:
             for existing in self._jobs.values():
-                if existing.kind == kind and existing.status in {
+                same_resource = existing.kind == kind or {
+                    existing.kind, kind
+                } <= {"evaluation", "generalization"}
+                if same_resource and existing.status in {
                     "queued", "running", "cancelling", "finalizing"
                 }:
                     return existing, False
@@ -515,18 +524,21 @@ class WorkbenchRuntime:
             self._jobs[job.job_id] = job
             return job, True
 
+    def _capture_provenance(self) -> dict[str, Any]:
+        repository = self._git_state()
+        self._git = repository
+        return {
+            "repository": repository,
+            "source_hashes": dict(self._loaded_source_hashes),
+            "input_hashes": dict(self._loaded_input_hashes),
+        }
+
     def start_evaluation(self) -> dict[str, Any]:
         self._require_current_source()
         job, created = self._new_job("evaluation")
         if not created:
             return job.snapshot()
-        repository = self._git_state()
-        self._git = repository
-        provenance = {
-            "repository": repository,
-            "source_hashes": dict(self._loaded_source_hashes),
-            "input_hashes": dict(self._loaded_input_hashes),
-        }
+        provenance = self._capture_provenance()
         job.thread = threading.Thread(
             target=self._run_evaluation, args=(job, provenance), daemon=True
         )
@@ -616,6 +628,165 @@ class WorkbenchRuntime:
         finally:
             if agent is not None:
                 agent.connection.close()
+            with job._lock:
+                job.finished_at = _utc_now()
+                job.elapsed_seconds = round(time.perf_counter() - started, 3)
+
+    def start_generalization(self) -> dict[str, Any]:
+        self._require_current_source()
+        job, created = self._new_job("generalization")
+        if not created:
+            return job.snapshot()
+        provenance = self._capture_provenance()
+        job.thread = threading.Thread(
+            target=self._run_generalization,
+            args=(job, provenance),
+            daemon=True,
+        )
+        job.thread.start()
+        return job.snapshot()
+
+    def _run_generalization(
+        self, job: JobRecord, provenance: dict[str, Any]
+    ) -> None:
+        started = time.perf_counter()
+        try:
+            self._require_current_source()
+            if job.cancel_event.is_set():
+                raise InterruptedError("Generalization evaluation cancelled before startup")
+            with job._lock:
+                job.status = "running"
+                job.started_at = _utc_now()
+                job.total = 6
+            executable = Path(sys.executable)
+            if executable.name.lower() == "pythonw.exe" and executable.with_name("python.exe").exists():
+                executable = executable.with_name("python.exe")
+            experiment_id = (
+                datetime.now().strftime("%Y%m%d_%H%M%S_%f") + "_generalization"
+            )
+            experiment_dir = self.experiments_path / experiment_id
+            artifact_path = experiment_dir / "results.json"
+            command = [
+                str(executable),
+                str(self.project_root / "scripts" / "evaluate_generalization.py"),
+                "--catalog",
+                str(self.catalog_path),
+                "--dataset",
+                str(self.dataset_path),
+                "--corpus",
+                "both",
+                "--suite",
+                "default",
+                "--output",
+                str(artifact_path),
+            ]
+            flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            job.log("Running canonical, phrase-perturbed, and product-disjoint stress suites")
+            job.process = subprocess.Popen(
+                command,
+                cwd=self.project_root,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                creationflags=flags,
+            )
+            assert job.process.stdout is not None
+            for line in job.process.stdout:
+                clean_line = line.rstrip()
+                job.log(clean_line)
+                if "[generalization]" in clean_line and "score=" in clean_line:
+                    with job._lock:
+                        job.current = min(job.total, job.current + 1)
+                if job.cancel_event.is_set() and job.process.poll() is None:
+                    job.process.terminate()
+            return_code = job.process.wait()
+            if job.cancel_event.is_set():
+                raise InterruptedError("Generalization evaluation cancelled")
+            if return_code != 0:
+                raise RuntimeError(
+                    f"Generalization evaluator exited with code {return_code}"
+                )
+            self._require_current_source()
+            artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+            corpora = artifact.get("corpora") or {}
+            public = corpora.get("released_public") or {}
+            derived = corpora.get("derived_product_disjoint") or {}
+            public_suites = public.get("suites") or {}
+            canonical_metrics = (
+                public_suites.get("canonical", {}).get("metrics") or {}
+            )
+            summary = {
+                "artifact": str(artifact_path.relative_to(self.project_root)),
+                "released_public": {
+                    "robustness": public.get("robustness"),
+                    "canonical": canonical_metrics,
+                    "combined_dev": public_suites.get("combined_dev", {}).get("metrics"),
+                    "combined_challenge": public_suites.get(
+                        "combined_challenge", {}
+                    ).get("metrics"),
+                },
+                "derived_product_disjoint": {
+                    "metadata": {
+                        key: derived.get(key)
+                        for key in (
+                            "seed",
+                            "sample_count",
+                            "samples_sha256",
+                            "unique_target_count",
+                            "public_target_overlap",
+                        )
+                    },
+                    "robustness": derived.get("robustness"),
+                },
+            }
+            repository = provenance["repository"]
+            manifest = {
+                "experiment_id": experiment_id,
+                "label": (
+                    "P1 phrase + product-disjoint robustness · "
+                    f"{repository.get('commit') or 'unknown commit'}"
+                ),
+                "kind": "generalization",
+                "created_at": _utc_now(),
+                "repository": repository,
+                "catalog_sha256": provenance["input_hashes"]["catalog"],
+                "dataset_sha256": provenance["input_hashes"]["dataset"],
+                "implementation": {
+                    "agent_source_sha256": provenance["source_hashes"]["agent"],
+                    "evaluator_source_sha256": provenance["source_hashes"]["evaluator"],
+                    "generalization_source_sha256": provenance["source_hashes"][
+                        "generalization"
+                    ],
+                },
+                "run": {
+                    "python": platform.python_version(),
+                    "network_required": False,
+                    "functional_elapsed_seconds": round(
+                        time.perf_counter() - started, 3
+                    ),
+                },
+                "metrics": canonical_metrics,
+                "robustness": {
+                    "released_public": public.get("robustness"),
+                    "derived_product_disjoint": derived.get("robustness"),
+                },
+            }
+            self._write_json(experiment_dir / "manifest.json", manifest)
+            with job._lock:
+                job.current = job.total
+                job.status = "completed"
+                job.summary = summary
+            job.log("Generalization evaluation completed")
+        except InterruptedError as exc:
+            with job._lock:
+                job.status = "cancelled"
+            job.log(str(exc))
+        except Exception as exc:
+            with job._lock:
+                job.status = "failed"
+            job.log(f"{type(exc).__name__}: {exc}")
+        finally:
             with job._lock:
                 job.finished_at = _utc_now()
                 job.elapsed_seconds = round(time.perf_counter() - started, 3)

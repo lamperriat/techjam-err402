@@ -47,9 +47,9 @@ Current integrated stateful-sparse result:
 | --- | ---: |
 | HitRate@10 | 0.940000 |
 | MRR | 0.605258 |
-| MTTC | 3.380000 |
-| Efficiency | 0.762000 |
-| TechnicalScore | 0.803977 |
+| MTTC | 3.375000 |
+| Efficiency | 0.762500 |
+| TechnicalScore | 0.804077 |
 
 The weak-starter reference remains HR@10 `0.125`, MRR `0.068034`, MTTC `9.81`, and TechnicalScore `0.10671`. Keep it as the original control, not as the description of the current Agent.
 
@@ -60,7 +60,7 @@ Do not start by reading random ranking code. Locate the first current layer wher
 | Current layer | Debug question | Current evidence |
 | --- | --- | --- |
 | Startup/contract | Did Agent construct and return valid schema/IDs? | exception, response validation, invalid/duplicate count |
-| Session state | Was the latest message accumulated, negated, or treated as an override? | active/excluded terms, known/asked/exhausted attributes, version, turn ledger |
+| Session state | Was the latest message accumulated, negated, or treated as an override? Was the previous question answered or interrupted? | active/excluded terms, known/asked/exhausted/pending attributes, parsed events, version, turn ledger |
 | Query plan | Did the active state compile into the intended sparse query? | compiled query and parser/override events |
 | Retrieval | Was the public target present in broad OR or strict AND retrieval? | post-hoc target broad/strict ranks and route counts |
 | Fusion/output | Did fusion or output normalization push the target out of Top 10? | fused rank, fusion evidence, normalized Top 10 |
@@ -89,8 +89,9 @@ Every improvement should change one causal layer at a time.
 3. Implement the smallest change that passes it.
 4. Run all unit tests.
 5. Run the full public evaluator.
-6. Compare overall metrics, four scenarios, runtime, and the relevant intermediate diagnostic.
-7. Keep the change only when the evidence matches the hypothesis and no unacceptable regression appears.
+6. Run the fixed phrase-perturbation/product-disjoint robustness gate.
+7. Compare overall metrics, four scenarios, robustness, runtime, and the relevant intermediate diagnostic.
+8. Keep the change only when the evidence matches the hypothesis and no unacceptable regression appears.
 
 An experiment record should contain:
 
@@ -138,6 +139,14 @@ python scripts/compare_results.py --assert-equal expected.json actual.json
 
 Strict mode exits with code 1 on any semantic difference while ignoring JSON formatting and line-ending differences.
 
+Run the fixed P1 robustness gate:
+
+```powershell
+python scripts/evaluate_generalization.py --corpus both --suite default
+```
+
+Use `--suite all --corpus public` for the frozen dev/challenge/audit phrase families. The runner wraps the Agent and transforms only the visible user message; it never receives target, scenario, intent card, sample ID, or prior result. Its derived corpus deterministically excludes all 200 released-public target IDs and records the seed, sample hash, and overlap count. This derived data is a local stress test, not a substitute for the private 800 sessions.
+
 ## 6. Agent Workbench
 
 For normal development on this machine, double-click `Start Observer.vbs`. It launches through the existing `tiktok` environment without a terminal and opens `http://127.0.0.1:8765`. Use the in-page **停止** action when finished. `Start Observer.cmd` and `python -m observer.launcher` remain fallback launch paths.
@@ -150,7 +159,7 @@ environment / data / Git / index health
 -> public single-session replay
 -> actual target-blind Agent events
 -> post-hoc target survival and score diagnosis
--> full evaluator or unit-test background job
+-> full evaluator, generalization gate, or unit-test background job
 -> progress, logs, metrics, and versioned experiment artifact
 ```
 
@@ -162,14 +171,14 @@ Trace events are emitted by the actual Agent through an optional versioned callb
 
 Every public replay gives the Agent an opaque random session ID. The Agent receives only profile, generated user message, turn, and `top_k`; it never receives `sample_id`, target, intent card, scenario, behavior, or prior results. The server is loopback-only and must not be attached to private final labels.
 
-Successful browser-started evaluations refresh `results.json` and write ignored versioned artifacts under `experiments/`. See `docs/agent_workbench.md` for pages, endpoints, safety boundaries, and the trace maintenance contract.
+Successful browser-started evaluations refresh `results.json`; evaluator and generalization jobs write ignored, versioned artifacts under `experiments/`. See `docs/agent_workbench.md` for pages, endpoints, safety boundaries, and the trace maintenance contract.
 
 ## 7. Current improvement order
 
-1. Generalization and reliability: phrase perturbation, product-disjoint holdout, repeated/offline resource benchmark.
-2. Candidate-aware clarification: candidate coverage/information-gain evidence without HR/MRR regression.
-3. Normalized slot ledger, structured attributes, safe filtering/relaxation, and visible Buying/Browsing strategy tendencies.
-4. Optional dense retrieval only after sparse Recall@100 and resource gates show a net holdout gain.
-5. Optional semantic reranking only after candidate recall is stable and latency/memory/fallback evidence passes.
+1. Complete the remaining reliability baseline: repeatability plus controlled P50/P95 turn latency and peak-RSS measurement. Phrase perturbation and the deterministic product-disjoint stress corpus are implemented.
+2. Add candidate-aware clarification evidence in shadow mode; activate it only if overall and Boundary/Override gates pass without HR/MRR regression.
+3. Implement a normalized slot ledger, structured attributes, safe filtering/relaxation, and visible Buying/Browsing strategy tendencies.
+4. Consider dense retrieval only after sparse Recall@100 and resource gates show a net product-disjoint gain.
+5. Consider semantic reranking only after candidate recall is stable and latency/memory/fallback evidence passes.
 
-The repository has completed no-credential reliability, Workbench diagnostics, versioned term state, Override/Boundary handling, broad/strict sparse routes, weighted RRF, heuristic clarification, and strict result comparison. It has not implemented a normalized slot graph, candidate-aware questioning, attribute hard filtering, dense retrieval, profile personalization, or semantic reranking.
+The repository has completed no-credential reliability, Workbench diagnostics, versioned term state, pending-question lifecycle, broader target-blind phrase parsing, Override/Boundary handling, broad/strict sparse routes, weighted RRF, heuristic clarification, strict result comparison, and the P1 robustness runner. It has not implemented a normalized slot graph, active candidate-aware questioning, attribute hard filtering, dense retrieval, profile personalization, or semantic reranking.

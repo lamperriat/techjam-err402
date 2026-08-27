@@ -46,13 +46,19 @@ The command writes per-session results and aggregate metrics to `results.json`.
 The official weak BM25 starter reference scores Hit Rate@10 `0.125`, MRR `0.068034`, and
 MTTC `9.81` on the released public set. See `docs/baseline_results.json`.
 
-The current integrated Agent implements versioned multi-turn term state, explicit Override and Boundary handling, broad/strict FTS5 retrieval, weighted RRF, and heuristic clarification. Its verified public result is:
+The current integrated Agent implements versioned multi-turn term state, a target-blind parsed-turn layer, pending-question lifecycle, explicit Override and Boundary handling, broad/strict FTS5 retrieval, weighted RRF, and heuristic clarification. Its verified public result is:
 
 | Hit Rate@10 | MRR | MTTC | Efficiency | TechnicalScore |
 | ---: | ---: | ---: | ---: | ---: |
-| 0.940000 | 0.605258 | 3.380000 | 0.762000 | 0.803977 |
+| 0.940000 | 0.605258 | 3.375000 | 0.762500 | 0.804077 |
 
-These are public-development metrics and do not predict the private 800-session result. The parser and default `fast` policy are intentionally documented as public-simulator overfitting risks.
+These are public-development metrics and do not predict the private 800-session result. P1 also supplies fixed phrase-perturbation suites and a deterministic 200-product-derived, public-target-disjoint stress corpus. All released-public dev/challenge/audit phrase suites currently retain HR@10 `0.94`; the derived corpus is a local stress tool, not organizer data or a hidden-score estimate. The deterministic parser and default `fast` policy remain documented overfitting risks.
+
+Run the fixed robustness gate from the browser Workbench or directly:
+
+```bash
+python3 scripts/evaluate_generalization.py --corpus both --suite default
+```
 
 ## LLM Client Configuration
 
@@ -78,7 +84,7 @@ The Workbench provides:
 - an honest algorithm registry that distinguishes implemented, baseline-only, and planned layers;
 - all 200 public sessions with actual Agent events and separately labelled post-hoc target diagnostics;
 - frozen-catalog search and raw product inspection;
-- browser controls for the complete public evaluator, unit tests, progress, cancellation, logs, and versioned local experiments;
+- browser controls for the complete public evaluator, fixed phrase/product-disjoint generalization gate, unit tests, progress, cancellation, logs, and versioned local experiments;
 - a target-free manual Agent playground and read-only project document library;
 - a safe in-page shutdown action.
 
@@ -138,6 +144,7 @@ docs/baseline_results.json        reproducible weak-starter reference score
 starter/agent.py                  editable stateful sparse Agent
 evaluator/local_evaluator.py      public-set simulator and scorer
 scripts/compare_results.py        report and strict complete-result comparison
+scripts/evaluate_generalization.py target-blind phrase/product-disjoint stress gate
 ```
 
 ## Judging and Submission Policy

@@ -9,6 +9,7 @@ import urllib.error
 import urllib.request
 from http.server import HTTPServer
 from pathlib import Path
+from unittest.mock import patch
 
 from evaluator.local_evaluator import catalog_index
 from observer.events import TRACE_SCHEMA_VERSION, TraceRecorder
@@ -186,6 +187,137 @@ class ObserverTraceTest(unittest.TestCase):
         with self.assertRaises(KeyError):
             runner.trace("missing")
 
+    def test_generalization_job_writes_manifest_and_shares_evaluation_mutex(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            catalog_path = root / "catalog.jsonl"
+            dataset_path = root / "public.jsonl"
+            results_path = root / "results.json"
+            generalization_source = root / "scripts" / "evaluate_generalization.py"
+            generalization_source.parent.mkdir(parents=True)
+            generalization_source.write_text("# fixed test runner\n", encoding="utf-8")
+            product = {
+                "parent_asin": "A",
+                "title": "Blue cotton running shoe",
+                "features": ["cotton", "running"],
+                "categories": ["Clothing", "Shoes"],
+            }
+            sample = {
+                "sample_id": "public_test_1",
+                "scenario_type": "buying",
+                "difficulty_bucket": "easy",
+                "user_profile": {},
+                "ground_truth": {"parent_asin": "A"},
+            }
+            catalog_path.write_text(json.dumps(product) + "\n", encoding="utf-8")
+            dataset_path.write_text(json.dumps(sample) + "\n", encoding="utf-8")
+            runtime = WorkbenchRuntime.from_paths(
+                catalog_path, dataset_path, results_path, project_root=root
+            )
+            self.addCleanup(runtime.close)
+
+            evaluation_job, created = runtime._new_job("evaluation")
+            self.assertTrue(created)
+            evaluation_job.status = "running"
+            blocked = runtime.start_generalization()
+            self.assertEqual(blocked["job_id"], evaluation_job.job_id)
+            self.assertEqual(blocked["kind"], "evaluation")
+            evaluation_job.status = "completed"
+
+            class FakeProcess:
+                def __init__(self, command: list[str], **_: object) -> None:
+                    output = Path(command[command.index("--output") + 1])
+                    output.parent.mkdir(parents=True, exist_ok=True)
+                    metrics = {
+                        "sample_count": 1,
+                        "hit_rate_at_10": 1.0,
+                        "mrr": 1.0,
+                        "mttc": 1.0,
+                        "efficiency": 1.0,
+                        "recommended_technical_score": 1.0,
+                        "scenario_metrics": {},
+                    }
+                    robustness = {
+                        "all_suites_robust_hit_count": 1,
+                        "all_suites_robust_hit_rate": 1.0,
+                    }
+                    artifact = {
+                        "corpora": {
+                            "released_public": {
+                                "robustness": robustness,
+                                "suites": {
+                                    "canonical": {"metrics": metrics},
+                                    "combined_dev": {"metrics": metrics},
+                                    "combined_challenge": {"metrics": metrics},
+                                },
+                            },
+                            "derived_product_disjoint": {
+                                "seed": "fixed",
+                                "sample_count": 1,
+                                "samples_sha256": "abc",
+                                "unique_target_count": 1,
+                                "public_target_overlap": 0,
+                                "robustness": robustness,
+                            },
+                        }
+                    }
+                    output.write_text(json.dumps(artifact), encoding="utf-8")
+                    self.stdout = iter(
+                        f"[generalization] run/{index}: score=1.000000\n"
+                        for index in range(6)
+                    )
+                    self.returncode: int | None = None
+
+                def poll(self) -> int | None:
+                    return self.returncode
+
+                def terminate(self) -> None:
+                    self.returncode = -15
+
+                def wait(self, timeout: float | None = None) -> int:
+                    del timeout
+                    if self.returncode is None:
+                        self.returncode = 0
+                    return self.returncode
+
+            provenance = runtime._capture_provenance()
+            with patch.object(
+                runtime, "_capture_provenance", return_value=provenance
+            ), patch("observer.runtime.subprocess.Popen", FakeProcess):
+                job = runtime.start_generalization()
+                deadline = time.monotonic() + 5
+                while time.monotonic() < deadline:
+                    current = next(
+                        item
+                        for item in runtime.jobs()["jobs"]
+                        if item["job_id"] == job["job_id"]
+                    )
+                    if current["status"] in {"completed", "failed", "cancelled"}:
+                        break
+                    time.sleep(0.02)
+
+            self.assertEqual(current["status"], "completed")
+            self.assertEqual((current["current"], current["total"]), (6, 6))
+            self.assertEqual(
+                current["summary"]["released_public"]["robustness"][
+                    "all_suites_robust_hit_rate"
+                ],
+                1.0,
+            )
+            manifest_path = next(
+                (root / "experiments").glob("*_generalization/manifest.json")
+            )
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            self.assertEqual(manifest["kind"], "generalization")
+            self.assertEqual(manifest["metrics"]["hit_rate_at_10"], 1.0)
+            self.assertIn(
+                "generalization_source_sha256", manifest["implementation"]
+            )
+
+            generalization_source.write_text("# changed\n", encoding="utf-8")
+            with self.assertRaises(StaleRuntimeError):
+                runtime.start_generalization()
+
     def test_http_api_exposes_sessions_and_rejects_unknown_routes(self) -> None:
         class FakeRuntime:
             def health(self) -> dict:
@@ -199,6 +331,9 @@ class ObserverTraceTest(unittest.TestCase):
 
             def start_evaluation(self) -> dict:
                 return {"job_id": "evaluation_test", "status": "queued"}
+
+            def start_generalization(self) -> dict:
+                return {"job_id": "generalization_test", "status": "queued"}
 
         server = HTTPServer(("127.0.0.1", 0), make_handler(FakeRuntime()))
         thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -245,6 +380,16 @@ class ObserverTraceTest(unittest.TestCase):
         with urllib.request.urlopen(request) as response:
             job = json.load(response)
         self.assertEqual(job["job_id"], "evaluation_test")
+
+        robustness_request = urllib.request.Request(
+            f"{base_url}/api/jobs/generalization",
+            data=b"{}",
+            headers={"Content-Type": "application/json", **auth_headers},
+            method="POST",
+        )
+        with urllib.request.urlopen(robustness_request) as response:
+            robustness_job = json.load(response)
+        self.assertEqual(robustness_job["job_id"], "generalization_test")
 
         with self.assertRaises(urllib.error.HTTPError) as context:
             urllib.request.urlopen(f"{base_url}/missing")

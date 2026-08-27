@@ -106,9 +106,9 @@ function renderOverview() {
   const freshness = $("#codeFreshness");
   freshness.classList.toggle("hidden", !sourceState.restart_required);
   freshness.textContent = sourceState.restart_required
-    ? "检测到 Agent/evaluator 源码或已加载的 catalog/public set 在 Workbench 启动后发生变化。为防止混用新旧代码或数据产生假实验，请先停止并重新双击 Start Observer.vbs；评测、重放和 Lab 已锁定。"
+    ? "检测到 Agent/evaluator/generalization 源码或已加载的 catalog/public set 在 Workbench 启动后发生变化。为防止混用新旧代码或数据产生假实验，请先停止并重新双击 Start Observer.vbs；评测、泛化、重放和 Lab 已锁定。"
     : "";
-  $$('[data-action="evaluation"]').forEach(button => { button.disabled = sourceState.restart_required; });
+  $$('[data-action="evaluation"], [data-action="generalization"]').forEach(button => { button.disabled = sourceState.restart_required; });
   [$("#refreshTrace"), $("#labReset"), $("#labInput")].forEach(element => {
     if (element) element.disabled = sourceState.restart_required;
   });
@@ -238,7 +238,7 @@ function renderTurn() {
   $("#layerFlow").innerHTML = [
     layerCard(1, "Input", esc(turn.user_message), `turn ${turn.turn}`),
     layerCard(2, "Parse", terms, `broad ${parse.fts_expression || "empty"} · strict ${parse.strict_fts_expression || "empty"}`),
-    layerCard(3, "Agent state", esc(session.memory_mode || "No state event"), `v${session.version ?? 1} · ${(session.active_terms || []).length} active terms · ${session.override_count || 0} overrides`),
+    layerCard(3, "Agent state", esc(session.memory_mode || "No state event"), `v${session.version ?? 1} · ${(session.active_terms || []).length} active terms · ${session.override_count || 0} overrides · pending ${esc(session.pending_attribute || "none")}`),
     layerCard(4, "Retrieval", `${fmt(retrieval.candidate_count ?? turn.retrieval.candidate_count, 0)} fused candidates<br><b>${esc(retrieval.engine || "SQLite FTS5 BM25 + weighted RRF")}</b>`, `broad ${retrieval.route_counts?.broad ?? 0} · strict ${retrieval.route_counts?.strict ?? 0} · ${fmt(output.elapsed_ms, 2)} ms`, posthocRank ? "success" : ""),
     layerCard(5, "Target annotation", `Broad: <b>${turn.retrieval.target_broad_rank ?? "not found"}</b> · Strict: <b>${turn.retrieval.target_strict_rank ?? "not found"}</b><br>Fused: <b>${posthocRank ?? "not found"}</b> · Top 10: <b>${turn.target_top10_rank ?? "no"}</b>`, "joined after Agent.respond", posthocRank ? "" : "alert", "post-hoc"),
     layerCard(6, "Policy", `Ask: <b>${esc(policy.ask_attribute ?? turn.ask_attribute ?? "none")}</b><br>${esc(turn.event)}`, policy.reason || "next action"),
@@ -304,9 +304,10 @@ function jobStatusLabel(job) {
 }
 
 function renderJobs() {
+  const kindLabel = { evaluation: "EVAL", generalization: "ROBUST", tests: "TEST" };
   const html = state.jobs.slice(0, 8).map(job => `
     <button class="job-row ${job.job_id === state.selectedJobId ? "active" : ""}" data-job-id="${esc(job.job_id)}">
-      <span class="job-kind">${job.kind === "evaluation" ? "EVAL" : "TEST"}</span><div><strong>${esc(job.message)}</strong><small>${esc(job.job_id)} · ${job.elapsed_seconds == null ? job.created_at : `${fmt(job.elapsed_seconds, 1)} s`}</small></div><span class="job-status ${job.status}">${jobStatusLabel(job)}</span>
+      <span class="job-kind">${kindLabel[job.kind] || esc(job.kind)}</span><div><strong>${esc(job.message)}</strong><small>${esc(job.job_id)} · ${job.elapsed_seconds == null ? job.created_at : `${fmt(job.elapsed_seconds, 1)} s`}</small></div><span class="job-status ${job.status}">${jobStatusLabel(job)}</span>
     </button>`).join("") || `<div class="empty-row">尚无运行记录</div>`;
   $("#runJobs").innerHTML = html;
   $("#overviewJobs").innerHTML = html;
@@ -338,6 +339,13 @@ async function loadJobs() {
         await reloadResults();
       }
     }
+    const completedRobustness = state.jobs.filter(job => job.kind === "generalization" && job.status === "completed");
+    for (const job of completedRobustness) {
+      if (!state.completedEvaluationIds.has(job.job_id)) {
+        state.completedEvaluationIds.add(job.job_id);
+        await loadExperiments();
+      }
+    }
     renderJobs();
   } catch { /* health polling handles disconnects */ }
 }
@@ -346,7 +354,8 @@ async function startJob(kind) {
   try {
     const job = await postJSON(`/api/jobs/${kind}`);
     state.selectedJobId = job.job_id;
-    toast(kind === "evaluation" ? "公开评测已启动" : "单元测试已启动", "success");
+    const label = kind === "evaluation" ? "公开评测" : (kind === "generalization" ? "泛化压力测试" : "单元测试");
+    toast(`${label}已启动`, "success");
     navigate("runs");
     await loadJobs();
   } catch (error) { toast(error.message, "error"); }
@@ -366,10 +375,11 @@ async function loadExperiments() {
 }
 
 function renderExperiments() {
-  $("#experimentsTable").innerHTML = `<table><thead><tr><th>Experiment</th><th>Created</th><th>HR@10</th><th>MRR</th><th>MTTC</th><th>Score</th><th>Scenario HR</th></tr></thead><tbody>${state.experiments.map(item => {
+  $("#experimentsTable").innerHTML = `<table><thead><tr><th>Experiment</th><th>Created</th><th>HR@10</th><th>MRR</th><th>MTTC</th><th>Score</th><th>Default-suite robust HR</th><th>Scenario HR</th></tr></thead><tbody>${state.experiments.map(item => {
     const metrics = item.metrics || {}; const scenarios = metrics.scenario_metrics || {};
+    const robust = item.robustness?.released_public?.all_suites_robust_hit_rate;
     const scenarioText = Object.entries(scenarios).map(([name, values]) => `${scenarioName(name)} ${pct(values.hit_rate_at_10)}`).join(" · ");
-    return `<tr><td class="product-name">${esc(item.label)}</td><td>${esc(item.created_at || "reference")}</td><td>${pct(metrics.hit_rate_at_10)}</td><td>${fmt(metrics.mrr, 4)}</td><td>${fmt(metrics.mttc, 2)}</td><td>${fmt(metrics.recommended_technical_score, 5)}</td><td class="small muted">${esc(scenarioText || "—")}</td></tr>`;
+    return `<tr><td class="product-name">${esc(item.label)}</td><td>${esc(item.created_at || "reference")}</td><td>${pct(metrics.hit_rate_at_10)}</td><td>${fmt(metrics.mrr, 4)}</td><td>${fmt(metrics.mttc, 2)}</td><td>${fmt(metrics.recommended_technical_score, 5)}</td><td>${robust == null ? "—" : pct(robust)}</td><td class="small muted">${esc(scenarioText || "—")}</td></tr>`;
   }).join("")}</tbody></table>`;
 }
 
@@ -443,6 +453,7 @@ function bindEvents() {
   $$(".nav-tab").forEach(button => button.addEventListener("click", () => navigate(button.dataset.page)));
   $$('[data-page-jump]').forEach(button => button.addEventListener("click", () => navigate(button.dataset.pageJump)));
   $$('[data-action="evaluation"]').forEach(button => button.addEventListener("click", () => startJob("evaluation")));
+  $$('[data-action="generalization"]').forEach(button => button.addEventListener("click", () => startJob("generalization")));
   $$('[data-action="tests"]').forEach(button => button.addEventListener("click", () => startJob("tests")));
   [$("#searchInput"), $("#scenarioFilter"), $("#resultFilter")].forEach(element => element.addEventListener("input", renderSessions));
   $("#prevTurn").addEventListener("click", () => { if (state.turnIndex > 0) { state.turnIndex -= 1; renderTurnRail(); renderTurn(); } });
