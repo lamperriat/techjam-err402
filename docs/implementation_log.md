@@ -4,9 +4,10 @@ This tracked document records only code and behavior that exist in the repositor
 
 Last updated: 2026-08-27 SGT.
 
-## Current verified working-tree integration candidate
+## Current verified integration baseline
 
 - Branch: `pre-v06-integration`
+- Integration commit: `5fed7a7` (`feat: integrate stateful sparse shopping agent`)
 - Parent checkpoint: `f4e435b` (`feat: add agent layer workbench`)
 - Official upstream main checked on 2026-08-27: `34078351e1c3615e5505a2e829600b56a542e462`
 - Runtime: Python 3.11.16 in the existing `tiktok` Conda environment
@@ -169,6 +170,7 @@ This replaces the handoff comparator behavior that printed aggregate deltas but 
 - `node --check observer/static/app.js` passes.
 - The complete 200-session evaluator completed successfully with no LLM environment variables.
 - `scripts/compare_results.py --assert-equal` reports a strict match against the independently verified v0.6 result.
+- A headless Chrome smoke test rendered the live loopback Workbench against 50,000 indexed products and 200 sessions; Overview, state/fusion pipeline, public Trace, two-turn Lab state, and background Tests were exercised successfully with `restart_required=false`.
 
 ## Provenance and audit corrections
 
@@ -199,7 +201,7 @@ The current implementation should be described as a **versioned stateful sparse 
 
 ## Change history
 
-### 2026-08-27 — v0.6 integration into Workbench
+### 2026-08-27 — v0.6 integration into Workbench (`5fed7a7`)
 
 - Preserved the Workbench checkpoint in commit `f4e435b` on a new integration branch.
 - Replaced the stateless current-message-only Agent with the audited versioned state, broad/strict sparse routes, weighted RRF, and question policies.
