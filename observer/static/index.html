@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IntentGraph Layer Observer</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+  <header class="topbar">
+    <div class="brand-block">
+      <div class="brand-mark">IG</div>
+      <div>
+        <div class="eyebrow">SHOPPING COPILOT / LOCAL DEBUG</div>
+        <h1>Layer Observer</h1>
+      </div>
+    </div>
+    <div class="runtime-status"><span class="status-dot"></span> Public simulator connected</div>
+  </header>
+
+  <section id="metrics" class="metric-strip"></section>
+
+  <main class="workspace">
+    <aside class="sidebar panel">
+      <div class="panel-heading">
+        <div>
+          <div class="eyebrow">PUBLIC SET</div>
+          <h2>Sessions</h2>
+        </div>
+        <span id="sessionCount" class="count-pill">—</span>
+      </div>
+      <input id="searchInput" class="search" type="search" placeholder="Search ID or target title">
+      <div class="filter-row">
+        <select id="scenarioFilter" aria-label="Filter scenario">
+          <option value="all">All scenarios</option>
+          <option value="buying">Buying</option>
+          <option value="browsing">Browsing</option>
+          <option value="intent_override">Intent Override</option>
+          <option value="boundary">Boundary</option>
+        </select>
+        <select id="resultFilter" aria-label="Filter result">
+          <option value="all">All results</option>
+          <option value="hit">Hit</option>
+          <option value="miss">Miss</option>
+        </select>
+      </div>
+      <div id="sessionList" class="session-list"></div>
+    </aside>
+
+    <section class="main-column">
+      <div id="emptyState" class="empty-state panel">
+        <div class="loader-ring"></div>
+        <h2>Preparing the observer</h2>
+        <p>Loading the frozen catalog and the current Agent index.</p>
+      </div>
+
+      <div id="traceView" class="trace-view hidden">
+        <section class="trace-header panel">
+          <div>
+            <div id="traceEyebrow" class="eyebrow"></div>
+            <h2 id="traceTitle">Session</h2>
+            <p id="traceSubtitle" class="muted"></p>
+          </div>
+          <div id="traceResult" class="result-cluster"></div>
+        </section>
+
+        <section class="debug-warning">
+          <span>GROUND TRUTH VISIBLE</span>
+          <p id="observerNote"></p>
+        </section>
+
+        <section class="panel turn-panel">
+          <div class="panel-heading compact">
+            <div>
+              <div class="eyebrow">TIMELINE</div>
+              <h2>Conversation turns</h2>
+            </div>
+            <div class="turn-controls">
+              <button id="prevTurn" class="icon-button" aria-label="Previous turn">←</button>
+              <span id="turnLabel">Turn —</span>
+              <button id="nextTurn" class="icon-button" aria-label="Next turn">→</button>
+            </div>
+          </div>
+          <div id="turnRail" class="turn-rail"></div>
+        </section>
+
+        <section class="panel layers-panel">
+          <div class="panel-heading compact">
+            <div>
+              <div class="eyebrow">FORWARD PASS</div>
+              <h2>Agent layers</h2>
+            </div>
+            <span class="muted small">Select a turn to inspect its path</span>
+          </div>
+          <div id="layerFlow" class="layer-flow"></div>
+        </section>
+
+        <div class="detail-grid">
+          <section class="panel conversation-panel">
+            <div class="panel-heading compact"><h2>Conversation I/O</h2></div>
+            <div id="conversation"></div>
+          </section>
+          <section class="panel truth-panel">
+            <div class="panel-heading compact"><h2>Public debug target</h2></div>
+            <div id="targetCard"></div>
+          </section>
+        </div>
+
+        <section class="panel recommendations-panel">
+          <div class="panel-heading compact">
+            <div>
+              <div class="eyebrow">RANKING OUTPUT</div>
+              <h2>Scored Top 10</h2>
+            </div>
+            <div id="rankSummary" class="rank-summary"></div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Rank</th><th>Product</th><th>ASIN</th><th>Price</th><th>Rating</th><th>Signal</th></tr></thead>
+              <tbody id="recommendationRows"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

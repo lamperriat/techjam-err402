@@ -4,8 +4,7 @@ import json
 import re
 import sqlite3
 from pathlib import Path
-
-from utils.llm_client import LLMClient
+from typing import Any
 
 
 TOKEN_RE = re.compile(r"[a-z0-9]+", re.IGNORECASE)
@@ -35,11 +34,15 @@ def _terms(text: str) -> list[str]:
 
 
 class Agent:
-    """Editable weak baseline with BM25 retrieval and an initialized LLM client."""
+    """Editable weak baseline with BM25 retrieval and optional LLM usage reporting."""
 
-    def __init__(self, catalog_path: str | Path = "data/catalog.jsonl") -> None:
+    def __init__(
+        self,
+        catalog_path: str | Path = "data/catalog.jsonl",
+        llm_client: Any | None = None,
+    ) -> None:
         self.catalog_path = Path(catalog_path)
-        self.llm_client = LLMClient()
+        self.llm_client = llm_client
         self.connection = sqlite3.connect(":memory:")
         self._sessions: set[str] = set()
         self._build_index()
@@ -97,9 +100,14 @@ class Agent:
                 (expression, top_k),
             ).fetchall()
             recommendations = [{"parent_asin": str(row[0])} for row in rows]
+        usage = (
+            self.llm_client.consume_usage().as_dict()
+            if self.llm_client is not None
+            else {"prompt_tokens": 0, "completion_tokens": 0}
+        )
         return {
             "message": "Here are the closest matches I found.",
             "ask_attribute": None,
             "recommendations": recommendations,
-            "usage": self.llm_client.consume_usage().as_dict(),
+            "usage": usage,
         }

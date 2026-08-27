@@ -12,6 +12,10 @@ secure/
 docs/audits/
 docs/data_selection_audit.md
 docs/participant_release_checklist.md
+# Local working documents: planning and architecture notes may contain
+# uncommitted hypotheses. Verified implementation updates stay tracked.
+docs/internal_plan.md
+docs/current_architecture.md
 # Organizer-only pipeline tests.
 tests/test_5core_builder.py
 tests/test_organizer_pipeline.py

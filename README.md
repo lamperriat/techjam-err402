@@ -34,7 +34,7 @@ Verify the downloaded file using the published `SHA256SUMS` file.
 
 ## Run the Starter
 
-Python 3.10 or later is recommended. The starter uses only the Python standard library.
+Python 3.10 or later is recommended. The BM25 starter uses only the Python standard library and does not require LLM credentials.
 
 ```bash
 python3 -m evaluator.local_evaluator
@@ -48,16 +48,29 @@ MTTC `9.81` on the released public set. See `docs/baseline_results.json`.
 
 ## LLM Client Configuration
 
-Install the OpenAI-compatible client dependencies:
+The OpenAI-compatible client is optional and is not constructed by the default BM25 Agent. Install its dependencies only when developing or testing model-assisted features:
 
 ```bash
 python3 -m pip install -r requirements.txt
 ```
 
-Copy `.env.example` to `.env` and set `LLM_API_KEY`, `LLM_MODEL`, and, for a
-third-party OpenAI-compatible service, `LLM_BASE_URL`. The client sends
+When explicitly constructing `utils.llm_client.LLMClient`, copy `.env.example` to `.env` and set `LLM_API_KEY`, `LLM_MODEL`, and, for a third-party OpenAI-compatible service, `LLM_BASE_URL`. The client sends
 non-streaming chat-completion requests in JSON-object mode and records the
 provider-reported prompt and completion token counts.
+
+See `docs/development_workflow.md` for the project mental model, debugging funnel, experiment loop, and current improvement order.
+
+## Layer Observer
+
+Launch the local, offline development UI after the catalog and optional evaluation result are available:
+
+```bash
+python3 -m observer.server
+```
+
+The server binds to `http://127.0.0.1:8765` and opens the default browser. It lists all 200 public sessions and traces one session at a time through Input, Parse, Session, Retrieval, Ranking, Policy, and Score layers. Use `--no-browser` for a server-only launch.
+
+The Observer displays public-set ground truth and derived intent cards strictly for diagnosis. Those fields are never passed into `Agent.respond` and must never be used as runtime recommendation features.
 
 ## Agent Interface
 
@@ -92,6 +105,8 @@ TechnicalScore = 0.50 × HitRate@10 + 0.30 × MRR + 0.20 × Efficiency
 Efficiency = clip((11 - MTTC) / 10, 0, 1)
 ```
 
+`TechnicalScore` is an objective input to the `Technical Execution` assessment. It is not a separate judging criterion and does not represent the entire `Technical Execution` score.
+
 Only exact `parent_asin` equality produces a hit. Core metrics are also reported by scenario.
 
 ## Model Choice and Cost
@@ -113,7 +128,6 @@ evaluator/local_evaluator.py      public-set simulator and scorer
 ## Judging and Submission Policy
 
 - Participant submission requirements: `docs/submission_rules.md`
-- Participant release checklist: `docs/participant_release_checklist.md`
 - Organizer-only final judging controls: `organizer/JUDGING_RUNBOOK.md`
 - Organizer private release checklist: `organizer/private_release_checklist.md`
 - Judging day operations SOP: `organizer/JUDGING_DAY_SOP.md`
