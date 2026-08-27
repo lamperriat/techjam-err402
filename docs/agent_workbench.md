@@ -4,13 +4,16 @@ The Agent Workbench is a local, offline-first development control plane for the 
 
 ## Current truth
 
-The current Agent is still a stateless, current-message-only, field-weighted SQLite FTS5/BM25 baseline.
+The current Agent is a versioned stateful sparse baseline. It accumulates active conversation terms, handles explicit Override and Boundary/no-preference events, retrieves with broad and strict SQLite FTS5/BM25 routes, fuses them with weighted RRF, and uses an auditable heuristic clarification policy.
 
 Implemented:
 
 - no-credential Agent startup;
-- offline, rule-based BM25 retrieval that reproduces the official baseline in the verified environment;
-- exact reproduction of the official public baseline;
+- versioned multi-turn state with category, active/excluded terms, attribute lifecycle, and override anchor;
+- broad OR Top-120 and strict AND Top-80 field-weighted BM25 routes;
+- deterministic weighted RRF and catalog-backed Top 10 output;
+- fast, boundary, and conservative clarification policies;
+- complete public result HR@10 `0.94`, MRR `0.605258`, MTTC `3.38`, and TechnicalScore `0.803977`;
 - optional, versioned development trace events;
 - public-session post-hoc diagnostics;
 - catalog and in-memory index inspection;
@@ -21,16 +24,14 @@ Implemented:
 
 Not implemented in the Agent:
 
-- accumulated multi-turn slots;
-- intent-override ledger or conflict replacement;
-- no-preference/exhausted-attribute memory;
 - structured hard filters or safe relaxation;
 - Buying/Browsing routing;
-- dense retrieval, RRF, or semantic reranking;
+- normalized slot-level IntentGraph;
+- dense retrieval or semantic reranking;
 - candidate-aware clarification;
 - profile-based ranking.
 
-An external planning note that says a Stateful BM25 phase and seven state tests were already implemented refers to a separate, unavailable sandbox artifact. Those claims are not properties of this repository and must not be used in demos or experiment reports.
+The current state ledger is term/turn based. It is stronger than the original stateless baseline but must not be described as a complete normalized IntentGraph.
 
 ## Start without a terminal
 
@@ -67,10 +68,10 @@ The launcher verifies a project-root fingerprint before reusing port 8765. If an
 
 - all 200 public sessions with scenario/result filtering;
 - deterministic replay for one public session;
-- actual Agent trace events for session, parse, retrieval, policy, and output;
-- per-turn elapsed time, token usage, candidate count, BM25 scores, and normalized Top 10;
-- post-hoc public target rank, hit eligibility, and derived score contribution;
-- output malformed/invalid/duplicate diagnostics and a baseline-aware miss code;
+- actual Agent trace events for session, parse, retrieval, state, policy, and output;
+- per-turn elapsed time, token usage, broad/strict/fused counts, fusion evidence, and normalized Top 10;
+- post-hoc public target broad/strict/fused ranks, hit eligibility, and derived score contribution;
+- output malformed/invalid/duplicate diagnostics and a route/fusion-aware miss code;
 - trace refresh and JSON export.
 
 The UI intentionally separates **actual** Agent events from **post-hoc** public-label annotations.
@@ -84,7 +85,7 @@ The UI intentionally separates **actual** Agent events from **post-hoc** public-
 ### 运行与实验
 
 - start the fixed repository unit-test command;
-- start the official public evaluator with a fresh Agent index;
+- start the released public evaluator, which preserves the official scoring behavior, with a fresh Agent index;
 - see current session, progress, elapsed time, and captured logs;
 - request cancellation;
 - compare the official baseline, current `results.json`, and timestamped local experiments.
@@ -101,7 +102,7 @@ The manifest records Git state, catalog/dataset and Agent/evaluator source hashe
 
 ### 交互 Lab
 
-This is a target-free manual playground. It calls the same `Agent.reset` and `Agent.respond` methods with an opaque lab session ID and shows recommendations plus actual trace events. It is useful for feeling the current limitation: follow-up messages do not preserve earlier constraints because state is not implemented yet.
+This is a target-free manual playground. It calls the same `Agent.reset` and `Agent.respond` methods with an opaque lab session ID and shows recommendations plus actual state and retrieval events. It can demonstrate constraint accumulation, clarification, explicit override, category goal changes, and the current parser/slot limitations without exposing a target label.
 
 ### 资料库
 
@@ -144,7 +145,7 @@ The Observer uses a fresh random session ID for every replay. The target-rank pr
 - Production Agent code does not import the Observer, evaluator, public dataset, or results.
 - The optional trace callback is absent during normal evaluator runs, so diagnostics do not become ranking features.
 
-The runtime records loaded and on-disk hashes for `starter/agent.py` and the evaluator. If either file changes after startup, the page shows a restart warning and blocks evaluation, refreshed replay, and Lab execution. This prevents tests from exercising disk-new code while the long-running server evaluates an imported old class.
+The runtime records loaded and on-disk hashes for `starter/agent.py`, the evaluator, the catalog, and the public set. If any monitored file changes after startup, the page shows a restart warning and blocks evaluation, every replay, and Lab execution. Evaluation rechecks those fingerprints before artifact finalization, and the manifest uses a captured start-of-run provenance snapshot. This prevents the long-running server from mixing imported old code or cached data with later disk files and hashes.
 
 ## HTTP API
 
@@ -179,9 +180,9 @@ The page handles the control token automatically. A manual API client must first
 
 ## Maintenance contract
 
-- `starter.Agent` may emit target-blind trace events through its optional `trace_sink` callback.
+- `starter.Agent` may emit target-blind session/parse/retrieval/state/policy/output events through its optional `trace_sink` callback.
 - Events use `schema_version=1.0`; future Agent layers should add events rather than making the UI reimplement private algorithm logic.
 - Every pipeline card must reflect current code, not roadmap intent.
-- Official evaluator semantics stay in `evaluator/local_evaluator.py`; the Workbench imports and invokes them rather than changing that file.
+- Evaluator/scoring semantics stay in `evaluator/local_evaluator.py`; the Workbench imports and invokes them rather than changing that file.
 - New control actions must remain fixed and allowlisted. Do not add an arbitrary command executor.
 - Add API and behavior tests whenever a control or trace field changes.

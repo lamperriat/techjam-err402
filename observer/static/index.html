@@ -39,8 +39,8 @@
       <div class="hero panel">
         <div>
           <div class="eyebrow">CURRENT IMPLEMENTATION TRUTH</div>
-          <h2>当前是真实可运行的无状态 BM25 baseline</h2>
-          <p>已完成可靠启动、官方分数复现与可视化诊断；IntentGraph state、clarification、dense、fusion 和 semantic reranker 仍是待验证功能。</p>
+          <h2>当前是真实可运行的状态化稀疏融合 Agent</h2>
+          <p>已完成可审计的会话状态、固定澄清策略、双路 BM25 与加权 RRF；候选感知澄清、结构化过滤、dense retrieval 和 semantic reranker 仍待验证。</p>
           <p id="codeFreshness" class="boundary-note hidden"></p>
         </div>
         <div class="hero-actions">
@@ -120,7 +120,7 @@
             </div>
             <section class="panel section-card">
               <div class="section-heading"><div><div class="eyebrow">SCORING OUTPUT</div><h2>合法 Top 10</h2></div><div id="rankSummary" class="muted small"></div></div>
-              <div class="table-wrap"><table><thead><tr><th>Rank</th><th>Product</th><th>ASIN</th><th>BM25 score</th><th>Price</th><th>Rating</th><th>Signal</th></tr></thead><tbody id="recommendationRows"></tbody></table></div>
+              <div class="table-wrap"><table><thead><tr><th>Rank</th><th>Product</th><th>ASIN</th><th>Fusion score</th><th>Price</th><th>Rating</th><th>Signal</th></tr></thead><tbody id="recommendationRows"></tbody></table></div>
             </section>
           </div>
         </div>

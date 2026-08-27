@@ -43,23 +43,55 @@ def _retrieval_snapshot(user_message: str) -> dict[str, Any]:
         "terms": terms,
         "expression": expression,
         "candidate_count": 0 if not expression else None,
-        "diagnostic_adapter": "baseline SQLite FTS5",
+        "diagnostic_adapter": "Agent events and target-blind debug routes",
     }
 
 
-def _posthoc_target_rank(agent: Any, expression: str, target: str) -> int | None:
-    connection = getattr(agent, "connection", None)
-    if not expression or connection is None:
+def _rank_of(target: str, identifiers: object) -> int | None:
+    if not isinstance(identifiers, list):
         return None
-    rows = connection.execute(
-        "SELECT parent_asin FROM products WHERE products MATCH ? "
-        "ORDER BY bm25(products, 0.0, 6.0, 4.0, 2.5, 2.5, 1.5, 1.0)",
-        (expression,),
-    )
-    for rank, row in enumerate(rows, 1):
-        if str(row[0]) == target:
-            return rank
-    return None
+    try:
+        return identifiers.index(target) + 1
+    except ValueError:
+        return None
+
+
+def _agent_diagnostics(agent: Any, session_id: str, target: str) -> dict[str, Any]:
+    snapshot: dict[str, Any] = {}
+    rankings: dict[str, list[str]] = {}
+    error: str | None = None
+    try:
+        debug_snapshot = getattr(agent, "debug_snapshot", None)
+        if callable(debug_snapshot):
+            value = debug_snapshot(session_id)
+            if isinstance(value, dict):
+                snapshot = value
+        debug_rankings = getattr(agent, "debug_rankings", None)
+        if callable(debug_rankings):
+            value = debug_rankings(session_id)
+            if isinstance(value, dict):
+                rankings = {
+                    route: [str(identifier) for identifier in identifiers]
+                    for route, identifiers in value.items()
+                    if isinstance(route, str) and isinstance(identifiers, list)
+                }
+    except Exception as exc:
+        error = f"{type(exc).__name__}: {exc}"
+    broad = rankings.get("broad", [])
+    strict = rankings.get("strict", [])
+    fused = rankings.get("fused", [])
+    return {
+        "state": snapshot,
+        "route_counts": {
+            "broad": len(broad),
+            "strict": len(strict),
+            "fused": len(fused),
+        },
+        "target_broad_rank": _rank_of(target, broad),
+        "target_strict_rank": _rank_of(target, strict),
+        "target_fused_rank": _rank_of(target, fused),
+        "error": error,
+    }
 
 
 def _output_diagnostics(payload: object, catalog_ids: set[str]) -> dict[str, Any]:
@@ -186,14 +218,24 @@ class TraceRunner:
             return self._run_trace(sample_id)
 
     def _run_trace(self, sample_id: str) -> dict[str, Any]:
+        session_id = f"observer_{uuid.uuid4().hex}"
+        if self.recorder is not None:
+            self.recorder.clear(session_id)
+        try:
+            return self._run_trace_session(sample_id, session_id)
+        finally:
+            drop_session = getattr(self.agent, "drop_session", None)
+            if callable(drop_session):
+                drop_session(session_id)
+            if self.recorder is not None:
+                self.recorder.clear(session_id)
+
+    def _run_trace_session(self, sample_id: str, session_id: str) -> dict[str, Any]:
         trace_started = time.perf_counter()
         sample = self.samples[sample_id]
         target = str(sample["ground_truth"]["parent_asin"])
         card, behavior = materialize_hidden_fields(sample, self.products)
         effective_sample = {**sample, "intent_card": card, "behavior": behavior}
-        session_id = f"observer_{uuid.uuid4().hex}"
-        if self.recorder is not None:
-            self.recorder.clear(session_id)
         self.agent.reset(session_id, sample["user_profile"])
 
         disclosed: set[str] = set()
@@ -225,6 +267,7 @@ class TraceRunner:
             agent_events = (
                 self.recorder.events(session_id, turn) if self.recorder is not None else []
             )
+            state_snapshot: dict[str, Any] = {}
             for agent_event in agent_events:
                 event_data = agent_event.get("data") or {}
                 if agent_event.get("layer") == "parse":
@@ -232,14 +275,25 @@ class TraceRunner:
                     retrieval["expression"] = event_data.get(
                         "fts_expression", retrieval["expression"]
                     )
+                    retrieval["strict_expression"] = event_data.get("strict_fts_expression")
                 elif agent_event.get("layer") == "retrieval":
                     retrieval["candidate_count"] = event_data.get("candidate_count")
+                    retrieval["route_counts"] = event_data.get("route_counts") or {}
+                    retrieval["engine"] = event_data.get("engine")
+                elif agent_event.get("layer") == "state":
+                    state_snapshot = dict(event_data)
 
-            retrieval["posthoc_target_rank"] = _posthoc_target_rank(
-                self.agent, str(retrieval.get("expression") or ""), target
-            )
+            diagnostics = _agent_diagnostics(self.agent, session_id, target)
+            state_snapshot = diagnostics["state"] or state_snapshot
+            retrieval["route_counts"] = diagnostics["route_counts"]
+            retrieval["target_broad_rank"] = diagnostics["target_broad_rank"]
+            retrieval["target_strict_rank"] = diagnostics["target_strict_rank"]
+            retrieval["target_fused_rank"] = diagnostics["target_fused_rank"]
+            retrieval["posthoc_target_rank"] = diagnostics["target_fused_rank"]
+            retrieval["diagnostic_error"] = diagnostics["error"]
             retrieval["posthoc_note"] = (
-                "Public ground truth joined after Agent.respond; never used by the Agent query."
+                "Public ground truth was joined after Agent.respond and ranked locally against "
+                "target-blind broad, strict, and fused route IDs."
             )
             ranked = normalize_recommendations(response.get("recommendations"), self.catalog_ids)
             validation = _output_diagnostics(response.get("recommendations"), self.catalog_ids)
@@ -259,7 +313,7 @@ class TraceRunner:
             elif retrieval["posthoc_target_rank"] is None:
                 failure_code = "RETRIEVAL_MISS"
             elif int(retrieval["posthoc_target_rank"]) > TOP_K:
-                failure_code = "LOW_BM25_RANK"
+                failure_code = "LOW_FUSED_RANK"
             else:
                 failure_code = "OUTPUT_OR_NORMALIZATION_MISS"
 
@@ -292,6 +346,7 @@ class TraceRunner:
                 "usage": response.get("usage") or {"prompt_tokens": 0, "completion_tokens": 0},
                 "error": error,
                 "retrieval": retrieval,
+                "state_snapshot": state_snapshot,
                 "agent_events": agent_events,
                 "validation": validation,
                 "recommendations": [
@@ -333,7 +388,7 @@ class TraceRunner:
             for turn in turns
             if turn["retrieval"]["posthoc_target_rank"] is not None
         ) > TOP_K:
-            diagnosis = "LOW_BM25_RANK"
+            diagnosis = "LOW_FUSED_RANK"
         elif any(turn["failure_code"] == "PRE_OVERRIDE_NOT_SCORABLE" for turn in turns):
             diagnosis = "PRE_OVERRIDE_NOT_SCORABLE"
         else:
@@ -362,6 +417,4 @@ class TraceRunner:
             ),
         }
         self._cache[sample_id] = trace
-        if self.recorder is not None:
-            self.recorder.clear(session_id)
         return trace

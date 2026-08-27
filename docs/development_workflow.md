@@ -41,44 +41,44 @@ The practical order is recall first, ranking second, turns third. A system that 
 
 Always compare both overall and per-scenario results. An overall improvement can hide a severe regression in Boundary or Intent Override.
 
-Current reproducible weak baseline:
+Current integrated stateful-sparse result:
 
 | Metric | Value |
 | --- | ---: |
-| HitRate@10 | 0.125 |
-| MRR | 0.068034 |
-| MTTC | 9.81 |
-| Efficiency | 0.119 |
-| TechnicalScore | 0.10671 |
+| HitRate@10 | 0.940000 |
+| MRR | 0.605258 |
+| MTTC | 3.380000 |
+| Efficiency | 0.762000 |
+| TechnicalScore | 0.803977 |
+
+The weak-starter reference remains HR@10 `0.125`, MRR `0.068034`, MTTC `9.81`, and TechnicalScore `0.10671`. Keep it as the original control, not as the description of the current Agent.
 
 ## 3. Debug from the outside inward
 
-Do not start by reading random ranking code. Locate the first layer where the expected target stops surviving.
+Do not start by reading random ranking code. Locate the first current layer where the expected target stops surviving. The Workbench currently exposes the following evidence:
 
-| Layer | Debug question | Evidence |
+| Current layer | Debug question | Current evidence |
 | --- | --- | --- |
 | Startup/contract | Did Agent construct and return valid schema/IDs? | exception, response validation, invalid/duplicate count |
-| Session state | Does the active intent contain the latest constraints only? | per-turn active/superseded slots |
-| Query plan | Did the query represent the active intent? | compiled query, route, hard/soft constraints |
-| Retrieval | Was the target present in the wider candidate pool? | target rank at Recall@10/50/100 |
-| Constraint gate | Did filtering remove a retrievable target? | before/after candidate counts, `FILTER_KILLED_TARGET` |
-| Fusion/rerank | Did later ranking push the target out of Top 10? | route ranks and final rank |
-| Clarification | Did the question reveal useful information without repeating? | asked/exhausted attributes and candidate reduction |
-| Runtime | Did a slow or optional component fail? | elapsed time, RSS, fallback reason |
+| Session state | Was the latest message accumulated, negated, or treated as an override? | active/excluded terms, known/asked/exhausted attributes, version, turn ledger |
+| Query plan | Did the active state compile into the intended sparse query? | compiled query and parser/override events |
+| Retrieval | Was the public target present in broad OR or strict AND retrieval? | post-hoc target broad/strict ranks and route counts |
+| Fusion/output | Did fusion or output normalization push the target out of Top 10? | fused rank, fusion evidence, normalized Top 10 |
+| Clarification | Which fixed policy asked what, and was it repeated? | policy, `ask_attribute`, asked/exhausted attributes |
+| Runtime | Did the Agent fail or slow down? | per-turn elapsed time and exception event |
 
-This produces an actionable miss taxonomy:
+The currently emitted trace codes are:
 
 ```text
-STARTUP_FAILURE
-INVALID_OUTPUT
+AGENT_ERROR
+HIT
+PRE_OVERRIDE_NOT_SCORABLE
 RETRIEVAL_MISS
-FILTER_KILLED_TARGET
-FUSION_MISS
-RERANK_MISS
-WRONG_QUESTION
-STALE_OVERRIDE_STATE
-TIMEOUT
+LOW_FUSED_RANK
+OUTPUT_OR_NORMALIZATION_MISS
 ```
+
+Hard/soft slot objects, structured constraint-gate counts, candidate-aware information gain, reranker ranks, RSS/fallback telemetry, and codes such as `FILTER_KILLED_TARGET`, `RERANK_MISS`, or `WRONG_QUESTION` belong to the target architecture. Add those diagnostics only together with the corresponding implemented layer; do not infer them from the current sparse trace.
 
 ## 4. The development loop
 
@@ -130,7 +130,13 @@ Run the deterministic public evaluator without LLM credentials:
 python -m evaluator.local_evaluator
 ```
 
-The evaluator overwrites ignored `results.json`. Copy important experiment outputs into another ignored experiment directory before the next run.
+The evaluator overwrites ignored `results.json`. Copy important experiment outputs into another ignored experiment directory before the next run. Compare complete results, including all session rows, with:
+
+```powershell
+python scripts/compare_results.py --assert-equal expected.json actual.json
+```
+
+Strict mode exits with code 1 on any semantic difference while ignoring JSON formatting and line-ending differences.
 
 ## 6. Agent Workbench
 
@@ -150,9 +156,9 @@ environment / data / Git / index health
 
 It also includes catalog/FTS5 search, full product JSON, a target-free manual Agent lab, experiment comparison, and an allowlisted document library. The control plane runs only fixed test/evaluation actions and does not execute arbitrary shell input. A per-instance token and same-origin/Host checks protect the local API.
 
-The Workbench fingerprints the Agent/evaluator code loaded at startup and compares it with disk. After either file changes, evaluation, refreshed replay, and Lab execution are blocked until the Workbench is restarted, preventing an experiment from silently running an old imported class.
+The Workbench fingerprints the Agent/evaluator code and catalog/public-set inputs loaded at startup and compares them with disk. After any monitored file changes, evaluation, every replay, and Lab execution are blocked until restart. Background evaluation checks freshness both before execution and before artifact finalization, while its manifest uses the captured start-of-run provenance. This prevents an experiment from silently mixing an old imported class or cached data with later disk hashes.
 
-Trace events are emitted by the actual Agent through an optional versioned callback. The Session layer explicitly reports `reset-only / stateless baseline`; it does not display simulator disclosure as if it were Agent memory. Public target rank is joined after `Agent.respond` and is labelled post-hoc.
+Trace events are emitted by the actual Agent through an optional versioned callback. The state layer reports the Agent's version, category, active/excluded terms, known/asked/exhausted attributes, and override count. Retrieval reports the actual broad, strict, and fused routes. Public target ranks are joined only after `Agent.respond` and are labelled post-hoc.
 
 Every public replay gives the Agent an opaque random session ID. The Agent receives only profile, generated user message, turn, and `top_k`; it never receives `sample_id`, target, intent card, scenario, behavior, or prior results. The server is loopback-only and must not be attached to private final labels.
 
@@ -160,11 +166,10 @@ Successful browser-started evaluations refresh `results.json` and write ignored 
 
 ## 7. Current improvement order
 
-1. Baseline reliability: no-credential startup, tests, catalog validation, reproducible score.
-2. Contract and diagnostics: strict response guard, per-turn trace, candidate survival and miss taxonomy.
-3. Versioned session state: accumulation, negation, replacement, category change, Override and no-preference exhaustion.
-4. Candidate-aware clarification and Buying/Browsing strategy.
-5. Fielded sparse and attribute retrieval with safe constraint relaxation.
-6. Optional dense/fusion and reranking only after measured recall/resource gates pass.
+1. Generalization and reliability: phrase perturbation, product-disjoint holdout, repeated/offline resource benchmark.
+2. Candidate-aware clarification: candidate coverage/information-gain evidence without HR/MRR regression.
+3. Normalized slot ledger, structured attributes, safe filtering/relaxation, and visible Buying/Browsing strategy tendencies.
+4. Optional dense retrieval only after sparse Recall@100 and resource gates show a net holdout gain.
+5. Optional semantic reranking only after candidate recall is stable and latency/memory/fallback evidence passes.
 
-The current repository has completed baseline reliability and the local Workbench/control-plane layer. It has not yet implemented the IntentGraph state, clarification policy, attribute gate, hybrid retrieval, fusion, or semantic reranking.
+The repository has completed no-credential reliability, Workbench diagnostics, versioned term state, Override/Boundary handling, broad/strict sparse routes, weighted RRF, heuristic clarification, and strict result comparison. It has not implemented a normalized slot graph, candidate-aware questioning, attribute hard filtering, dense retrieval, profile personalization, or semantic reranking.

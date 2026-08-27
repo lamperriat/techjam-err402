@@ -81,9 +81,17 @@ class ObserverTraceTest(unittest.TestCase):
         self.assertGreaterEqual(trace["turns"][0]["retrieval"]["candidate_count"], 1)
         self.assertIn("cotton", trace["turns"][0]["retrieval"]["terms"])
         events = trace["turns"][0]["agent_events"]
-        self.assertEqual({event["layer"] for event in events}, {"session", "parse", "retrieval", "policy", "output"})
+        self.assertEqual(
+            {event["layer"] for event in events},
+            {"session", "parse", "retrieval", "state", "policy", "output"},
+        )
         self.assertTrue(all(event["schema_version"] == TRACE_SCHEMA_VERSION for event in events))
         self.assertTrue(all("public_test_1" not in event["session_id"] for event in events))
+        self.assertEqual(
+            set(trace["turns"][0]["retrieval"]["route_counts"]),
+            {"broad", "strict", "fused"},
+        )
+        self.assertEqual(runner.agent._sessions, {})
         self.assertEqual(trace["turns"][0]["validation"]["invalid_catalog_count"], 0)
         self.assertEqual(trace["turns"][0]["failure_code"], "HIT")
         self.assertEqual(
@@ -116,7 +124,8 @@ class ObserverTraceTest(unittest.TestCase):
                 "user_profile": {"summary": "Likes practical shoes"},
                 "ground_truth": {"parent_asin": "A"},
             }
-            catalog_path.write_text(json.dumps(product) + "\n", encoding="utf-8")
+            catalog_text = json.dumps(product) + "\n"
+            catalog_path.write_text(catalog_text, encoding="utf-8")
             dataset_path.write_text(json.dumps(sample) + "\n", encoding="utf-8")
             runtime = WorkbenchRuntime.from_paths(
                 catalog_path, dataset_path, results_path, project_root=root
@@ -125,7 +134,8 @@ class ObserverTraceTest(unittest.TestCase):
 
             overview = runtime.overview()
             self.assertEqual(overview["index"]["rows"], 1)
-            self.assertEqual(overview["pipeline"][1]["status"], "baseline-only")
+            self.assertEqual(overview["pipeline"][1]["status"], "implemented")
+            self.assertEqual(overview["pipeline"][6]["status"], "implemented")
             self.assertEqual(runtime.catalog("cotton")["items"][0]["parent_asin"], "A")
             self.assertEqual(runtime.product("A")["title"], product["title"])
 
@@ -150,6 +160,19 @@ class ObserverTraceTest(unittest.TestCase):
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             self.assertEqual(manifest["run"]["top_k"], 10)
             self.assertIn("agent_source_sha256", manifest["implementation"])
+            self.assertEqual(manifest["implementation"]["question_policy"], "fast")
+            self.assertEqual(manifest["catalog_sha256"], overview["data"][0]["sha256"])
+            self.assertEqual(manifest["dataset_sha256"], overview["data"][1]["sha256"])
+
+            for _ in range(21):
+                runtime.lab_reset()
+            self.assertLessEqual(len(runtime.trace_runner.agent._sessions), 20)
+
+            catalog_path.write_text(catalog_text + "\n", encoding="utf-8")
+            self.assertTrue(runtime.overview()["source_state"]["files"]["catalog"]["changed"])
+            with self.assertRaises(StaleRuntimeError):
+                runtime.trace("public_test_1")
+            catalog_path.write_text(catalog_text, encoding="utf-8")
 
             source_path = root / "starter" / "agent.py"
             source_path.parent.mkdir(parents=True)

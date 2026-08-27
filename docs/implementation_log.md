@@ -1,394 +1,230 @@
-# Implementation Status and Change Log
+# Implementation Log
 
-This tracked document records what the repository actually implements, how it relates to the official participant kit, what has been verified, and what remains unimplemented. Proposed designs are not implementation claims.
+This tracked document records only code and behavior that exist in the repository and have been verified. Planning, hypotheses, and unvalidated designs belong in ignored `docs/internal_plan.md`; the current working-tree architecture belongs in ignored `docs/current_architecture.md`.
 
-## Maintenance rules
+Last updated: 2026-08-27 SGT.
 
-- Keep the current-version section accurate before adding new roadmap claims.
-- Add dated entries newest first and link each claim to code, tests, or a reproducible evaluation artifact.
-- Label organizer-published metrics separately from metrics reproduced on this project commit.
-- Record model, dependencies, data hash, latency, memory, token use, estimated cost, and fallback behavior when applicable.
-- Never include credentials, private evaluation data, copied organizer-only material, or rules based on public target IDs.
+## Current verified working-tree integration candidate
 
-## Current version at a glance
+- Branch: `pre-v06-integration`
+- Parent checkpoint: `f4e435b` (`feat: add agent layer workbench`)
+- Official upstream main checked on 2026-08-27: `34078351e1c3615e5505a2e829600b56a542e462`
+- Runtime: Python 3.11.16 in the existing `tiktok` Conda environment
+- Catalog: 50,000 parseable rows and 50,000 unique non-empty `parent_asin` values
+- Public set: 200 sessions and 200 unique targets, split 80 Buying / 80 Browsing / 30 Intent Override / 10 Boundary
+- Default execution: offline, no LLM object, no API key, no network call, zero reported tokens
 
-| Item | Current state |
-| --- | --- |
-| Implementation version audited | Working tree on `367f1bf`; Agent Workbench v2 changes are pending commit |
-| Official baseline included | `34078351e1c3615e5505a2e829600b56a542e462` via merge `1496fec` |
-| Base | Official TechJam conversational-search participant kit |
-| Executable approach | Stateless, current-message-only SQLite FTS5/BM25 |
-| Participant extensions | Optional OpenAI-compatible client, versioned trace events, and local Agent Workbench |
-| LLM used for retrieval/ranking | No |
-| Multi-turn intent state | Not implemented |
-| Clarification policy | Not implemented; `ask_attribute` is always `null` |
-| Hybrid/dense retrieval | Not implemented |
-| Reranking | Not implemented |
-| Local catalog | Present and verified: 50,000 unique `parent_asin` values |
-| Current local evaluator result | Reproduced exactly: HR@10 `0.125`, MRR `0.068034`, MTTC `9.81`, TechnicalScore `0.10671` |
-| Offline/no-credential startup | Implemented for default BM25 Agent; optional client may be injected explicitly |
-| Browser development control | Implemented locally: one-click launch, tests/evaluator jobs, catalog/index, experiments, Lab, and docs |
+## Current public evaluation
 
-An externally supplied planning note describes a separate “Stateful BM25 phase,” seven state tests, Override/Boundary memory, deterministic reranking, and a clarification policy as already implemented. The referenced sandbox package is not present in this workspace, and none of those Agent capabilities exist in this repository. Treat that material as an unverified design proposal, not current implementation evidence.
+The integrated Agent was run against the complete released 200-session evaluator after all code changes in this entry.
 
-## Repository provenance
+| Scope | Sessions | Hit Rate@10 | MRR | MTTC |
+| --- | ---: | ---: | ---: | ---: |
+| Buying | 80 | 0.925000 | 0.586265 | 3.175000 |
+| Browsing | 80 | 0.975000 | 0.600724 | 3.012500 |
+| Intent Override | 30 | 0.900000 | 0.655265 | 4.700000 |
+| Boundary | 10 | 0.900000 | 0.643452 | 4.000000 |
+| Overall | 200 | 0.940000 | 0.605258 | 3.380000 |
 
-This repository is a participant-derived version of the official [TechJam conversational search kit](https://github.com/TechJam2026/techjam-conversational-search), not a pristine copy. The `pre` branch now incorporates the current official `main` commit as an ancestor while retaining participant work.
+Overall Efficiency is `0.762000`; recommended TechnicalScore is `0.803977`; prompt and completion token usage are both zero.
 
-The provenance is confirmed at Git object level:
+The complete parsed JSON, including all 200 ordered session rows, is equal to the independently verified v0.6 handoff result. Raw Windows output may use CRLF while the reference uses LF; JSON semantic equality and normalized content are identical.
 
-```text
-2a6cc8e776da66ce69b1cbd237838fbc43f32587
-  Publish conversational search challenge
-  Official participant-kit tag and this repository's root commit
+The pre-integration Workbench checkpoint reproduced the official weak baseline at HR@10 `0.125`, MRR `0.068034`, MTTC `9.81`, Efficiency `0.119`, and TechnicalScore `0.10671`. The current gain therefore comes from the stateful sparse Agent integration, not from the browser observer.
 
-9a35be51780ff1caf89eceaabca34259e946f40f
-  Clarify participant model API costs
-  Same official commit object in both histories
+These are public-development metrics, not a claim about the private 800 sessions.
 
-914879c354395b2da908411ecfc09c0ab293650e
-  feat: add llm client
-  Earlier participant extension
+## Implemented Agent behavior
 
-34078351e1c3615e5505a2e829600b56a542e462
-  Clarify TechnicalScore judging role
-  Current official upstream/main at verification time
+### Session and lifecycle
 
-8f9e64d
-  feat: add reliable baseline and layer observer
-  Current implementation commit
+`starter/agent.py` now implements a per-session `SessionState` containing:
 
-1496fec
-  Merge remote-tracking branch 'upstream/main' into pre
-  Establishes official 3407835 as an ancestor of pre
-```
+- aggregate profile copy;
+- active category;
+- active and excluded retrieval terms;
+- known, asked, and exhausted attribute classes;
+- per-turn terms and attribute classes;
+- version, version anchor, and override count;
+- the fast-policy `prefer_other_next` event.
 
-The official repository later added `34078351e1c3615e5505a2e829600b56a542e462`, clarifying that TechnicalScore is an objective input to Technical Execution rather than a separate judging criterion or the whole Technical Execution score. That commit is now merged into `pre`; it does not change the evaluator.
+`reset` replaces prior state for that session. `respond` validates turn 1–10 and positive `top_k`, updates state, ranks products, selects at most one allowed clarification attribute, and returns at most 10 catalog-backed recommendation objects. `drop_session` releases development replay/Lab state.
 
-The participant remote is `origin=https://github.com/lamperriat/techjam-err402.git`, and the official source is configured as `upstream=https://github.com/TechJam2026/techjam-conversational-search.git`. The GitHub UI fork relationship was not independently established, but identical commit objects and the successful upstream merge prove source-tree ancestry.
+The SQLite connection uses `check_same_thread=False`; state and query operations are protected by an `RLock` for the multi-threaded local Workbench.
 
-The official repository content matches the Shopping Copilot task through its 50,000-product catalog, 200/800 sessions, four scenarios, 10-turn protocol, exact `parent_asin` scoring, Agent API, and evaluator. The official kit itself does not contain the literal numeric label “Task 4,” so that number should be cross-checked against the event page.
+### Parsing and state transitions
 
-## Implemented functionality
+Implemented deterministic parsing includes:
 
-### Agent construction and catalog indexing
+- explicit shopping-category extraction;
+- public-protocol constraint fragments;
+- material, color, size, style, use-case, and budget class detection;
+- simple `not`, `no`, and `without` negative-term extraction, including `not too X`;
+- no-preference/exhausted attribute handling;
+- explicit ignore/change-mind/replace detection;
+- repeated override version-anchor movement;
+- category-goal changes that clear the previous goal's term and question lifecycle.
 
-File: `starter/agent.py`
+A plain sentence such as `Actually, cotton sounds fine` no longer triggers an override solely because it contains `actually`.
 
-- Accepts a catalog path, defaulting to `data/catalog.jsonl`.
-- Accepts an optional injected `llm_client`; the default is `None` and does not import or construct the OpenAI client.
-- Creates an in-memory SQLite database and FTS5 `products` table.
-- Keeps `parent_asin` as an unindexed identifier field.
-- Indexes `title`, `categories`, `features`, `details`, `store`, and `description`.
-- Uses `unicode61` tokenization with diacritic removal.
-- Reads JSONL products sequentially and inserts them in batches of 1,000.
-- Flattens dict values as `key value` text and converts list items to strings.
+### Sparse retrieval and fusion
 
-Not implemented in the index:
+The Agent builds one in-memory SQLite FTS5 catalog index over title, categories, features, details, store, and description.
 
-- structured price/rating indexes;
-- normalized color, material, size, brand, style, or use-case fields;
-- catalog schema, row-count, ID-uniqueness, or checksum validation;
-- dense vectors or attribute inverted indexes.
+Each turn compiles the current active state into two retrieval routes:
 
-### Session handling
+- Broad: quoted terms joined by OR, field-weighted BM25, Top 120.
+- Strict: up to 16 quoted terms joined by AND, field-weighted BM25, Top 80.
 
-File: `starter/agent.py`
-
-- `reset(session_id, user_profile)` records only that the session ID exists.
-- `respond` rejects a session that has not been reset.
-
-The supplied aggregate user profile is not stored or used. There is no turn history, slot ledger, asked-attribute registry, candidate cache, override version, or session-local personalization.
-
-For development observability, the Agent accepts an optional callback and emits target-blind Session, Parse, Retrieval, Policy, and Output events. The callback is absent in ordinary evaluator construction. SQLite access is protected by a re-entrant lock and permits Workbench access from its local server thread; candidate-count diagnostics run only when tracing is enabled.
-
-### Query processing and retrieval
-
-File: `starter/agent.py`
-
-- Uses only the current `user_message`.
-- Extracts ASCII alphanumeric tokens with `[a-z0-9]+`.
-- Lowercases tokens, removes a built-in English stopword list, removes one-character terms, deduplicates in first-seen order, and keeps at most 40 terms.
-- Quotes each term and joins all terms with FTS `OR`.
-- Returns no recommendations for an empty expression.
-- Executes one SQLite BM25 route with weights:
+The routes are fused deterministically with:
 
 ```text
-parent_asin  0.0
-title        6.0
-categories   4.0
-features     2.5
-details      2.5
-store        1.5
-description  1.0
+score(d) = I_b(d) / (60 + broad_rank)
+         + 1.8 * I_s(d) / (20 + strict_rank)
 ```
 
-- Applies the requested SQL `LIMIT top_k` and preserves the resulting BM25 order.
+Ties use broad rank and then `parent_asin`. The response returns the first `min(top_k, 10)` fused IDs.
 
-There is no query rewrite, structured filtering, hard/soft constraint distinction, Buying/Browsing strategy, dense retrieval, rank fusion, relaxation, diversity policy, or reranker.
+### Clarification policy
 
-### Turn response
+Three explicit policies are supported:
 
-File: `starter/agent.py`
+- `fast` (default): after a no-preference reply, prefer `other` to obtain the remaining disclosed constraints quickly;
+- `boundary`: use that shortcut only for a direct Boundary-style reply;
+- `conservative`: continue through the fixed allowed-attribute order.
 
-- Returns a fixed customer-facing message.
-- Always returns `ask_attribute: null`.
-- Returns recommendations as objects containing `parent_asin`.
-- Reports zero token usage when no client is injected; otherwise consumes usage from the injected client.
+Known, asked, and exhausted attributes are not re-asked. Turn 10 always returns `ask_attribute=null`.
 
-The Agent never calls the model's `generate_json` method. The default BM25 path now runs without LLM configuration and reports zero model tokens; model-assisted features must explicitly construct and inject a client.
+The selected policy can be passed to `Agent` or set with `TECHJAM_QUESTION_POLICY`. Workbench experiment manifests now record it because it directly changes results.
 
-### OpenAI-compatible LLM client
+### Optional LLM boundary
 
-File: `utils/llm_client.py`
+The default Agent does not import, construct, or call an LLM client. An explicitly injected compatible client is used only to consume and report token usage; it does not currently parse intent, retrieve, rerank, or write response prose.
 
-- Loads `.env` from the current working directory.
-- Requires `LLM_API_KEY` and `LLM_MODEL`; accepts an optional `LLM_BASE_URL`.
-- Creates an OpenAI-compatible SDK client.
-- Sends non-streaming chat-completion requests in JSON-object mode.
-- Parses the response and requires a JSON object at its root.
-- Records last-call, total, and unreported prompt/completion token counts.
-- Allows the Agent to consume unreported usage once per response.
-- Logs and raises clear errors for empty, invalid JSON, or non-object responses.
+`utils/llm_client.py` remains available for measured future experiments and is covered by configuration, JSON-response, error, and usage tests.
 
-It does not provide an application-level timeout policy, fallback, business-output schema validation, or retrieval/ranking integration. SDK retry and timeout behavior remains dependent on the installed OpenAI package version.
+## Implemented Agent Workbench
 
-### Public evaluator
+The local Workbench is a loopback-only development control plane, not part of official scoring.
 
-File: `evaluator/local_evaluator.py`
+### Startup and pages
 
-- Loads the public sessions and full product catalog.
-- Builds catalog ID, category, and product lookup structures.
-- Derives hidden intent cards deterministically from target metadata when they are absent from the public set.
-- Simulates Buying, Browsing, Intent Override, and Boundary sessions for up to 10 turns.
-- Prevents an Intent Override session from converting before the replacement intent is sent.
-- Filters invalid and duplicate product IDs and scores only the first 10 valid unique values.
-- Uses exact `parent_asin` equality for a hit.
-- Calculates Hit Rate@10, MRR, MTTC, Efficiency, the recommended TechnicalScore, per-scenario core metrics, and reported token use.
-- Treats misses as turn 11 for MTTC.
-- Writes detailed session results to `results.json` through the module entry point.
+- `Start Observer.vbs`: hidden `pythonw.exe` launch using the existing `tiktok` environment.
+- `Start Observer.cmd` and `python -m observer.launcher`: troubleshooting fallbacks.
+- Overview: runtime, Git, source fingerprint, data/hash/index health, metrics, and truthful algorithm registry.
+- Session Diagnostics: deterministic public replay, actual Agent events, output validation, and post-hoc score diagnosis.
+- Catalog & Index: 50k catalog browsing, field-weighted BM25 search, and raw product JSON.
+- Runs & Experiments: fixed test/evaluator jobs, progress, logs, cancellation, metrics, and versioned manifests.
+- Lab: target-free calls to the real `reset/respond` interface with opaque session IDs.
+- Documents: read-only allowlisted project documentation and source.
 
-The participant commit changed the evaluator only by introducing an `AgentBase` protocol type; scoring behavior was not changed.
+### Trace integration
 
-Important boundaries:
-
-- Only `ask_attribute`, not question prose in `message`, drives the simulated customer's next answer.
-- The public evaluator accepts some outputs that are looser than the JSON contract, including string recommendation entries. The project must not depend on those leniencies.
-- `respond` exceptions are converted to empty turn results, but catalog loading, `Agent` construction, and `reset` exceptions can terminate the whole run.
-- The evaluator aggregates token use but does not enforce a real timeout or measure latency and memory.
-- Overall score output uses `recommended_technical_score`; the published baseline artifact uses `technical_score`.
-
-### Tests currently present
-
-Files: `tests/test_agent.py`, `tests/test_evaluator.py`, `tests/test_llm_client.py`, `tests/test_observer.py`
-
-Current tests cover:
-
-- LLM configuration loading and required variables;
-- provider-neutral key handling;
-- JSON-object generation, malformed/empty/non-object errors;
-- token usage accumulation and consumption;
-- no-credential Agent startup, zero usage, and injected-client usage reporting;
-- recommendation validity, deduplication, and order;
-- miss-as-turn-11 metric behavior;
-- evaluator derivation of hidden fields from product metadata;
-- versioned Agent events, opaque replay IDs, and post-response target diagnostics;
-- Workbench catalog, Lab, background evaluator, and result persistence;
-- HTTP route behavior and exclusive loopback listener binding.
-
-There are no focused tests yet for full-catalog ranking stability, strict response-schema rejection, multi-turn state, Override, Boundary, constraints, hybrid retrieval, reranking, deterministic repeated evaluation, timeout, latency, or peak memory. Full-catalog construction and the 200-session evaluator are covered by recorded functional verification rather than unit tests.
-
-### Configuration and supporting artifacts
-
-- `.env.example` documents the LLM variables and currently uses a DeepSeek-compatible base URL example.
-- `requirements.txt` declares `openai>=1.0.0` and `python-dotenv>=1.0.0`; versions are not upper-bounded or locked.
-- `notebooks/test_llm_client.ipynb` contains a historical provider smoke-test output. It is not evidence of Agent-level evaluation or metric improvement.
-- `data/public_set.jsonl` is present and statically confirmed to contain 200 sessions: 80 Buying, 80 Browsing, 30 Intent Override, and 10 Boundary.
-- `data/catalog.jsonl` is intentionally ignored and is now present locally. The downloaded official `catalog.jsonl.gz` is 19,235,996 bytes and its independently calculated SHA256 is `07fd142631fd6b03e2b4d09988c3eb7d53720e9d57010c79db48eeaada50a8f8`, matching the Release API.
-- The decompressed catalog is 60,546,327 bytes and was validated as 50,000 parseable JSON rows, 50,000 unique `parent_asin` values, and zero missing `parent_asin` values.
-- The existing Conda environment `D:\450\conda\envs\tiktok` runs Python 3.11.16. `requirements.txt` installed `openai==3.5.0` and `python-dotenv==1.2.3` plus transitive dependencies; these resolved versions are environment facts, not repository locks.
-
-## Contract and competition alignment
-
-| Requirement | Current status | Notes |
-| --- | --- | --- |
-| Export `Agent.reset` and `Agent.respond` | Implemented | Correct method shapes |
-| Return message/ask/recommendations | Implemented | `ask_attribute` always null |
-| Use catalog-valid exact IDs | Implemented and verified across the full 200-session public evaluation | Evaluator still normalizes invalid/duplicate outputs defensively |
-| Return no more than scored Top 10 | Implemented under official `top_k=10` | SQL limit uses input `top_k` |
-| Preserve frozen catalog | Implemented | Reads catalog; does not mutate it |
-| Support up to 10 turns | Interface-compatible but stateless | Turn argument is unused |
-| Buying/Browsing adaptation | Not implemented | One BM25 route |
-| Intent Override state rewrite | Not implemented | No history or slots |
-| Boundary/no-preference handling | Not implemented | No questions or exhausted state |
-| Aggregate-profile use | Not implemented | Profile ignored |
-| Offline/no-network execution | Default BM25 path implemented and verified without credentials | Optional model features still require their own fallback policy |
-| Declared external dependencies | Partially implemented | Requirements exist; no lock/upper bound |
-| Token disclosure | Implemented for SDK calls | Agent currently makes no calls |
-| Latency/cost/fallback disclosure | Not yet implemented | Required before submission |
-| Reproducible one-command run | Verified without LLM environment variables | Run from the repository root with the existing environment |
-| UI/multimodal/heavy vector DB avoidance | Aligned | None are present |
-
-## Competition timing and compliance status
-
-The [Devpost overview](https://tiktoktechjam2026.devpost.com/) and [Official Rules](https://tiktoktechjam2026.devpost.com/rules) were checked on 2026-08-27 SGT.
-
-- The Submission Period is 2026-08-29 12:00 through 2026-09-01 12:00 SGT. Existing projects must be significantly updated after that period begins, so the implementation history must make the post-start work clear.
-- Technical Workshops are listed for 2026-08-28. The exact Track 4 time of 16:00–16:45 appears in the local challenge brief but was not independently found on the public Devpost schedule.
-- The Devpost overview requires a written solution/technology description, a public repository with a comprehensive README, and a public three-minute YouTube end-to-end demo.
-- The Official Rules require English materials or English translations, free judge access through the judging period, authorization for third-party integrations, and compliance with open-source licenses.
-- The Official Rules prohibit attempts to re-identify people represented in the anonymized data and require competition data used or processed by the participant to be deleted when the competition is complete.
-
-There is a material rubric discrepancy. The controlling Official Rules describe Stage Two using four equally weighted criteria: Technical Execution, Innovation & Problem Insight, Feasibility & Practicality, and Impact & Relevance. The Devpost overview also lists Presentation & Communication but marks it final-only and does not publish weights. The local `problem-statement.md` instead records 35/20/20/15/10. Because the Official Rules state that they prevail over inconsistent TechJam materials, the current plan uses the four equal Stage Two evidence tracks, still prepares presentation evidence for the final, and records this as an organizer-clarification question. TechnicalScore remains only an objective input to Technical Execution.
-
-This section records competition obligations and planning constraints, not implemented Agent functionality.
-
-## Evaluation status
-
-The following values are inherited organizer-published references from `docs/baseline_results.json`:
+The Agent can emit optional versioned, target-blind events for:
 
 ```text
-sample_count       200
-Hit Rate@10        0.125
-MRR                0.068034
-MTTC               9.81
-Efficiency         0.119
-TechnicalScore     0.10671
+session -> parse -> retrieval -> state -> policy -> output
 ```
 
-They were first reproduced exactly for commit `914879c` with process-local placeholder configuration, then reproduced again after the optional-client change with all LLM environment variables absent. The second evaluator completed all 200 sessions and wrote `results.json` in approximately 25.4 seconds with zero token usage. This proves score preservation and no-credential startup, but it is not a controlled latency/RSS benchmark.
+Retrieval events expose broad/strict/fused counts, the weighted-RRF formula, and actual Top-10 route evidence. State events expose only information derived from the profile and conversation.
 
-Scenario results were Boundary HR `0.0`, Browsing HR `0.025`, Buying HR `0.2375`, and Intent Override HR `0.133333`. These reproduce the weak starter, not an improved IntentGraph result.
+For a public replay, the Observer calls `Agent.respond` with a random UUID session. Only after the response does it compare the target with target-blind `debug_rankings` route IDs to compute broad, strict, fused, and Top-10 target ranks. Target, scenario, intent card, behavior, prior result, and public sample ID are never passed into Agent decision features.
 
-## Known gaps and immediate risks
+Completed replays and evicted Lab sessions release Agent and recorder state.
 
-1. Current-message-only retrieval loses category/context after clarification replies and cannot invalidate old override preferences.
-2. The fixed null question policy cannot obtain simulator information in Browsing or Boundary sessions.
-3. The observer exposes per-turn candidate survival, but the Agent still lacks a strict output guard before evaluator normalization.
-4. Timestamped evaluator manifests now record Git state, data/source hashes, runtime/evaluation settings, functional elapsed time, and metrics. There is still no controlled repeatability/offline resource benchmark, peak RSS record, or optional-model artifact fingerprint.
-5. Dependencies have lower bounds but no upper bounds or lockfile; the resolved environment is not yet portable evidence.
-6. The official `upstream` is configured, but periodic rule/source checks are not automated.
-7. Judging materials conflict: Official Rules specify four equally weighted Stage Two criteria, while the local brief records 35/20/20/15/10; the Rules-first interpretation is documented, but the organizer should still clarify the Track/final mapping.
+### Local control-plane safety
 
-## Change log
+- loopback bind only;
+- project fingerprint check before reusing port 8765;
+- per-process API control token;
+- Host, Origin, and browser-site checks;
+- JSON-only mutation bodies;
+- CSP and frame protections;
+- fixed allowlisted test/evaluation/Lab/shutdown controls;
+- no arbitrary shell or filesystem browser;
+- loaded-vs-disk Agent/evaluator plus catalog/public-set fingerprints, with stale-runtime blocking for every replay, evaluation, and Lab call;
+- evaluation provenance captured before the background job and rechecked before artifact finalization, so a manifest cannot mix loaded code/data with later disk hashes.
 
-### 2026-08-27 — Agent Workbench and browser control plane
+The Workbench must not be publicly deployed or connected to private final labels.
 
-- Upgraded the read-only session viewer into a loopback-only local Workbench with Overview, Session Diagnostics, Catalog & Index, Runs & Experiments, interactive Lab, and Documents pages.
-- Added `Start Observer.vbs` for hidden `pythonw.exe` launch through the existing `tiktok` environment, plus a command-file fallback and an in-page shutdown action. The one-click path was exercised successfully against the real 50,000-product catalog.
-- Added project-identity checking in the launcher, loaded-vs-disk Agent/evaluator source fingerprints, and stale-runtime blocking so a long-running server cannot silently evaluate old imported code after an edit.
-- Added versioned, target-blind Agent trace events for actual session, parse, retrieval, policy, and output execution. Public replays now pass an opaque random session ID rather than `sample_id`.
-- Moved target-rank diagnosis after `Agent.respond` and labelled it post-hoc. The UI now shows the actual `reset-only / stateless baseline` state instead of presenting simulator disclosure as Agent memory.
-- Added catalog/FTS5 search, complete product JSON, index metadata and weights, data hashes, Git/runtime health, an honest implemented/planned algorithm registry, output validation/miss codes, trace export, and a read-only allowlisted document/source library.
-- Added fixed background jobs for repository tests and the official public evaluator, including progress, cancellation, logs, bounded shutdown waiting, result refresh, and ignored microsecond-versioned experiment manifests. No arbitrary shell endpoint was added.
-- Added per-instance API control tokens, loopback Host/Origin and browser-site checks, JSON-only mutation bodies, CSP/frame protections, and Windows exclusive-port binding.
-- Added a target-free manual Agent Lab using the same reset/respond contract and actual trace events.
-- Added Workbench/API/opaque-session/background-evaluation/Windows-listener tests; all 16 repository tests pass.
-- Ran the final browser-controlled 200-session evaluator with a fresh Agent index and source/data fingerprints. It completed in 38.259 seconds and exactly preserved HR@10 `0.125`, MRR `0.068034`, MTTC `9.81`, Efficiency `0.119`, TechnicalScore `0.10671`, and zero tokens. This elapsed value is a functional-run observation, not a controlled benchmark.
-- Verified real overview, catalog, document, trace, Lab, test-job, and evaluation-job APIs and inspected 1600×1000 and 1800×1200 headless Chromium renders.
+## Strict result verification
 
-### 2026-08-27 — `pre` branch and official baseline alignment
+`scripts/compare_results.py` supports both metric reporting and strict verification.
 
-- Created `pre` from the participant `main` while preserving all intended implementation work.
-- Configured the official repository as `upstream` and fetched its current `main` at `3407835`.
-- Confirmed the histories share official commits `2a6cc8e` and `9a35be5`, then merge-aligned `pre` so `3407835` is an explicit ancestor.
-- Kept the ignored catalog, release assets, evaluator output, internal plan, current-architecture snapshot, and caches outside the commit.
+```powershell
+python scripts/compare_results.py run_a.json run_b.json
+python scripts/compare_results.py --assert-equal run_a.json run_b.json
+```
 
-### 2026-08-27 — Local Agent Layer Observer
+Strict mode recursively compares the complete parsed objects, including key presence, list order, scenario metrics, usage, and every session row. Any semantic difference exits with code 1 and prints the first JSON paths that differ. Whitespace, indentation, CRLF, and LF formatting differences do not fail.
 
-- Added a standard-library local HTTP server and offline web UI under `observer/`; no frontend framework, CDN, external service, or new dependency is required.
-- Added a single-session trace runner that reuses official public simulator helpers without modifying the evaluator.
-- Exposed Input, Parse, Session, Retrieval, Ranking, Policy, and Score views per turn, including BM25 candidate count, public target retrieval rank, Top-10 target rank, override eligibility, normalized recommendations, and session score contribution.
-- Kept public ground truth and derived intent cards outside `Agent.respond`; the UI labels them as diagnostic-only data.
-- Added public-session search/scenario/result filters, aggregate metric cards, turn navigation, conversation I/O, target metadata, and ranked product inspection.
-- Added trace and HTTP API tests. All 14 repository tests pass.
-- Verified the real server with 200 sessions, the `public_0001` trace, JSON endpoints, static HTML, and a headless Chromium render at 1600x1100.
+This replaces the handoff comparator behavior that printed aggregate deltas but always exited successfully.
 
-### 2026-08-27 — Optional LLM client and no-credential baseline
+## Verification completed
 
-- Removed the default Agent's import-time and construction-time dependency on `LLMClient`.
-- Added optional client injection so later model-assisted features can still report consumed usage without coupling baseline startup to credentials.
-- Added regression tests for no-environment startup/zero usage and injected-client usage; all 11 tests pass.
-- Re-ran the complete public evaluator with `LLM_API_KEY`, `LLM_MODEL`, and `LLM_BASE_URL` absent. All baseline and scenario metrics remained exactly unchanged and token usage remained zero.
-- Added `docs/development_workflow.md` to explain the task, score, debug funnel, experiment discipline, commands, and improvement order.
+- 32 Python unit/integration tests pass.
+- Agent tests cover accumulation, category changes, negative phrases, false override prevention, first/repeated/selective overrides, Boundary exhaustion, question policies, broad/strict/fused routes, output cap/final turn, optional usage, and target-blind trace events.
+- Comparator tests cover formatting/line-ending equality, session-level mismatch, missing keys/list order, and invalid JSON.
+- Existing evaluator, LLM client, Workbench replay, catalog/Lab/background evaluation, HTTP token/cross-site, and exclusive-listener tests pass.
+- `node --check observer/static/app.js` passes.
+- The complete 200-session evaluator completed successfully with no LLM environment variables.
+- `scripts/compare_results.py --assert-equal` reports a strict match against the independently verified v0.6 result.
 
-### 2026-08-27 — Full baseline reproduction and setup cleanup
+## Provenance and audit corrections
 
-- Ran the official 200-session public evaluator with the existing `tiktok` Conda environment and verified exact agreement with the organizer-published weak BM25 metrics.
-- Recorded zero prompt/completion tokens and the four scenario metric groups in `results.json`.
-- Confirmed the run used process-local placeholder LLM configuration only; no `.env`, credential, or persistent environment variable was created.
-- Removed the mistakenly installed `D:\tiktok\miniconda3` tree and its 133,071,768-byte installer after resolving and checking both exact targets. The existing Anaconda installation and `D:\450\conda\envs\tiktok` were preserved.
-- No Agent, evaluator, dependency declaration, public labels, or catalog content changed.
+The v0.6 release material was independently audited before integration:
 
-### 2026-08-27 — Local Conda, dependency, and catalog bootstrap
+- outer ZIP hash and 73/73 declared file hashes matched;
+- source.zip, bundle target tree, and the shared project source files matched byte-for-byte;
+- bundle history is complete and contains official `3407835` as an ancestor;
+- the patch exactly represents `367f1bf -> 89ef66c`, not `3407835 -> 89ef66c`;
+- the participant evaluator differs from official `3407835` by an `AgentBase` Protocol/type annotation only; scoring behavior was cross-run with the official blob and produced the same complete result;
+- the packaged `original_baseline_reference/starter_agent.py` is a participant optional-client baseline, not the pristine official starter.
 
-Environment and data changes:
+Documentation must therefore say “official scoring behavior preserved,” not “unmodified official evaluator.”
 
-- Reused the existing named Conda environment at `D:\450\conda\envs\tiktok` with Python 3.11.16.
-- Installed the repository-declared `openai` and `python-dotenv` dependencies into that environment.
-- Downloaded `catalog.jsonl.gz` from the official `participant-kit` GitHub Release into ignored `data/releases/` storage.
-- Independently matched the downloaded SHA256 to the official Release digest, then decompressed it to ignored `data/catalog.jsonl`.
+## Current limitations
 
-Verification performed:
+1. The state model is a term/turn ledger, not a normalized slot-level IntentGraph. An override can still remove unrelated preferences introduced in the same anchor turn.
+2. Parser patterns are strongly aligned with the released simulator's English templates.
+3. The default fast policy benefits from the public simulator's `other` disclosure behavior. This is protocol adaptation, not direct label leakage, but it creates public-strategy overfitting risk.
+4. There is no independent product-disjoint or phrase-perturbed holdout result yet.
+5. Clarification uses a fixed order, not candidate entropy or expected information gain.
+6. No explicit Buying/Browsing router is implemented; hidden scenario labels are never available to the Agent.
+7. Profile data is stored but not used for personalization.
+8. There is no structured hard filter/relaxation ledger, dense retrieval, learned reranker, or semantic reranker.
+9. Full controlled latency, P95, peak RSS, repeated no-network, and dependency-lock evidence are not yet recorded.
 
-- Parsed all 50,000 catalog rows and confirmed 50,000 unique, nonmissing `parent_asin` values.
-- Ran all 10 existing unit tests successfully.
-- Loaded the full catalog into the current SQLite FTS5 Agent and verified one query returned 10 recommendations with zero token usage.
-- Verified PowerShell activation resolves `tiktok` to `D:\450\conda\envs\tiktok`; the current shell requires a process-scoped ExecutionPolicy bypass to load the Conda hook.
+The current implementation should be described as a **versioned stateful sparse retrieval and weighted-RRF baseline with heuristic clarification**, not as the complete IntentGraph target architecture.
 
-Verification not performed:
+## Change history
 
-- The full 200-session evaluator, baseline metric reproduction, latency/RSS benchmark, and no-network run.
-- No Agent, evaluator, test, requirement, or catalog source content was modified by this bootstrap.
+### 2026-08-27 — v0.6 integration into Workbench
 
-### 2026-08-27 — Devpost rules and execution-plan validation
+- Preserved the Workbench checkpoint in commit `f4e435b` on a new integration branch.
+- Replaced the stateless current-message-only Agent with the audited versioned state, broad/strict sparse routes, weighted RRF, and question policies.
+- Preserved and extended thread-safe target-blind trace events.
+- Replaced the Observer's old current-message BM25 diagnosis with post-response broad/strict/fused route diagnosis.
+- Added state lifecycle cleanup and policy fingerprints to experiment manifests.
+- Updated Workbench pipeline/UI labels to reflect state and fusion without claiming dense/reranking layers.
+- Added strict complete-result comparison and expanded the test suite from 16 to 32 tests.
+- Reproduced the complete v0.6 public result exactly.
 
-Documentation and planning changes:
+### 2026-08-27 — Agent Workbench checkpoint (`f4e435b`)
 
-- Verified the official Submission Period, judging/final milestones, submission artifacts, and the significant-post-start-update requirement.
-- Replaced the earlier provisional 35/20/20/15/10 assumption with the Rules-first interpretation: four equally weighted Stage Two criteria, with Presentation & Communication retained as final-stage evidence.
-- Added a 72-hour execution map, Workshop questions, internal resource/quality gates, and a submission/compliance checklist to the ignored internal plan.
-- Kept dense retrieval, RRF, cross-encoder reranking, and EVSI as measured experiments. Dense is not an unconditional P0 before baseline, state, contract, and sparse/attribute diagnostics are working.
-- Recorded English/translation, free judge access, third-party authorization/license, no-re-identification, and post-competition data-deletion obligations.
+- Added the loopback browser control plane, one-click Windows launcher, target-free Lab, public replay diagnostics, catalog/index explorer, fixed background jobs, versioned experiment manifests, document viewer, source-stale guard, API security checks, and tests.
+- The checkpoint intentionally retained the stateless weak BM25 Agent and reproduced TechnicalScore `0.10671` before the v0.6 integration.
 
-Verification boundary:
+### Earlier participant history
 
-- This pass changed documentation only. It did not implement or modify Agent behavior, retrieval, session state, evaluator logic, dependencies, or data.
-- No new metric, latency, memory, offline, or model-performance claim was produced.
-- The public Devpost page confirmed only the Workshop date; the local brief's exact Track 4 time remains pending independent organizer confirmation.
+- `367f1bf`: recorded official upstream alignment on `pre`.
+- `1496fec`: merged official `3407835` into the participant history.
+- `8f9e64d`: reliable no-credential baseline and first Layer Observer.
+- `914879c`: optional OpenAI-compatible client, usage tests, challenge notes, and the type-only evaluator Protocol wrapper.
+- `2a6cc8e` and `9a35be5`: official participant-kit history shared byte-for-byte with upstream.
 
-### 2026-08-27 — Requirements, provenance, and documentation audit
+## Competition boundary
 
-Implemented documentation changes:
+The Devpost Rules and event pages were checked on 2026-08-27 SGT. The submission window begins on 2026-08-29 at 12:00 SGT. This integration is a pre-window technical baseline and does not by itself prove the required significant post-start update. After the window opens, substantial code work must have clear commits, tests, results, and documentation.
 
-- Confirmed official participant-kit ancestry using identical commit objects.
-- Distinguished the official base, participant LLM-client extension, and later official clarification.
-- Synchronized the official `3407835` TechnicalScore clarification into `README.md` and `docs/competition_specification.md`.
-- Removed the stale README reference to a participant release checklist that is not present in the kit.
-- Added ignored internal planning and current-architecture documents while keeping this implementation record tracked.
-- Reframed dense retrieval, RRF, reranking, and score-aware clarification as planned experiments rather than current features or mandatory requirements.
-- Recorded the current startup regression, local artifact gaps, evaluator semantics, contract alignment, and verification boundary.
-
-Verification performed:
-
-- Audited Git history, remotes, official tag and current official main refs.
-- Reviewed the Agent, evaluator, LLM client, tests, notebook, requirements, API contract, evaluation config, baseline artifact, submission rules, public-set shape, README, and challenge brief.
-- Confirmed the public scenario counts as 80/80/30/10.
-- Confirmed `docs/internal_plan.md` and `docs/current_architecture.md` are ignored while this file is not ignored.
-
-Verification not performed:
-
-- Unit tests and evaluator execution, because no usable Python is installed.
-- Catalog checksum, row/ID validation, BM25 index construction, and baseline reproduction, because `data/catalog.jsonl` is absent.
-- LLM or network smoke tests; no credentials were used.
-
-### 2026-08-27 — Participant LLM client extension (`914879c`)
-
-Already present before this documentation audit:
-
-- Added the OpenAI-compatible JSON client, `.env.example`, Python dependencies, usage accounting, tests, and notebook.
-- Initialized that client from the starter Agent and reported consumed token usage.
-- Added a structural evaluator protocol type without changing metric behavior.
-- Added the local challenge brief and repository working guidelines.
-
-This extension did not implement LLM-based intent parsing, query rewriting, retrieval, recommendation, or reranking.
+TechnicalScore remains an objective input to Technical Execution rather than the complete judging result. Public metrics, architecture quality, feasibility, limitations, impact, and communication evidence all remain necessary.

@@ -106,7 +106,7 @@ function renderOverview() {
   const freshness = $("#codeFreshness");
   freshness.classList.toggle("hidden", !sourceState.restart_required);
   freshness.textContent = sourceState.restart_required
-    ? "检测到 Agent/evaluator 源码在 Workbench 启动后发生变化。为防止用内存旧代码产生假实验，请先停止并重新双击 Start Observer.vbs；评测、刷新重放和 Lab 已锁定。"
+    ? "检测到 Agent/evaluator 源码或已加载的 catalog/public set 在 Workbench 启动后发生变化。为防止混用新旧代码或数据产生假实验，请先停止并重新双击 Start Observer.vbs；评测、重放和 Lab 已锁定。"
     : "";
   $$('[data-action="evaluation"]').forEach(button => { button.disabled = sourceState.restart_required; });
   [$("#refreshTrace"), $("#labReset"), $("#labInput")].forEach(element => {
@@ -220,7 +220,8 @@ function layerCard(index, title, value, meta, tone = "", kind = "actual") {
 function renderTurn() {
   const turn = state.trace.turns[state.turnIndex];
   const parse = eventData(turn, "parse");
-  const session = eventData(turn, "session");
+  const stateEvent = eventData(turn, "state");
+  const session = Object.keys(stateEvent).length ? stateEvent : eventData(turn, "session");
   const retrieval = eventData(turn, "retrieval");
   const policy = eventData(turn, "policy");
   const output = eventData(turn, "output");
@@ -236,10 +237,10 @@ function renderTurn() {
   const scoreText = turn.hit ? `Hit at rank ${turn.target_top10_rank}` : (!turn.eligible_for_hit && turn.target_top10_rank ? "Target present before override eligibility" : "No scored hit");
   $("#layerFlow").innerHTML = [
     layerCard(1, "Input", esc(turn.user_message), `turn ${turn.turn}`),
-    layerCard(2, "Parse", terms, parse.fts_expression || "empty FTS query"),
-    layerCard(3, "Agent state", esc(session.memory_mode || "No state event"), `${Object.keys(session.active_slots || {}).length} active slots`),
-    layerCard(4, "Retrieval", `${fmt(retrieval.candidate_count ?? turn.retrieval.candidate_count, 0)} candidates<br><b>SQLite FTS5 / BM25</b>`, `actual execution · ${fmt(output.elapsed_ms, 2)} ms`, posthocRank ? "success" : ""),
-    layerCard(5, "Target annotation", `Target full-pool rank: <b>${posthocRank ?? "not found"}</b><br>Top 10: <b>${turn.target_top10_rank ?? "no"}</b>`, "joined after Agent.respond", posthocRank ? "" : "alert", "post-hoc"),
+    layerCard(2, "Parse", terms, `broad ${parse.fts_expression || "empty"} · strict ${parse.strict_fts_expression || "empty"}`),
+    layerCard(3, "Agent state", esc(session.memory_mode || "No state event"), `v${session.version ?? 1} · ${(session.active_terms || []).length} active terms · ${session.override_count || 0} overrides`),
+    layerCard(4, "Retrieval", `${fmt(retrieval.candidate_count ?? turn.retrieval.candidate_count, 0)} fused candidates<br><b>${esc(retrieval.engine || "SQLite FTS5 BM25 + weighted RRF")}</b>`, `broad ${retrieval.route_counts?.broad ?? 0} · strict ${retrieval.route_counts?.strict ?? 0} · ${fmt(output.elapsed_ms, 2)} ms`, posthocRank ? "success" : ""),
+    layerCard(5, "Target annotation", `Broad: <b>${turn.retrieval.target_broad_rank ?? "not found"}</b> · Strict: <b>${turn.retrieval.target_strict_rank ?? "not found"}</b><br>Fused: <b>${posthocRank ?? "not found"}</b> · Top 10: <b>${turn.target_top10_rank ?? "no"}</b>`, "joined after Agent.respond", posthocRank ? "" : "alert", "post-hoc"),
     layerCard(6, "Policy", `Ask: <b>${esc(policy.ask_attribute ?? turn.ask_attribute ?? "none")}</b><br>${esc(turn.event)}`, policy.reason || "next action"),
     layerCard(7, "Score", esc(scoreText), `${turn.failure_code} · ${turn.eligible_for_hit ? "eligible" : "blocked"}`, turn.hit ? "success" : "", "derived"),
   ].join("");
@@ -263,8 +264,8 @@ function renderTarget() {
 }
 
 function renderRecommendations(turn, actualResults) {
-  const scoreById = Object.fromEntries(actualResults.map(item => [item.parent_asin, item.bm25_score]));
-  $("#rankSummary").textContent = `${turn.valid_recommendation_count} valid · post-hoc target pool rank ${turn.retrieval.posthoc_target_rank ?? "not found"}`;
+  const scoreById = Object.fromEntries(actualResults.map(item => [item.parent_asin, item.fusion_score ?? item.bm25_score]));
+  $("#rankSummary").textContent = `${turn.valid_recommendation_count} valid · post-hoc fused target rank ${turn.retrieval.posthoc_target_rank ?? "not found"}`;
   $("#recommendationRows").innerHTML = turn.recommendations.map((product, index) => `
     <tr class="${product.is_target ? "target-row" : ""}"><td class="rank-number">${index + 1}</td><td class="product-name">${esc(product.title)}</td><td class="asin">${esc(product.parent_asin)}</td><td>${fmt(scoreById[product.parent_asin], 6)}</td><td>${product.price == null ? "—" : `$${esc(product.price)}`}</td><td>${product.average_rating ?? "—"}</td><td class="signal">${product.is_target ? "TARGET" : ""}</td></tr>`).join("") || `<tr><td colspan="7" class="empty-row">No valid recommendations</td></tr>`;
 }
@@ -381,7 +382,7 @@ async function reloadResults() {
 async function resetLab() {
   try {
     state.lab = await postJSON("/api/lab/reset");
-    $("#labHistory").innerHTML = `<div class="system-message">新会话 ${esc(state.lab.session_id.slice(-8))} · 当前 Agent 不会记忆对话约束，第二轮可直接观察这个缺陷。</div>`;
+    $("#labHistory").innerHTML = `<div class="system-message">新会话 ${esc(state.lab.session_id.slice(-8))} · 当前 Agent 会累积对话约束；可用多轮消息观察状态、改写与稀疏融合变化。</div>`;
     $("#labEvents").textContent = "等待第一条消息。";
     $("#labInput").focus();
   } catch (error) { toast(error.message, "error"); }

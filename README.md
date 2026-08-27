@@ -32,23 +32,31 @@ mv catalog.jsonl data/catalog.jsonl
 
 Verify the downloaded file using the published `SHA256SUMS` file.
 
-## Run the Starter
+## Run the Agent
 
-Python 3.10 or later is recommended. The BM25 starter uses only the Python standard library and does not require LLM credentials.
+Python 3.10 or later is recommended. The current stateful sparse Agent uses only the Python standard library and does not require LLM credentials.
 
 ```bash
 python3 -m evaluator.local_evaluator
 ```
 
-Edit `starter/agent.py` to implement your system. Do not edit the evaluator or public labels when reporting your local score.
+Edit `starter/agent.py` to improve the system. Do not edit the evaluator or public labels when reporting your local score.
 The command writes per-session results and aggregate metrics to `results.json`.
 
-The included weak BM25 starter scores Hit Rate@10 `0.125`, MRR `0.068034`, and
+The official weak BM25 starter reference scores Hit Rate@10 `0.125`, MRR `0.068034`, and
 MTTC `9.81` on the released public set. See `docs/baseline_results.json`.
+
+The current integrated Agent implements versioned multi-turn term state, explicit Override and Boundary handling, broad/strict FTS5 retrieval, weighted RRF, and heuristic clarification. Its verified public result is:
+
+| Hit Rate@10 | MRR | MTTC | Efficiency | TechnicalScore |
+| ---: | ---: | ---: | ---: | ---: |
+| 0.940000 | 0.605258 | 3.380000 | 0.762000 | 0.803977 |
+
+These are public-development metrics and do not predict the private 800-session result. The parser and default `fast` policy are intentionally documented as public-simulator overfitting risks.
 
 ## LLM Client Configuration
 
-The OpenAI-compatible client is optional and is not constructed by the default BM25 Agent. Install its dependencies only when developing or testing model-assisted features:
+The OpenAI-compatible client is optional and is not constructed by the default offline Agent. Install its dependencies only when developing or testing model-assisted features:
 
 ```bash
 python3 -m pip install -r requirements.txt
@@ -74,9 +82,9 @@ The Workbench provides:
 - a target-free manual Agent playground and read-only project document library;
 - a safe in-page shutdown action.
 
-The server refuses non-loopback bind addresses, rejects cross-site API requests, requires an ephemeral local control token, and does not expose an arbitrary shell runner. It fingerprints loaded Agent/evaluator source and blocks stale-code runs until the Workbench is restarted. Every public replay gives the Agent a fresh opaque session ID. The official simulator uses hidden target/scenario state only to generate the permitted user messages; raw labels, intent cards, behavior, and prior results are never passed into Agent decision features. Target-rank and scoring annotations are joined after `Agent.respond`.
+The server refuses non-loopback bind addresses, rejects cross-site API requests, requires an ephemeral local control token, and does not expose an arbitrary shell runner. It fingerprints the loaded Agent/evaluator source plus catalog/public-set inputs and blocks stale or mixed-version runs until the Workbench is restarted. Every public replay gives the Agent a fresh opaque session ID. The released simulator uses hidden target/scenario state only to generate the permitted user messages; raw labels, intent cards, behavior, and prior results are never passed into Agent decision features. Target-rank and scoring annotations are joined after `Agent.respond`.
 
-The current Agent remains the stateless weak BM25 baseline. The Workbench makes missing state, clarification, dense retrieval, fusion, and semantic reranking visible; it does not pretend those planned layers are implemented. See `docs/agent_workbench.md` for the full usage, API, isolation, and maintenance contract.
+The Workbench displays the current versioned state, broad/strict routes, weighted fusion, heuristic policy, and post-hoc target ranks. It continues to label normalized slot graphs, hard filtering, dense retrieval, candidate-aware clarification, profile ranking, and semantic reranking as missing rather than presenting roadmap layers as implemented. See `docs/agent_workbench.md` for the full usage, API, isolation, and maintenance contract.
 
 ## Agent Interface
 
@@ -127,8 +135,9 @@ docs/competition_specification.md participant rules and evaluation protocol
 docs/agent_api_contract.json      machine-readable Agent contract
 docs/evaluation_config.json       scoring configuration
 docs/baseline_results.json        reproducible weak-starter reference score
-starter/agent.py                  editable weak starter
+starter/agent.py                  editable stateful sparse Agent
 evaluator/local_evaluator.py      public-set simulator and scorer
+scripts/compare_results.py        report and strict complete-result comparison
 ```
 
 ## Judging and Submission Policy

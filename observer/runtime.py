@@ -34,7 +34,7 @@ DOCUMENTS = {
     "plan": ("Internal implementation plan", "docs/internal_plan.md", "Local only"),
     "architecture": ("Current architecture", "docs/current_architecture.md", "Local only"),
     "source_agent": ("Current Agent source", "starter/agent.py", "Source"),
-    "source_evaluator": ("Official evaluator source", "evaluator/local_evaluator.py", "Source"),
+    "source_evaluator": ("Local evaluator (official scoring behavior)", "evaluator/local_evaluator.py", "Source"),
     "source_runtime": ("Workbench runtime source", "observer/runtime.py", "Source"),
     "source_trace": ("Session trace source", "observer/trace.py", "Source"),
     "source_server": ("Workbench HTTP source", "observer/server.py", "Source"),
@@ -42,7 +42,7 @@ DOCUMENTS = {
 
 
 class StaleRuntimeError(RuntimeError):
-    """Raised when disk source no longer matches the code loaded by the server."""
+    """Raised when disk code or evaluation inputs no longer match the loaded runtime."""
 
 
 def _utc_now() -> str:
@@ -180,8 +180,16 @@ class WorkbenchRuntime:
             "agent": self.project_root / "starter" / "agent.py",
             "evaluator": self.project_root / "evaluator" / "local_evaluator.py",
         }
+        self._input_paths = {
+            "catalog": self.catalog_path,
+            "dataset": self.dataset_path,
+        }
         self._loaded_source_hashes = {
             name: _sha256(path) for name, path in self._source_paths.items()
+        }
+        self._loaded_input_hashes = {
+            "catalog": self.catalog_sha256,
+            "dataset": self.dataset_sha256,
         }
 
     @classmethod
@@ -255,13 +263,24 @@ class WorkbenchRuntime:
     def _source_state(self) -> dict[str, Any]:
         items = {}
         restart_required = False
-        for name, path in self._source_paths.items():
-            loaded = self._loaded_source_hashes.get(name)
+        monitored = [
+            (name, path, "source", self._loaded_source_hashes.get(name))
+            for name, path in self._source_paths.items()
+        ] + [
+            (name, path, "input", self._loaded_input_hashes.get(name))
+            for name, path in self._input_paths.items()
+        ]
+        for name, path, kind, loaded in monitored:
             disk = _sha256(path)
             changed = loaded != disk
             restart_required = restart_required or changed
+            try:
+                display_path = str(path.relative_to(self.project_root))
+            except ValueError:
+                display_path = str(path)
             items[name] = {
-                "path": str(path.relative_to(self.project_root)),
+                "path": display_path,
+                "kind": kind,
                 "loaded_sha256": loaded,
                 "disk_sha256": disk,
                 "changed": changed,
@@ -271,7 +290,8 @@ class WorkbenchRuntime:
     def _require_current_source(self) -> None:
         if self._source_state()["restart_required"]:
             raise StaleRuntimeError(
-                "Agent/evaluator source changed after Workbench startup; restart Workbench before running it"
+                "Agent/evaluator source or loaded catalog/dataset changed after Workbench "
+                "startup; restart Workbench before running it"
             )
 
     def close(self) -> None:
@@ -356,22 +376,22 @@ class WorkbenchRuntime:
         return [
             {
                 "layer": "Agent API surface",
-                "status": "baseline-only",
+                "status": "implemented",
                 "detail": (
                     "reset/respond shapes; official harness supplies turns 1-10 and top_k=10; "
-                    "no strict response validator"
+                    "Agent validates turn/top_k and emits capped catalog-backed recommendations"
                 ),
                 "source": "starter/agent.py · evaluator/local_evaluator.py",
             },
-            {"layer": "Session state", "status": "baseline-only", "detail": "Reset guard only; no accumulated slots or override ledger", "source": "starter/agent.py"},
-            {"layer": "Parsing", "status": "implemented", "detail": "Regex tokenization, stopword removal, max 40 unique terms", "source": "starter/agent.py"},
-            {"layer": "Sparse retrieval", "status": "implemented", "detail": "Field-weighted SQLite FTS5 BM25", "source": "starter/agent.py"},
+            {"layer": "Session state", "status": "implemented", "detail": "Versioned multi-turn terms, attribute lifecycle, no-preference exhaustion, and selective override anchor", "source": "starter/agent.py"},
+            {"layer": "Parsing", "status": "implemented", "detail": "Deterministic category, constraint, negation, override, and attribute-class parsing", "source": "starter/agent.py"},
+            {"layer": "Sparse retrieval", "status": "implemented", "detail": "Field-weighted SQLite FTS5 broad OR Top 120 and strict AND Top 80 routes", "source": "starter/agent.py"},
             {"layer": "Attribute gate", "status": "not implemented", "detail": "No structured hard filtering or relaxation", "source": None},
             {"layer": "Dense retrieval", "status": "not implemented", "detail": "Roadmap experiment, not an official requirement", "source": None},
-            {"layer": "Fusion", "status": "not implemented", "detail": "No RRF or learned fusion", "source": None},
-            {"layer": "Reranking", "status": "baseline-only", "detail": "Final order is the BM25 order", "source": "starter/agent.py"},
-            {"layer": "Clarification policy", "status": "not implemented", "detail": "ask_attribute is always null", "source": "starter/agent.py"},
-            {"layer": "Scoring", "status": "implemented", "detail": "Official deterministic local evaluator", "source": "evaluator/local_evaluator.py"},
+            {"layer": "Fusion", "status": "implemented", "detail": "Deterministic weighted RRF over broad and strict sparse routes", "source": "starter/agent.py"},
+            {"layer": "Reranking", "status": "not implemented", "detail": "No learned, cross-encoder, or LLM semantic reranker", "source": None},
+            {"layer": "Clarification policy", "status": "baseline-only", "detail": "Auditable fast/boundary/conservative fixed-order heuristics; not candidate-aware", "source": "starter/agent.py"},
+            {"layer": "Scoring", "status": "implemented", "detail": "Deterministic local evaluator; scoring behavior cross-checked with official 3407835", "source": "evaluator/local_evaluator.py"},
         ]
 
     def list_sessions(self) -> dict[str, Any]:
@@ -379,8 +399,7 @@ class WorkbenchRuntime:
             return self.trace_runner.list_sessions()
 
     def trace(self, sample_id: str, refresh: bool = False) -> dict[str, Any]:
-        if refresh:
-            self._require_current_source()
+        self._require_current_source()
         with self._agent_lock:
             return self.trace_runner.trace(sample_id, refresh)
 
@@ -498,20 +517,27 @@ class WorkbenchRuntime:
 
     def start_evaluation(self) -> dict[str, Any]:
         self._require_current_source()
-        self._git = self._git_state()
         job, created = self._new_job("evaluation")
         if not created:
             return job.snapshot()
+        repository = self._git_state()
+        self._git = repository
+        provenance = {
+            "repository": repository,
+            "source_hashes": dict(self._loaded_source_hashes),
+            "input_hashes": dict(self._loaded_input_hashes),
+        }
         job.thread = threading.Thread(
-            target=self._run_evaluation, args=(job,), daemon=True
+            target=self._run_evaluation, args=(job, provenance), daemon=True
         )
         job.thread.start()
         return job.snapshot()
 
-    def _run_evaluation(self, job: JobRecord) -> None:
+    def _run_evaluation(self, job: JobRecord, provenance: dict[str, Any]) -> None:
         started = time.perf_counter()
         agent: Agent | None = None
         try:
+            self._require_current_source()
             if job.cancel_event.is_set():
                 raise InterruptedError("Evaluation cancelled before startup")
             with job._lock:
@@ -529,6 +555,7 @@ class WorkbenchRuntime:
                 self.trace_runner.categories,
                 self.trace_runner.products,
             )
+            self._require_current_source()
             if job.cancel_event.is_set():
                 raise InterruptedError("Evaluation cancelled")
             with job._lock:
@@ -540,20 +567,22 @@ class WorkbenchRuntime:
             experiment_dir.mkdir(parents=True, exist_ok=True)
             self._write_json(experiment_dir / "results.json", result)
             evaluation_seconds = round(time.perf_counter() - started, 3)
+            repository = provenance["repository"]
+            source_hashes = provenance["source_hashes"]
+            input_hashes = provenance["input_hashes"]
             manifest = {
                 "experiment_id": experiment_id,
-                "label": f"Public evaluator · {self._git.get('commit') or 'unknown commit'}",
+                "label": f"Public evaluator · {repository.get('commit') or 'unknown commit'}",
                 "kind": "local",
                 "created_at": _utc_now(),
-                "repository": self._git,
-                "catalog_sha256": self.catalog_sha256,
-                "dataset_sha256": self.dataset_sha256,
+                "repository": repository,
+                "catalog_sha256": input_hashes["catalog"],
+                "dataset_sha256": input_hashes["dataset"],
                 "implementation": {
                     "agent": "starter.agent.Agent",
-                    "agent_source_sha256": _sha256(self.project_root / "starter" / "agent.py"),
-                    "evaluator_source_sha256": _sha256(
-                        self.project_root / "evaluator" / "local_evaluator.py"
-                    ),
+                    "question_policy": agent.question_policy,
+                    "agent_source_sha256": source_hashes["agent"],
+                    "evaluator_source_sha256": source_hashes["evaluator"],
                     "trace_schema": TRACE_SCHEMA_VERSION,
                 },
                 "run": {
@@ -686,6 +715,9 @@ class WorkbenchRuntime:
             if len(self._labs) > 20:
                 evicted_session = next(iter(self._labs))
                 self._labs.pop(evicted_session)
+                drop_session = getattr(self.trace_runner.agent, "drop_session", None)
+                if callable(drop_session):
+                    drop_session(evicted_session)
                 if recorder is not None:
                     recorder.clear(evicted_session)
         return {"session_id": session_id, "turn": 0, "profile": safe_profile, "history": []}
