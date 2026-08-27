@@ -62,10 +62,10 @@ python3 scripts/evaluate_generalization.py --corpus both --suite default
 
 ## LLM Client Configuration
 
-The OpenAI-compatible client is optional and is not constructed by the default offline Agent. Install its dependencies only when developing or testing model-assisted features:
+The OpenAI-compatible client is optional and is not constructed by the default offline Agent. Core evaluation uses only the Python standard library. Install the optional client dependencies only when developing or testing model-assisted features:
 
 ```bash
-python3 -m pip install -r requirements.txt
+python3 -m pip install -r requirements-llm.txt
 ```
 
 When explicitly constructing `utils.llm_client.LLMClient`, copy `.env.example` to `.env` and set `LLM_API_KEY`, `LLM_MODEL`, and, for a third-party OpenAI-compatible service, `LLM_BASE_URL`. The client sends

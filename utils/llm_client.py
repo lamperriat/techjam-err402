@@ -5,14 +5,45 @@ import logging
 import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from importlib import import_module
 from pathlib import Path
 from typing import Any
 
-from dotenv import load_dotenv
-from openai import OpenAI
+from utils.types import TokenUsage
 
 
 LOGGER = logging.getLogger(__name__)
+LLM_INSTALL_HINT = (
+    "Install optional LLM dependencies with "
+    "`python -m pip install -r requirements-llm.txt`."
+)
+
+
+def _load_dotenv(path: Path) -> None:
+    try:
+        dotenv = import_module("dotenv")
+    except ModuleNotFoundError as error:
+        if error.name != "dotenv":
+            raise
+        if path.is_file():
+            raise RuntimeError(
+                f"Loading LLM configuration from {path} requires python-dotenv. "
+                f"{LLM_INSTALL_HINT}"
+            ) from error
+        return
+    dotenv.load_dotenv(path)
+
+
+def _create_openai_client(client_options: dict[str, str]) -> Any:
+    try:
+        openai = import_module("openai")
+    except ModuleNotFoundError as error:
+        if error.name != "openai":
+            raise
+        raise RuntimeError(
+            f"LLMClient requires the optional openai package. {LLM_INSTALL_HINT}"
+        ) from error
+    return openai.OpenAI(**client_options)
 
 
 @dataclass(frozen=True)
@@ -24,7 +55,7 @@ class LLMConfig:
     @classmethod
     def from_env(cls) -> LLMConfig:
         """Load OpenAI-compatible LLM configuration from the local environment."""
-        load_dotenv(Path.cwd() / ".env")
+        _load_dotenv(Path.cwd() / ".env")
 
         api_key = os.getenv("LLM_API_KEY", "").strip()
         model = os.getenv("LLM_MODEL", "").strip()
@@ -41,28 +72,6 @@ class LLMConfig:
         return cls(api_key=api_key, model=model, base_url=base_url)
 
 
-@dataclass(frozen=True)
-class TokenUsage:
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
-
-    @property
-    def total_tokens(self) -> int:
-        return self.prompt_tokens + self.completion_tokens
-
-    def __add__(self, other: TokenUsage) -> TokenUsage:
-        return TokenUsage(
-            prompt_tokens=self.prompt_tokens + other.prompt_tokens,
-            completion_tokens=self.completion_tokens + other.completion_tokens,
-        )
-
-    def as_dict(self) -> dict[str, int]:
-        return {
-            "prompt_tokens": self.prompt_tokens,
-            "completion_tokens": self.completion_tokens,
-        }
-
-
 class LLMClient:
     """Non-streaming client for JSON responses from OpenAI-compatible LLMs."""
 
@@ -71,7 +80,7 @@ class LLMClient:
         client_options: dict[str, str] = {"api_key": self.config.api_key}
         if self.config.base_url:
             client_options["base_url"] = self.config.base_url
-        self._client = OpenAI(**client_options)
+        self._client = _create_openai_client(client_options)
         self.last_usage = TokenUsage()
         self.total_usage = TokenUsage()
         self._unreported_usage = TokenUsage()

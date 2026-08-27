@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from starter.agent import Agent
-from utils.llm_client import TokenUsage
+from utils.types import TokenUsage
 
 
 PRODUCTS = [
