@@ -9,6 +9,7 @@ Last updated: 2026-08-28 SGT.
 - Branch: `p2-attributes-rerank`
 - Frozen P1 head: `02f0741` on `p1-generalization`
 - P2 core implementation: `586f3dd` (`feat: add target-blind shortlist reranker`)
+- P2 Workbench/tooling: `4610480` (`feat: expose rerank experiments in workbench`)
 - Optional dependency isolation: `71383b5` (`build: isolate optional LLM dependencies`)
 - Resource/route benchmark: `38ca016` (`test: add resource and route recall benchmark`)
 - P1 implementation commit: `abae926` (`feat: add generalization gate and robust intent state`)
@@ -315,7 +316,7 @@ architecture.
 
 ## Change history
 
-### 2026-08-28 — P2 normalized attributes and gated rerank (`586f3dd`)
+### 2026-08-28 — P2 normalized attributes and gated rerank (`586f3dd`, `4610480`)
 
 - Added catalog-only normalized attribute views and visible-dialogue-only constraint
   evidence with frozen registries and provenance.
