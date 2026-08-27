@@ -1,50 +1,34 @@
 # TechJam Conversational E-Commerce Search Challenge
+By team err402
 
-Build an AI shopping agent that asks useful follow-up questions and recommends the customer's hidden target product within at most 10 turns.
+## Get Started
 
-## What You Receive
-
-- A frozen catalog of 50,000 products from the `Clothing_Shoes_and_Jewelry` category of Amazon Reviews 2023.
-- 200 labeled public sessions for local development.
-- A weak BM25 starter agent and deterministic local evaluator.
-- The Agent API contract and scoring rules.
-
-The organizer keeps 800 additional sessions private for final evaluation.
-
-## Task
-
-For each session, your agent receives an anonymized preference profile and a short customer message. Raw user IDs, review text, timestamps, and purchase history are never disclosed. On every turn the agent may:
-
-- ask a natural clarification question in `message` and identify one requested field in `ask_attribute`;
-- return a ranked list of up to 10 catalog `parent_asin` values;
-- do both in the same response.
-
-The session ends when the target product appears in the scored Top 10 or after turn 10. Sessions cover Buying, Browsing, Intent Override, and Boundary behavior.
-
-## Download the Catalog
-
-Download `catalog.jsonl.gz` from the GitHub Release attached to this repository, then run:
+Select an agent explicitly with `--agent`:
 
 ```bash
-gzip -dk catalog.jsonl.gz
-mv catalog.jsonl data/catalog.jsonl
+python3 -m evaluator.local_evaluator --agent baseline
+python3 -m evaluator.local_evaluator --agent v1 --output results/v1_initial.json
 ```
 
-Verify the downloaded file using the published `SHA256SUMS` file.
+`baseline` is the original stateless weighted-BM25 implementation. `v1` adds
+stateful intent routing, category and FTS candidate generation, documented
+intent-weighted reranking, popularity and Bayesian-rating priors, and
+deterministic information-gain clarification questions. No LLM involved in `v1`. 
 
-## Run the Starter
+The evaluator prints the selected agent description and displays session
+progress with cumulative prompt, completion, and total token counts. Use
+`--quiet` to suppress the description and progress bar; stdout will contain
+only the aggregate JSON summary. The full per-session result is still written
+to the path specified by `--output`.
 
-Python 3.10 or later is recommended. The starter uses only the Python standard library.
+Add versioned agents under `agents/` and register them in `agents/registry.py`.
 
-```bash
-python3 -m evaluator.local_evaluator
-```
+Result:
+| Agent | HitRate@10 | MRR | MTTC | Score | Tokens |
+|:------|:-----------|:----|:-----|:------|:-------|
+| Baseline (BM25) | 0.125 | 0.068034 | 9.81  | 0.10671  | 0 |
+| v1              | 0.98  | 0.67896  | 2.465 | 0.864388 | 0 |
 
-Edit `starter/agent.py` to implement your system. Do not edit the evaluator or public labels when reporting your local score.
-The command writes per-session results and aggregate metrics to `results.json`.
-
-The included weak BM25 starter scores Hit Rate@10 `0.125`, MRR `0.068034`, and
-MTTC `9.81` on the released public set. See `docs/baseline_results.json`.
 
 ## LLM Client Configuration
 

@@ -5,10 +5,16 @@ import json
 import random
 import re
 import statistics
+import sys
 import uuid
 from collections import defaultdict
 from pathlib import Path
 from typing import Protocol
+
+from tqdm.auto import tqdm
+
+from agents.registry import agent_names, get_agent_spec
+
 
 class AgentBase(Protocol):
     def reset(self, session_id: str, user_profile: dict) -> None:
@@ -16,9 +22,6 @@ class AgentBase(Protocol):
 
     def respond(self, session_id: str, user_message: str, turn: int, top_k: int) -> dict:
         ...
-
-from starter.agent import BaselineAgent
-
 
 MAX_TURNS = 10
 TOP_K = 10
@@ -227,11 +230,19 @@ def evaluate(
     catalog_ids: set[str],
     categories: dict[str, list[str]],
     products: dict[str, dict],
+    show_progress: bool = False,
 ) -> dict:
     sessions: list[dict] = []
     total_prompt_tokens = 0
     total_completion_tokens = 0
-    for sample in samples:
+    progress = tqdm(
+        samples,
+        total=len(samples),
+        desc="Evaluating",
+        unit="session",
+        disable=not show_progress,
+    )
+    for sample in progress:
         session_id = f"public_{uuid.uuid4().hex}"
         agent.reset(session_id, sample["user_profile"])
         target = str(sample["ground_truth"]["parent_asin"])
@@ -256,6 +267,12 @@ def evaluate(
                     total_prompt_tokens += usage["prompt_tokens"]
                 if isinstance(usage.get("completion_tokens"), int) and usage["completion_tokens"] >= 0:
                     total_completion_tokens += usage["completion_tokens"]
+                progress.set_postfix(
+                    prompt=total_prompt_tokens,
+                    completion=total_completion_tokens,
+                    total=total_prompt_tokens + total_completion_tokens,
+                    refresh=False,
+                )
             ranked = normalize_recommendations(response.get("recommendations"), catalog_ids)
             if override_applied and target in ranked:
                 best_rank = ranked.index(target) + 1
@@ -308,11 +325,33 @@ def main() -> None:
     parser.add_argument("--catalog", default="data/catalog.jsonl")
     parser.add_argument("--dataset", default="data/public_set.jsonl")
     parser.add_argument("--output", default="results.json")
+    parser.add_argument("--agent", choices=agent_names(), default="baseline")
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress the agent description and progress bar.",
+    )
     args = parser.parse_args()
+    agent_spec = get_agent_spec(args.agent)
+    if not args.quiet:
+        print(f"Agent '{agent_spec.name}': {agent_spec.description}", file=sys.stderr)
     samples = load_jsonl(args.dataset)
     catalog_ids, categories, products = catalog_index(args.catalog)
-    result = evaluate(BaselineAgent(args.catalog), samples, catalog_ids, categories, products)
-    Path(args.output).write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    agent = agent_spec.factory(args.catalog)
+    try:
+        result = evaluate(
+            agent,
+            samples,
+            catalog_ids,
+            categories,
+            products,
+            show_progress=not args.quiet,
+        )
+    finally:
+        agent.close()
+    output_path = Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({key: value for key, value in result.items() if key != "sessions"}, indent=2))
 
 

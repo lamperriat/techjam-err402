@@ -1,11 +1,21 @@
 from __future__ import annotations
 
+import contextlib
+import io
+import json
+import sys
+import tempfile
 import unittest
 from pathlib import Path
-import json
-import tempfile
+from unittest.mock import patch
 
-from evaluator.local_evaluator import catalog_index, evaluate, metric_summary, normalize_recommendations
+from evaluator.local_evaluator import (
+    catalog_index,
+    evaluate,
+    main,
+    metric_summary,
+    normalize_recommendations,
+)
 
 
 class EchoTargetAgent:
@@ -79,6 +89,57 @@ class EvaluatorTest(unittest.TestCase):
             }]
             result = evaluate(EchoTargetAgent(), samples, catalog_ids, categories, products)
             self.assertEqual(result["hit_rate_at_10"], 1.0)
+
+    def test_quiet_cli_prints_only_json_and_writes_nested_output(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            catalog_path = root / "catalog.jsonl"
+            dataset_path = root / "public_set.jsonl"
+            output_path = root / "results" / "baseline.json"
+            catalog_path.write_text(
+                json.dumps({
+                    "parent_asin": "A",
+                    "title": "Cotton shoe",
+                    "features": ["cotton"],
+                    "description": [],
+                    "price": 20.0,
+                    "categories": ["Clothing", "Shoes"],
+                    "details": {},
+                    "average_rating": 4.2,
+                    "rating_number": 10,
+                    "store": "Example",
+                }) + "\n",
+                encoding="utf-8",
+            )
+            dataset_path.write_text(
+                json.dumps({
+                    "sample_id": "sample",
+                    "scenario_type": "buying",
+                    "user_profile": {},
+                    "ground_truth": {"parent_asin": "A"},
+                }) + "\n",
+                encoding="utf-8",
+            )
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+            arguments = [
+                "local_evaluator",
+                "--catalog", str(catalog_path),
+                "--dataset", str(dataset_path),
+                "--output", str(output_path),
+                "--agent", "baseline",
+                "--quiet",
+            ]
+
+            with patch.object(sys, "argv", arguments):
+                with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                    main()
+
+            self.assertTrue(output_path.exists())
+
+        summary = json.loads(stdout.getvalue())
+        self.assertEqual(summary["sample_count"], 1)
+        self.assertEqual(stderr.getvalue(), "")
 
 
 if __name__ == "__main__":

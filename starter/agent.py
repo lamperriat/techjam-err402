@@ -5,8 +5,6 @@ import re
 import sqlite3
 from pathlib import Path
 
-from utils.llm_client import LLMClient
-
 
 TOKEN_RE = re.compile(r"[a-z0-9]+", re.IGNORECASE)
 STOPWORDS = {
@@ -34,13 +32,11 @@ def _terms(text: str) -> list[str]:
     ]
 
 
-
 class BaselineAgent:
-    """Editable weak baseline with BM25 retrieval and an initialized LLM client."""
+    """Original stateless BM25 baseline with no LLM dependency."""
 
     def __init__(self, catalog_path: str | Path = "data/catalog.jsonl") -> None:
         self.catalog_path = Path(catalog_path)
-        self.llm_client = LLMClient()
         self.connection = sqlite3.connect(":memory:")
         self._sessions: set[str] = set()
         self._build_index()
@@ -78,6 +74,9 @@ class BaselineAgent:
         # The profile is anonymized and may be used for personalization.
         self._sessions.add(session_id)
 
+    def close(self) -> None:
+        self.connection.close()
+
     def respond(
         self,
         session_id: str,
@@ -102,5 +101,5 @@ class BaselineAgent:
             "message": "Here are the closest matches I found.",
             "ask_attribute": None,
             "recommendations": recommendations,
-            "usage": self.llm_client.consume_usage().as_dict(),
+            "usage": {"prompt_tokens": 0, "completion_tokens": 0},
         }

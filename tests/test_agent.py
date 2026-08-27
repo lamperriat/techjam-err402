@@ -4,16 +4,12 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock, patch
 
 from starter.agent import BaselineAgent
-from utils.llm_client import TokenUsage
 
 
 class AgentTest(unittest.TestCase):
-    @patch("starter.agent.LLMClient")
-    def test_initializes_llm_client_and_reports_usage(self, llm_client: Mock) -> None:
-        llm_client.return_value.consume_usage.return_value = TokenUsage(12, 3)
+    def test_baseline_has_no_llm_dependency_and_reports_zero_usage(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             catalog_path = Path(directory) / "catalog.jsonl"
             catalog_path.write_text(
@@ -26,9 +22,8 @@ class AgentTest(unittest.TestCase):
             agent.reset("test-session", {})
             response = agent.respond("test-session", "Test product", turn=1, top_k=10)
 
-        llm_client.assert_called_once_with()
-        self.assertIs(agent.llm_client, llm_client.return_value)
-        self.assertEqual(response["usage"], {"prompt_tokens": 12, "completion_tokens": 3})
+        self.assertFalse(hasattr(agent, "llm_client"))
+        self.assertEqual(response["usage"], {"prompt_tokens": 0, "completion_tokens": 0})
 
 
 if __name__ == "__main__":
