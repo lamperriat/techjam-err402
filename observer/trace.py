@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +18,7 @@ from evaluator.local_evaluator import (
     materialize_hidden_fields,
     normalize_recommendations,
 )
+from observer.events import TraceRecorder
 from starter.agent import Agent, _terms
 
 
@@ -32,29 +36,68 @@ def _product_view(product: dict[str, Any], target: str) -> dict[str, Any]:
     }
 
 
-def _retrieval_snapshot(agent: Any, user_message: str, target: str) -> dict[str, Any]:
+def _retrieval_snapshot(user_message: str) -> dict[str, Any]:
     terms = list(dict.fromkeys(_terms(user_message)))[:40]
     expression = " OR ".join(f'"{term}"' for term in terms)
+    return {
+        "terms": terms,
+        "expression": expression,
+        "candidate_count": 0 if not expression else None,
+        "diagnostic_adapter": "baseline SQLite FTS5",
+    }
+
+
+def _posthoc_target_rank(agent: Any, expression: str, target: str) -> int | None:
     connection = getattr(agent, "connection", None)
     if not expression or connection is None:
-        return {
-            "terms": terms,
-            "expression": expression,
-            "candidate_count": 0 if not expression else None,
-            "target_retrieval_rank": None,
-        }
+        return None
     rows = connection.execute(
         "SELECT parent_asin FROM products WHERE products MATCH ? "
         "ORDER BY bm25(products, 0.0, 6.0, 4.0, 2.5, 2.5, 1.5, 1.0)",
         (expression,),
-    ).fetchall()
-    ranked_ids = [str(row[0]) for row in rows]
-    target_rank = ranked_ids.index(target) + 1 if target in ranked_ids else None
+    )
+    for rank, row in enumerate(rows, 1):
+        if str(row[0]) == target:
+            return rank
+    return None
+
+
+def _output_diagnostics(payload: object, catalog_ids: set[str]) -> dict[str, Any]:
+    if not isinstance(payload, list):
+        return {
+            "payload_is_list": False,
+            "raw_count": 0,
+            "malformed_count": 1,
+            "invalid_catalog_count": 0,
+            "duplicate_count": 0,
+            "valid_unique_count": 0,
+        }
+    seen: set[str] = set()
+    malformed = 0
+    invalid = 0
+    duplicates = 0
+    valid = 0
+    for item in payload:
+        if not isinstance(item, dict) or not isinstance(item.get("parent_asin"), str):
+            malformed += 1
+        value = item.get("parent_asin", "") if isinstance(item, dict) else item
+        parent_asin = str(value).strip()
+        if not parent_asin or parent_asin not in catalog_ids:
+            invalid += 1
+            continue
+        if parent_asin in seen:
+            duplicates += 1
+            continue
+        seen.add(parent_asin)
+        valid += 1
     return {
-        "terms": terms,
-        "expression": expression,
-        "candidate_count": len(ranked_ids),
-        "target_retrieval_rank": target_rank,
+        "payload_is_list": True,
+        "raw_count": len(payload),
+        "malformed_count": malformed,
+        "invalid_catalog_count": invalid,
+        "duplicate_count": duplicates,
+        "valid_unique_count": valid,
+        "scored_count": min(valid, TOP_K),
     }
 
 
@@ -67,6 +110,7 @@ class TraceRunner:
         categories: dict[str, list[str]],
         products: dict[str, dict[str, Any]],
         evaluation_result: dict[str, Any] | None = None,
+        recorder: TraceRecorder | None = None,
     ) -> None:
         self.agent = agent
         self.samples = {str(sample["sample_id"]): sample for sample in samples}
@@ -80,7 +124,9 @@ class TraceRunner:
             for key, value in (evaluation_result or {}).items()
             if key not in {"sessions"}
         }
+        self.recorder = recorder
         self._cache: dict[str, dict[str, Any]] = {}
+        self._trace_lock = threading.Lock()
 
     @classmethod
     def from_paths(
@@ -95,14 +141,23 @@ class TraceRunner:
         evaluation_result = (
             json.loads(result_file.read_text(encoding="utf-8")) if result_file.exists() else None
         )
+        recorder = TraceRecorder()
         return cls(
-            Agent(catalog_path),
+            Agent(catalog_path, trace_sink=recorder.emit),
             samples,
             catalog_ids,
             categories,
             products,
             evaluation_result,
+            recorder,
         )
+
+    def replace_evaluation_result(self, evaluation_result: dict[str, Any]) -> None:
+        result_sessions = evaluation_result.get("sessions") or []
+        self.result_by_sample = {str(item["sample_id"]): item for item in result_sessions}
+        self.metrics = {
+            key: value for key, value in evaluation_result.items() if key != "sessions"
+        }
 
     def list_sessions(self) -> dict[str, Any]:
         sessions: list[dict[str, Any]] = []
@@ -127,11 +182,18 @@ class TraceRunner:
         if not refresh and sample_id in self._cache:
             return self._cache[sample_id]
 
+        with self._trace_lock:
+            return self._run_trace(sample_id)
+
+    def _run_trace(self, sample_id: str) -> dict[str, Any]:
+        trace_started = time.perf_counter()
         sample = self.samples[sample_id]
         target = str(sample["ground_truth"]["parent_asin"])
         card, behavior = materialize_hidden_fields(sample, self.products)
         effective_sample = {**sample, "intent_card": card, "behavior": behavior}
-        session_id = f"observer_{sample_id}"
+        session_id = f"observer_{uuid.uuid4().hex}"
+        if self.recorder is not None:
+            self.recorder.clear(session_id)
         self.agent.reset(session_id, sample["user_profile"])
 
         disclosed: set[str] = set()
@@ -147,8 +209,9 @@ class TraceRunner:
         best_rank: int | None = None
 
         for turn in range(1, MAX_TURNS + 1):
+            turn_started = time.perf_counter()
             disclosed_before = sorted(disclosed)
-            retrieval = _retrieval_snapshot(self.agent, user_message, target)
+            retrieval = _retrieval_snapshot(user_message)
             error: str | None = None
             try:
                 response = self.agent.respond(session_id, user_message, turn, TOP_K)
@@ -159,13 +222,46 @@ class TraceRunner:
                 error = error or "Invalid response object or message"
                 response = {"message": "", "ask_attribute": None, "recommendations": []}
 
+            agent_events = (
+                self.recorder.events(session_id, turn) if self.recorder is not None else []
+            )
+            for agent_event in agent_events:
+                event_data = agent_event.get("data") or {}
+                if agent_event.get("layer") == "parse":
+                    retrieval["terms"] = event_data.get("terms", retrieval["terms"])
+                    retrieval["expression"] = event_data.get(
+                        "fts_expression", retrieval["expression"]
+                    )
+                elif agent_event.get("layer") == "retrieval":
+                    retrieval["candidate_count"] = event_data.get("candidate_count")
+
+            retrieval["posthoc_target_rank"] = _posthoc_target_rank(
+                self.agent, str(retrieval.get("expression") or ""), target
+            )
+            retrieval["posthoc_note"] = (
+                "Public ground truth joined after Agent.respond; never used by the Agent query."
+            )
             ranked = normalize_recommendations(response.get("recommendations"), self.catalog_ids)
+            validation = _output_diagnostics(response.get("recommendations"), self.catalog_ids)
             target_top10_rank = ranked.index(target) + 1 if target in ranked else None
             eligible_for_hit = override_applied
             hit = eligible_for_hit and target_top10_rank is not None
             if hit:
                 hit_turn = turn
                 best_rank = target_top10_rank
+
+            if error:
+                failure_code = "AGENT_ERROR"
+            elif hit:
+                failure_code = "HIT"
+            elif not eligible_for_hit and target_top10_rank is not None:
+                failure_code = "PRE_OVERRIDE_NOT_SCORABLE"
+            elif retrieval["posthoc_target_rank"] is None:
+                failure_code = "RETRIEVAL_MISS"
+            elif int(retrieval["posthoc_target_rank"]) > TOP_K:
+                failure_code = "LOW_BM25_RANK"
+            else:
+                failure_code = "OUTPUT_OR_NORMALIZATION_MISS"
 
             next_user_message: str | None = None
             event = "hit" if hit else "continue"
@@ -196,6 +292,8 @@ class TraceRunner:
                 "usage": response.get("usage") or {"prompt_tokens": 0, "completion_tokens": 0},
                 "error": error,
                 "retrieval": retrieval,
+                "agent_events": agent_events,
+                "validation": validation,
                 "recommendations": [
                     _product_view(self.products[parent_asin], target) for parent_asin in ranked
                 ],
@@ -209,9 +307,11 @@ class TraceRunner:
                 "eligible_for_hit": eligible_for_hit,
                 "hit": hit,
                 "event": event,
+                "failure_code": failure_code,
                 "simulator_disclosed_before": disclosed_before,
                 "simulator_disclosed_after": sorted(disclosed),
                 "next_user_message": next_user_message,
+                "elapsed_ms": round((time.perf_counter() - turn_started) * 1000.0, 3),
             })
             if hit or turn == MAX_TURNS:
                 break
@@ -222,6 +322,22 @@ class TraceRunner:
             if hit_turn is None or best_rank is None
             else 0.5 + 0.3 / best_rank + 0.02 * (11 - hit_turn)
         )
+        if hit_turn is not None:
+            diagnosis = "SUCCESS"
+        elif any(turn["failure_code"] == "AGENT_ERROR" for turn in turns):
+            diagnosis = "AGENT_ERROR"
+        elif all(turn["retrieval"]["posthoc_target_rank"] is None for turn in turns):
+            diagnosis = "RETRIEVAL_MISS"
+        elif min(
+            turn["retrieval"]["posthoc_target_rank"]
+            for turn in turns
+            if turn["retrieval"]["posthoc_target_rank"] is not None
+        ) > TOP_K:
+            diagnosis = "LOW_BM25_RANK"
+        elif any(turn["failure_code"] == "PRE_OVERRIDE_NOT_SCORABLE" for turn in turns):
+            diagnosis = "PRE_OVERRIDE_NOT_SCORABLE"
+        else:
+            diagnosis = "OUTPUT_OR_NORMALIZATION_MISS"
         trace = {
             "sample_id": sample_id,
             "scenario_type": str(sample["scenario_type"]),
@@ -236,12 +352,16 @@ class TraceRunner:
                 "best_rank": best_rank,
                 "reciprocal_rank": 0.0 if best_rank is None else round(1.0 / best_rank, 6),
                 "technical_contribution": round(contribution, 6),
+                "diagnosis": diagnosis,
             },
             "turns": turns,
+            "elapsed_ms": round((time.perf_counter() - trace_started) * 1000.0, 3),
             "observer_note": (
                 "Ground truth and intent card are visible only in this public-set debug observer; "
-                "they are never passed into Agent.respond."
+                "the Agent receives only an opaque session ID, profile, user message, turn, and top_k."
             ),
         }
         self._cache[sample_id] = trace
+        if self.recorder is not None:
+            self.recorder.clear(session_id)
         return trace

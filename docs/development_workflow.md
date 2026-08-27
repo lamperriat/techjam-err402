@@ -132,31 +132,31 @@ python -m evaluator.local_evaluator
 
 The evaluator overwrites ignored `results.json`. Copy important experiment outputs into another ignored experiment directory before the next run.
 
-## 6. Visual Layer Observer
+## 6. Agent Workbench
 
-Run the local web observer:
+For normal development on this machine, double-click `Start Observer.vbs`. It launches through the existing `tiktok` environment without a terminal and opens `http://127.0.0.1:8765`. Use the in-page **停止** action when finished. `Start Observer.cmd` and `python -m observer.launcher` remain fallback launch paths.
 
-```powershell
-python -m observer.server
-```
-
-Open `http://127.0.0.1:8765` if the browser does not open automatically. The Observer loads the frozen catalog, current Agent, public sessions, and the latest `results.json` summary.
-
-For each selected session and turn it displays:
+The Workbench now covers the complete local development loop:
 
 ```text
-Input
--> parsed search terms
--> simulator-disclosed context
--> full BM25 candidate count and target retrieval rank
--> valid ordered Top 10 and target Top-10 rank
--> ask_attribute / policy event
--> score eligibility and hit result
+environment / data / Git / index health
+-> current algorithm registry
+-> public single-session replay
+-> actual target-blind Agent events
+-> post-hoc target survival and score diagnosis
+-> full evaluator or unit-test background job
+-> progress, logs, metrics, and versioned experiment artifact
 ```
 
-The target and intent card are shown in a clearly marked public-debug panel. They are used only after Agent output to explain the result and are never passed into `Agent.respond`. Do not copy this diagnostic access into production Agent logic.
+It also includes catalog/FTS5 search, full product JSON, a target-free manual Agent lab, experiment comparison, and an allowlisted document library. The control plane runs only fixed test/evaluation actions and does not execute arbitrary shell input. A per-instance token and same-origin/Host checks protect the local API.
 
-The Observer caches a session trace until the server restarts. API endpoints are available at `/api/sessions`, `/api/trace?sample_id=...`, and `/api/health`.
+The Workbench fingerprints the Agent/evaluator code loaded at startup and compares it with disk. After either file changes, evaluation, refreshed replay, and Lab execution are blocked until the Workbench is restarted, preventing an experiment from silently running an old imported class.
+
+Trace events are emitted by the actual Agent through an optional versioned callback. The Session layer explicitly reports `reset-only / stateless baseline`; it does not display simulator disclosure as if it were Agent memory. Public target rank is joined after `Agent.respond` and is labelled post-hoc.
+
+Every public replay gives the Agent an opaque random session ID. The Agent receives only profile, generated user message, turn, and `top_k`; it never receives `sample_id`, target, intent card, scenario, behavior, or prior results. The server is loopback-only and must not be attached to private final labels.
+
+Successful browser-started evaluations refresh `results.json` and write ignored versioned artifacts under `experiments/`. See `docs/agent_workbench.md` for pages, endpoints, safety boundaries, and the trace maintenance contract.
 
 ## 7. Current improvement order
 
@@ -167,4 +167,4 @@ The Observer caches a session trace until the server restarts. API endpoints are
 5. Fielded sparse and attribute retrieval with safe constraint relaxation.
 6. Optional dense/fusion and reranking only after measured recall/resource gates pass.
 
-The current repository has completed the core baseline-reliability step and the first visual candidate-survival diagnostic. It has not yet implemented the IntentGraph state, clarification policy, hybrid retrieval, or reranking.
+The current repository has completed baseline reliability and the local Workbench/control-plane layer. It has not yet implemented the IntentGraph state, clarification policy, attribute gate, hybrid retrieval, fusion, or semantic reranking.

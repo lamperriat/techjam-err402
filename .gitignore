@@ -3,6 +3,8 @@ __pycache__/
 .DS_Store
 .env
 results.json
+experiments/
+observer_startup_error.log
 data/catalog.jsonl
 data/releases/
 # Organizer-only code, private evaluation data, manifests, and build reports.

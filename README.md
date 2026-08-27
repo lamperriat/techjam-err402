@@ -60,17 +60,23 @@ provider-reported prompt and completion token counts.
 
 See `docs/development_workflow.md` for the project mental model, debugging funnel, experiment loop, and current improvement order.
 
-## Layer Observer
+## Agent Workbench
 
-Launch the local, offline development UI after the catalog and optional evaluation result are available:
+On Windows, double-click `Start Observer.vbs` to start the local Workbench without opening a terminal. It uses the existing `tiktok` Conda environment, starts through `pythonw.exe`, and opens `http://127.0.0.1:8765`. `Start Observer.cmd` and `python -m observer.launcher` are troubleshooting fallbacks.
 
-```bash
-python3 -m observer.server
-```
+The Workbench provides:
 
-The server binds to `http://127.0.0.1:8765` and opens the default browser. It lists all 200 public sessions and traces one session at a time through Input, Parse, Session, Retrieval, Ranking, Policy, and Score layers. Use `--no-browser` for a server-only launch.
+- runtime, Git, data, catalog-hash, and FTS5-index health;
+- an honest algorithm registry that distinguishes implemented, baseline-only, and planned layers;
+- all 200 public sessions with actual Agent events and separately labelled post-hoc target diagnostics;
+- frozen-catalog search and raw product inspection;
+- browser controls for the complete public evaluator, unit tests, progress, cancellation, logs, and versioned local experiments;
+- a target-free manual Agent playground and read-only project document library;
+- a safe in-page shutdown action.
 
-The Observer displays public-set ground truth and derived intent cards strictly for diagnosis. Those fields are never passed into `Agent.respond` and must never be used as runtime recommendation features.
+The server refuses non-loopback bind addresses, rejects cross-site API requests, requires an ephemeral local control token, and does not expose an arbitrary shell runner. It fingerprints loaded Agent/evaluator source and blocks stale-code runs until the Workbench is restarted. Every public replay gives the Agent a fresh opaque session ID. The official simulator uses hidden target/scenario state only to generate the permitted user messages; raw labels, intent cards, behavior, and prior results are never passed into Agent decision features. Target-rank and scoring annotations are joined after `Agent.respond`.
+
+The current Agent remains the stateless weak BM25 baseline. The Workbench makes missing state, clarification, dense retrieval, fusion, and semantic reranking visible; it does not pretend those planned layers are implemented. See `docs/agent_workbench.md` for the full usage, API, isolation, and maintenance contract.
 
 ## Agent Interface
 
@@ -128,9 +134,7 @@ evaluator/local_evaluator.py      public-set simulator and scorer
 ## Judging and Submission Policy
 
 - Participant submission requirements: `docs/submission_rules.md`
-- Organizer-only final judging controls: `organizer/JUDGING_RUNBOOK.md`
-- Organizer private release checklist: `organizer/private_release_checklist.md`
-- Judging day operations SOP: `organizer/JUDGING_DAY_SOP.md`
+- Organizer-only judging runbooks and private-release procedures are not distributed in this participant repository.
 
 ## Data Source
 

@@ -1,131 +1,189 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-Hans">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>IntentGraph Layer Observer</title>
+  <title>Shopping Copilot Agent Workbench</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <div class="ambient ambient-a"></div>
   <div class="ambient ambient-b"></div>
+
   <header class="topbar">
     <div class="brand-block">
       <div class="brand-mark">IG</div>
       <div>
-        <div class="eyebrow">SHOPPING COPILOT / LOCAL DEBUG</div>
-        <h1>Layer Observer</h1>
+        <div class="eyebrow">SHOPPING COPILOT / LOCAL DEVELOPMENT</div>
+        <h1>Agent Workbench</h1>
       </div>
     </div>
-    <div class="runtime-status"><span class="status-dot"></span> Public simulator connected</div>
+    <nav class="nav-tabs" aria-label="Workbench navigation">
+      <button class="nav-tab active" data-page="overview">总览</button>
+      <button class="nav-tab" data-page="sessions">会话诊断</button>
+      <button class="nav-tab" data-page="catalog">商品与索引</button>
+      <button class="nav-tab" data-page="runs">运行与实验</button>
+      <button class="nav-tab" data-page="lab">交互 Lab</button>
+      <button class="nav-tab" data-page="docs">资料库</button>
+    </nav>
+    <div class="top-actions">
+      <div id="runtimeStatus" class="runtime-status"><span class="status-dot"></span><span>连接中</span></div>
+      <button id="shutdownButton" class="ghost-button danger">停止</button>
+    </div>
   </header>
 
   <section id="metrics" class="metric-strip"></section>
 
-  <main class="workspace">
-    <aside class="sidebar panel">
-      <div class="panel-heading">
+  <main class="app-shell">
+    <section id="overviewPage" class="page active">
+      <div class="hero panel">
         <div>
-          <div class="eyebrow">PUBLIC SET</div>
-          <h2>Sessions</h2>
+          <div class="eyebrow">CURRENT IMPLEMENTATION TRUTH</div>
+          <h2>当前是真实可运行的无状态 BM25 baseline</h2>
+          <p>已完成可靠启动、官方分数复现与可视化诊断；IntentGraph state、clarification、dense、fusion 和 semantic reranker 仍是待验证功能。</p>
+          <p id="codeFreshness" class="boundary-note hidden"></p>
         </div>
-        <span id="sessionCount" class="count-pill">—</span>
-      </div>
-      <input id="searchInput" class="search" type="search" placeholder="Search ID or target title">
-      <div class="filter-row">
-        <select id="scenarioFilter" aria-label="Filter scenario">
-          <option value="all">All scenarios</option>
-          <option value="buying">Buying</option>
-          <option value="browsing">Browsing</option>
-          <option value="intent_override">Intent Override</option>
-          <option value="boundary">Boundary</option>
-        </select>
-        <select id="resultFilter" aria-label="Filter result">
-          <option value="all">All results</option>
-          <option value="hit">Hit</option>
-          <option value="miss">Miss</option>
-        </select>
-      </div>
-      <div id="sessionList" class="session-list"></div>
-    </aside>
-
-    <section class="main-column">
-      <div id="emptyState" class="empty-state panel">
-        <div class="loader-ring"></div>
-        <h2>Preparing the observer</h2>
-        <p>Loading the frozen catalog and the current Agent index.</p>
-      </div>
-
-      <div id="traceView" class="trace-view hidden">
-        <section class="trace-header panel">
-          <div>
-            <div id="traceEyebrow" class="eyebrow"></div>
-            <h2 id="traceTitle">Session</h2>
-            <p id="traceSubtitle" class="muted"></p>
-          </div>
-          <div id="traceResult" class="result-cluster"></div>
-        </section>
-
-        <section class="debug-warning">
-          <span>GROUND TRUTH VISIBLE</span>
-          <p id="observerNote"></p>
-        </section>
-
-        <section class="panel turn-panel">
-          <div class="panel-heading compact">
-            <div>
-              <div class="eyebrow">TIMELINE</div>
-              <h2>Conversation turns</h2>
-            </div>
-            <div class="turn-controls">
-              <button id="prevTurn" class="icon-button" aria-label="Previous turn">←</button>
-              <span id="turnLabel">Turn —</span>
-              <button id="nextTurn" class="icon-button" aria-label="Next turn">→</button>
-            </div>
-          </div>
-          <div id="turnRail" class="turn-rail"></div>
-        </section>
-
-        <section class="panel layers-panel">
-          <div class="panel-heading compact">
-            <div>
-              <div class="eyebrow">FORWARD PASS</div>
-              <h2>Agent layers</h2>
-            </div>
-            <span class="muted small">Select a turn to inspect its path</span>
-          </div>
-          <div id="layerFlow" class="layer-flow"></div>
-        </section>
-
-        <div class="detail-grid">
-          <section class="panel conversation-panel">
-            <div class="panel-heading compact"><h2>Conversation I/O</h2></div>
-            <div id="conversation"></div>
-          </section>
-          <section class="panel truth-panel">
-            <div class="panel-heading compact"><h2>Public debug target</h2></div>
-            <div id="targetCard"></div>
-          </section>
+        <div class="hero-actions">
+          <button class="primary-button" data-action="evaluation">运行 200 会话评测</button>
+          <button class="secondary-button" data-action="tests">运行单元测试</button>
         </div>
+      </div>
 
-        <section class="panel recommendations-panel">
-          <div class="panel-heading compact">
-            <div>
-              <div class="eyebrow">RANKING OUTPUT</div>
-              <h2>Scored Top 10</h2>
-            </div>
-            <div id="rankSummary" class="rank-summary"></div>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Rank</th><th>Product</th><th>ASIN</th><th>Price</th><th>Rating</th><th>Signal</th></tr></thead>
-              <tbody id="recommendationRows"></tbody>
-            </table>
-          </div>
+      <div class="overview-grid">
+        <section class="panel section-card">
+          <div class="section-heading"><div><div class="eyebrow">RUNTIME & DATA</div><h2>环境与数据健康</h2></div><span id="repoBadge" class="badge">—</span></div>
+          <div id="runtimeFacts" class="fact-grid"></div>
+          <div id="dataHealth" class="data-health"></div>
         </section>
+        <section class="panel section-card">
+          <div class="section-heading"><div><div class="eyebrow">BASELINE COMPARISON</div><h2>官方参考 vs 当前结果</h2></div></div>
+          <div id="metricComparison" class="comparison-grid"></div>
+          <p id="groundTruthBoundary" class="boundary-note"></p>
+        </section>
+      </div>
+
+      <section class="panel section-card">
+        <div class="section-heading">
+          <div><div class="eyebrow">ALGORITHM REGISTRY</div><h2>当前算法层与真实实现状态</h2></div>
+          <span class="muted small">implemented ≠ planned</span>
+        </div>
+        <div id="pipelineRegistry" class="pipeline-registry"></div>
+      </section>
+
+      <section class="panel section-card">
+        <div class="section-heading"><div><div class="eyebrow">LIVE JOBS</div><h2>最近运行</h2></div><button class="ghost-button" data-page-jump="runs">打开运行中心</button></div>
+        <div id="overviewJobs" class="job-list compact-list"></div>
+      </section>
+    </section>
+
+    <section id="sessionsPage" class="page">
+      <div class="workspace">
+        <aside class="sidebar panel">
+          <div class="section-heading">
+            <div><div class="eyebrow">PUBLIC SET</div><h2>会话</h2></div>
+            <span id="sessionCount" class="badge">—</span>
+          </div>
+          <input id="searchInput" class="input" type="search" placeholder="搜索 sample ID 或目标商品">
+          <div class="filter-row">
+            <select id="scenarioFilter" aria-label="场景过滤">
+              <option value="all">全部场景</option><option value="buying">Buying</option>
+              <option value="browsing">Browsing</option><option value="intent_override">Intent Override</option>
+              <option value="boundary">Boundary</option>
+            </select>
+            <select id="resultFilter" aria-label="结果过滤">
+              <option value="all">全部结果</option><option value="hit">Hit</option><option value="miss">Miss</option>
+            </select>
+          </div>
+          <div id="sessionList" class="session-list"></div>
+        </aside>
+
+        <div class="main-column">
+          <div id="emptyState" class="empty-state panel"><div class="loader-ring"></div><h2>准备会话诊断</h2><p>正在加载当前 Agent 与公开模拟器。</p></div>
+          <div id="traceView" class="trace-view hidden">
+            <section class="trace-header panel">
+              <div><div id="traceEyebrow" class="eyebrow"></div><h2 id="traceTitle">Session</h2><p id="traceSubtitle" class="muted"></p></div>
+              <div class="trace-actions"><div id="traceResult" class="result-cluster"></div><button id="refreshTrace" class="secondary-button">重新运行</button><button id="exportTrace" class="ghost-button">导出 Trace</button></div>
+            </section>
+            <section class="debug-warning"><span>PUBLIC LABELS / POST-HOC ONLY</span><p id="observerNote"></p></section>
+            <section class="panel section-card">
+              <div class="section-heading"><div><div class="eyebrow">TIMELINE</div><h2>对话轮次</h2></div><div class="turn-controls"><button id="prevTurn" class="icon-button">←</button><span id="turnLabel">Turn —</span><button id="nextTurn" class="icon-button">→</button></div></div>
+              <div id="turnRail" class="turn-rail"></div>
+            </section>
+            <section class="panel section-card">
+              <div class="section-heading"><div><div class="eyebrow">ACTUAL FORWARD PASS + POST-HOC DIAGNOSTIC</div><h2>Agent 层</h2></div><span id="turnLatency" class="badge">—</span></div>
+              <div id="layerFlow" class="layer-flow"></div>
+            </section>
+            <div class="detail-grid three">
+              <section class="panel section-card"><div class="section-heading"><h2>Conversation I/O</h2></div><div id="conversation"></div></section>
+              <section class="panel section-card"><div class="section-heading"><h2>Agent 实际事件</h2></div><pre id="agentEvents" class="code-view small-code"></pre></section>
+              <section class="panel section-card"><div class="section-heading"><h2>公开诊断上下文</h2></div><div id="targetCard"></div></section>
+            </div>
+            <section class="panel section-card">
+              <div class="section-heading"><div><div class="eyebrow">SCORING OUTPUT</div><h2>合法 Top 10</h2></div><div id="rankSummary" class="muted small"></div></div>
+              <div class="table-wrap"><table><thead><tr><th>Rank</th><th>Product</th><th>ASIN</th><th>BM25 score</th><th>Price</th><th>Rating</th><th>Signal</th></tr></thead><tbody id="recommendationRows"></tbody></table></div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="catalogPage" class="page">
+      <div class="catalog-layout">
+        <section class="panel section-card catalog-list-panel">
+          <div class="section-heading"><div><div class="eyebrow">FROZEN CATALOG / FTS5</div><h2>50,000 商品与检索索引</h2></div><span id="catalogCount" class="badge">—</span></div>
+          <div class="search-row"><input id="catalogSearch" class="input" type="search" placeholder="输入商品、类别、品牌或属性"><button id="catalogSearchButton" class="primary-button">搜索</button></div>
+          <div id="indexSummary" class="inline-facts"></div>
+          <div class="table-wrap catalog-table"><table><thead><tr><th>Product</th><th>ASIN</th><th>Category</th><th>Price</th><th>BM25</th></tr></thead><tbody id="catalogRows"></tbody></table></div>
+          <div class="pager"><button id="catalogPrev" class="ghost-button">上一页</button><span id="catalogPageLabel" class="muted small">—</span><button id="catalogNext" class="ghost-button">下一页</button></div>
+        </section>
+        <aside class="panel section-card detail-panel"><div class="section-heading"><div><div class="eyebrow">RAW PRODUCT RECORD</div><h2>商品详情</h2></div></div><pre id="productDetail" class="code-view">选择一个商品查看完整 catalog JSON。</pre></aside>
+      </div>
+    </section>
+
+    <section id="runsPage" class="page">
+      <div class="run-grid">
+        <section class="panel section-card">
+          <div class="section-heading"><div><div class="eyebrow">CONTROL PLANE</div><h2>固定、安全的开发动作</h2></div></div>
+          <p class="muted">只允许运行仓库单元测试和官方公开 evaluator；网页不会执行任意 shell 命令，也不会修改 evaluator 或公开标签。</p>
+          <div class="control-buttons"><button class="primary-button" data-action="evaluation">运行完整评测</button><button class="secondary-button" data-action="tests">运行所有测试</button><button id="cancelJob" class="ghost-button danger">取消活动任务</button></div>
+          <div id="runJobs" class="job-list"></div>
+        </section>
+        <section class="panel section-card log-panel">
+          <div class="section-heading"><div><div class="eyebrow">LIVE OUTPUT</div><h2>任务日志</h2></div><span id="jobProgressLabel" class="badge">—</span></div>
+          <div class="progress-track"><div id="jobProgress" class="progress-fill"></div></div>
+          <pre id="jobLogs" class="code-view log-view">尚未运行任务。</pre>
+        </section>
+      </div>
+      <section class="panel section-card">
+        <div class="section-heading"><div><div class="eyebrow">EXPERIMENT REGISTRY</div><h2>结果历史与基线差异</h2></div></div>
+        <div id="experimentsTable" class="table-wrap"></div>
+      </section>
+    </section>
+
+    <section id="labPage" class="page">
+      <div class="lab-layout">
+        <section class="panel section-card chat-panel">
+          <div class="section-heading"><div><div class="eyebrow">MANUAL AGENT PLAYGROUND</div><h2>直接体验当前 Agent</h2></div><button id="labReset" class="secondary-button">新会话</button></div>
+          <div id="labHistory" class="lab-history"><div class="empty-row">点击“新会话”，然后输入购物需求。</div></div>
+          <form id="labForm" class="lab-form"><input id="labInput" class="input" autocomplete="off" placeholder="例如：I need comfortable black running shoes"><button class="primary-button" type="submit">发送</button></form>
+        </section>
+        <aside class="panel section-card"><div class="section-heading"><div><div class="eyebrow">TRACE EVENTS</div><h2>最近一轮算法数据</h2></div></div><pre id="labEvents" class="code-view">尚无事件。</pre></aside>
+      </div>
+    </section>
+
+    <section id="docsPage" class="page">
+      <div class="docs-layout">
+        <aside class="panel section-card docs-list-panel">
+          <div class="section-heading"><div><div class="eyebrow">KNOWLEDGE BASE</div><h2>项目资料库</h2></div></div>
+          <input id="documentSearch" class="input" type="search" placeholder="筛选文档">
+          <div id="documentList" class="document-list"></div>
+        </aside>
+        <section class="panel section-card document-viewer"><div class="section-heading"><div><div id="documentGroup" class="eyebrow">DOCUMENT</div><h2 id="documentTitle">选择一份文档</h2></div><span id="documentPath" class="badge">—</span></div><pre id="documentContent" class="code-view document-content">这里会显示 README、开发流程、实现记录、官方协议与本地规划。</pre></section>
       </div>
     </section>
   </main>
+
+  <div id="toast" class="toast hidden"></div>
   <script src="/app.js"></script>
 </body>
 </html>

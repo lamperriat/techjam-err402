@@ -14,11 +14,11 @@ This tracked document records what the repository actually implements, how it re
 
 | Item | Current state |
 | --- | --- |
-| Implementation commit audited | `8f9e64d` (`feat: add reliable baseline and layer observer`) |
+| Implementation version audited | Working tree on `367f1bf`; Agent Workbench v2 changes are pending commit |
 | Official baseline included | `34078351e1c3615e5505a2e829600b56a542e462` via merge `1496fec` |
 | Base | Official TechJam conversational-search participant kit |
 | Executable approach | Stateless, current-message-only SQLite FTS5/BM25 |
-| Participant extensions | OpenAI-compatible JSON client/token accounting, optional injection, and local Layer Observer |
+| Participant extensions | Optional OpenAI-compatible client, versioned trace events, and local Agent Workbench |
 | LLM used for retrieval/ranking | No |
 | Multi-turn intent state | Not implemented |
 | Clarification policy | Not implemented; `ask_attribute` is always `null` |
@@ -27,6 +27,9 @@ This tracked document records what the repository actually implements, how it re
 | Local catalog | Present and verified: 50,000 unique `parent_asin` values |
 | Current local evaluator result | Reproduced exactly: HR@10 `0.125`, MRR `0.068034`, MTTC `9.81`, TechnicalScore `0.10671` |
 | Offline/no-credential startup | Implemented for default BM25 Agent; optional client may be injected explicitly |
+| Browser development control | Implemented locally: one-click launch, tests/evaluator jobs, catalog/index, experiments, Lab, and docs |
+
+An externally supplied planning note describes a separate “Stateful BM25 phase,” seven state tests, Override/Boundary memory, deterministic reranking, and a clarification policy as already implemented. The referenced sandbox package is not present in this workspace, and none of those Agent capabilities exist in this repository. Treat that material as an unverified design proposal, not current implementation evidence.
 
 ## Repository provenance
 
@@ -96,6 +99,8 @@ File: `starter/agent.py`
 - `respond` rejects a session that has not been reset.
 
 The supplied aggregate user profile is not stored or used. There is no turn history, slot ledger, asked-attribute registry, candidate cache, override version, or session-local personalization.
+
+For development observability, the Agent accepts an optional callback and emits target-blind Session, Parse, Retrieval, Policy, and Output events. The callback is absent in ordinary evaluator construction. SQLite access is protected by a re-entrant lock and permits Workbench access from its local server thread; candidate-count diagnostics run only when tracing is enabled.
 
 ### Query processing and retrieval
 
@@ -175,7 +180,7 @@ Important boundaries:
 
 ### Tests currently present
 
-Files: `tests/test_agent.py`, `tests/test_evaluator.py`, `tests/test_llm_client.py`
+Files: `tests/test_agent.py`, `tests/test_evaluator.py`, `tests/test_llm_client.py`, `tests/test_observer.py`
 
 Current tests cover:
 
@@ -186,9 +191,12 @@ Current tests cover:
 - no-credential Agent startup, zero usage, and injected-client usage reporting;
 - recommendation validity, deduplication, and order;
 - miss-as-turn-11 metric behavior;
-- evaluator derivation of hidden fields from product metadata.
+- evaluator derivation of hidden fields from product metadata;
+- versioned Agent events, opaque replay IDs, and post-response target diagnostics;
+- Workbench catalog, Lab, background evaluator, and result persistence;
+- HTTP route behavior and exclusive loopback listener binding.
 
-There are no focused unit tests yet for actual BM25 ranking, strict API schema, multi-turn state, Override, Boundary, constraints, hybrid retrieval, reranking, deterministic repeated evaluation, timeout, latency, or peak memory. Full-catalog construction and the 200-session evaluator are covered by recorded manual verification rather than unit tests.
+There are no focused tests yet for full-catalog ranking stability, strict response-schema rejection, multi-turn state, Override, Boundary, constraints, hybrid retrieval, reranking, deterministic repeated evaluation, timeout, latency, or peak memory. Full-catalog construction and the 200-session evaluator are covered by recorded functional verification rather than unit tests.
 
 ### Configuration and supporting artifacts
 
@@ -257,12 +265,27 @@ Scenario results were Boundary HR `0.0`, Browsing HR `0.025`, Buying HR `0.2375`
 1. Current-message-only retrieval loses category/context after clarification replies and cannot invalidate old override preferences.
 2. The fixed null question policy cannot obtain simulator information in Browsing or Boundary sessions.
 3. The observer exposes per-turn candidate survival, but the Agent still lacks a strict output guard before evaluator normalization.
-4. There is no controlled resource/repeatability/offline benchmark or experiment manifest.
+4. Timestamped evaluator manifests now record Git state, data/source hashes, runtime/evaluation settings, functional elapsed time, and metrics. There is still no controlled repeatability/offline resource benchmark, peak RSS record, or optional-model artifact fingerprint.
 5. Dependencies have lower bounds but no upper bounds or lockfile; the resolved environment is not yet portable evidence.
 6. The official `upstream` is configured, but periodic rule/source checks are not automated.
 7. Judging materials conflict: Official Rules specify four equally weighted Stage Two criteria, while the local brief records 35/20/20/15/10; the Rules-first interpretation is documented, but the organizer should still clarify the Track/final mapping.
 
 ## Change log
+
+### 2026-08-27 — Agent Workbench and browser control plane
+
+- Upgraded the read-only session viewer into a loopback-only local Workbench with Overview, Session Diagnostics, Catalog & Index, Runs & Experiments, interactive Lab, and Documents pages.
+- Added `Start Observer.vbs` for hidden `pythonw.exe` launch through the existing `tiktok` environment, plus a command-file fallback and an in-page shutdown action. The one-click path was exercised successfully against the real 50,000-product catalog.
+- Added project-identity checking in the launcher, loaded-vs-disk Agent/evaluator source fingerprints, and stale-runtime blocking so a long-running server cannot silently evaluate old imported code after an edit.
+- Added versioned, target-blind Agent trace events for actual session, parse, retrieval, policy, and output execution. Public replays now pass an opaque random session ID rather than `sample_id`.
+- Moved target-rank diagnosis after `Agent.respond` and labelled it post-hoc. The UI now shows the actual `reset-only / stateless baseline` state instead of presenting simulator disclosure as Agent memory.
+- Added catalog/FTS5 search, complete product JSON, index metadata and weights, data hashes, Git/runtime health, an honest implemented/planned algorithm registry, output validation/miss codes, trace export, and a read-only allowlisted document/source library.
+- Added fixed background jobs for repository tests and the official public evaluator, including progress, cancellation, logs, bounded shutdown waiting, result refresh, and ignored microsecond-versioned experiment manifests. No arbitrary shell endpoint was added.
+- Added per-instance API control tokens, loopback Host/Origin and browser-site checks, JSON-only mutation bodies, CSP/frame protections, and Windows exclusive-port binding.
+- Added a target-free manual Agent Lab using the same reset/respond contract and actual trace events.
+- Added Workbench/API/opaque-session/background-evaluation/Windows-listener tests; all 16 repository tests pass.
+- Ran the final browser-controlled 200-session evaluator with a fresh Agent index and source/data fingerprints. It completed in 38.259 seconds and exactly preserved HR@10 `0.125`, MRR `0.068034`, MTTC `9.81`, Efficiency `0.119`, TechnicalScore `0.10671`, and zero tokens. This elapsed value is a functional-run observation, not a controlled benchmark.
+- Verified real overview, catalog, document, trace, Lab, test-job, and evaluation-job APIs and inspected 1600×1000 and 1800×1200 headless Chromium renders.
 
 ### 2026-08-27 — `pre` branch and official baseline alignment
 
