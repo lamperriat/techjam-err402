@@ -14,10 +14,11 @@ This tracked document records what the repository actually implements, how it re
 
 | Item | Current state |
 | --- | --- |
-| Project commit audited | `914879c354395b2da908411ecfc09c0ab293650e` |
+| Implementation commit audited | `8f9e64d` (`feat: add reliable baseline and layer observer`) |
+| Official baseline included | `34078351e1c3615e5505a2e829600b56a542e462` via merge `1496fec` |
 | Base | Official TechJam conversational-search participant kit |
 | Executable approach | Stateless, current-message-only SQLite FTS5/BM25 |
-| Participant extension | OpenAI-compatible JSON client and token accounting |
+| Participant extensions | OpenAI-compatible JSON client/token accounting, optional injection, and local Layer Observer |
 | LLM used for retrieval/ranking | No |
 | Multi-turn intent state | Not implemented |
 | Clarification policy | Not implemented; `ask_attribute` is always `null` |
@@ -29,7 +30,7 @@ This tracked document records what the repository actually implements, how it re
 
 ## Repository provenance
 
-This repository is a participant-derived version of the official [TechJam conversational search kit](https://github.com/TechJam2026/techjam-conversational-search), not a clean copy of its current `main` branch.
+This repository is a participant-derived version of the official [TechJam conversational search kit](https://github.com/TechJam2026/techjam-conversational-search), not a pristine copy. The `pre` branch now incorporates the current official `main` commit as an ancestor while retaining participant work.
 
 The provenance is confirmed at Git object level:
 
@@ -44,12 +45,24 @@ The provenance is confirmed at Git object level:
 
 914879c354395b2da908411ecfc09c0ab293650e
   feat: add llm client
-  Participant commit and current audited project HEAD
+  Earlier participant extension
+
+34078351e1c3615e5505a2e829600b56a542e462
+  Clarify TechnicalScore judging role
+  Current official upstream/main at verification time
+
+8f9e64d
+  feat: add reliable baseline and layer observer
+  Current implementation commit
+
+1496fec
+  Merge remote-tracking branch 'upstream/main' into pre
+  Establishes official 3407835 as an ancestor of pre
 ```
 
-The official repository later added `34078351e1c3615e5505a2e829600b56a542e462`, clarifying that TechnicalScore is an objective input to Technical Execution rather than a separate judging criterion or the whole Technical Execution score. This wording has now been synchronized into this checkout's README and competition specification without changing the evaluator.
+The official repository later added `34078351e1c3615e5505a2e829600b56a542e462`, clarifying that TechnicalScore is an objective input to Technical Execution rather than a separate judging criterion or the whole Technical Execution score. That commit is now merged into `pre`; it does not change the evaluator.
 
-The current `origin` is `https://github.com/lamperriat/techjam-err402.git`; no official `upstream` remote is configured. The GitHub UI fork relationship was not independently established, but the identical root and second commit objects prove source-tree ancestry.
+The participant remote is `origin=https://github.com/lamperriat/techjam-err402.git`, and the official source is configured as `upstream=https://github.com/TechJam2026/techjam-conversational-search.git`. The GitHub UI fork relationship was not independently established, but identical commit objects and the successful upstream merge prove source-tree ancestry.
 
 The official repository content matches the Shopping Copilot task through its 50,000-product catalog, 200/800 sessions, four scenarios, 10-turn protocol, exact `parent_asin` scoring, Agent API, and evaluator. The official kit itself does not contain the literal numeric label “Task 4,” so that number should be cross-checked against the event page.
 
@@ -193,7 +206,7 @@ There are no focused unit tests yet for actual BM25 ranking, strict API schema, 
 | --- | --- | --- |
 | Export `Agent.reset` and `Agent.respond` | Implemented | Correct method shapes |
 | Return message/ask/recommendations | Implemented | `ask_attribute` always null |
-| Use catalog-valid exact IDs | Implemented; one full-catalog smoke query verified 10 results | Full 200-session evaluation still pending |
+| Use catalog-valid exact IDs | Implemented and verified across the full 200-session public evaluation | Evaluator still normalizes invalid/duplicate outputs defensively |
 | Return no more than scored Top 10 | Implemented under official `top_k=10` | SQL limit uses input `top_k` |
 | Preserve frozen catalog | Implemented | Reads catalog; does not mutate it |
 | Support up to 10 turns | Interface-compatible but stateless | Turn argument is unused |
@@ -205,7 +218,7 @@ There are no focused unit tests yet for actual BM25 ranking, strict API schema, 
 | Declared external dependencies | Partially implemented | Requirements exist; no lock/upper bound |
 | Token disclosure | Implemented for SDK calls | Agent currently makes no calls |
 | Latency/cost/fallback disclosure | Not yet implemented | Required before submission |
-| Reproducible one-command run | Verified with explicit process-local placeholder LLM config | Mandatory nonempty key/model remains a startup regression |
+| Reproducible one-command run | Verified without LLM environment variables | Run from the repository root with the existing environment |
 | UI/multimodal/heavy vector DB avoidance | Aligned | None are present |
 
 ## Competition timing and compliance status
@@ -243,13 +256,20 @@ Scenario results were Boundary HR `0.0`, Browsing HR `0.025`, Buying HR `0.2375`
 
 1. Current-message-only retrieval loses category/context after clarification replies and cannot invalidate old override preferences.
 2. The fixed null question policy cannot obtain simulator information in Browsing or Boundary sessions.
-3. No strict output guard or per-turn candidate-survival trace exists before evaluator normalization.
+3. The observer exposes per-turn candidate survival, but the Agent still lacks a strict output guard before evaluator normalization.
 4. There is no controlled resource/repeatability/offline benchmark or experiment manifest.
 5. Dependencies have lower bounds but no upper bounds or lockfile; the resolved environment is not yet portable evidence.
-6. Only the participant `origin` is configured, so official rule updates are easy to miss.
+6. The official `upstream` is configured, but periodic rule/source checks are not automated.
 7. Judging materials conflict: Official Rules specify four equally weighted Stage Two criteria, while the local brief records 35/20/20/15/10; the Rules-first interpretation is documented, but the organizer should still clarify the Track/final mapping.
 
 ## Change log
+
+### 2026-08-27 — `pre` branch and official baseline alignment
+
+- Created `pre` from the participant `main` while preserving all intended implementation work.
+- Configured the official repository as `upstream` and fetched its current `main` at `3407835`.
+- Confirmed the histories share official commits `2a6cc8e` and `9a35be5`, then merge-aligned `pre` so `3407835` is an explicit ancestor.
+- Kept the ignored catalog, release assets, evaluator output, internal plan, current-architecture snapshot, and caches outside the commit.
 
 ### 2026-08-27 — Local Agent Layer Observer
 
