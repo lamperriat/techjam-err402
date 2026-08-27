@@ -7,6 +7,7 @@ Last updated: 2026-08-28 SGT.
 ## Current verified P1 implementation
 
 - Branch: `p1-generalization`
+- P1 implementation commit: `abae926` (`feat: add generalization gate and robust intent state`)
 - P1 parent checkpoint: `66cb1cf` (`docs: finalize integration verification`)
 - Stateful Agent integration: `5fed7a7` (`feat: integrate stateful sparse shopping agent`)
 - Workbench baseline: `f4e435b` (`feat: add agent layer workbench`)
@@ -239,7 +240,7 @@ The current implementation should be described as a **versioned stateful sparse 
 
 ## Change history
 
-### 2026-08-27 — P1 generalization and intent-state reliability (`p1-generalization`)
+### 2026-08-28 — P1 generalization and intent-state reliability (`abae926`)
 
 - Added frozen target-blind development/challenge/audit phrase suites and deterministic public-target-disjoint derived sessions.
 - Recorded pre-change failures before expanding parser recognition, preserving a causal before/after comparison.
