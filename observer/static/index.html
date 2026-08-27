@@ -39,8 +39,8 @@
       <div class="hero panel">
         <div>
           <div class="eyebrow">CURRENT IMPLEMENTATION TRUTH</div>
-          <h2>当前是真实可运行的状态化稀疏融合 Agent</h2>
-          <p>已完成可审计的会话状态、固定澄清策略、双路 BM25 与加权 RRF；候选感知澄清、结构化过滤、dense retrieval 和 semantic reranker 仍待验证。</p>
+          <h2>当前是真实可运行的状态化稀疏融合 + 属性重排 Agent</h2>
+          <p>已完成可审计的会话状态、双路 BM25、加权 RRF，以及可切换的目标盲属性 reranker（off / shadow / active）；候选感知澄清与 dense retrieval 仍待验证。</p>
           <p id="codeFreshness" class="boundary-note hidden"></p>
         </div>
         <div class="hero-actions">
@@ -121,7 +121,7 @@
             </div>
             <section class="panel section-card">
               <div class="section-heading"><div><div class="eyebrow">SCORING OUTPUT</div><h2>合法 Top 10</h2></div><div id="rankSummary" class="muted small"></div></div>
-              <div class="table-wrap"><table><thead><tr><th>Rank</th><th>Product</th><th>ASIN</th><th>Fusion score</th><th>Price</th><th>Rating</th><th>Signal</th></tr></thead><tbody id="recommendationRows"></tbody></table></div>
+              <div class="table-wrap"><table><thead><tr><th>Rank</th><th>Product</th><th>ASIN</th><th>Route score</th><th>Price</th><th>Rating</th><th>Signal</th></tr></thead><tbody id="recommendationRows"></tbody></table></div>
             </section>
           </div>
         </div>

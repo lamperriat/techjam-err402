@@ -94,19 +94,20 @@ function renderOverview() {
   const overview = state.overview;
   if (!overview) return;
   const repository = overview.repository || {};
-  $("#repoBadge").textContent = `${repository.branch || "no git"} @ ${repository.commit || "—"}${repository.dirty ? " · dirty" : ""}`;
+  const rerankMode = overview.runtime?.rerank_mode || "off";
+  $("#repoBadge").textContent = `${repository.branch || "no git"} @ ${repository.commit || "—"}${repository.dirty ? " · dirty" : ""} · rerank ${rerankMode}`;
   const runtime = overview.runtime;
   const sourceState = overview.source_state || { restart_required: false, files: {} };
   const agentSource = (sourceState.files || {}).agent || {};
   $("#runtimeFacts").innerHTML = [
     ["Python", runtime.python], ["SQLite", runtime.sqlite], ["初始化", `${fmt(runtime.initialization_seconds, 2)} s`],
-    ["Trace schema", runtime.trace_schema], ["网络", runtime.network_required ? "required" : "offline"], ["进程", runtime.executable],
+    ["Trace schema", runtime.trace_schema], ["Rerank mode", rerankMode], ["网络", runtime.network_required ? "required" : "offline"], ["进程", runtime.executable],
     ["Loaded Agent", agentSource.loaded_sha256 ? `${agentSource.loaded_sha256.slice(0, 12)}…` : "unavailable"],
   ].map(([label, value]) => `<div class="fact"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`).join("");
   const freshness = $("#codeFreshness");
   freshness.classList.toggle("hidden", !sourceState.restart_required);
   freshness.textContent = sourceState.restart_required
-    ? "检测到 Agent/evaluator/generalization 源码或已加载的 catalog/public set 在 Workbench 启动后发生变化。为防止混用新旧代码或数据产生假实验，请先停止并重新双击 Start Observer.vbs；评测、泛化、重放和 Lab 已锁定。"
+    ? "检测到 Agent/attributes/reranker/evaluator/generalization 源码或已加载的 catalog/public set 在 Workbench 启动后发生变化。为防止混用新旧代码或数据产生假实验，请先停止并重新双击 Start Observer.vbs；评测、泛化、重放和 Lab 已锁定。"
     : "";
   $$('[data-action="evaluation"], [data-action="generalization"]').forEach(button => { button.disabled = sourceState.restart_required; });
   [$("#refreshTrace"), $("#labReset"), $("#labInput")].forEach(element => {
@@ -131,7 +132,7 @@ function renderOverview() {
   }).join("");
   $("#pipelineRegistry").innerHTML = overview.pipeline.map((item, index) => `
     <article class="pipeline-card ${esc(item.status.replace(" ", "-"))}">
-      <div class="pipeline-number">${String(index + 1).padStart(2, "0")}</div><div><h3>${esc(item.layer)}</h3><p>${esc(item.detail)}</p><small>${esc(item.source || "no runtime module")}</small></div><span class="status-label">${esc(item.status)}</span>
+      <div class="pipeline-number">${String(index + 1).padStart(2, "0")}</div><div><h3>${esc(item.layer)}</h3><p>${esc(item.detail)}</p><small>${esc(item.source || "no runtime module")}</small></div><span class="status-label">${esc(item.status)}${item.mode ? ` · ${esc(item.mode)}` : ""}</span>
     </article>`).join("");
   const index = overview.index;
   $("#indexSummary").innerHTML = [
@@ -226,6 +227,11 @@ function renderTurn() {
   const policy = eventData(turn, "policy");
   const output = eventData(turn, "output");
   const posthocRank = turn.retrieval.posthoc_target_rank;
+  const routeCounts = turn.retrieval.route_counts || retrieval.route_counts || {};
+  const mode = turn.retrieval.rerank_mode || state.trace.rerank_mode || "off";
+  const rerank = retrieval.rerank || {};
+  const targetBreakdown = turn.retrieval.target_rerank_breakdown || {};
+  const targetEvidence = (targetBreakdown.matched_evidence || []).join(", ") || "no normalized match";
   $("#turnLabel").textContent = `Turn ${turn.turn} / ${state.trace.turns.length}`;
   $("#turnLatency").textContent = `${fmt(turn.elapsed_ms, 1)} ms · tokens ${(turn.usage.prompt_tokens || 0) + (turn.usage.completion_tokens || 0)}`;
   $("#prevTurn").disabled = state.turnIndex === 0;
@@ -239,10 +245,11 @@ function renderTurn() {
     layerCard(1, "Input", esc(turn.user_message), `turn ${turn.turn}`),
     layerCard(2, "Parse", terms, `broad ${parse.fts_expression || "empty"} · strict ${parse.strict_fts_expression || "empty"}`),
     layerCard(3, "Agent state", esc(session.memory_mode || "No state event"), `v${session.version ?? 1} · ${(session.active_terms || []).length} active terms · ${session.override_count || 0} overrides · pending ${esc(session.pending_attribute || "none")}`),
-    layerCard(4, "Retrieval", `${fmt(retrieval.candidate_count ?? turn.retrieval.candidate_count, 0)} fused candidates<br><b>${esc(retrieval.engine || "SQLite FTS5 BM25 + weighted RRF")}</b>`, `broad ${retrieval.route_counts?.broad ?? 0} · strict ${retrieval.route_counts?.strict ?? 0} · ${fmt(output.elapsed_ms, 2)} ms`, posthocRank ? "success" : ""),
-    layerCard(5, "Target annotation", `Broad: <b>${turn.retrieval.target_broad_rank ?? "not found"}</b> · Strict: <b>${turn.retrieval.target_strict_rank ?? "not found"}</b><br>Fused: <b>${posthocRank ?? "not found"}</b> · Top 10: <b>${turn.target_top10_rank ?? "no"}</b>`, "joined after Agent.respond", posthocRank ? "" : "alert", "post-hoc"),
-    layerCard(6, "Policy", `Ask: <b>${esc(policy.ask_attribute ?? turn.ask_attribute ?? "none")}</b><br>${esc(turn.event)}`, policy.reason || "next action"),
-    layerCard(7, "Score", esc(scoreText), `${turn.failure_code} · ${turn.eligible_for_hit ? "eligible" : "blocked"}`, turn.hit ? "success" : "", "derived"),
+    layerCard(4, "Sparse retrieval + fusion", `${fmt(retrieval.candidate_count ?? turn.retrieval.candidate_count, 0)} candidates<br><b>${esc(retrieval.engine || "SQLite FTS5 BM25 + weighted RRF")}</b>`, `broad ${routeCounts.broad ?? 0} · strict ${routeCounts.strict ?? 0} · fused ${routeCounts.fused ?? 0} · ${fmt(output.elapsed_ms, 2)} ms`, posthocRank ? "success" : ""),
+    layerCard(5, "Constraint rerank", `Mode: <b>${esc(mode)}</b> · pool <b>${rerank.pool_size ?? 0}/${rerank.top_n ?? 50}</b><br>Reranked ${routeCounts.reranked ?? routeCounts.fused ?? 0} · Final ${routeCounts.final ?? routeCounts.fused ?? 0}`, `${rerank.scorer_version || "legacy/no scorer"} · ${rerank.attribute_schema_version || "no attribute schema"} · ${retrieval.rerank_affects_output ? "affects output" : "diagnostic only"}`),
+    layerCard(6, "Target annotation", `Broad: <b>${turn.retrieval.target_broad_rank ?? "not found"}</b> · Strict: <b>${turn.retrieval.target_strict_rank ?? "not found"}</b><br>Fused: <b>${turn.retrieval.target_fused_rank ?? "not found"}</b> · Reranked: <b>${turn.retrieval.target_reranked_rank ?? turn.retrieval.target_fused_rank ?? "not found"}</b><br>Final: <b>${posthocRank ?? "not found"}</b> · Top 10: <b>${turn.target_top10_rank ?? "no"}</b><br>Rerank total: <b>${fmt(targetBreakdown.total, 4)}</b> · ${esc(targetEvidence)}`, `joined after Agent.respond · actual route ${turn.retrieval.actual_route || "fused"}`, posthocRank ? "" : "alert", "post-hoc"),
+    layerCard(7, "Policy", `Ask: <b>${esc(policy.ask_attribute ?? turn.ask_attribute ?? "none")}</b><br>${esc(turn.event)}`, policy.reason || "next action"),
+    layerCard(8, "Score", esc(scoreText), `${turn.failure_code} · ${turn.eligible_for_hit ? "eligible" : "blocked"}`, turn.hit ? "success" : "", "derived"),
   ].join("");
   $("#conversation").innerHTML = `
     <div class="bubble user"><span class="bubble-label">SIMULATED USER</span>${esc(turn.user_message)}</div>
@@ -264,10 +271,19 @@ function renderTarget() {
 }
 
 function renderRecommendations(turn, actualResults) {
-  const scoreById = Object.fromEntries(actualResults.map(item => [item.parent_asin, item.fusion_score ?? item.bm25_score]));
-  $("#rankSummary").textContent = `${turn.valid_recommendation_count} valid · post-hoc fused target rank ${turn.retrieval.posthoc_target_rank ?? "not found"}`;
-  $("#recommendationRows").innerHTML = turn.recommendations.map((product, index) => `
-    <tr class="${product.is_target ? "target-row" : ""}"><td class="rank-number">${index + 1}</td><td class="product-name">${esc(product.title)}</td><td class="asin">${esc(product.parent_asin)}</td><td>${fmt(scoreById[product.parent_asin], 6)}</td><td>${product.price == null ? "—" : `$${esc(product.price)}`}</td><td>${product.average_rating ?? "—"}</td><td class="signal">${product.is_target ? "TARGET" : ""}</td></tr>`).join("") || `<tr><td colspan="7" class="empty-row">No valid recommendations</td></tr>`;
+  const evidenceById = Object.fromEntries(actualResults.map(item => [item.parent_asin, item]));
+  const mode = turn.retrieval.rerank_mode || state.trace.rerank_mode || "off";
+  $("#rankSummary").textContent = `${turn.valid_recommendation_count} valid · rerank ${mode} · post-hoc final target rank ${turn.retrieval.posthoc_target_rank ?? "not found"}`;
+  $("#recommendationRows").innerHTML = turn.recommendations.map((product, index) => {
+    const evidence = evidenceById[product.parent_asin] || {};
+    const breakdown = evidence.rerank || {};
+    const score = breakdown.total ?? evidence.fusion_score ?? evidence.bm25_score;
+    const ranks = `F${evidence.fused_rank ?? "—"} → R${evidence.reranked_rank ?? "—"} → Final ${evidence.final_rank ?? index + 1}`;
+    const components = breakdown.total == null
+      ? "rerank not computed"
+      : `prior ${fmt(breakdown.rrf_prior, 2)} · cat ${fmt(breakdown.category_consistency, 2)} · slot ${fmt(breakdown.positive_slot_match, 2)} · exact ${fmt(breakdown.exact_feature_match, 2)} · violation ${fmt(breakdown.negative_violation, 2)}`;
+    return `<tr class="${product.is_target ? "target-row" : ""}"><td class="rank-number">${index + 1}</td><td class="product-name">${esc(product.title)}</td><td class="asin">${esc(product.parent_asin)}</td><td>${fmt(score, 6)}<small>${esc(ranks)}<br>${esc(components)}</small></td><td>${product.price == null ? "—" : `$${esc(product.price)}`}</td><td>${product.average_rating ?? "—"}</td><td class="signal">${product.is_target ? "TARGET" : ""}</td></tr>`;
+  }).join("") || `<tr><td colspan="7" class="empty-row">No valid recommendations</td></tr>`;
 }
 
 async function loadCatalog(reset = false) {
@@ -377,9 +393,10 @@ async function loadExperiments() {
 function renderExperiments() {
   $("#experimentsTable").innerHTML = `<table><thead><tr><th>Experiment</th><th>Created</th><th>HR@10</th><th>MRR</th><th>MTTC</th><th>Score</th><th>Default-suite robust HR</th><th>Scenario HR</th></tr></thead><tbody>${state.experiments.map(item => {
     const metrics = item.metrics || {}; const scenarios = metrics.scenario_metrics || {};
+    const mode = item.implementation?.rerank_mode || "off";
     const robust = item.robustness?.released_public?.all_suites_robust_hit_rate;
     const scenarioText = Object.entries(scenarios).map(([name, values]) => `${scenarioName(name)} ${pct(values.hit_rate_at_10)}`).join(" · ");
-    return `<tr><td class="product-name">${esc(item.label)}</td><td>${esc(item.created_at || "reference")}</td><td>${pct(metrics.hit_rate_at_10)}</td><td>${fmt(metrics.mrr, 4)}</td><td>${fmt(metrics.mttc, 2)}</td><td>${fmt(metrics.recommended_technical_score, 5)}</td><td>${robust == null ? "—" : pct(robust)}</td><td class="small muted">${esc(scenarioText || "—")}</td></tr>`;
+    return `<tr><td class="product-name">${esc(item.label)}<small>rerank ${esc(mode)}</small></td><td>${esc(item.created_at || "reference")}</td><td>${pct(metrics.hit_rate_at_10)}</td><td>${fmt(metrics.mrr, 4)}</td><td>${fmt(metrics.mttc, 2)}</td><td>${fmt(metrics.recommended_technical_score, 5)}</td><td>${robust == null ? "—" : pct(robust)}</td><td class="small muted">${esc(scenarioText || "—")}</td></tr>`;
   }).join("")}</tbody></table>`;
 }
 
@@ -392,7 +409,7 @@ async function reloadResults() {
 async function resetLab() {
   try {
     state.lab = await postJSON("/api/lab/reset");
-    $("#labHistory").innerHTML = `<div class="system-message">新会话 ${esc(state.lab.session_id.slice(-8))} · 当前 Agent 会累积对话约束；可用多轮消息观察状态、改写与稀疏融合变化。</div>`;
+    $("#labHistory").innerHTML = `<div class="system-message">新会话 ${esc(state.lab.session_id.slice(-8))} · rerank ${esc(state.lab.rerank_mode || "off")} · 当前 Agent 会累积对话约束；可用多轮消息观察状态、改写、稀疏融合与属性重排变化。</div>`;
     $("#labEvents").textContent = "等待第一条消息。";
     $("#labInput").focus();
   } catch (error) { toast(error.message, "error"); }
@@ -439,7 +456,7 @@ async function checkHealth() {
   const status = $("#runtimeStatus");
   try {
     const health = await requestJSON("/api/health");
-    status.classList.remove("offline"); status.querySelector("span:last-child").textContent = `${health.branch || "local"} @ ${health.commit || "—"}`;
+    status.classList.remove("offline"); status.querySelector("span:last-child").textContent = `${health.branch || "local"} @ ${health.commit || "—"} · rerank ${health.rerank_mode || "off"}`;
     if (state.overview && health.restart_required !== state.overview.source_state?.restart_required) {
       state.overview = await requestJSON("/api/overview");
       renderOverview();

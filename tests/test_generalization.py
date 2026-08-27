@@ -1,16 +1,20 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 from scripts.evaluate_generalization import (
     AUDIT_RULES,
     CHALLENGE_RULES,
     DEV_RULES,
     PerturbedAgent,
+    _parser,
     _session_changes,
     _suite_names,
     _suite_registry_sha256,
     build_product_disjoint_samples,
+    evaluate_suites,
     perturb_message,
 )
 
@@ -28,6 +32,9 @@ class FakeAgent:
 
 
 class GeneralizationTest(unittest.TestCase):
+    def test_cli_defaults_to_off_reranking(self) -> None:
+        self.assertEqual(_parser().parse_args([]).rerank_mode, "off")
+
     def test_dev_and_challenge_paraphrases_preserve_visible_constraint(self) -> None:
         original = (
             "Actually, ignore my earlier preference. "
@@ -129,6 +136,53 @@ class GeneralizationTest(unittest.TestCase):
         self.assertEqual(changes["official_score_improvement_count"], 1)
         self.assertEqual(changes["later_hit_count"], 1)
         self.assertEqual(changes["rank_improvement_count"], 1)
+
+    def test_suite_runner_propagates_rerank_mode_to_agent(self) -> None:
+        calls: list[dict] = []
+
+        class Connection:
+            def close(self) -> None:
+                pass
+
+        class CapturingAgent:
+            def __init__(self, catalog_path: Path, **kwargs: object) -> None:
+                calls.append({"catalog_path": catalog_path, **kwargs})
+                self.connection = Connection()
+
+        result = {
+            "sample_count": 1,
+            "hit_rate_at_10": 0.0,
+            "mrr": 0.0,
+            "mttc": 11.0,
+            "efficiency": 0.0,
+            "recommended_technical_score": 0.0,
+            "reported_token_usage": {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+            },
+            "scenario_metrics": {},
+            "sessions": [],
+        }
+        with (
+            patch("scripts.evaluate_generalization.Agent", CapturingAgent),
+            patch("scripts.evaluate_generalization.evaluate", return_value=result),
+        ):
+            artifact = evaluate_suites(
+                Path("catalog.jsonl"),
+                [{"sample_id": "sample"}],
+                set(),
+                {},
+                {},
+                [],
+                "fast",
+                "unit",
+                "shadow",
+            )
+
+        self.assertEqual(calls[0]["question_policy"], "fast")
+        self.assertEqual(calls[0]["rerank_mode"], "shadow")
+        self.assertEqual(artifact["sample_count"], 1)
 
 
 if __name__ == "__main__":

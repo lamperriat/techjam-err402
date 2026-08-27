@@ -4,7 +4,7 @@ The Agent Workbench is a local, offline-first development control plane for the 
 
 ## Current truth
 
-The current Agent is a versioned stateful sparse baseline. It accumulates active conversation terms, handles explicit Override and Boundary/no-preference events, retrieves with broad and strict SQLite FTS5/BM25 routes, fuses them with weighted RRF, and uses an auditable heuristic clarification policy.
+The served Agent remains a versioned stateful sparse baseline. It accumulates active conversation terms, handles explicit Override and Boundary/no-preference events, retrieves with broad and strict SQLite FTS5/BM25 routes, fuses them with weighted RRF, and uses an auditable heuristic clarification policy. A normalized product-attribute and deterministic Top-50 constraint reranker is implemented behind `off / shadow / active` modes; `off` is the Agent default and active v1 failed its evaluation gate.
 
 Implemented:
 
@@ -13,6 +13,8 @@ Implemented:
 - target-blind `ParsedTurn` events with broader opener, requirement, no-preference, retry, and conservative override recognition;
 - broad OR Top-120 and strict AND Top-80 field-weighted BM25 routes;
 - deterministic weighted RRF and catalog-backed Top 10 output;
+- target-blind normalized product/constraint evidence and an explainable Top-50 scorer;
+- explicit broad/strict/fused/reranked/final routes with output-safe shadow mode;
 - fast, boundary, and conservative clarification policies;
 - complete public result HR@10 `0.94`, MRR `0.605258`, MTTC `3.375`, and TechnicalScore `0.804077`;
 - optional, versioned development trace events;
@@ -27,7 +29,7 @@ Not implemented in the Agent:
 
 - structured hard filters or safe relaxation;
 - Buying/Browsing routing;
-- normalized slot-level IntentGraph;
+- normalized conversation slot-level IntentGraph;
 - dense retrieval or semantic reranking;
 - candidate-aware clarification;
 - profile-based ranking.
@@ -42,7 +44,7 @@ On this Windows development machine, double-click:
 Start Observer.vbs
 ```
 
-It launches the existing `tiktok` Conda environment through `pythonw.exe`, keeps the console hidden, and opens `http://127.0.0.1:8765`.
+It launches the existing `tiktok` Conda environment through `pythonw.exe`, keeps the console hidden, and opens `http://127.0.0.1:8765`. The one-click development launcher defaults the Workbench to `shadow`, so rerank evidence is visible while the recommendations remain the P1 fused order. This does not change the Agent or evaluator default, which remains `off`.
 
 Fallbacks:
 
@@ -70,8 +72,8 @@ The launcher verifies a project-root fingerprint before reusing port 8765. If an
 - all 200 public sessions with scenario/result filtering;
 - deterministic replay for one public session;
 - actual Agent trace events for session, parse, retrieval, state, policy, and output;
-- per-turn elapsed time, token usage, broad/strict/fused counts, fusion evidence, and normalized Top 10;
-- post-hoc public target broad/strict/fused ranks, hit eligibility, and derived score contribution;
+- per-turn elapsed time, token usage, five-route counts, fusion evidence, normalized attribute/rerank components, and final Top 10;
+- post-hoc public target broad/strict/fused/reranked/final ranks, hit eligibility, and derived score contribution;
 - output malformed/invalid/duplicate diagnostics and a route/fusion-aware miss code;
 - trace refresh and JSON export.
 
@@ -104,7 +106,7 @@ experiments/<timestamp>_generalization/
   results.json
 ```
 
-The manifests record Git state, catalog/dataset and relevant Agent/evaluator/generalization source hashes, runtime settings, functional elapsed time, and metrics so stale results are easier to detect. The generalization result also records the frozen suite registry hash, transformation counts/examples, paired session changes, and derived-corpus seed/sample hash/overlap audit. Elapsed time is a single functional-run observation, not a controlled benchmark.
+The manifests record Git state, selected rerank mode, catalog/dataset and relevant Agent/attributes/reranker/evaluator/generalization source hashes, runtime settings, functional elapsed time, and metrics so stale results are easier to detect. The generalization result also records the frozen suite registry hash, transformation counts/examples, paired session changes, and derived-corpus seed/sample hash/overlap audit. Elapsed time is a single functional-run observation, not a controlled benchmark.
 
 The derived corpus is generated from catalog metadata after excluding every released-public target. It is useful for product-disjoint stress testing, but it is not organizer private data and must not be presented as a hidden-leaderboard estimate.
 
@@ -153,7 +155,7 @@ The Observer uses a fresh random session ID for every replay. The target-rank pr
 - Production Agent code does not import the Observer, evaluator, public dataset, or results.
 - The optional trace callback is absent during normal evaluator runs, so diagnostics do not become ranking features.
 
-The runtime records loaded and on-disk hashes for `starter/agent.py`, the evaluator, the P1 generalization runner, the catalog, and the public set. If any monitored file changes after startup, the page shows a restart warning and blocks evaluation, generalization, every replay, and Lab execution. Background runs recheck those fingerprints before artifact finalization, and manifests use a captured start-of-run provenance snapshot. This prevents the long-running server from mixing imported old code or cached data with later disk files and hashes.
+The runtime records loaded and on-disk hashes for `starter/agent.py`, `starter/attributes.py`, `starter/reranker.py`, the evaluator, the generalization runner, the catalog, and the public set. If any monitored file changes after startup, the page shows a restart warning and blocks evaluation, generalization, every replay, and Lab execution. Background runs recheck those fingerprints before artifact finalization, and manifests use a captured start-of-run provenance snapshot. This prevents the long-running server from mixing imported old code or cached data with later disk files and hashes.
 
 ## HTTP API
 
@@ -190,7 +192,7 @@ The page handles the control token automatically. A manual API client must first
 ## Maintenance contract
 
 - `starter.Agent` may emit target-blind session/parse/retrieval/state/policy/output events through its optional `trace_sink` callback.
-- Events use `schema_version=1.0`; future Agent layers should add events rather than making the UI reimplement private algorithm logic.
+- Events use `schema_version=2.0`; future Agent layers should add events rather than making the UI reimplement private algorithm logic.
 - Every pipeline card must reflect current code, not roadmap intent.
 - Evaluator/scoring semantics stay in `evaluator/local_evaluator.py`; the Workbench imports and invokes them rather than changing that file.
 - New control actions must remain fixed and allowlisted. Do not add an arbitrary command executor.

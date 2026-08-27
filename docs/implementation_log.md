@@ -4,9 +4,13 @@ This tracked document records only code and behavior that exist in the repositor
 
 Last updated: 2026-08-28 SGT.
 
-## Current verified P1 implementation
+## Current verified implementation
 
-- Branch: `p1-generalization`
+- Branch: `p2-attributes-rerank`
+- Frozen P1 head: `02f0741` on `p1-generalization`
+- P2 core implementation: `586f3dd` (`feat: add target-blind shortlist reranker`)
+- Optional dependency isolation: `71383b5` (`build: isolate optional LLM dependencies`)
+- Resource/route benchmark: `38ca016` (`test: add resource and route recall benchmark`)
 - P1 implementation commit: `abae926` (`feat: add generalization gate and robust intent state`)
 - P1 parent checkpoint: `66cb1cf` (`docs: finalize integration verification`)
 - Stateful Agent integration: `5fed7a7` (`feat: integrate stateful sparse shopping agent`)
@@ -36,6 +40,39 @@ Compared with the independently verified v0.6 handoff result, Hit Rate@10 and MR
 The pre-integration Workbench checkpoint reproduced the official weak baseline at HR@10 `0.125`, MRR `0.068034`, MTTC `9.81`, Efficiency `0.119`, and TechnicalScore `0.10671`. The current gain therefore comes from the stateful sparse Agent integration, not from the browser observer.
 
 These are public-development metrics, not a claim about the private 800 sessions.
+
+## P2 shortlist-reranker evaluation
+
+P2 adds an explicitly gated `off / shadow / active` rerank mode. The default remains
+`off`; neither the released evaluator nor the normal Agent path activates an unproven
+scorer.
+
+- `off`: the complete 200-session result strictly matches frozen P1, including every
+  session row and list order.
+- `shadow`: computes normalized attributes and Top-50 scores but serves the original
+  fused order. Its complete evaluator JSON strictly matches `off`.
+- `active`: serves the experimental reranked order. The first frozen-weight run was
+  rejected by the public gate.
+
+| Mode | HR@10 | MRR | MTTC | TechnicalScore | Decision |
+| --- | ---: | ---: | ---: | ---: | --- |
+| off / frozen P1 | 0.940000 | 0.605258 | 3.375000 | 0.804077 | retained default |
+| shadow | 0.940000 | 0.605258 | 3.375000 | 0.804077 | diagnostic only |
+| active v1 | 0.930000 | 0.599974 | 3.430000 | 0.796392 | rejected |
+
+Active v1 caused two baseline hit-to-miss regressions and reduced Buying HR from
+`0.925` to `0.900`; it produced no compensating overall gain. Post-hoc diagnosis showed
+that incomplete attribute coverage can incorrectly promote products with explicit
+metadata above otherwise strong sparse matches. For example, one target's cotton/color
+evidence existed only in the catalog description, which the conservative v1 extractor
+does not treat as normalized attribute evidence. This is recorded as a failed
+experiment, not presented as an improvement. Because the public activation gate failed,
+active v1 was not advanced to the more expensive generalization and resource gates.
+
+The preliminary shadow end-to-end run took `36.816` seconds versus the P1 two-run total
+baseline of approximately `23.5–23.6` seconds. This single comparison is about `1.57x`
+and slightly exceeds the planned `1.5x` gate; a controlled P2 resource artifact is still
+required before any future activation.
 
 ## Implemented Agent behavior
 
@@ -92,7 +129,31 @@ score(d) = I_b(d) / (60 + broad_rank)
          + 1.8 * I_s(d) / (20 + strict_rank)
 ```
 
-Ties use broad rank and then `parent_asin`. The response returns the first `min(top_k, 10)` fused IDs.
+Ties use broad rank and then `parent_asin`. The response returns the first
+`min(top_k, 10)` IDs from the explicit `final` route. In the default `off` mode and in
+`shadow`, `final` is an unchanged copy of `fused`.
+
+### Normalized attributes and shortlist reranking
+
+`starter/attributes.py` builds immutable, target-blind product and visible-conversation
+views. The first frozen schema normalizes category, audience, material, color, closure,
+style, use case, size, width, brand, price, and atomic feature phrases; records source,
+confidence, and raw evidence; filters numeric/generic catalog noise; and uses no public
+labels, sample IDs, target IDs, profile priors, network calls, or evaluator imports. Its
+registry SHA-256 is
+`1d85fc42f49fd9374238d98b8feaeab8d76269b0987740256fe60e666757d2ca`.
+
+`starter/reranker.py` is a deterministic pure scorer over the fused Top 50. It exposes
+RRF prior, category consistency, positive slot match, exact feature match, negative
+violation, total score, and matched evidence. Missing values remain unknown rather than
+violations. It never mutates the original fused list and always appends candidates below
+the Top-50 pool in their original order.
+
+The Agent exposes five auditable routes: `broad`, `strict`, `fused`, `reranked`, and
+`final`. `off` skips attribute scoring; `shadow` computes it without changing output;
+`active` uses it only when explicitly requested. A bounded 10,000-view LRU cache avoids
+re-extracting common shortlist products. Target-blind debug diagnostics expose all
+component scores; the Observer joins public targets only after `respond` returns.
 
 ### Clarification policy
 
@@ -110,7 +171,11 @@ The selected policy can be passed to `Agent` or set with `TECHJAM_QUESTION_POLIC
 
 The default Agent does not import, construct, or call an LLM client. An explicitly injected compatible client is used only to consume and report token usage; it does not currently parse intent, retrieve, rerank, or write response prose.
 
-`utils/llm_client.py` remains available for measured future experiments and is covered by configuration, JSON-response, error, and usage tests.
+`utils/llm_client.py` remains available for measured future experiments and is covered by
+configuration, JSON-response, error, and usage tests. Core execution uses the stdlib-only
+`requirements.txt`; optional OpenAI and dotenv packages are isolated in
+`requirements-llm.txt`. Agent/evaluator imports were verified under `python -S` without
+site packages.
 
 ## Implemented Agent Workbench
 
@@ -135,9 +200,15 @@ The Agent can emit optional versioned, target-blind events for:
 session -> parse -> retrieval -> state -> policy -> output
 ```
 
-Retrieval events expose broad/strict/fused counts, the weighted-RRF formula, and actual Top-10 route evidence. State events expose only information derived from the profile and conversation.
+Retrieval events expose broad/strict/fused/reranked/final counts, the weighted-RRF
+formula, rerank mode/version/cache data, and raw-fused/reranked/final Top-10 evidence.
+State events expose only information derived from the profile and conversation.
 
-For a public replay, the Observer calls `Agent.respond` with a random UUID session. Only after the response does it compare the target with target-blind `debug_rankings` route IDs to compute broad, strict, fused, and Top-10 target ranks. Target, scenario, intent card, behavior, prior result, and public sample ID are never passed into Agent decision features.
+For a public replay, the Observer calls `Agent.respond` with a random UUID session. Only
+after the response does it compare the target with target-blind route IDs and component
+diagnostics. It records broad, strict, fused, reranked, and final ranks; `final` is the
+actual output route. Target, scenario, intent card, behavior, prior result, and public
+sample ID are never passed into Agent decision features.
 
 Completed replays and evicted Lab sessions release Agent and recorder state.
 
@@ -201,9 +272,10 @@ This replaces the handoff comparator behavior that printed aggregate deltas but 
 
 ## Verification completed
 
-- 55 Python unit/integration tests pass.
-- Agent tests cover accumulation, natural openers/requirements/no-preference, pending-question interruption, category changes, negative phrases and false negations, false override prevention, first/repeated/selective overrides, Boundary exhaustion, question policies, broad/strict/fused routes, output cap/final turn, optional usage, and target-blind trace events.
-- Generalization tests cover phrase payload preservation, adapter input isolation, and deterministic stratified public-target-disjoint generation.
+- 94 Python unit/integration tests pass.
+- Agent tests cover accumulation, natural openers/requirements/no-preference, pending-question interruption, category changes, negative phrases and false negations, false override prevention, first/repeated/selective overrides, Boundary exhaustion, question policies, five ranking routes, mode safety, output cap/final turn, optional usage, and target-blind trace/component diagnostics.
+- Attribute/reranker tests cover normalization boundaries, immutable provenance, unknown values, source confidence, noise removal, scorer arithmetic, negative penalties, deterministic ties, immutable fused input, Top-50 scope, and untouched tails.
+- Generalization tests cover phrase payload preservation, adapter input isolation, deterministic stratified public-target-disjoint generation, and rerank-mode propagation.
 - Comparator tests cover formatting/line-ending equality, session-level mismatch, missing keys/list order, and invalid JSON.
 - Existing evaluator, LLM client, Workbench replay, catalog/Lab/background evaluation, HTTP token/cross-site, and exclusive-listener tests pass. A controlled fake-process orchestration test also covers the fixed generalization command, six-step progress, evaluation mutex, result/manifest parsing, source provenance, and stale-source rejection.
 - `node --check observer/static/app.js` passes.
@@ -233,12 +305,28 @@ Documentation must therefore say “official scoring behavior preserved,” not 
 5. Clarification uses a fixed order, not candidate entropy or expected information gain.
 6. No explicit Buying/Browsing router is implemented; hidden scenario labels are never available to the Agent.
 7. Profile data is stored but not used for personalization.
-8. There is no structured hard filter/relaxation ledger, dense retrieval, learned reranker, or semantic reranker.
-9. Full controlled latency, P95, peak RSS, repeated no-network, and dependency-lock evidence are not yet recorded.
+8. There is no structured hard filter/relaxation ledger, dense retrieval, learned reranker, or semantic reranker. A deterministic constraint scorer exists, but active v1 failed its gate and remains disabled by default.
+9. P1 has a two-run no-key resource/route baseline; P2 shadow has only a preliminary wall-time observation and still needs a controlled repeated RSS/P95 artifact if a future scorer passes the public gate.
 
-The current implementation should be described as a **versioned stateful sparse retrieval and weighted-RRF baseline with heuristic clarification**, not as the complete IntentGraph target architecture.
+The current served implementation should be described as a **versioned stateful sparse
+retrieval and weighted-RRF baseline with heuristic clarification, plus a disabled/shadow
+normalized-attribute rerank experiment**, not as the complete IntentGraph target
+architecture.
 
 ## Change history
+
+### 2026-08-28 — P2 normalized attributes and gated rerank (`586f3dd`)
+
+- Added catalog-only normalized attribute views and visible-dialogue-only constraint
+  evidence with frozen registries and provenance.
+- Added deterministic Top-50 component scoring with immutable fused order, untouched
+  tail, stable ties, and explicit off/shadow/active/final route semantics.
+- Added target-blind component diagnostics, bounded attribute caching, experiment runners,
+  five-route recall/resource audit, and Workbench visualization/source-stale protection.
+- Expanded the suite from 63 to 94 tests and preserved the P1 result exactly in both off
+  and shadow modes.
+- Rejected active v1 after HR, MRR, MTTC, TechnicalScore, Buying HR, and preliminary
+  resource evidence failed the activation gates; the default remains off.
 
 ### 2026-08-28 — P1 generalization and intent-state reliability (`abae926`)
 

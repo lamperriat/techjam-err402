@@ -37,10 +37,13 @@ from evaluator.local_evaluator import (  # noqa: E402
     materialize_hidden_fields,
 )
 from starter.agent import Agent, SessionState  # noqa: E402
+from starter.attributes import SCHEMA_VERSION as ATTRIBUTE_SCHEMA_VERSION  # noqa: E402
+from starter.reranker import SCORER_VERSION  # noqa: E402
 
 
-SCHEMA_VERSION = "track4-resource-recall-v1"
-ROUTES = ("broad", "strict", "fused")
+SCHEMA_VERSION = "track4-resource-recall-v2"
+RERANK_MODES = ("off", "shadow", "active")
+ROUTES = ("broad", "strict", "fused", "reranked", "final")
 RECALL_CUTOFFS = (10, 20, 50, 80, 120)
 OFFICIAL_METRIC_KEYS = (
     "sample_count",
@@ -354,7 +357,7 @@ def _best_route_rank(
         if capture.turn < eligible_first_turn:
             continue
         try:
-            rank = capture.rankings[route].index(target) + 1
+            rank = capture.rankings.get(route, ()).index(target) + 1
         except ValueError:
             continue
         if best_rank is None or rank < best_rank or (
@@ -407,7 +410,7 @@ def build_route_audit(
         for route in ROUTES:
             observed_route_limits[route] = max(
                 observed_route_limits[route],
-                *(len(item.rankings[route]) for item in eligible_turns),
+                *(len(item.rankings.get(route, ())) for item in eligible_turns),
                 0,
             )
             best[route] = _best_route_rank(
@@ -494,6 +497,7 @@ def run_once(
     *,
     run_number: int,
     question_policy: str,
+    rerank_mode: str = "off",
     scenarios: tuple[str, ...] = (),
     sample_offset: int = 0,
     sample_limit: int = 0,
@@ -526,6 +530,7 @@ def run_once(
             catalog_path,
             llm_client=None,
             question_policy=question_policy,
+            rerank_mode=rerank_mode,
         )
         index_build_seconds = time.perf_counter() - index_started
         index_peak, post_index_rss = sampler.end_stage()
@@ -625,6 +630,7 @@ def build_benchmark(
     *,
     runs: int = 2,
     question_policy: str = "fast",
+    rerank_mode: str = "off",
     scenarios: tuple[str, ...] = (),
     sample_offset: int = 0,
     sample_limit: int = 0,
@@ -639,6 +645,8 @@ def build_benchmark(
         raise ValueError("sample limit must be non-negative (0 means all)")
     if rss_sample_ms <= 0:
         raise ValueError("RSS sampling interval must be positive")
+    if rerank_mode not in RERANK_MODES:
+        raise ValueError(f"rerank mode must be one of: {', '.join(RERANK_MODES)}")
 
     run_results: list[dict[str, Any]] = []
     for run_number in range(1, runs + 1):
@@ -652,6 +660,7 @@ def build_benchmark(
             dataset_path,
             run_number=run_number,
             question_policy=question_policy,
+            rerank_mode=rerank_mode,
             scenarios=scenarios,
             sample_offset=sample_offset,
             sample_limit=sample_limit,
@@ -686,12 +695,22 @@ def build_benchmark(
             "dataset_path": str(dataset_path),
             "dataset_sha256": _sha256(dataset_path),
             "agent_source_sha256": _sha256(PROJECT_ROOT / "starter" / "agent.py"),
+            "attribute_source_sha256": _sha256(
+                PROJECT_ROOT / "starter" / "attributes.py"
+            ),
+            "reranker_source_sha256": _sha256(
+                PROJECT_ROOT / "starter" / "reranker.py"
+            ),
             "evaluator_source_sha256": _sha256(
                 PROJECT_ROOT / "evaluator" / "local_evaluator.py"
             ),
             "benchmark_source_sha256": _sha256(Path(__file__)),
+            "attribute_schema_version": ATTRIBUTE_SCHEMA_VERSION,
+            "reranker_scorer_version": SCORER_VERSION,
             "runs": runs,
             "question_policy": question_policy,
+            "rerank_mode": rerank_mode,
+            "captured_routes": list(ROUTES),
             "scenario_filter": list(scenarios),
             "sample_offset": sample_offset,
             "sample_limit": sample_limit,
@@ -788,6 +807,15 @@ def _parser() -> argparse.ArgumentParser:
         default="fast",
     )
     parser.add_argument(
+        "--rerank-mode",
+        choices=RERANK_MODES,
+        default="off",
+        help=(
+            "Reranker execution mode: off preserves P1, shadow measures without changing "
+            "recommendations, active serves reranked output (default: off)."
+        ),
+    )
+    parser.add_argument(
         "--rss-sample-ms",
         type=float,
         default=10.0,
@@ -808,6 +836,7 @@ def main(argv: list[str] | None = None) -> int:
         args.dataset,
         runs=args.runs,
         question_policy=args.question_policy,
+        rerank_mode=args.rerank_mode,
         scenarios=tuple(dict.fromkeys(args.scenario)),
         sample_offset=args.sample_offset,
         sample_limit=args.sample_limit,

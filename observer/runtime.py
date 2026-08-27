@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import platform
 import sqlite3
 import subprocess
@@ -16,7 +17,12 @@ from typing import Any
 
 from evaluator.local_evaluator import MAX_TURNS, TOP_K, evaluate, normalize_recommendations
 from observer.events import TRACE_SCHEMA_VERSION
-from observer.trace import TraceRunner, _product_view
+from observer.trace import (
+    TraceRunner,
+    _agent_rerank_mode,
+    _create_agent,
+    _product_view,
+)
 from starter.agent import Agent, _terms
 
 
@@ -34,6 +40,12 @@ DOCUMENTS = {
     "plan": ("Internal implementation plan", "docs/internal_plan.md", "Local only"),
     "architecture": ("Current architecture", "docs/current_architecture.md", "Local only"),
     "source_agent": ("Current Agent source", "starter/agent.py", "Source"),
+    "source_attributes": (
+        "Normalized product attributes",
+        "starter/attributes.py",
+        "Source",
+    ),
+    "source_reranker": ("Constraint reranker", "starter/reranker.py", "Source"),
     "source_evaluator": ("Local evaluator (official scoring behavior)", "evaluator/local_evaluator.py", "Source"),
     "source_generalization": (
         "P1 generalization evaluator",
@@ -178,11 +190,14 @@ class WorkbenchRuntime:
         self._lock = threading.RLock()
         self._agent_lock = threading.RLock()
         self._git = self._git_state()
+        self.rerank_mode = _agent_rerank_mode(self.trace_runner.agent)
         self.project_id = hashlib.sha256(
             str(self.project_root).casefold().encode("utf-8")
         ).hexdigest()[:16]
         self._source_paths = {
             "agent": self.project_root / "starter" / "agent.py",
+            "attributes": self.project_root / "starter" / "attributes.py",
+            "reranker": self.project_root / "starter" / "reranker.py",
             "evaluator": self.project_root / "evaluator" / "local_evaluator.py",
             "generalization": self.project_root / "scripts" / "evaluate_generalization.py",
         }
@@ -205,6 +220,7 @@ class WorkbenchRuntime:
         dataset_path: str | Path = "data/public_set.jsonl",
         results_path: str | Path = "results.json",
         project_root: str | Path | None = None,
+        rerank_mode: str | None = None,
     ) -> WorkbenchRuntime:
         started = time.perf_counter()
         root = Path(project_root or Path.cwd()).resolve()
@@ -216,7 +232,12 @@ class WorkbenchRuntime:
         catalog = resolve(catalog_path)
         dataset = resolve(dataset_path)
         results = resolve(results_path)
-        runner = TraceRunner.from_paths(catalog, dataset, results)
+        runner = TraceRunner.from_paths(
+            catalog,
+            dataset,
+            results,
+            rerank_mode=rerank_mode,
+        )
         baseline_path = root / "docs" / "baseline_results.json"
         baseline = (
             json.loads(baseline_path.read_text(encoding="utf-8"))
@@ -263,6 +284,7 @@ class WorkbenchRuntime:
             "commit": self._git.get("commit"),
             "trace_schema": TRACE_SCHEMA_VERSION,
             "project_id": self.project_id,
+            "rerank_mode": self.rerank_mode,
             "restart_required": source_state["restart_required"],
         }
 
@@ -296,7 +318,7 @@ class WorkbenchRuntime:
     def _require_current_source(self) -> None:
         if self._source_state()["restart_required"]:
             raise StaleRuntimeError(
-                "Agent/evaluator source or loaded catalog/dataset changed after Workbench "
+                "Agent/reranker/evaluator source or loaded catalog/dataset changed after Workbench "
                 "startup; restart Workbench before running it"
             )
 
@@ -341,6 +363,7 @@ class WorkbenchRuntime:
                 "trace_schema": TRACE_SCHEMA_VERSION,
                 "network_required": False,
                 "project_id": self.project_id,
+                "rerank_mode": self.rerank_mode,
             },
             "repository": self._git,
             "source_state": self._source_state(),
@@ -392,10 +415,28 @@ class WorkbenchRuntime:
             {"layer": "Session state", "status": "implemented", "detail": "Versioned multi-turn terms, attribute lifecycle, no-preference exhaustion, and selective override anchor", "source": "starter/agent.py"},
             {"layer": "Parsing", "status": "implemented", "detail": "Deterministic category, constraint, negation, override, and attribute-class parsing", "source": "starter/agent.py"},
             {"layer": "Sparse retrieval", "status": "implemented", "detail": "Field-weighted SQLite FTS5 broad OR Top 120 and strict AND Top 80 routes", "source": "starter/agent.py"},
-            {"layer": "Attribute gate", "status": "not implemented", "detail": "No structured hard filtering or relaxation", "source": None},
+            {
+                "layer": "Normalized product attributes",
+                "status": "implemented",
+                "detail": (
+                    "Target-blind normalized category, audience, material, color, closure, "
+                    "style, use-case, size, width, brand, price, and feature evidence"
+                ),
+                "source": "starter/attributes.py",
+            },
             {"layer": "Dense retrieval", "status": "not implemented", "detail": "Roadmap experiment, not an official requirement", "source": None},
             {"layer": "Fusion", "status": "implemented", "detail": "Deterministic weighted RRF over broad and strict sparse routes", "source": "starter/agent.py"},
-            {"layer": "Reranking", "status": "not implemented", "detail": "No learned, cross-encoder, or LLM semantic reranker", "source": None},
+            {
+                "layer": "Constraint reranking",
+                "status": "implemented",
+                "mode": self.rerank_mode,
+                "detail": (
+                    "Deterministic Top-50 reranker is loaded in "
+                    f"{self.rerank_mode} mode; final remains fused in off/shadow and uses "
+                    "reranked order only in active"
+                ),
+                "source": "starter/attributes.py + starter/reranker.py + starter/agent.py",
+            },
             {"layer": "Clarification policy", "status": "baseline-only", "detail": "Auditable fast/boundary/conservative fixed-order heuristics; not candidate-aware", "source": "starter/agent.py"},
             {"layer": "Scoring", "status": "implemented", "detail": "Deterministic local evaluator; scoring behavior cross-checked with official 3407835", "source": "evaluator/local_evaluator.py"},
         ]
@@ -556,8 +597,14 @@ class WorkbenchRuntime:
                 job.status = "running"
                 job.started_at = _utc_now()
                 job.total = len(self.trace_runner.samples)
-            job.log("Building a fresh in-memory Agent index")
-            agent = Agent(self.catalog_path)
+            job.log(
+                "Building a fresh in-memory Agent index "
+                f"(rerank mode: {self.rerank_mode})"
+            )
+            agent = _create_agent(
+                self.catalog_path,
+                rerank_mode=self.rerank_mode,
+            )
             samples = list(self.trace_runner.samples.values())
             progress_agent = _ProgressAgent(agent, job, len(samples))
             result = evaluate(
@@ -593,7 +640,10 @@ class WorkbenchRuntime:
                 "implementation": {
                     "agent": "starter.agent.Agent",
                     "question_policy": agent.question_policy,
+                    "rerank_mode": _agent_rerank_mode(agent),
                     "agent_source_sha256": source_hashes["agent"],
+                    "attributes_source_sha256": source_hashes["attributes"],
+                    "reranker_source_sha256": source_hashes["reranker"],
                     "evaluator_source_sha256": source_hashes["evaluator"],
                     "trace_schema": TRACE_SCHEMA_VERSION,
                 },
@@ -615,7 +665,10 @@ class WorkbenchRuntime:
             with job._lock:
                 job.current = job.total
                 job.status = "completed"
-                job.summary = _metrics(result)
+                job.summary = {
+                    **_metrics(result),
+                    "rerank_mode": _agent_rerank_mode(agent),
+                }
             job.log("Evaluation completed")
         except InterruptedError as exc:
             with job._lock:
@@ -677,11 +730,18 @@ class WorkbenchRuntime:
                 "both",
                 "--suite",
                 "default",
+                "--rerank-mode",
+                self.rerank_mode,
                 "--output",
                 str(artifact_path),
             ]
             flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-            job.log("Running canonical, phrase-perturbed, and product-disjoint stress suites")
+            environment = os.environ.copy()
+            environment["TECHJAM_RERANK_MODE"] = self.rerank_mode
+            job.log(
+                "Running canonical, phrase-perturbed, and product-disjoint stress suites "
+                f"(rerank mode: {self.rerank_mode})"
+            )
             job.process = subprocess.Popen(
                 command,
                 cwd=self.project_root,
@@ -690,6 +750,7 @@ class WorkbenchRuntime:
                 text=True,
                 bufsize=1,
                 creationflags=flags,
+                env=environment,
             )
             assert job.process.stdout is not None
             for line in job.process.stdout:
@@ -718,6 +779,7 @@ class WorkbenchRuntime:
             )
             summary = {
                 "artifact": str(artifact_path.relative_to(self.project_root)),
+                "rerank_mode": self.rerank_mode,
                 "released_public": {
                     "robustness": public.get("robustness"),
                     "canonical": canonical_metrics,
@@ -753,7 +815,12 @@ class WorkbenchRuntime:
                 "catalog_sha256": provenance["input_hashes"]["catalog"],
                 "dataset_sha256": provenance["input_hashes"]["dataset"],
                 "implementation": {
+                    "rerank_mode": self.rerank_mode,
                     "agent_source_sha256": provenance["source_hashes"]["agent"],
+                    "attributes_source_sha256": provenance["source_hashes"][
+                        "attributes"
+                    ],
+                    "reranker_source_sha256": provenance["source_hashes"]["reranker"],
                     "evaluator_source_sha256": provenance["source_hashes"]["evaluator"],
                     "generalization_source_sha256": provenance["source_hashes"][
                         "generalization"
@@ -891,7 +958,13 @@ class WorkbenchRuntime:
                     drop_session(evicted_session)
                 if recorder is not None:
                     recorder.clear(evicted_session)
-        return {"session_id": session_id, "turn": 0, "profile": safe_profile, "history": []}
+        return {
+            "session_id": session_id,
+            "turn": 0,
+            "profile": safe_profile,
+            "history": [],
+            "rerank_mode": self.rerank_mode,
+        }
 
     def lab_respond(self, session_id: str, message: str) -> dict[str, Any]:
         self._require_current_source()
@@ -928,7 +1001,11 @@ class WorkbenchRuntime:
         with self._lock:
             lab["turn"] = turn
             lab["history"].append(entry)
-        return {"session_id": session_id, **entry}
+        return {
+            "session_id": session_id,
+            "rerank_mode": self.rerank_mode,
+            **entry,
+        }
 
     @staticmethod
     def _write_json(path: Path, payload: dict[str, Any]) -> None:

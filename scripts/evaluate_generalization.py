@@ -17,9 +17,12 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from evaluator.local_evaluator import catalog_index, evaluate, load_jsonl
 from starter.agent import Agent
+from starter.attributes import SCHEMA_VERSION as ATTRIBUTE_SCHEMA_VERSION
+from starter.reranker import SCORER_VERSION
 
 
-SCHEMA_VERSION = "p1.generalization.v1"
+SCHEMA_VERSION = "p2.generalization.v1"
+RERANK_MODES = ("off", "shadow", "active")
 METRIC_KEYS = (
     "hit_rate_at_10",
     "mrr",
@@ -487,6 +490,7 @@ def evaluate_suites(
     suite_names: list[str],
     question_policy: str,
     corpus_name: str,
+    rerank_mode: str = "off",
 ) -> dict[str, Any]:
     runs: dict[str, dict[str, Any]] = {}
     canonical_result: dict[str, Any] | None = None
@@ -494,7 +498,11 @@ def evaluate_suites(
     for suite_name in ordered_names:
         print(f"[generalization] {corpus_name}/{suite_name}: building index", flush=True)
         build_started = time.perf_counter()
-        delegate = Agent(catalog_path, question_policy=question_policy)
+        delegate = Agent(
+            catalog_path,
+            question_policy=question_policy,
+            rerank_mode=rerank_mode,
+        )
         build_seconds = round(time.perf_counter() - build_started, 3)
         adapter = PerturbedAgent(delegate, SUITES[suite_name])
         try:
@@ -567,7 +575,7 @@ def _suite_names(values: list[str]) -> list[str]:
     return list(dict.fromkeys(expanded))
 
 
-def main() -> None:
+def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run target-blind phrase and product-disjoint generalization stress tests."
     )
@@ -592,8 +600,21 @@ def main() -> None:
         choices=("fast", "boundary", "conservative"),
         default="fast",
     )
+    parser.add_argument(
+        "--rerank-mode",
+        choices=RERANK_MODES,
+        default="off",
+        help=(
+            "Reranker execution mode: off preserves P1, shadow measures without changing "
+            "recommendations, active serves reranked output (default: off)."
+        ),
+    )
     parser.add_argument("--write-derived-dataset", type=Path)
-    args = parser.parse_args()
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parser().parse_args(argv)
 
     suite_names = _suite_names(args.suite)
     public_samples = load_jsonl(args.dataset)
@@ -606,10 +627,22 @@ def main() -> None:
             "dataset_path": str(args.dataset),
             "dataset_sha256": _sha256(args.dataset),
             "question_policy": args.question_policy,
+            "rerank_mode": args.rerank_mode,
             "suite_names": ["canonical", *suite_names],
             "suite_registry_sha256": _suite_registry_sha256(),
             "runner_source_sha256": _sha256(Path(__file__)),
             "agent_source_sha256": _sha256(PROJECT_ROOT / "starter" / "agent.py"),
+            "attribute_source_sha256": _sha256(
+                PROJECT_ROOT / "starter" / "attributes.py"
+            ),
+            "reranker_source_sha256": _sha256(
+                PROJECT_ROOT / "starter" / "reranker.py"
+            ),
+            "evaluator_source_sha256": _sha256(
+                PROJECT_ROOT / "evaluator" / "local_evaluator.py"
+            ),
+            "attribute_schema_version": ATTRIBUTE_SCHEMA_VERSION,
+            "reranker_scorer_version": SCORER_VERSION,
             "network_required": False,
             "target_blind_transform": True,
         },
@@ -625,6 +658,7 @@ def main() -> None:
             suite_names,
             args.question_policy,
             "released_public",
+            args.rerank_mode,
         )
     if args.corpus in {"derived", "both"}:
         derived_samples, metadata = build_product_disjoint_samples(
@@ -647,6 +681,7 @@ def main() -> None:
                 suite_names,
                 args.question_policy,
                 "derived_product_disjoint",
+                args.rerank_mode,
             ),
         }
 
@@ -655,7 +690,8 @@ def main() -> None:
         json.dumps(artifact, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
     print(f"[generalization] wrote {args.output}", flush=True)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import threading
 import time
@@ -12,14 +13,25 @@ from pathlib import Path
 from unittest.mock import patch
 
 from evaluator.local_evaluator import catalog_index
+from observer import launcher
 from observer.events import TRACE_SCHEMA_VERSION, TraceRecorder
 from observer.runtime import StaleRuntimeError, WorkbenchRuntime
 from observer.server import ExclusiveHTTPServer, make_handler
-from observer.trace import TraceRunner
+from observer.trace import TraceRunner, _agent_diagnostics
 from starter.agent import Agent
 
 
 class ObserverTraceTest(unittest.TestCase):
+    def test_one_click_launcher_defaults_workbench_to_shadow(self) -> None:
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch.object(launcher, "_running_project", return_value=None),
+            patch("observer.server.main") as serve,
+        ):
+            launcher.main()
+            self.assertEqual(os.environ["TECHJAM_RERANK_MODE"], "shadow")
+            serve.assert_called_once_with()
+
     def test_trace_exposes_layers_without_changing_agent_scoring(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             catalog_path = Path(directory) / "catalog.jsonl"
@@ -90,7 +102,12 @@ class ObserverTraceTest(unittest.TestCase):
         self.assertTrue(all("public_test_1" not in event["session_id"] for event in events))
         self.assertEqual(
             set(trace["turns"][0]["retrieval"]["route_counts"]),
-            {"broad", "strict", "fused"},
+            {"broad", "strict", "fused", "reranked", "final"},
+        )
+        self.assertEqual(trace["rerank_mode"], "off")
+        self.assertEqual(
+            trace["turns"][0]["retrieval"]["posthoc_target_rank"],
+            trace["turns"][0]["retrieval"]["target_final_rank"],
         )
         self.assertEqual(runner.agent._sessions, {})
         self.assertEqual(trace["turns"][0]["validation"]["invalid_catalog_count"], 0)
@@ -104,6 +121,88 @@ class ObserverTraceTest(unittest.TestCase):
         )
         self.assertEqual(plain_response["ask_attribute"], trace["turns"][0]["ask_attribute"])
         self.assertEqual(runner.list_sessions()["sessions"][0]["sample_id"], "public_test_1")
+
+    def test_trace_uses_final_route_and_preserves_all_route_ranks(self) -> None:
+        products = {
+            "A": {
+                "parent_asin": "A",
+                "title": "Target running shoe",
+                "categories": ["Shoes"],
+            },
+            "B": {
+                "parent_asin": "B",
+                "title": "Distractor running shoe",
+                "categories": ["Shoes"],
+            },
+        }
+        sample = {
+            "sample_id": "public_route_test",
+            "scenario_type": "buying",
+            "difficulty_bucket": "easy",
+            "user_profile": {},
+            "ground_truth": {"parent_asin": "A"},
+        }
+
+        class RouteAgent:
+            rerank_mode = "active"
+
+            def reset(self, session_id: str, user_profile: dict) -> None:
+                del session_id, user_profile
+
+            def drop_session(self, session_id: str) -> None:
+                del session_id
+
+            def respond(
+                self, session_id: str, user_message: str, turn: int, top_k: int
+            ) -> dict:
+                del session_id, user_message, turn, top_k
+                return {
+                    "message": "Final route response",
+                    "ask_attribute": None,
+                    "recommendations": [{"parent_asin": "A"}],
+                    "usage": {"prompt_tokens": 0, "completion_tokens": 0},
+                }
+
+            def debug_snapshot(self, session_id: str) -> dict:
+                del session_id
+                return {"query_terms": ["shoe"]}
+
+            def debug_rankings(self, session_id: str) -> dict[str, list[str]]:
+                del session_id
+                return {
+                    "broad": ["A", "B"],
+                    "strict": ["B", "A"],
+                    "fused": ["B", "A"],
+                    "reranked": ["A", "B"],
+                    "final": ["A", "B"],
+                }
+
+        runner = TraceRunner(
+            RouteAgent(),
+            [sample],
+            {"A", "B"},
+            {"A": ["Shoes"], "B": ["Shoes"]},
+            products,
+        )
+        trace = runner.trace("public_route_test")
+        retrieval = trace["turns"][0]["retrieval"]
+        self.assertEqual(retrieval["target_fused_rank"], 2)
+        self.assertEqual(retrieval["target_reranked_rank"], 1)
+        self.assertEqual(retrieval["target_final_rank"], 1)
+        self.assertEqual(retrieval["posthoc_target_rank"], 1)
+        self.assertEqual(retrieval["actual_route"], "final")
+        self.assertEqual(retrieval["rerank_mode"], "active")
+
+        class LegacyAgent:
+            def debug_rankings(self, session_id: str) -> dict[str, list[str]]:
+                del session_id
+                return {"broad": ["A"], "strict": [], "fused": ["B", "A"]}
+
+        legacy = _agent_diagnostics(LegacyAgent(), "legacy", "A")
+        self.assertEqual(legacy["target_final_rank"], 2)
+        self.assertEqual(legacy["target_reranked_rank"], 2)
+        self.assertEqual(legacy["actual_route"], "fused")
+        self.assertEqual(legacy["rerank_mode"], "off")
 
     def test_workbench_exposes_data_lab_and_background_evaluation(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -129,19 +228,34 @@ class ObserverTraceTest(unittest.TestCase):
             catalog_path.write_text(catalog_text, encoding="utf-8")
             dataset_path.write_text(json.dumps(sample) + "\n", encoding="utf-8")
             runtime = WorkbenchRuntime.from_paths(
-                catalog_path, dataset_path, results_path, project_root=root
+                catalog_path,
+                dataset_path,
+                results_path,
+                project_root=root,
+                rerank_mode="shadow",
             )
             self.addCleanup(runtime.close)
 
             overview = runtime.overview()
             self.assertEqual(overview["index"]["rows"], 1)
+            self.assertEqual(overview["runtime"]["rerank_mode"], "shadow")
+            self.assertIn("attributes", overview["source_state"]["files"])
+            self.assertIn("reranker", overview["source_state"]["files"])
             self.assertEqual(overview["pipeline"][1]["status"], "implemented")
             self.assertEqual(overview["pipeline"][6]["status"], "implemented")
+            rerank_layer = next(
+                item
+                for item in overview["pipeline"]
+                if item["layer"] == "Constraint reranking"
+            )
+            self.assertEqual(rerank_layer["mode"], "shadow")
             self.assertEqual(runtime.catalog("cotton")["items"][0]["parent_asin"], "A")
             self.assertEqual(runtime.product("A")["title"], product["title"])
 
             lab = runtime.lab_reset()
+            self.assertEqual(lab["rerank_mode"], "shadow")
             reply = runtime.lab_respond(lab["session_id"], "cotton running shoe")
+            self.assertEqual(reply["rerank_mode"], "shadow")
             self.assertEqual(reply["recommendations"][0]["parent_asin"], "A")
             self.assertIn("retrieval", {event["layer"] for event in reply["events"]})
 
@@ -162,6 +276,9 @@ class ObserverTraceTest(unittest.TestCase):
             self.assertEqual(manifest["run"]["top_k"], 10)
             self.assertIn("agent_source_sha256", manifest["implementation"])
             self.assertEqual(manifest["implementation"]["question_policy"], "fast")
+            self.assertEqual(manifest["implementation"]["rerank_mode"], "shadow")
+            self.assertIn("attributes_source_sha256", manifest["implementation"])
+            self.assertIn("reranker_source_sha256", manifest["implementation"])
             self.assertEqual(manifest["catalog_sha256"], overview["data"][0]["sha256"])
             self.assertEqual(manifest["dataset_sha256"], overview["data"][1]["sha256"])
 
@@ -212,7 +329,11 @@ class ObserverTraceTest(unittest.TestCase):
             catalog_path.write_text(json.dumps(product) + "\n", encoding="utf-8")
             dataset_path.write_text(json.dumps(sample) + "\n", encoding="utf-8")
             runtime = WorkbenchRuntime.from_paths(
-                catalog_path, dataset_path, results_path, project_root=root
+                catalog_path,
+                dataset_path,
+                results_path,
+                project_root=root,
+                rerank_mode="shadow",
             )
             self.addCleanup(runtime.close)
 
@@ -224,8 +345,13 @@ class ObserverTraceTest(unittest.TestCase):
             self.assertEqual(blocked["kind"], "evaluation")
             evaluation_job.status = "completed"
 
+            process_options: dict[str, object] = {}
+            process_command: list[str] = []
+
             class FakeProcess:
-                def __init__(self, command: list[str], **_: object) -> None:
+                def __init__(self, command: list[str], **options: object) -> None:
+                    process_options.update(options)
+                    process_command.extend(command)
                     output = Path(command[command.index("--output") + 1])
                     output.parent.mkdir(parents=True, exist_ok=True)
                     metrics = {
@@ -299,6 +425,14 @@ class ObserverTraceTest(unittest.TestCase):
             self.assertEqual(current["status"], "completed")
             self.assertEqual((current["current"], current["total"]), (6, 6))
             self.assertEqual(
+                process_options["env"]["TECHJAM_RERANK_MODE"],  # type: ignore[index]
+                "shadow",
+            )
+            self.assertEqual(
+                process_command[process_command.index("--rerank-mode") + 1],
+                "shadow",
+            )
+            self.assertEqual(
                 current["summary"]["released_public"]["robustness"][
                     "all_suites_robust_hit_rate"
                 ],
@@ -313,6 +447,9 @@ class ObserverTraceTest(unittest.TestCase):
             self.assertIn(
                 "generalization_source_sha256", manifest["implementation"]
             )
+            self.assertEqual(manifest["implementation"]["rerank_mode"], "shadow")
+            self.assertIn("attributes_source_sha256", manifest["implementation"])
+            self.assertIn("reranker_source_sha256", manifest["implementation"])
 
             generalization_source.write_text("# changed\n", encoding="utf-8")
             with self.assertRaises(StaleRuntimeError):

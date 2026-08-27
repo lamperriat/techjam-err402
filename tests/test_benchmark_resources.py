@@ -7,9 +7,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts.benchmark_resources import (
+    ROUTES,
     SessionCapture,
     TurnCapture,
     _nearest_rank,
+    _parser,
     build_benchmark,
     build_route_audit,
     latency_summary,
@@ -110,11 +112,15 @@ class BenchmarkResourcesTest(unittest.TestCase):
                 "broad": ("TARGET",),
                 "strict": ("TARGET",),
                 "fused": ("TARGET",),
+                "reranked": ("TARGET",),
+                "final": ("TARGET",),
             }),
             TurnCapture(3, {
                 "broad": tuple([f"B{i}" for i in range(14)] + ["TARGET"]),
                 "strict": (),
                 "fused": tuple([f"F{i}" for i in range(14)] + ["TARGET"]),
+                "reranked": tuple([f"R{i}" for i in range(9)] + ["TARGET"]),
+                "final": tuple([f"F{i}" for i in range(14)] + ["TARGET"]),
             }),
         ])]
         evaluator_result = {
@@ -127,11 +133,23 @@ class BenchmarkResourcesTest(unittest.TestCase):
         self.assertEqual(audit["routes"]["fused"]["recall_at_k"]["20"], 1.0)
         self.assertEqual(
             audit["public_misses"][0]["best_route_ranks"],
-            {"broad": 15, "strict": None, "fused": 15},
+            {
+                "broad": 15,
+                "strict": None,
+                "fused": 15,
+                "reranked": 10,
+                "final": 15,
+            },
         )
         self.assertEqual(
             audit["public_misses"][0]["best_route_turns"],
-            {"broad": 3, "strict": None, "fused": 3},
+            {
+                "broad": 3,
+                "strict": None,
+                "fused": 3,
+                "reranked": 3,
+                "final": 3,
+            },
         )
         self.assertEqual(audit["public_misses"][0]["best_fused_rank"], 15)
         self.assertEqual(audit["public_misses"][0]["best_fused_turn"], 3)
@@ -149,6 +167,7 @@ class BenchmarkResourcesTest(unittest.TestCase):
                     catalog,
                     dataset,
                     runs=2,
+                    rerank_mode="shadow",
                     sample_limit=2,
                     rss_sample_ms=1.0,
                 )
@@ -158,6 +177,10 @@ class BenchmarkResourcesTest(unittest.TestCase):
         self.assertTrue(artifact["all_runs_no_key_default_verified"])
         self.assertNotIn("must-not-appear-in-artifact", serialized)
         self.assertNotIn("OPENAI_API_KEY", serialized)
+        self.assertEqual(artifact["configuration"]["rerank_mode"], "shadow")
+        self.assertEqual(artifact["configuration"]["captured_routes"], list(ROUTES))
+        self.assertEqual(len(artifact["configuration"]["attribute_source_sha256"]), 64)
+        self.assertEqual(len(artifact["configuration"]["reranker_source_sha256"]), 64)
         for run in artifact["runs"]:
             self.assertGreater(run["respond_call_count"], 0)
             self.assertEqual(
@@ -170,6 +193,7 @@ class BenchmarkResourcesTest(unittest.TestCase):
             self.assertEqual(
                 run["route_audit"]["cutoffs"], [10, 20, 50, 80, 120]
             )
+            self.assertEqual(set(run["route_audit"]["routes"]), set(ROUTES))
             self.assertTrue(
                 run["no_key_default"]["agent_closed_before_posthoc_label_join"]
             )
@@ -183,6 +207,22 @@ class BenchmarkResourcesTest(unittest.TestCase):
                     dataset,
                     runs=1,
                     scenarios=("boundary",),
+                    rss_sample_ms=1.0,
+                )
+
+    def test_cli_defaults_to_off_reranking(self) -> None:
+        args = _parser().parse_args([])
+        self.assertEqual(args.rerank_mode, "off")
+
+    def test_invalid_programmatic_rerank_mode_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            catalog, dataset = self._files(directory)
+            with self.assertRaisesRegex(ValueError, "rerank mode"):
+                build_benchmark(
+                    catalog,
+                    dataset,
+                    runs=1,
+                    rerank_mode="invalid",
                     rss_sample_ms=1.0,
                 )
 

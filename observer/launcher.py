@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import traceback
 import urllib.error
 import urllib.request
@@ -51,6 +52,7 @@ def main() -> None:
             )
         from observer.server import main as serve
 
+        os.environ.setdefault("TECHJAM_RERANK_MODE", "shadow")
         serve()
     except Exception as exc:
         log_path.write_text(traceback.format_exc(), encoding="utf-8")

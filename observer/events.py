@@ -6,7 +6,7 @@ from copy import deepcopy
 from typing import Any
 
 
-TRACE_SCHEMA_VERSION = "1.0"
+TRACE_SCHEMA_VERSION = "2.0"
 
 
 class TraceRecorder:

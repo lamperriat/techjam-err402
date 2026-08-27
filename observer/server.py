@@ -246,6 +246,15 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--no-browser", action="store_true")
+    parser.add_argument(
+        "--rerank-mode",
+        choices=("off", "shadow", "active"),
+        default=None,
+        help=(
+            "Agent reranker mode. Defaults to TECHJAM_RERANK_MODE, then off; "
+            "the selected mode is fixed for this Workbench process."
+        ),
+    )
     args = parser.parse_args()
 
     if args.host not in {"127.0.0.1", "localhost"}:
@@ -254,7 +263,11 @@ def main() -> None:
     print("Loading catalog, public sessions, Agent index, and prior results...")
     project_root = Path(__file__).resolve().parents[1]
     runtime = WorkbenchRuntime.from_paths(
-        args.catalog, args.dataset, args.results, project_root=project_root
+        args.catalog,
+        args.dataset,
+        args.results,
+        project_root=project_root,
+        rerank_mode=args.rerank_mode,
     )
     server = ExclusiveHTTPServer((args.host, args.port), make_handler(runtime))
     url = f"http://{args.host}:{args.port}"

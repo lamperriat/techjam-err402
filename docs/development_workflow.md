@@ -63,7 +63,9 @@ Do not start by reading random ranking code. Locate the first current layer wher
 | Session state | Was the latest message accumulated, negated, or treated as an override? Was the previous question answered or interrupted? | active/excluded terms, known/asked/exhausted/pending attributes, parsed events, version, turn ledger |
 | Query plan | Did the active state compile into the intended sparse query? | compiled query and parser/override events |
 | Retrieval | Was the public target present in broad OR or strict AND retrieval? | post-hoc target broad/strict ranks and route counts |
-| Fusion/output | Did fusion or output normalization push the target out of Top 10? | fused rank, fusion evidence, normalized Top 10 |
+| Fusion | Did weighted RRF push the target out of Top 10? | fused rank, fusion evidence |
+| Attribute rerank | Did comparable normalized evidence move it safely? | fused→reranked→final ranks, component score, matched evidence, mode |
+| Output | Did the actual final route or normalization lose it? | final rank and normalized Top 10 |
 | Clarification | Which fixed policy asked what, and was it repeated? | policy, `ask_attribute`, asked/exhausted attributes |
 | Runtime | Did the Agent fail or slow down? | per-turn elapsed time and exception event |
 
@@ -74,11 +76,11 @@ AGENT_ERROR
 HIT
 PRE_OVERRIDE_NOT_SCORABLE
 RETRIEVAL_MISS
-LOW_FUSED_RANK
+LOW_FINAL_RANK
 OUTPUT_OR_NORMALIZATION_MISS
 ```
 
-Hard/soft slot objects, structured constraint-gate counts, candidate-aware information gain, reranker ranks, RSS/fallback telemetry, and codes such as `FILTER_KILLED_TARGET`, `RERANK_MISS`, or `WRONG_QUESTION` belong to the target architecture. Add those diagnostics only together with the corresponding implemented layer; do not infer them from the current sparse trace.
+Hard/soft slot objects, structured constraint-gate counts, candidate-aware information gain, RSS/fallback telemetry, and codes such as `FILTER_KILLED_TARGET` or `WRONG_QUESTION` still belong to the target architecture. Normalized product evidence and reranker ranks are now real trace fields, but active v1 failed its gate and remains disabled.
 
 ## 4. The development loop
 
@@ -131,6 +133,20 @@ Run the deterministic public evaluator without LLM credentials:
 python -m evaluator.local_evaluator
 ```
 
+Run an explicit, provenance-recorded rerank experiment without changing the released
+evaluator flow:
+
+```powershell
+python scripts/evaluate_agent.py --rerank-mode off --output experiments/p2_off.json
+python scripts/evaluate_agent.py --rerank-mode shadow --output experiments/p2_shadow.json
+python scripts/compare_results.py --assert-equal experiments/p2_off.json experiments/p2_shadow.json
+python scripts/evaluate_agent.py --rerank-mode active --output experiments/p2_active.json
+```
+
+`off` is the production/default path. `shadow` computes diagnostics but must remain
+strictly output-equal to off. `active` is an experiment flag; v1 currently scores below
+P1 and must not be used as the default.
+
 The evaluator overwrites ignored `results.json`. Copy important experiment outputs into another ignored experiment directory before the next run. Compare complete results, including all session rows, with:
 
 ```powershell
@@ -149,7 +165,7 @@ Use `--suite all --corpus public` for the frozen dev/challenge/audit phrase fami
 
 ## 6. Agent Workbench
 
-For normal development on this machine, double-click `Start Observer.vbs`. It launches through the existing `tiktok` environment without a terminal and opens `http://127.0.0.1:8765`. Use the in-page **停止** action when finished. `Start Observer.cmd` and `python -m observer.launcher` remain fallback launch paths.
+For normal development on this machine, double-click `Start Observer.vbs`. It launches through the existing `tiktok` environment without a terminal and opens `http://127.0.0.1:8765`. The one-click launcher uses output-safe `shadow` mode so the normalized attribute and rerank layers are visible; the actual final recommendations remain fused. Use the in-page **停止** action when finished. `Start Observer.cmd` and `python -m observer.launcher` remain fallback launch paths.
 
 The Workbench now covers the complete local development loop:
 
@@ -165,9 +181,9 @@ environment / data / Git / index health
 
 It also includes catalog/FTS5 search, full product JSON, a target-free manual Agent lab, experiment comparison, and an allowlisted document library. The control plane runs only fixed test/evaluation actions and does not execute arbitrary shell input. A per-instance token and same-origin/Host checks protect the local API.
 
-The Workbench fingerprints the Agent/evaluator code and catalog/public-set inputs loaded at startup and compares them with disk. After any monitored file changes, evaluation, every replay, and Lab execution are blocked until restart. Background evaluation checks freshness both before execution and before artifact finalization, while its manifest uses the captured start-of-run provenance. This prevents an experiment from silently mixing an old imported class or cached data with later disk hashes.
+The Workbench fingerprints Agent, attributes, reranker, evaluator, and generalization code plus catalog/public-set inputs loaded at startup and compares them with disk. After any monitored file changes, evaluation, every replay, and Lab execution are blocked until restart. Background evaluation checks freshness both before execution and before artifact finalization, while its manifest uses the captured start-of-run provenance. This prevents an experiment from silently mixing an old imported class or cached data with later disk hashes.
 
-Trace events are emitted by the actual Agent through an optional versioned callback. The state layer reports the Agent's version, category, active/excluded terms, known/asked/exhausted attributes, and override count. Retrieval reports the actual broad, strict, and fused routes. Public target ranks are joined only after `Agent.respond` and are labelled post-hoc.
+Trace events are emitted by the actual Agent through an optional versioned callback. The state layer reports the Agent's version, category, active/excluded terms, known/asked/exhausted attributes, and override count. Retrieval reports broad, strict, fused, reranked, and final routes plus target-blind score components. Public target ranks and its candidate breakdown are joined only after `Agent.respond` and are labelled post-hoc.
 
 Every public replay gives the Agent an opaque random session ID. The Agent receives only profile, generated user message, turn, and `top_k`; it never receives `sample_id`, target, intent card, scenario, behavior, or prior results. The server is loopback-only and must not be attached to private final labels.
 
@@ -175,10 +191,10 @@ Successful browser-started evaluations refresh `results.json`; evaluator and gen
 
 ## 7. Current improvement order
 
-1. Complete the remaining reliability baseline: repeatability plus controlled P50/P95 turn latency and peak-RSS measurement. Phrase perturbation and the deterministic product-disjoint stress corpus are implemented.
-2. Add candidate-aware clarification evidence in shadow mode; activate it only if overall and Boundary/Override gates pass without HR/MRR regression.
-3. Implement a normalized slot ledger, structured attributes, safe filtering/relaxation, and visible Buying/Browsing strategy tendencies.
-4. Consider dense retrieval only after sparse Recall@100 and resource gates show a net product-disjoint gain.
-5. Consider semantic reranking only after candidate recall is stable and latency/memory/fallback evidence passes.
+1. Keep P1 frozen and retain P2 attributes as shadow evidence; active rerank v1 is rejected.
+2. Test coverage-aware, Top-10-safe promotion on the product-disjoint corpus before one final public gate. Do not add ASIN exceptions.
+3. Build a normalized conversation slot ledger, then candidate-aware clarification in shadow mode; activate only if overall and Boundary/Override gates pass.
+4. Consider dense retrieval only for measured sparse recall misses and only after resource/distribution gates pass.
+5. Consider a local semantic model only after deterministic candidate discrimination remains the measured bottleneck.
 
-The repository has completed no-credential reliability, Workbench diagnostics, versioned term state, pending-question lifecycle, broader target-blind phrase parsing, Override/Boundary handling, broad/strict sparse routes, weighted RRF, heuristic clarification, strict result comparison, and the P1 robustness runner. It has not implemented a normalized slot graph, active candidate-aware questioning, attribute hard filtering, dense retrieval, profile personalization, or semantic reranking.
+The repository has completed no-credential reliability, Workbench diagnostics, versioned term state, pending-question lifecycle, broader target-blind phrase parsing, Override/Boundary handling, broad/strict sparse routes, weighted RRF, heuristic clarification, strict result comparison, the P1 robustness/resource gate, normalized product attributes, and an output-safe rerank shadow. It has not implemented a normalized conversation slot graph, active candidate-aware questioning, attribute hard filtering, dense retrieval, profile personalization, or semantic reranking. Deterministic active rerank v1 exists only as a rejected experiment flag.

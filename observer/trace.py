@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 import threading
 import time
@@ -20,6 +21,40 @@ from evaluator.local_evaluator import (
 )
 from observer.events import TraceRecorder
 from starter.agent import Agent, _terms
+
+
+RERANK_MODES = {"off", "shadow", "active"}
+
+
+def _normalize_rerank_mode(value: object) -> str:
+    mode = str(value or "off").strip().lower()
+    if mode not in RERANK_MODES:
+        raise ValueError("rerank_mode must be one of: off, shadow, active")
+    return mode
+
+
+def _agent_rerank_mode(agent: Any) -> str:
+    value = getattr(agent, "rerank_mode", "off")
+    try:
+        return _normalize_rerank_mode(value)
+    except ValueError:
+        return "off"
+
+
+def _create_agent(
+    catalog_path: str | Path,
+    *,
+    trace_sink: Any | None = None,
+    rerank_mode: str | None = None,
+) -> Agent:
+    """Construct current or pre-reranker Agents without misreporting their mode."""
+    parameters = inspect.signature(Agent).parameters
+    kwargs: dict[str, Any] = {}
+    if "trace_sink" in parameters:
+        kwargs["trace_sink"] = trace_sink
+    if "rerank_mode" in parameters:
+        kwargs["rerank_mode"] = rerank_mode
+    return Agent(catalog_path, **kwargs)
 
 
 def _product_view(product: dict[str, Any], target: str) -> dict[str, Any]:
@@ -59,6 +94,7 @@ def _rank_of(target: str, identifiers: object) -> int | None:
 def _agent_diagnostics(agent: Any, session_id: str, target: str) -> dict[str, Any]:
     snapshot: dict[str, Any] = {}
     rankings: dict[str, list[str]] = {}
+    rerank_diagnostics: dict[str, Any] = {}
     error: str | None = None
     try:
         debug_snapshot = getattr(agent, "debug_snapshot", None)
@@ -75,21 +111,44 @@ def _agent_diagnostics(agent: Any, session_id: str, target: str) -> dict[str, An
                     for route, identifiers in value.items()
                     if isinstance(route, str) and isinstance(identifiers, list)
                 }
+        debug_rerank = getattr(agent, "debug_rerank_diagnostics", None)
+        if callable(debug_rerank):
+            value = debug_rerank(session_id)
+            if isinstance(value, dict):
+                rerank_diagnostics = value
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
     broad = rankings.get("broad", [])
     strict = rankings.get("strict", [])
     fused = rankings.get("fused", [])
+    reranked = rankings["reranked"] if "reranked" in rankings else fused
+    final = rankings["final"] if "final" in rankings else fused
     return {
         "state": snapshot,
+        "rerank_mode": _agent_rerank_mode(agent),
         "route_counts": {
             "broad": len(broad),
             "strict": len(strict),
             "fused": len(fused),
+            "reranked": len(reranked),
+            "final": len(final),
         },
         "target_broad_rank": _rank_of(target, broad),
         "target_strict_rank": _rank_of(target, strict),
         "target_fused_rank": _rank_of(target, fused),
+        "target_reranked_rank": _rank_of(target, reranked),
+        "target_final_rank": _rank_of(target, final),
+        "target_rerank_breakdown": (
+            (rerank_diagnostics.get("breakdowns") or {}).get(target)
+            if isinstance(rerank_diagnostics.get("breakdowns"), dict)
+            else None
+        ),
+        "rerank_diagnostics": {
+            key: value
+            for key, value in rerank_diagnostics.items()
+            if key != "breakdowns"
+        },
+        "actual_route": "final" if "final" in rankings else "fused",
         "error": error,
     }
 
@@ -166,6 +225,7 @@ class TraceRunner:
         catalog_path: str | Path = "data/catalog.jsonl",
         dataset_path: str | Path = "data/public_set.jsonl",
         results_path: str | Path = "results.json",
+        rerank_mode: str | None = None,
     ) -> TraceRunner:
         samples = load_jsonl(dataset_path)
         catalog_ids, categories, products = catalog_index(catalog_path)
@@ -175,7 +235,11 @@ class TraceRunner:
         )
         recorder = TraceRecorder()
         return cls(
-            Agent(catalog_path, trace_sink=recorder.emit),
+            _create_agent(
+                catalog_path,
+                trace_sink=recorder.emit,
+                rerank_mode=rerank_mode,
+            ),
             samples,
             catalog_ids,
             categories,
@@ -289,11 +353,20 @@ class TraceRunner:
             retrieval["target_broad_rank"] = diagnostics["target_broad_rank"]
             retrieval["target_strict_rank"] = diagnostics["target_strict_rank"]
             retrieval["target_fused_rank"] = diagnostics["target_fused_rank"]
-            retrieval["posthoc_target_rank"] = diagnostics["target_fused_rank"]
+            retrieval["target_reranked_rank"] = diagnostics["target_reranked_rank"]
+            retrieval["target_final_rank"] = diagnostics["target_final_rank"]
+            retrieval["target_rerank_breakdown"] = diagnostics[
+                "target_rerank_breakdown"
+            ]
+            retrieval["rerank_diagnostics"] = diagnostics["rerank_diagnostics"]
+            retrieval["posthoc_target_rank"] = diagnostics["target_final_rank"]
+            retrieval["actual_route"] = diagnostics["actual_route"]
+            retrieval["rerank_mode"] = diagnostics["rerank_mode"]
             retrieval["diagnostic_error"] = diagnostics["error"]
             retrieval["posthoc_note"] = (
                 "Public ground truth was joined after Agent.respond and ranked locally against "
-                "target-blind broad, strict, and fused route IDs."
+                "target-blind broad, strict, fused, reranked, and final route IDs. The final "
+                "route is the actual output order; legacy Agents fall back to fused."
             )
             ranked = normalize_recommendations(response.get("recommendations"), self.catalog_ids)
             validation = _output_diagnostics(response.get("recommendations"), self.catalog_ids)
@@ -313,7 +386,7 @@ class TraceRunner:
             elif retrieval["posthoc_target_rank"] is None:
                 failure_code = "RETRIEVAL_MISS"
             elif int(retrieval["posthoc_target_rank"]) > TOP_K:
-                failure_code = "LOW_FUSED_RANK"
+                failure_code = "LOW_FINAL_RANK"
             else:
                 failure_code = "OUTPUT_OR_NORMALIZATION_MISS"
 
@@ -388,7 +461,7 @@ class TraceRunner:
             for turn in turns
             if turn["retrieval"]["posthoc_target_rank"] is not None
         ) > TOP_K:
-            diagnosis = "LOW_FUSED_RANK"
+            diagnosis = "LOW_FINAL_RANK"
         elif any(turn["failure_code"] == "PRE_OVERRIDE_NOT_SCORABLE" for turn in turns):
             diagnosis = "PRE_OVERRIDE_NOT_SCORABLE"
         else:
@@ -401,6 +474,7 @@ class TraceRunner:
             "target": _product_view(self.products[target], target),
             "intent_card": card,
             "behavior": behavior,
+            "rerank_mode": _agent_rerank_mode(self.agent),
             "result": {
                 "hit": hit_turn is not None,
                 "first_hit_turn": hit_turn,
