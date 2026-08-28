@@ -402,7 +402,7 @@ class TargetBlindBenchmarkProbe:
 
 def target_blind_trace_hashes(
     captures: list[SessionCapture],
-) -> tuple[str, list[str]]:
+) -> dict[str, Any]:
     """Hash complete ordered responses/routes without IDs, targets, or timing."""
 
     sessions = [
@@ -418,7 +418,45 @@ def target_blind_trace_hashes(
         ]
         for session in captures
     ]
-    return _stable_sha256(sessions), [_stable_sha256(session) for session in sessions]
+    response_sessions = [
+        [
+            {"turn": capture["turn"], "response": capture["response"]}
+            for capture in session
+        ]
+        for session in sessions
+    ]
+    route_sessions = {
+        route: [
+            [
+                {
+                    "turn": capture["turn"],
+                    "ranking": capture["rankings"][route],
+                }
+                for capture in session
+            ]
+            for session in sessions
+        ]
+        for route in ROUTES
+    }
+    return {
+        "complete_sha256": _stable_sha256(sessions),
+        "session_complete_sha256": [
+            _stable_sha256(session) for session in sessions
+        ],
+        "response_sha256": _stable_sha256(response_sessions),
+        "session_response_sha256": [
+            _stable_sha256(session) for session in response_sessions
+        ],
+        "route_sha256": {
+            route: _stable_sha256(route_sessions[route]) for route in ROUTES
+        },
+        "session_route_sha256": {
+            route: [
+                _stable_sha256(session) for session in route_sessions[route]
+            ]
+            for route in ROUTES
+        },
+    }
 
 
 def _best_route_rank(
@@ -643,7 +681,7 @@ def run_once(
         architecture_stats = (
             agent.experiment_stats() if architecture_variant else None
         )
-        trace_sha256, session_trace_sha256 = target_blind_trace_hashes(probe.sessions)
+        trace_hashes = target_blind_trace_hashes(probe.sessions)
 
         # Close all retrieval state before labels are joined to captured routes.
         agent.connection.close()
@@ -686,8 +724,18 @@ def run_once(
             "contract_errors": list(probe.contract_errors),
             "architecture_stats": architecture_stats,
             "architecture_stats_sha256": _stable_sha256(architecture_stats),
-            "target_blind_trace_sha256": trace_sha256,
-            "target_blind_session_trace_sha256": session_trace_sha256,
+            "target_blind_trace_sha256": trace_hashes["complete_sha256"],
+            "target_blind_session_trace_sha256": trace_hashes[
+                "session_complete_sha256"
+            ],
+            "target_blind_response_sha256": trace_hashes["response_sha256"],
+            "target_blind_session_response_sha256": trace_hashes[
+                "session_response_sha256"
+            ],
+            "target_blind_route_sha256": trace_hashes["route_sha256"],
+            "target_blind_session_route_sha256": trace_hashes[
+                "session_route_sha256"
+            ],
             "memory": {
                 "backend": sampler.backend,
                 "sampling_interval_ms": rss_sample_ms,

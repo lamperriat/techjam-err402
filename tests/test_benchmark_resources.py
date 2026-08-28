@@ -16,6 +16,7 @@ from scripts.benchmark_resources import (
     build_benchmark,
     build_route_audit,
     latency_summary,
+    target_blind_trace_hashes,
 )
 from starter.frozen_winner import FROZEN_WINNER_ID
 
@@ -92,6 +93,22 @@ class BenchmarkResourcesTest(unittest.TestCase):
         self.assertEqual(summary["p50_ms"], 2.0)
         self.assertEqual(summary["p99_ms"], 3.0)
         self.assertEqual(summary["max_ms"], 3.0)
+
+    def test_trace_hashes_separate_responses_and_routes(self) -> None:
+        capture = SessionCapture(turns=[TurnCapture(
+            1,
+            {route: (f"{route}-A", f"{route}-B") for route in ROUTES},
+            {"message": "ok", "ask_attribute": None, "recommendations": []},
+        )])
+        hashes = target_blind_trace_hashes([capture])
+
+        self.assertEqual(len(hashes["complete_sha256"]), 64)
+        self.assertEqual(len(hashes["response_sha256"]), 64)
+        self.assertEqual(set(hashes["route_sha256"]), set(ROUTES))
+        self.assertNotEqual(
+            hashes["route_sha256"]["fused"],
+            hashes["route_sha256"]["final"],
+        )
 
     def test_posthoc_audit_excludes_pre_override_rank_and_lists_miss(self) -> None:
         sample = {
