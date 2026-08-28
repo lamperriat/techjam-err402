@@ -376,15 +376,35 @@ must exactly match ordered response and scored-route hashes. Each worker sets Op
 OMP, and MKL to one thread before importing NumPy/ONNX Runtime; ORT stays sequential with
 one intra/inter-op thread and `ORT_ENABLE_ALL` graph optimization.
 
-The pre-measurement implementation now includes `starter/semantic.py` and
-`scripts/build_p7_semantic_index.py`. The semantic module has no eager NumPy, tokenizer, or
-ONNX Runtime import; it establishes the frozen environment before dynamic imports, verifies
-all eleven model files, performs the specified BGE CLS/L2 encoding, and loads a hash-checked
-`.npy` matrix by memory map. Exact search performs a stable descending float32 score sort;
-because rows begin in ascending ASIN order, score ties preserve the required ASIN order.
-The builder reads only the model spec, catalog, model assets, and license, then atomically
-publishes the matrix, LF-only ordered-ASIN file, and manifest. It refuses to overwrite an
-existing output. No P7 route metric was read while implementing or testing these pieces.
+The pre-measurement implementation now includes `starter/semantic.py`,
+`scripts/build_p7_semantic_index.py`, `starter/p7_lab.py`, and
+`scripts/evaluate_p7.py`, with `scripts/p7_worker.py` as the separate minimal child entry.
+The semantic module has no eager NumPy, tokenizer, or ONNX Runtime import; it establishes
+the frozen environment before dynamic imports, verifies all eleven model files, performs
+the specified BGE CLS/L2 encoding, and loads a hash-checked `.npy` matrix by memory map.
+Exact search performs a stable descending float32 score sort; because rows begin in
+ascending ASIN order, score ties preserve the required ASIN order. The builder reads only
+the model spec, catalog, model assets, and license, then atomically publishes the matrix,
+LF-only ordered-ASIN file, and manifest. It refuses to overwrite an existing output.
+
+The capture layer uses one `P7CaptureAgent` subclass for C00 and S00, calls the served
+ranking path exactly once, records the actual Broad-120 and Strict-80 routes, constructs
+the visible-state query inside the frozen latency interval, and computes Dense-120 only in
+S00. Dense failures are counted but cannot change the returned sparse response. Stable
+records contain only ordinal, turn, query, ordered route IDs/scores, and exact response;
+worker UUIDs, process IDs, labels, targets, and timings are excluded from their hashes.
+
+The parent runner holds the official simulator. Its separate minimal child module has no
+selection, target, scenario, evaluator, or post-hoc code and accepts only ordinary Agent
+profile/message/turn/top-k inputs, bootstrap paths, and a 1-based corpus ordinal. It
+validates the tracked index lock before optional runtime import, blocks and counts socket
+attempts, reads the Windows lifetime `PeakWorkingSetSize`, checks response/route integrity,
+and performs override eligibility and target joins only after the workers exit. It repeats
+in a third fresh worker only if every initial integrity, recall, and resource gate passes.
+Formal execution additionally requires the frozen P7-only corpus, exact model/index assets,
+a clean pushed Git snapshot, build-commit blobs matching the lock, and unchanged
+sources/inputs before and after the run. No P7 route metric was read while implementing or
+testing these pieces.
 
 ## P4 frozen 200-session architecture-matrix result (historical)
 

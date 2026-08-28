@@ -144,9 +144,10 @@ and repeat-worker definitions; the model's upstream MIT notice is retained under
 The optional packages are isolated in `requirements-semantic.txt`; the default Agent
 continues to use only the standard library.
 
-The P7 offline semantic core and catalog-only index builder are now implemented, but they
-remain experiment infrastructure and are not imported by the served Agent. After installing
-the optional pinned environment, build the ignored local index from the frozen catalog and
+The P7 offline semantic core, catalog-only index builder, target-blind C00/S00 capture
+layer, and process-isolated gate runner are now implemented, but they remain experiment
+infrastructure and are not imported by the served Agent. After installing the optional
+pinned environment, build the ignored local index from the frozen catalog and
 already-downloaded model assets with:
 
 ```powershell
@@ -159,6 +160,15 @@ directory, encodes products in ascending `parent_asin` order, and atomically pub
 `semantic-index.manifest.json`. It reads no session file or evaluation label. The index
 has not yet been admitted into recommendation output; P7 must first pass its frozen
 target-blind recall, latency, RSS, offline, and repeatability gates.
+
+`starter/p7_lab.py` uses the same capture subclass for control and shadow. The shadow
+computes Dense-120 after the served sparse routes but returns the untouched response
+object. `scripts/evaluate_p7.py` keeps simulator labels in the parent; a separate minimal
+`scripts/p7_worker.py` receives only semantic bootstrap paths, ordinary profile and
+visible-turn inputs, and a corpus ordinal. Labels are joined only after both initial
+workers have exited. Formal execution is refused until the built index has a tracked hash
+lock and the complete preflight is clean and pushed. No P7 route or target metric has been
+run while implementing this infrastructure.
 
 Direct `Agent()` construction reads three optional experiment variables:
 `TECHJAM_RETRIEVAL_MODE` (`coverage` or `control`),

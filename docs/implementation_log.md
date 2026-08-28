@@ -513,6 +513,37 @@ QuestionValue diagnostics**, not as the complete IntentGraph target architecture
   participant assets remain `14/14`, and `pip check` is clean. `starter/agent.py` and the
   served R08 output path remain unchanged. No evaluator or P7 route metric was run/read.
 
+### 2026-08-28 - P7 target-blind capture and isolated gate runner
+
+- Added one `P7CaptureAgent` subclass for both C00 and S00. It freezes the actual served
+  `coverage/off/fast` path, calls the parent ranking method once, copies the real
+  Broad-120/Strict-80 routes, and computes Dense-120 only in shadow. Dense or capture
+  exceptions are counted and cannot alter the response object returned by the sparse
+  Agent. Empty queries never invoke the semantic model.
+- Added a strict tracked-index-lock validator that runs before optional semantic imports.
+  It bridges the build commit and source hashes, raw/canonical model spec, official catalog,
+  manifest, float32 matrix, ordered ASINs, canonical-document digest, all model assets,
+  bundled license, independently recomputed asset bytes, and build resource observation.
+- Added a parent-simulator/child-Agent JSONL protocol with a separate minimal worker entry.
+  Fresh workers receive only catalog and semantic bootstrap paths, a corpus ordinal, the
+  official profile, and the currently visible message/turn/top-k. The child module and
+  namespace contain no selection, target, sample ID, scenario, evaluator, or post-hoc
+  surface. Lab and RPC response captures must be exactly equal before labels can be joined.
+- Added frozen integrity, Dense@10/40/120 recall, rescue/scenario, cold-init, query P95,
+  evaluation-wall, absolute-RSS, no-network, exception, and repeatability gates. Canonical
+  response and dense-route hashes exclude PID, UUID, labels, timestamps, and durations.
+  A fresh repeat worker is launched only when every initial gate passes.
+- Formal execution is restricted to the default P7-only corpus and model directory, exact
+  catalog/spec/index lock, a clean branch whose origin equals HEAD, and unchanged hashes for
+  the evaluator, Agent dependency closure, model/license/index assets, and inputs before
+  and after evaluation. Builder, semantic, and spec bytes must also match their Git blobs
+  in the locked build commit. Windows RSS uses OS lifetime `PeakWorkingSetSize`; existing
+  output is never overwritten and publication is atomic.
+- P7 lab/worker/runner tests pass `29/29`; the complete suite passes `322/322`, source
+  compilation passes, and `pip check` is clean. The 50,000-row production index lock and
+  the sole formal P7 run remain pending at this checkpoint. No evaluator or P7 route metric
+  was run/read, released-public was not evaluated, and `starter/agent.py` remains unchanged.
+
 ### 2026-08-28 - P6 frozen adaptive-depth selection rejection
 
 - Ran the P6 selection exactly once from clean, pushed pre-metric commit `873cbd2`.
