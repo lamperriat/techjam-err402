@@ -1,0 +1,68 @@
+{
+  "schema_version": "p7.semantic-index-lock.v1",
+  "source": {
+    "git_commit": "09a911aea489baf80de864f0496106f793662ee4",
+    "git_branch": "p4-architecture-search",
+    "builder": {
+      "path": "scripts/build_p7_semantic_index.py",
+      "bytes": 31492,
+      "sha256": "038707f3192439a75cffa66467ebf0ce467d78bda713be1d4a4c24fd5cdbd684"
+    },
+    "semantic": {
+      "path": "starter/semantic.py",
+      "bytes": 38241,
+      "sha256": "9de0853bc64222e7299f71a61328f0f6453b794e2a5b95c6ae675acada5af58d"
+    }
+  },
+  "model_spec": {
+    "path": "configs/p7_bge_small_en_v1_5.json",
+    "raw_bytes": 11976,
+    "raw_sha256": "c27107edcab9f40f0aa8ba7b003434672e1c6c7fe7714b86f762768d7d3a4614",
+    "canonical_sha256": "e71d0cad480c89eac25ad2b276de9a4e7153e1ec2f3bdcc793682f183a592200"
+  },
+  "catalog": {
+    "path": "data/catalog.jsonl",
+    "bytes": 60546327,
+    "sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+    "rows": 50000
+  },
+  "index": {
+    "directory": "experiments/p7_index",
+    "manifest": {
+      "path": "semantic-index.manifest.json",
+      "bytes": 9474,
+      "sha256": "cca932a8b4d0a160e0a409ec6ce9cf3b68c99e3b95bddb911b9c7d83b67365ba",
+      "schema_version": "p7.semantic-index.v1"
+    },
+    "matrix": {
+      "path": "embeddings.npy",
+      "bytes": 76800128,
+      "sha256": "84897381c106b909b9e3d44229187d12f23796f108cfec97904db1cbeeb2d407",
+      "dtype": "float32",
+      "shape": [
+        50000,
+        384
+      ]
+    },
+    "ordered_asins": {
+      "path": "parent_asins.txt",
+      "bytes": 550000,
+      "sha256": "3af465b23ff2d33614501472edf02d2953ccfc170d2fe3348d55cd51c8ef0d54",
+      "count": 50000,
+      "encoding": "utf-8-lf",
+      "line_ending": "LF"
+    },
+    "canonical_documents_sha256": "f0225c6a8848a0fc9f462e15e62c47002e25493eafc5c82efc05ffba2104d3cc"
+  },
+  "asset_scope": {
+    "required_asset_bytes": 211493793,
+    "required_asset_bytes_max": 225000000
+  },
+  "build_observation": {
+    "wall_seconds": 7422.871804,
+    "rss_backend": "Windows GetProcessMemoryInfo WorkingSetSize",
+    "baseline_rss_bytes": 25243648,
+    "peak_rss_bytes": 4844965888,
+    "peak_delta_from_baseline_bytes": 4819722240
+  }
+}
