@@ -473,8 +473,12 @@ QuestionValue diagnostics**, not as the complete IntentGraph target architecture
   hit-to-miss/runtime gates, and repeats only an
   eligible active candidate. Released-public rows are not evaluated by this runner.
 - The protocol, constants, formulas, and rejection gates were committed before opening
-  P5 metrics. Until that run is complete, this entry records implemented experiment
-  infrastructure rather than an effectiveness claim or promotion decision.
+  P5 metrics. The clean-tree run matched served/C00/shadow outputs exactly. Active R01
+  changed 21 turn-level Top-10 tails but changed none of the 200 target outcomes, so its
+  metrics tied control and its `30.962s` evaluation time was `1.574x` control. It failed
+  both strict score-improvement and `1.30x` time gates, was rejected without a public
+  run, and did not change the served Agent. Artifact SHA-256:
+  `d0fce8879cd19f0853aeb632b56195a7496b690939581e8f4c731d4a0795d90f`.
 
 ### 2026-08-28 — P4 target-blind architecture search and promotion
 

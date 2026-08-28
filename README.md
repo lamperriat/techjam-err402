@@ -107,6 +107,18 @@ has now been promoted into the default Agent after public, phrase, contract,
 determinism, repeated resource-measurement, no-key, and reference-bridge checks. See
 `docs/algorithm_architecture_research.md` for the protocol and evidence boundary.
 
+The next isolated P5 experiment tested guarded session-local pseudo-relevance feedback
+on a fresh 200-target corpus disjoint from both released-public and the P4 selection
+targets. Run its frozen reproduction with:
+
+```bash
+python3 scripts/evaluate_p5.py
+```
+
+R01 made 21 guarded turn-level Top-10 tail changes but produced no target-outcome gain
+and took `1.574x` the control evaluation time, so it failed its pre-registered score and
+runtime gates. It remains experiment-only; the default Agent is still R08 coverage.
+
 Direct `Agent()` construction reads three optional experiment variables:
 `TECHJAM_RETRIEVAL_MODE` (`coverage` or `control`),
 `TECHJAM_RERANK_MODE` (`off`, `shadow`, or experimental `active`) and

@@ -158,6 +158,30 @@ released public set is read only to prove target exclusion and is not evaluated 
 P5 selection runner. If R01 fails, C00 remains served and the parameters will not be
 tuned on this same P5 corpus.
 
+### P5 frozen result
+
+The selection ran once from clean commit `ac8e2217f2558a2e9fe0792e7f77ce1f2adff7e1`.
+The actual served reference and C00 matched in both complete evaluator hash
+`000654e6459f58a2483785daf3bcbeedbbe9dcb058284aa0da5d23d52cebc420` and ordered
+response-trace hash
+`f8727978dbaa8bffaf944e93684e76169fe6aefa371759fa5f7232bcfdb16525`.
+S00 matched those outputs exactly. The frozen metrics were HR `0.940000`, MRR
+`0.593937`, MTTC `3.080000`, and TechnicalScore `0.806581`.
+
+R01 computed 48 PRF routes over 631 turns and made 21 guarded Top-10 tail changes, but
+all 200 per-session official contributions were unchanged: no hit/miss, hit turn, or
+target-rank improvement or regression occurred. Its aggregate metrics therefore tied
+C00 exactly, failing the strict TechnicalScore-improvement gate. It also took
+`30.961991s` evaluation time versus C00's `19.672008s` (`1.574x`), failing the `1.30x`
+time gate; P95 response latency was `85.9451ms` versus `62.5151ms`. The active response
+trace changed, as expected, but the evaluator-result hash remained equal because none of
+those tail replacements changed target outcomes.
+
+The decision is `retain_control_active_rejected`; no repeat confirmation or released-
+public evaluation was run, and the served Agent remains R08 coverage. The ignored full
+artifact is `experiments/p5_prf_selection.json`, SHA-256
+`d0fce8879cd19f0853aeb632b56195a7496b690939581e8f4c731d4a0795d90f`.
+
 ## Frozen 200-session result
 
 The full matrix ran from clean commit `e5d0d4966d01da9932d835cb3a754475b6fa13e2`.
