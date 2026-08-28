@@ -456,6 +456,34 @@ QuestionValue diagnostics**, not as the complete IntentGraph target architecture
 
 ## Change history
 
+### 2026-08-28 - P6 guarded adaptive-depth pre-metric implementation freeze
+
+- Added a P6-only pure guard and experiment Agent. It repeats the exact broad FTS query
+  only when the served Top-120 is saturated, validates an exact 120-item prefix at depth
+  240, protects Top 9, and may replace only rank 10 with one target-blind newcomer whose
+  visible-query coverage is strictly higher and whose fields match no excluded term.
+- Added exact C00/S00/R01 control, shadow, and active semantics without importing P6 code
+  into `starter/agent.py`. C00 remains response-identical to the served R08 Agent; S00
+  computes diagnostics but returns C00 output; every failure path in R01 returns the full
+  original order.
+- Added a frozen runner that verifies official/P1/P5/P6 identities and target isolation,
+  exact integer score contributions, response and route invariants, post-hoc session-level
+  candidate-pool recall, override timing, and public-use boundaries. Labels are joined only
+  after target-blind turn records have been copied from a closed Agent.
+- Resource observations use four fresh workers for initial selection (actual served Agent,
+  C00, S00, R01). Only a fully eligible R01 launches three fresh confirmation workers
+  (served, C00, R01). Parent-issued nonces prove fresh results while allowing legal PID
+  reuse. R01 is gated against both C00 and the real served Agent; a confirmation-worker
+  failure is recorded as a deterministic retain-control decision instead of inviting a
+  rerun.
+- Independent pre-metric review found and fixed excluded-term ordering across Python hash
+  seeds, the initial shared-process resource design, the instrumented-control-only resource
+  comparison, PID-reuse false rejection, and confirmation-failure artifact loss. No P6
+  metric or result artifact existed during these changes.
+- The complete project suite passes `258/258`; the focused P6 suite passes `65/65`, source
+  compilation and whitespace checks pass, and the served Agent remains unchanged pending
+  the single frozen P6 selection run.
+
 ### 2026-08-28 - P6 triple-disjoint selection corpus freeze
 
 - Added a deterministic P6 corpus builder that excludes the union of all released-public,

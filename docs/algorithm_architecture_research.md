@@ -241,18 +241,34 @@ contribution regressions.
 
 Candidate-pool recall is audited only from S00's control-identical turns and joined to
 targets after the Agent returns; pre-override turns are excluded. Deep union recall at
-240 must strictly exceed base union recall at 120. Selection evaluation time and response
-P95 must each be at most 1.30x C00. An otherwise eligible active route must reproduce its
-functional and response hashes on a clean repeat and pass independent-process resource
-confirmation (two runs per variant, evaluation and P95 at most 1.30x, peak RSS at most
-1.20x). These are project promotion gates, not organizer-published numeric limits.
+240 must strictly exceed base union recall at 120. Every resource observation runs in a
+fresh Python worker. Selection launches exactly four workers: the actual served
+`Agent(coverage/off)`, C00, S00, and R01, once each. R01 evaluation time and response P95
+must each be at most 1.30x both C00 and the actual served Agent. Against C00, both absolute
+peak RSS and the worker-local RSS increment must be at most 1.20x. Against the actual
+served Agent, absolute peak RSS must be at most 1.20x; its RSS increment is disclosed but
+is not gated. The C00 comparison isolates the algorithm, while the served comparison
+prevents experiment instrumentation from hiding production overhead.
+
+Only if every first-run gate passes, confirmation launches three more fresh workers:
+served Agent, C00, and R01. Thus a rejected selection uses four workers; a confirmation-
+eligible selection uses seven total, giving two runs each for served/C00/R01 and one for
+S00. Each worker reports its own elapsed time, response P95, absolute peak RSS, and RSS
+increment. Parent-issued unique nonces prove that each requested worker result is fresh;
+child PIDs are recorded but historical PID uniqueness is not a gate because an operating
+system may legally reuse a PID. R01 must reproduce its functional, response, and turn-
+audit hashes on the clean confirmation and pass the same dual-baseline time/P95/absolute-
+RSS gates in both runs. These are project promotion gates, not organizer-published
+numeric limits. A selection-worker failure aborts before producing a decision, while an
+eligible candidate's confirmation-worker failure is recorded in the one selection
+artifact and deterministically retains C00; it is not a reason to rerun the corpus.
 
 Released-public rows are loaded only to prove target exclusion. They may be evaluated
 once for final confirmation only after every P6 selection, repeat, and resource gate
 passes. A tie or any failed gate retains R08, and P6 parameters will not be tuned on the
 same corpus.
 
-## Frozen 200-session result
+## P4 frozen 200-session architecture-matrix result (historical)
 
 The full matrix ran from clean commit `e5d0d4966d01da9932d835cb3a754475b6fa13e2`.
 The input sample hash was
