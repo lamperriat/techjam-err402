@@ -96,6 +96,13 @@ class AgentTest(unittest.TestCase):
         self.assertEqual(response["recommendations"][0]["parent_asin"], "A-BLUE-COTTON")
         self.assertTrue({"dresses", "cotton", "blue"} <= set(snapshot["query_terms"]))
 
+        active_slots = {
+            (record["slot"], record["value"])
+            for record in snapshot["slot_ledger"]["active"]
+        }
+        self.assertTrue({("material", "cotton"), ("color", "blue")} <= active_slots)
+        self.assertEqual(snapshot["slot_ledger"]["schema_version"], "p3.slot-ledger.v1")
+
     def test_override_removes_stale_preference_but_preserves_category(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             agent = Agent(self._catalog(directory))
@@ -582,6 +589,23 @@ class AgentTest(unittest.TestCase):
         self.assertEqual(second["ask_attribute"], "other")
         self.assertNotIn("preference", snapshot["query_terms"])
 
+    def test_explicit_preference_reopens_an_exhausted_slot_in_shadow_ledger(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            agent = Agent(self._catalog(directory))
+            self.addCleanup(agent.connection.close)
+            agent.reset("reopen-slot", {})
+            agent.respond("reopen-slot", "I'm looking for women's dresses.", 1, 10)
+            agent.respond("reopen-slot", "No preference for material.", 2, 10)
+            agent.respond("reopen-slot", "Actually, cotton is required.", 3, 10)
+            snapshot = agent.debug_snapshot("reopen-slot")
+
+        self.assertNotIn("material", snapshot["exhausted_attributes"])
+        active = {
+            (record["slot"], record["value"])
+            for record in snapshot["slot_ledger"]["active"]
+        }
+        self.assertIn(("material", "cotton"), active)
+
     def test_fast_and_conservative_question_policies(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             catalog = self._catalog(directory)
@@ -668,11 +692,63 @@ class AgentTest(unittest.TestCase):
         self.assertEqual(diagnostics["mode"], "shadow")
         self.assertEqual(diagnostics["pool_size"], 2)
         self.assertEqual(set(diagnostics["breakdowns"]), {"FORMAL-FIRST", "CASUAL-SECOND"})
+        self.assertEqual(
+            diagnostics["question_shadow"]["schema_version"],
+            "p3.question-value.v1",
+        )
+        self.assertEqual(diagnostics["question_shadow"]["mode"], "shadow")
         self.assertNotIn("target", json.dumps(diagnostics).lower())
         self.assertEqual(
             responses["active"]["recommendations"][0]["parent_asin"],
             "CASUAL-SECOND",
         )
+
+    def test_shadow_question_value_receives_catalog_prices(self) -> None:
+        products = [
+            {
+                "parent_asin": f"PRICE-{index}",
+                "title": "Everyday shoe",
+                "categories": ["Shoes"],
+                "price": price,
+            }
+            for index, price in enumerate((20.0, 35.0, 75.0, 150.0), start=1)
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            catalog = Path(directory) / "catalog.jsonl"
+            catalog.write_text(
+                "".join(json.dumps(product) + "\n" for product in products),
+                encoding="utf-8",
+            )
+            agent = Agent(catalog, rerank_mode="shadow")
+            self.addCleanup(agent.connection.close)
+            agent.reset("price-shadow", {})
+            agent.respond("price-shadow", "shoe", 1, 10)
+            diagnostics = agent.debug_rerank_diagnostics("price-shadow")
+
+        shadow = diagnostics["question_shadow"]
+        budget = next(
+            candidate
+            for candidate in shadow["candidates"]
+            if candidate["attribute"] == "budget"
+        )
+        self.assertEqual(budget["coverage"], 1.0)
+        self.assertEqual(budget["covered_candidates"], 4)
+        self.assertEqual(budget["distinct_values"], 4)
+
+    def test_ranking_diagnostics_are_bounded_and_recomputed_on_demand(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            agent = Agent(self._catalog(directory), rerank_mode="shadow")
+            self.addCleanup(agent.connection.close)
+            for index in range(140):
+                session_id = f"bounded-{index}"
+                agent.reset(session_id, {})
+                agent.respond(session_id, "dress", 1, 10)
+
+            self.assertLessEqual(len(agent._ranking_diagnostics), 128)
+            diagnostics = agent.debug_rerank_diagnostics("bounded-0")
+
+        self.assertEqual(diagnostics["mode"], "shadow")
+        self.assertLessEqual(len(agent._ranking_diagnostics), 128)
 
     def test_response_contract_and_final_turn(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

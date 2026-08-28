@@ -10,6 +10,7 @@ from starter.attributes import (
     ProductAttributeView,
 )
 from starter.reranker import (
+    PRESERVED_TOP_K,
     RERANK_TOP_N,
     WEIGHTS,
     has_usable_evidence,
@@ -114,6 +115,7 @@ class RerankTopNTests(unittest.TestCase):
             ),
             "MATCH": ProductAttributeView(
                 parent_asin="MATCH",
+                material=(attribute("cotton"),),
                 feature_phrases=(attribute("pocket"),),
             ),
         }
@@ -130,6 +132,52 @@ class RerankTopNTests(unittest.TestCase):
         self.assertEqual(fused, ["RAW-FIRST", "MATCH", "TAIL"])
         self.assertEqual(set(breakdowns), {"RAW-FIRST", "MATCH"})
         self.assertGreater(breakdowns["MATCH"].total, breakdowns["RAW-FIRST"].total)
+
+    def test_incomparable_attribute_coverage_cannot_cross(self) -> None:
+        fused = ["UNKNOWN", "MATCH"]
+        intent = ConversationConstraintView(
+            positive=(ConstraintValue("material", "cotton", 1, 1.0, "test"),),
+        )
+        products = {
+            "UNKNOWN": ProductAttributeView(parent_asin="UNKNOWN"),
+            "MATCH": ProductAttributeView(
+                parent_asin="MATCH",
+                material=(attribute("cotton"),),
+            ),
+        }
+
+        reranked, breakdowns = rerank_top_n(
+            fused,
+            {"UNKNOWN": 1.0, "MATCH": 0.9},
+            products,
+            intent,
+        )
+
+        self.assertEqual(reranked, fused)
+        self.assertEqual(breakdowns["UNKNOWN"].coverage_signature, ())
+        self.assertEqual(breakdowns["MATCH"].coverage_signature, ("material",))
+
+    def test_raw_top_ten_membership_and_tail_order_are_preserved(self) -> None:
+        fused = [f"RAW-{index:02d}" for index in range(1, 12)]
+        intent = ConversationConstraintView(exact_terms=("pocket",))
+        products = {
+            asin: ProductAttributeView(parent_asin=asin)
+            for asin in fused
+        }
+        products["RAW-11"] = ProductAttributeView(
+            parent_asin="RAW-11",
+            feature_phrases=(attribute("pocket"),),
+        )
+
+        reranked, _ = rerank_top_n(
+            fused,
+            {asin: 1.0 - index / 100.0 for index, asin in enumerate(fused)},
+            products,
+            intent,
+        )
+
+        self.assertEqual(set(reranked[:PRESERVED_TOP_K]), set(fused[:PRESERVED_TOP_K]))
+        self.assertEqual(reranked[PRESERVED_TOP_K:], fused[PRESERVED_TOP_K:])
 
     def test_ties_preserve_original_fused_order(self) -> None:
         fused = ["Z", "A"]
@@ -187,6 +235,7 @@ class RerankTopNTests(unittest.TestCase):
 
     def test_default_pool_limit_is_fixed_and_auditable(self) -> None:
         self.assertEqual(RERANK_TOP_N, 50)
+        self.assertEqual(PRESERVED_TOP_K, 10)
         self.assertEqual(
             WEIGHTS,
             {

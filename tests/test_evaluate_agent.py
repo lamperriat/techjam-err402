@@ -116,6 +116,8 @@ class EvaluateAgentTest(unittest.TestCase):
         self.assertEqual(len(manifest["implementation"]["agent_source_sha256"]), 64)
         self.assertEqual(len(manifest["implementation"]["attribute_source_sha256"]), 64)
         self.assertEqual(len(manifest["implementation"]["reranker_source_sha256"]), 64)
+        self.assertEqual(len(manifest["implementation"]["slot_ledger_source_sha256"]), 64)
+        self.assertEqual(len(manifest["implementation"]["clarification_source_sha256"]), 64)
         run_mock.assert_called_once_with(
             catalog,
             dataset,

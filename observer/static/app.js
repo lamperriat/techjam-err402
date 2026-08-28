@@ -107,7 +107,7 @@ function renderOverview() {
   const freshness = $("#codeFreshness");
   freshness.classList.toggle("hidden", !sourceState.restart_required);
   freshness.textContent = sourceState.restart_required
-    ? "检测到 Agent/attributes/reranker/evaluator/generalization 源码或已加载的 catalog/public set 在 Workbench 启动后发生变化。为防止混用新旧代码或数据产生假实验，请先停止并重新双击 Start Observer.vbs；评测、泛化、重放和 Lab 已锁定。"
+    ? "检测到 Agent/attributes/reranker/slot-ledger/clarification/shadow-analysis/evaluator/generalization 源码或已加载的 catalog/public set 在 Workbench 启动后发生变化。为防止混用新旧代码或数据产生假实验，请先停止并重新双击 Start Observer.vbs；评测、泛化、重放和 Lab 已锁定。"
     : "";
   $$('[data-action="evaluation"], [data-action="generalization"]').forEach(button => { button.disabled = sourceState.restart_required; });
   [$("#refreshTrace"), $("#labReset"), $("#labInput")].forEach(element => {
@@ -230,6 +230,24 @@ function renderTurn() {
   const routeCounts = turn.retrieval.route_counts || retrieval.route_counts || {};
   const mode = turn.retrieval.rerank_mode || state.trace.rerank_mode || "off";
   const rerank = retrieval.rerank || {};
+  const slotLedger = session.slot_ledger || {};
+  const questionShadow = policy.question_shadow || rerank.question_shadow || {};
+  const shadowQuestion = questionShadow.selected_attribute || "none";
+  const shadowTop = (questionShadow.candidates || [])[0] || {};
+  const activeLedger = (slotLedger.active || []).slice(0, 5).map(record => (
+    `${record.slot}${Number(record.polarity) < 0 ? "!=" : "="}${record.value}`
+  )).join(" · ") || "none";
+  const retiredLedger = (slotLedger.records || []).filter(record => record.status !== "active");
+  const retiredPreview = retiredLedger.slice(-3).map(record => (
+    `${record.slot}=${record.value} (${record.status}@t${record.ended_turn ?? "?"})`
+  )).join(" · ") || "none";
+  const shadowValues = (shadowTop.value_counts || []).slice(0, 3).map(item => (
+    `${item[0]}:${item[1]}`
+  )).join(" · ") || "no candidate split";
+  const shadowComponents = shadowTop.attribute
+    ? `IG ${fmt(shadowTop.information_gain, 3)} · coverage ${fmt(shadowTop.coverage, 3)} · answerability ${fmt(shadowTop.answerability, 3)} · turn cost ${fmt(shadowTop.turn_cost, 3)}`
+    : (questionShadow.reason || "no positive-value candidate question");
+  const blockedQuestions = (questionShadow.blocked_attributes || []).join(", ") || "none";
   const targetBreakdown = turn.retrieval.target_rerank_breakdown || {};
   const targetEvidence = (targetBreakdown.matched_evidence || []).join(", ") || "no normalized match";
   $("#turnLabel").textContent = `Turn ${turn.turn} / ${state.trace.turns.length}`;
@@ -244,11 +262,11 @@ function renderTurn() {
   $("#layerFlow").innerHTML = [
     layerCard(1, "Input", esc(turn.user_message), `turn ${turn.turn}`),
     layerCard(2, "Parse", terms, `broad ${parse.fts_expression || "empty"} · strict ${parse.strict_fts_expression || "empty"}`),
-    layerCard(3, "Agent state", esc(session.memory_mode || "No state event"), `v${session.version ?? 1} · ${(session.active_terms || []).length} active terms · ${session.override_count || 0} overrides · pending ${esc(session.pending_attribute || "none")}`),
+    layerCard(3, "Agent state", `${esc(session.memory_mode || "No state event")}<br><b>Active slots:</b> ${esc(activeLedger)}<br><b>Retired:</b> ${esc(retiredPreview)}`, `v${session.version ?? 1} · ${(session.active_terms || []).length} active terms · ${slotLedger.active_count ?? 0}/${slotLedger.record_count ?? 0} ledger slots · ${retiredLedger.length} retired · ${session.override_count || 0} overrides · pending ${esc(session.pending_attribute || "none")}`),
     layerCard(4, "Sparse retrieval + fusion", `${fmt(retrieval.candidate_count ?? turn.retrieval.candidate_count, 0)} candidates<br><b>${esc(retrieval.engine || "SQLite FTS5 BM25 + weighted RRF")}</b>`, `broad ${routeCounts.broad ?? 0} · strict ${routeCounts.strict ?? 0} · fused ${routeCounts.fused ?? 0} · ${fmt(output.elapsed_ms, 2)} ms`, posthocRank ? "success" : ""),
     layerCard(5, "Constraint rerank", `Mode: <b>${esc(mode)}</b> · pool <b>${rerank.pool_size ?? 0}/${rerank.top_n ?? 50}</b><br>Reranked ${routeCounts.reranked ?? routeCounts.fused ?? 0} · Final ${routeCounts.final ?? routeCounts.fused ?? 0}`, `${rerank.scorer_version || "legacy/no scorer"} · ${rerank.attribute_schema_version || "no attribute schema"} · ${retrieval.rerank_affects_output ? "affects output" : "diagnostic only"}`),
     layerCard(6, "Target annotation", `Broad: <b>${turn.retrieval.target_broad_rank ?? "not found"}</b> · Strict: <b>${turn.retrieval.target_strict_rank ?? "not found"}</b><br>Fused: <b>${turn.retrieval.target_fused_rank ?? "not found"}</b> · Reranked: <b>${turn.retrieval.target_reranked_rank ?? turn.retrieval.target_fused_rank ?? "not found"}</b><br>Final: <b>${posthocRank ?? "not found"}</b> · Top 10: <b>${turn.target_top10_rank ?? "no"}</b><br>Rerank total: <b>${fmt(targetBreakdown.total, 4)}</b> · ${esc(targetEvidence)}`, `joined after Agent.respond · actual route ${turn.retrieval.actual_route || "fused"}`, posthocRank ? "" : "alert", "post-hoc"),
-    layerCard(7, "Policy", `Ask: <b>${esc(policy.ask_attribute ?? turn.ask_attribute ?? "none")}</b><br>${esc(turn.event)}`, policy.reason || "next action"),
+    layerCard(7, "Policy", `Actual ask: <b>${esc(policy.ask_attribute ?? turn.ask_attribute ?? "none")}</b><br>Candidate-aware shadow: <b>${esc(shadowQuestion)}</b> · value ${fmt(shadowTop.score, 4)}<br>${esc(shadowComponents)}<br><b>Candidate split:</b> ${esc(shadowValues)}<br>${esc(turn.event)}`, `${esc(policy.reason || "next action")} · blocked ${esc(blockedQuestions)} · shadow does not affect output`),
     layerCard(8, "Score", esc(scoreText), `${turn.failure_code} · ${turn.eligible_for_hit ? "eligible" : "blocked"}`, turn.hit ? "success" : "", "derived"),
   ].join("");
   $("#conversation").innerHTML = `
@@ -391,12 +409,16 @@ async function loadExperiments() {
 }
 
 function renderExperiments() {
-  $("#experimentsTable").innerHTML = `<table><thead><tr><th>Experiment</th><th>Created</th><th>HR@10</th><th>MRR</th><th>MTTC</th><th>Score</th><th>Default-suite robust HR</th><th>Scenario HR</th></tr></thead><tbody>${state.experiments.map(item => {
+  $("#experimentsTable").innerHTML = `<table><thead><tr><th>Experiment</th><th>Created</th><th>HR@10</th><th>MRR</th><th>MTTC</th><th>Score</th><th>Shadow policy</th><th>Default-suite robust HR</th><th>Scenario HR</th></tr></thead><tbody>${state.experiments.map(item => {
     const metrics = item.metrics || {}; const scenarios = metrics.scenario_metrics || {};
     const mode = item.implementation?.rerank_mode || "off";
     const robust = item.robustness?.released_public?.all_suites_robust_hit_rate;
+    const shadow = item.shadow_policy_analysis || {};
+    const shadowText = shadow.turn_count == null
+      ? "—"
+      : `${shadow.disagreement_count}/${shadow.turn_count} disagree · ${shadow.shadow_question_turns} selected · ${shadow.blocked_selection_violations} blocked`;
     const scenarioText = Object.entries(scenarios).map(([name, values]) => `${scenarioName(name)} ${pct(values.hit_rate_at_10)}`).join(" · ");
-    return `<tr><td class="product-name">${esc(item.label)}<small>rerank ${esc(mode)}</small></td><td>${esc(item.created_at || "reference")}</td><td>${pct(metrics.hit_rate_at_10)}</td><td>${fmt(metrics.mrr, 4)}</td><td>${fmt(metrics.mttc, 2)}</td><td>${fmt(metrics.recommended_technical_score, 5)}</td><td>${robust == null ? "—" : pct(robust)}</td><td class="small muted">${esc(scenarioText || "—")}</td></tr>`;
+    return `<tr><td class="product-name">${esc(item.label)}<small>rerank ${esc(mode)}</small></td><td>${esc(item.created_at || "reference")}</td><td>${pct(metrics.hit_rate_at_10)}</td><td>${fmt(metrics.mrr, 4)}</td><td>${fmt(metrics.mttc, 2)}</td><td>${fmt(metrics.recommended_technical_score, 5)}</td><td class="small muted">${esc(shadowText)}</td><td>${robust == null ? "—" : pct(robust)}</td><td class="small muted">${esc(scenarioText || "—")}</td></tr>`;
   }).join("")}</tbody></table>`;
 }
 

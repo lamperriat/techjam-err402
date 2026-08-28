@@ -11,8 +11,9 @@ from starter.attributes import (
 )
 
 
-SCORER_VERSION = "p2.constraint-rerank.v1"
+SCORER_VERSION = "p2.constraint-rerank.v2"
 RERANK_TOP_N = 50
+PRESERVED_TOP_K = 10
 WEIGHTS = {
     "rrf_prior": 0.45,
     "category_consistency": 0.15,
@@ -31,6 +32,7 @@ class ScoreBreakdown:
     exact_feature_match: float
     negative_violation: float
     matched_evidence: tuple[str, ...] = ()
+    coverage_signature: tuple[str, ...] = ()
 
     def as_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -68,6 +70,29 @@ def _slot_match(view: ProductAttributeView, slot: str, value: str) -> tuple[floa
         if candidate.value == value:
             return candidate.confidence, f"{slot}={value}"
     return 0.0, None
+
+
+def _requested_slots(intent: ConversationConstraintView) -> tuple[str, ...]:
+    slots = set(intent.classified_slots)
+    slots.update(constraint.slot for constraint in (*intent.positive, *intent.negative))
+    if intent.category_terms:
+        slots.add("category")
+    return tuple(sorted(slots))
+
+
+def _coverage_signature(
+    intent: ConversationConstraintView,
+    product: ProductAttributeView,
+) -> tuple[str, ...]:
+    return tuple(
+        slot
+        for slot in _requested_slots(intent)
+        if (
+            product.price is not None
+            if slot == "price"
+            else bool(product_slot(product, slot))
+        )
+    )
 
 
 def score_candidate(
@@ -130,6 +155,7 @@ def score_candidate(
     return ScoreBreakdown(
         total=round(total, 9),
         matched_evidence=tuple(dict.fromkeys(matched)),
+        coverage_signature=_coverage_signature(intent, product),
         **{name: round(value, 9) for name, value in components.items()},
     )
 
@@ -166,9 +192,20 @@ def rerank_top_n(
         )
         for asin in pool
     }
-    raw_rank = {asin: index for index, asin in enumerate(pool, start=1)}
-    reranked_pool = sorted(
-        pool,
-        key=lambda asin: (-breakdowns[asin].total, raw_rank[asin], asin),
-    )
-    return [*reranked_pool, *original[len(pool):]], breakdowns
+    safe_pool = list(pool[:PRESERVED_TOP_K])
+    # Adjacent candidates may swap only when the catalog exposes the same requested
+    # slots for both. This prevents richer metadata from demoting unknown evidence.
+    for index in range(1, len(safe_pool)):
+        candidate = safe_pool[index]
+        position = index
+        while position > 0:
+            incumbent = safe_pool[position - 1]
+            candidate_score = breakdowns[candidate]
+            incumbent_score = breakdowns[incumbent]
+            if candidate_score.coverage_signature != incumbent_score.coverage_signature:
+                break
+            if candidate_score.total <= incumbent_score.total:
+                break
+            safe_pool[position - 1], safe_pool[position] = candidate, incumbent
+            position -= 1
+    return [*safe_pool, *original[len(safe_pool):]], breakdowns

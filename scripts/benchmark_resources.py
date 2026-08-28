@@ -38,7 +38,9 @@ from evaluator.local_evaluator import (  # noqa: E402
 )
 from starter.agent import Agent, SessionState  # noqa: E402
 from starter.attributes import SCHEMA_VERSION as ATTRIBUTE_SCHEMA_VERSION  # noqa: E402
+from starter.clarification import SCHEMA_VERSION as QUESTION_VALUE_SCHEMA_VERSION  # noqa: E402
 from starter.reranker import SCORER_VERSION  # noqa: E402
+from starter.slot_ledger import SCHEMA_VERSION as SLOT_LEDGER_SCHEMA_VERSION  # noqa: E402
 
 
 SCHEMA_VERSION = "track4-resource-recall-v2"
@@ -701,12 +703,20 @@ def build_benchmark(
             "reranker_source_sha256": _sha256(
                 PROJECT_ROOT / "starter" / "reranker.py"
             ),
+            "slot_ledger_source_sha256": _sha256(
+                PROJECT_ROOT / "starter" / "slot_ledger.py"
+            ),
+            "clarification_source_sha256": _sha256(
+                PROJECT_ROOT / "starter" / "clarification.py"
+            ),
             "evaluator_source_sha256": _sha256(
                 PROJECT_ROOT / "evaluator" / "local_evaluator.py"
             ),
             "benchmark_source_sha256": _sha256(Path(__file__)),
             "attribute_schema_version": ATTRIBUTE_SCHEMA_VERSION,
             "reranker_scorer_version": SCORER_VERSION,
+            "slot_ledger_schema_version": SLOT_LEDGER_SCHEMA_VERSION,
+            "question_value_schema_version": QUESTION_VALUE_SCHEMA_VERSION,
             "runs": runs,
             "question_policy": question_policy,
             "rerank_mode": rerank_mode,

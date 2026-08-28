@@ -18,7 +18,9 @@ if str(PROJECT_ROOT) not in sys.path:
 from evaluator.local_evaluator import catalog_index, evaluate, load_jsonl
 from starter.agent import Agent
 from starter.attributes import SCHEMA_VERSION as ATTRIBUTE_SCHEMA_VERSION
+from starter.clarification import SCHEMA_VERSION as QUESTION_VALUE_SCHEMA_VERSION
 from starter.reranker import SCORER_VERSION
+from starter.slot_ledger import SCHEMA_VERSION as SLOT_LEDGER_SCHEMA_VERSION
 
 
 SCHEMA_VERSION = "p2.generalization.v1"
@@ -638,11 +640,19 @@ def main(argv: list[str] | None = None) -> int:
             "reranker_source_sha256": _sha256(
                 PROJECT_ROOT / "starter" / "reranker.py"
             ),
+            "slot_ledger_source_sha256": _sha256(
+                PROJECT_ROOT / "starter" / "slot_ledger.py"
+            ),
+            "clarification_source_sha256": _sha256(
+                PROJECT_ROOT / "starter" / "clarification.py"
+            ),
             "evaluator_source_sha256": _sha256(
                 PROJECT_ROOT / "evaluator" / "local_evaluator.py"
             ),
             "attribute_schema_version": ATTRIBUTE_SCHEMA_VERSION,
             "reranker_scorer_version": SCORER_VERSION,
+            "slot_ledger_schema_version": SLOT_LEDGER_SCHEMA_VERSION,
+            "question_value_schema_version": QUESTION_VALUE_SCHEMA_VERSION,
             "network_required": False,
             "target_blind_transform": True,
         },

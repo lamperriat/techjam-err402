@@ -17,11 +17,23 @@ from starter.attributes import (
     build_conversation_constraint_view,
     build_product_attribute_view,
 )
+from starter.clarification import (
+    SCHEMA_VERSION as QUESTION_VALUE_SCHEMA_VERSION,
+    empty_question_shadow,
+    rank_question_values,
+)
 from starter.reranker import RERANK_TOP_N, SCORER_VERSION, rerank_top_n
+from starter.slot_ledger import (
+    SCHEMA_VERSION as SLOT_LEDGER_SCHEMA_VERSION,
+    DELETED,
+    SUPERSEDED,
+    SlotLedger,
+)
 
 
 TOKEN_RE = re.compile(r"[a-z0-9]+", re.IGNORECASE)
 ATTRIBUTE_CACHE_LIMIT = 10_000
+RANKING_DIAGNOSTIC_LIMIT = 128
 CATEGORY_PATTERNS = (
     re.compile(
         r"^\s*(?:i(?:'m| am)\s+)?(?:looking|searching|shopping)\s+for\s+"
@@ -450,6 +462,7 @@ class SessionState:
     prefer_other_next: bool = False
     pending_attribute: str | None = None
     pending_turn: int | None = None
+    slot_ledger: SlotLedger = field(default_factory=SlotLedger)
 
 
 class Agent:
@@ -481,7 +494,7 @@ class Agent:
         self.connection = sqlite3.connect(":memory:", check_same_thread=False)
         self._lock = threading.RLock()
         self._sessions: dict[str, SessionState] = {}
-        self._ranking_diagnostics: dict[int, dict[str, Any]] = {}
+        self._ranking_diagnostics: OrderedDict[int, dict[str, Any]] = OrderedDict()
         self._attribute_view_cache: OrderedDict[str, ProductAttributeView] = OrderedDict()
         self._build_index()
 
@@ -507,15 +520,23 @@ class Agent:
             "parent_asin UNINDEXED, title, categories, features, details, store, description, "
             "tokenize='unicode61 remove_diacritics 2')"
         )
+        metadata_enabled = self.rerank_mode != "off"
+        if metadata_enabled:
+            cursor.execute(
+                "CREATE TABLE product_metadata("
+                "parent_asin TEXT PRIMARY KEY, price TEXT NOT NULL)"
+            )
         batch: list[tuple[str, str, str, str, str, str, str]] = []
+        metadata_batch: list[tuple[str, str]] = []
         with self.catalog_path.open(encoding="utf-8") as handle:
             for line in handle:
                 if not line.strip():
                     continue
                 product = json.loads(line)
+                parent_asin = str(product["parent_asin"])
                 batch.append(
                     (
-                        str(product["parent_asin"]),
+                        parent_asin,
                         _text(product.get("title")),
                         _text(product.get("categories")),
                         _text(product.get("features")),
@@ -524,12 +545,32 @@ class Agent:
                         _text(product.get("description")),
                     )
                 )
+                if metadata_enabled:
+                    metadata_batch.append((parent_asin, _text(product.get("price"))))
                 if len(batch) >= 1000:
                     cursor.executemany("INSERT INTO products VALUES (?, ?, ?, ?, ?, ?, ?)", batch)
+                    if metadata_enabled:
+                        cursor.executemany(
+                            "INSERT INTO product_metadata VALUES (?, ?)", metadata_batch
+                        )
                     batch.clear()
+                    metadata_batch.clear()
         if batch:
             cursor.executemany("INSERT INTO products VALUES (?, ?, ?, ?, ?, ?, ?)", batch)
+            if metadata_enabled:
+                cursor.executemany(
+                    "INSERT INTO product_metadata VALUES (?, ?)", metadata_batch
+                )
         self.connection.commit()
+
+    def _store_ranking_diagnostics(
+        self, state: SessionState, diagnostics: dict[str, Any]
+    ) -> None:
+        key = id(state)
+        self._ranking_diagnostics[key] = diagnostics
+        self._ranking_diagnostics.move_to_end(key)
+        while len(self._ranking_diagnostics) > RANKING_DIAGNOSTIC_LIMIT:
+            self._ranking_diagnostics.popitem(last=False)
 
     def reset(self, session_id: str, user_profile: dict) -> None:
         with self._lock:
@@ -544,6 +585,8 @@ class Agent:
                 "rerank_top_n": RERANK_TOP_N,
                 "reranker_version": SCORER_VERSION,
                 "attribute_schema_version": ATTRIBUTE_SCHEMA_VERSION,
+                "slot_ledger_schema_version": SLOT_LEDGER_SCHEMA_VERSION,
+                "question_value_schema_version": QUESTION_VALUE_SCHEMA_VERSION,
                 "profile_keys_received": sorted(str(key) for key in user_profile),
             })
 
@@ -716,6 +759,7 @@ class Agent:
         if attributes:
             state.turn_attributes[turn] = attributes
             state.known_attributes.update(attributes)
+            state.exhausted_attributes.difference_update(attributes)
         return parsed
 
     @staticmethod
@@ -759,7 +803,7 @@ class Agent:
                 route: []
                 for route in ("broad", "strict", "fused", "reranked", "final")
             }
-            self._ranking_diagnostics[id(state)] = self._empty_rerank_diagnostics()
+            self._store_ranking_diagnostics(state, self._empty_rerank_diagnostics())
             return empty
 
         broad_rows = self.connection.execute(
@@ -823,9 +867,22 @@ class Agent:
                 "breakdowns": {
                     asin: breakdown.as_dict() for asin, breakdown in breakdowns.items()
                 },
+                "question_shadow": rank_question_values(
+                    product_views,
+                    fused_ids[:RERANK_TOP_N],
+                    blocked_attributes={
+                        *state.known_attributes,
+                        *state.asked_attributes,
+                        *state.exhausted_attributes,
+                        *(record.slot for record in state.slot_ledger.active_records()),
+                        *({state.pending_attribute} if state.pending_attribute else set()),
+                        *({"category"} if state.category_text else set()),
+                    },
+                    turn=max(1, len(state.messages)),
+                ),
             }
         final_ids = reranked_ids if self.rerank_mode == "active" else list(fused_ids)
-        self._ranking_diagnostics[id(state)] = diagnostics
+        self._store_ranking_diagnostics(state, diagnostics)
         return {
             "broad": broad_ids,
             "strict": strict_ids,
@@ -843,6 +900,9 @@ class Agent:
             "attribute_schema_version": ATTRIBUTE_SCHEMA_VERSION,
             "attribute_cache": {"hits": 0, "misses": 0, "size": len(self._attribute_view_cache)},
             "breakdowns": {},
+            "question_shadow": empty_question_shadow(
+                "Candidate attributes are computed only when rerank diagnostics are enabled."
+            ),
         }
 
     def _load_product_attribute_views(
@@ -872,6 +932,12 @@ class Agent:
             f"FROM products WHERE rowid IN ({placeholders})",
             rowids,
         ).fetchall()
+        asin_placeholders = ",".join("?" for _ in missing)
+        prices = dict(self.connection.execute(
+            "SELECT parent_asin, price FROM product_metadata "
+            f"WHERE parent_asin IN ({asin_placeholders})",
+            missing,
+        ).fetchall())
         for row in rows:
             asin = str(row[1])
             view = build_product_attribute_view({
@@ -882,6 +948,7 @@ class Agent:
                 "details": row[5],
                 "store": row[6],
                 "description": row[7],
+                "price": prices.get(asin),
             })
             views[asin] = view
             self._attribute_view_cache[asin] = view
@@ -958,6 +1025,8 @@ class Agent:
             "rerank_top_n": RERANK_TOP_N,
             "reranker_version": SCORER_VERSION,
             "attribute_schema_version": ATTRIBUTE_SCHEMA_VERSION,
+            "question_value_schema_version": QUESTION_VALUE_SCHEMA_VERSION,
+            "slot_ledger": state.slot_ledger.as_dict(),
             "category_text": state.category_text,
             "active_terms": list(state.active_terms),
             "excluded_terms": sorted(state.excluded_terms),
@@ -997,7 +1066,24 @@ class Agent:
                 raise ValueError("top_k must be a positive integer")
 
             state = self._sessions[session_id]
+            previous_version = state.version
             parsed = self._update_state(state, user_message, turn)
+            state.slot_ledger.reconcile(
+                build_conversation_constraint_view(
+                    state.category_text,
+                    state.active_terms,
+                    state.excluded_terms,
+                ),
+                turn=turn,
+                version=state.version,
+                message=user_message,
+                suppressed_slots=state.exhausted_attributes,
+                retired_status=(
+                    SUPERSEDED
+                    if parsed.is_override or state.version != previous_version
+                    else DELETED
+                ),
+            )
             query_terms = self._query_terms(state)
             broad_expression = self._fts_expression(query_terms)
             strict_expression = (
@@ -1085,7 +1171,7 @@ class Agent:
             ask_attribute = self._select_question(state, turn)
             snapshot = self._snapshot(state)
             self._trace(session_id, turn, "state", {
-                "memory_mode": "versioned multi-turn state",
+                "memory_mode": "versioned multi-turn state + shadow normalized slot ledger",
                 "active_slots": {
                     "category": snapshot["category_text"],
                     "terms": snapshot["active_terms"],
@@ -1104,6 +1190,9 @@ class Agent:
                 "question_policy": self.question_policy,
                 "pending_turn": state.pending_turn,
                 "reason": policy_reason,
+                "question_shadow": self._ranking_diagnostics.get(
+                    id(state), self._empty_rerank_diagnostics()
+                )["question_shadow"],
             })
 
             usage = (

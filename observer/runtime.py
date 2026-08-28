@@ -17,6 +17,10 @@ from typing import Any
 
 from evaluator.local_evaluator import MAX_TURNS, TOP_K, evaluate, normalize_recommendations
 from observer.events import TRACE_SCHEMA_VERSION
+from observer.shadow_analysis import (
+    SCHEMA_VERSION as SHADOW_ANALYSIS_SCHEMA_VERSION,
+    ShadowPolicyRecorder,
+)
 from observer.trace import (
     TraceRunner,
     _agent_rerank_mode,
@@ -24,6 +28,10 @@ from observer.trace import (
     _product_view,
 )
 from starter.agent import Agent, _terms
+from starter.attributes import SCHEMA_VERSION as ATTRIBUTE_SCHEMA_VERSION
+from starter.clarification import SCHEMA_VERSION as QUESTION_VALUE_SCHEMA_VERSION
+from starter.reranker import SCORER_VERSION
+from starter.slot_ledger import SCHEMA_VERSION as SLOT_LEDGER_SCHEMA_VERSION
 
 
 DOCUMENTS = {
@@ -36,6 +44,7 @@ DOCUMENTS = {
     "contract": ("Agent API contract", "docs/agent_api_contract.json", "Official kit"),
     "evaluation": ("Evaluation configuration", "docs/evaluation_config.json", "Official kit"),
     "baseline": ("Baseline results", "docs/baseline_results.json", "Official kit"),
+    "data_inventory": ("Official data inventory", "docs/data_inventory.md", "Audit"),
     "brief": ("Local challenge brief", "problem-statement.md", "Project copy"),
     "plan": ("Internal implementation plan", "docs/internal_plan.md", "Local only"),
     "architecture": ("Current architecture", "docs/current_architecture.md", "Local only"),
@@ -46,6 +55,17 @@ DOCUMENTS = {
         "Source",
     ),
     "source_reranker": ("Constraint reranker", "starter/reranker.py", "Source"),
+    "source_slot_ledger": ("Normalized slot ledger", "starter/slot_ledger.py", "Source"),
+    "source_clarification": (
+        "Candidate-aware clarification shadow",
+        "starter/clarification.py",
+        "Source",
+    ),
+    "source_shadow_analysis": (
+        "Cross-session clarification shadow analysis",
+        "observer/shadow_analysis.py",
+        "Source",
+    ),
     "source_evaluator": ("Local evaluator (official scoring behavior)", "evaluator/local_evaluator.py", "Source"),
     "source_generalization": (
         "P1 generalization evaluator",
@@ -139,15 +159,19 @@ class JobRecord:
 
 
 class _ProgressAgent:
-    def __init__(self, agent: Agent, job: JobRecord, total: int) -> None:
+    def __init__(self, agent: Agent, job: JobRecord, samples: list[dict[str, Any]]) -> None:
         self.agent = agent
         self.job = job
-        self.total = total
+        self.samples = samples
+        self.total = len(samples)
         self.started = 0
+        self.current_sample: dict[str, Any] = {}
+        self.shadow_policy = ShadowPolicyRecorder()
 
     def reset(self, session_id: str, user_profile: dict) -> None:
         if self.job.cancel_event.is_set():
             raise InterruptedError("Evaluation cancelled")
+        self.current_sample = self.samples[self.started]
         self.started += 1
         with self.job._lock:
             self.job.current = max(0, self.started - 1)
@@ -160,7 +184,21 @@ class _ProgressAgent:
     def respond(self, session_id: str, user_message: str, turn: int, top_k: int) -> dict:
         if self.job.cancel_event.is_set():
             raise InterruptedError("Evaluation cancellation requested")
-        return self.agent.respond(session_id, user_message, turn, top_k)
+        response = self.agent.respond(session_id, user_message, turn, top_k)
+        try:
+            shadow = self.agent.debug_rerank_diagnostics(session_id).get(
+                "question_shadow"
+            )
+        except (KeyError, RuntimeError):
+            shadow = None
+        self.shadow_policy.record(
+            sample_id=self.current_sample.get("sample_id", "unknown"),
+            scenario_type=self.current_sample.get("scenario_type", "unknown"),
+            turn=turn,
+            actual_attribute=response.get("ask_attribute"),
+            question_shadow=shadow,
+        )
+        return response
 
 
 class WorkbenchRuntime:
@@ -198,6 +236,9 @@ class WorkbenchRuntime:
             "agent": self.project_root / "starter" / "agent.py",
             "attributes": self.project_root / "starter" / "attributes.py",
             "reranker": self.project_root / "starter" / "reranker.py",
+            "slot_ledger": self.project_root / "starter" / "slot_ledger.py",
+            "clarification": self.project_root / "starter" / "clarification.py",
+            "shadow_analysis": self.project_root / "observer" / "shadow_analysis.py",
             "evaluator": self.project_root / "evaluator" / "local_evaluator.py",
             "generalization": self.project_root / "scripts" / "evaluate_generalization.py",
         }
@@ -318,8 +359,10 @@ class WorkbenchRuntime:
     def _require_current_source(self) -> None:
         if self._source_state()["restart_required"]:
             raise StaleRuntimeError(
-                "Agent/reranker/evaluator source or loaded catalog/dataset changed after Workbench "
-                "startup; restart Workbench before running it"
+                "Agent/attributes/reranker/slot-ledger/clarification/shadow-analysis/"
+                "evaluator/generalization "
+                "source or loaded catalog/dataset changed after Workbench startup; restart "
+                "Workbench before running it"
             )
 
     def close(self) -> None:
@@ -412,7 +455,7 @@ class WorkbenchRuntime:
                 ),
                 "source": "starter/agent.py · evaluator/local_evaluator.py",
             },
-            {"layer": "Session state", "status": "implemented", "detail": "Versioned multi-turn terms, attribute lifecycle, no-preference exhaustion, and selective override anchor", "source": "starter/agent.py"},
+            {"layer": "Session state", "status": "implemented", "detail": "Versioned multi-turn terms plus an auditable shadow slot history with active/superseded/deleted lifecycle", "source": "starter/agent.py + starter/slot_ledger.py"},
             {"layer": "Parsing", "status": "implemented", "detail": "Deterministic category, constraint, negation, override, and attribute-class parsing", "source": "starter/agent.py"},
             {"layer": "Sparse retrieval", "status": "implemented", "detail": "Field-weighted SQLite FTS5 broad OR Top 120 and strict AND Top 80 routes", "source": "starter/agent.py"},
             {
@@ -431,13 +474,13 @@ class WorkbenchRuntime:
                 "status": "implemented",
                 "mode": self.rerank_mode,
                 "detail": (
-                    "Deterministic Top-50 reranker is loaded in "
-                    f"{self.rerank_mode} mode; final remains fused in off/shadow and uses "
-                    "reranked order only in active"
+                    "Deterministic Top-50 scores are loaded in "
+                    f"{self.rerank_mode} mode; off/shadow keep fused output, while active "
+                    "may reorder only the original Top 10 within equal-coverage groups"
                 ),
                 "source": "starter/attributes.py + starter/reranker.py + starter/agent.py",
             },
-            {"layer": "Clarification policy", "status": "baseline-only", "detail": "Auditable fast/boundary/conservative fixed-order heuristics; not candidate-aware", "source": "starter/agent.py"},
+            {"layer": "Clarification policy", "status": "implemented", "mode": "shadow diagnostic", "detail": "The served policy remains fixed-order; shadow QuestionValue ranks attributes by information gain, coverage, answerability, and turn cost", "source": "starter/agent.py + starter/clarification.py"},
             {"layer": "Scoring", "status": "implemented", "detail": "Deterministic local evaluator; scoring behavior cross-checked with official 3407835", "source": "evaluator/local_evaluator.py"},
         ]
 
@@ -599,14 +642,15 @@ class WorkbenchRuntime:
                 job.total = len(self.trace_runner.samples)
             job.log(
                 "Building a fresh in-memory Agent index "
-                f"(rerank mode: {self.rerank_mode})"
+                f"(rerank mode: {self.rerank_mode}; slot ledger: shadow; "
+                f"candidate clarification: {'shadow' if self.rerank_mode != 'off' else 'disabled'})"
             )
             agent = _create_agent(
                 self.catalog_path,
                 rerank_mode=self.rerank_mode,
             )
             samples = list(self.trace_runner.samples.values())
-            progress_agent = _ProgressAgent(agent, job, len(samples))
+            progress_agent = _ProgressAgent(agent, job, samples)
             result = evaluate(
                 progress_agent,
                 samples,
@@ -625,6 +669,8 @@ class WorkbenchRuntime:
             experiment_dir = self.experiments_path / experiment_id
             experiment_dir.mkdir(parents=True, exist_ok=True)
             self._write_json(experiment_dir / "results.json", result)
+            shadow_policy = progress_agent.shadow_policy.artifact()
+            self._write_json(experiment_dir / "shadow_policy.json", shadow_policy)
             evaluation_seconds = round(time.perf_counter() - started, 3)
             repository = provenance["repository"]
             source_hashes = provenance["source_hashes"]
@@ -644,8 +690,24 @@ class WorkbenchRuntime:
                     "agent_source_sha256": source_hashes["agent"],
                     "attributes_source_sha256": source_hashes["attributes"],
                     "reranker_source_sha256": source_hashes["reranker"],
+                    "slot_ledger_source_sha256": source_hashes["slot_ledger"],
+                    "clarification_source_sha256": source_hashes["clarification"],
+                    "shadow_analysis_source_sha256": source_hashes["shadow_analysis"],
                     "evaluator_source_sha256": source_hashes["evaluator"],
+                    "attribute_schema_version": ATTRIBUTE_SCHEMA_VERSION,
+                    "reranker_scorer_version": SCORER_VERSION,
+                    "slot_ledger_schema_version": SLOT_LEDGER_SCHEMA_VERSION,
+                    "question_value_schema_version": QUESTION_VALUE_SCHEMA_VERSION,
+                    "clarification_mode": (
+                        "shadow" if _agent_rerank_mode(agent) != "off" else "disabled"
+                    ),
                     "trace_schema": TRACE_SCHEMA_VERSION,
+                },
+                "shadow_policy_analysis": {
+                    "schema_version": SHADOW_ANALYSIS_SCHEMA_VERSION,
+                    "artifact": "shadow_policy.json",
+                    "target_blind": True,
+                    **shadow_policy["summary"],
                 },
                 "run": {
                     "python": platform.python_version(),
@@ -668,6 +730,7 @@ class WorkbenchRuntime:
                 job.summary = {
                     **_metrics(result),
                     "rerank_mode": _agent_rerank_mode(agent),
+                    "shadow_policy": shadow_policy["summary"],
                 }
             job.log("Evaluation completed")
         except InterruptedError as exc:
@@ -821,10 +884,26 @@ class WorkbenchRuntime:
                         "attributes"
                     ],
                     "reranker_source_sha256": provenance["source_hashes"]["reranker"],
+                    "slot_ledger_source_sha256": provenance["source_hashes"][
+                        "slot_ledger"
+                    ],
+                    "clarification_source_sha256": provenance["source_hashes"][
+                        "clarification"
+                    ],
+                    "shadow_analysis_source_sha256": provenance["source_hashes"][
+                        "shadow_analysis"
+                    ],
                     "evaluator_source_sha256": provenance["source_hashes"]["evaluator"],
                     "generalization_source_sha256": provenance["source_hashes"][
                         "generalization"
                     ],
+                    "attribute_schema_version": ATTRIBUTE_SCHEMA_VERSION,
+                    "reranker_scorer_version": SCORER_VERSION,
+                    "slot_ledger_schema_version": SLOT_LEDGER_SCHEMA_VERSION,
+                    "question_value_schema_version": QUESTION_VALUE_SCHEMA_VERSION,
+                    "clarification_mode": (
+                        "shadow" if self.rerank_mode != "off" else "disabled"
+                    ),
                 },
                 "run": {
                     "python": platform.python_version(),

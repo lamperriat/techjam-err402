@@ -22,6 +22,27 @@ from starter.agent import Agent
 
 
 class ObserverTraceTest(unittest.TestCase):
+    def test_static_workbench_exposes_p3_shadow_components(self) -> None:
+        project_root = Path(__file__).resolve().parents[1]
+        app = (project_root / "observer" / "static" / "app.js").read_text(
+            encoding="utf-8"
+        )
+        page = (project_root / "observer" / "static" / "index.html").read_text(
+            encoding="utf-8"
+        )
+
+        for marker in (
+            "Active slots:",
+            "Retired:",
+            "information_gain",
+            "answerability",
+            "turn_cost",
+            "Candidate split:",
+            "blocked_attributes",
+        ):
+            self.assertIn(marker, app)
+        self.assertIn("slot ledger / 候选感知澄清 shadow", page)
+
     def test_one_click_launcher_defaults_workbench_to_shadow(self) -> None:
         with (
             patch.dict(os.environ, {}, clear=True),
@@ -227,6 +248,14 @@ class ObserverTraceTest(unittest.TestCase):
             catalog_text = json.dumps(product) + "\n"
             catalog_path.write_text(catalog_text, encoding="utf-8")
             dataset_path.write_text(json.dumps(sample) + "\n", encoding="utf-8")
+            for relative_path in (
+                "starter/slot_ledger.py",
+                "starter/clarification.py",
+                "observer/shadow_analysis.py",
+            ):
+                source = root / relative_path
+                source.parent.mkdir(parents=True, exist_ok=True)
+                source.write_text(f"# fixed {relative_path}\n", encoding="utf-8")
             runtime = WorkbenchRuntime.from_paths(
                 catalog_path,
                 dataset_path,
@@ -241,6 +270,9 @@ class ObserverTraceTest(unittest.TestCase):
             self.assertEqual(overview["runtime"]["rerank_mode"], "shadow")
             self.assertIn("attributes", overview["source_state"]["files"])
             self.assertIn("reranker", overview["source_state"]["files"])
+            self.assertIn("slot_ledger", overview["source_state"]["files"])
+            self.assertIn("clarification", overview["source_state"]["files"])
+            self.assertIn("shadow_analysis", overview["source_state"]["files"])
             self.assertEqual(overview["pipeline"][1]["status"], "implemented")
             self.assertEqual(overview["pipeline"][6]["status"], "implemented")
             rerank_layer = next(
@@ -249,6 +281,13 @@ class ObserverTraceTest(unittest.TestCase):
                 if item["layer"] == "Constraint reranking"
             )
             self.assertEqual(rerank_layer["mode"], "shadow")
+            clarification_layer = next(
+                item
+                for item in overview["pipeline"]
+                if item["layer"] == "Clarification policy"
+            )
+            self.assertEqual(clarification_layer["status"], "implemented")
+            self.assertEqual(clarification_layer["mode"], "shadow diagnostic")
             self.assertEqual(runtime.catalog("cotton")["items"][0]["parent_asin"], "A")
             self.assertEqual(runtime.product("A")["title"], product["title"])
 
@@ -279,6 +318,29 @@ class ObserverTraceTest(unittest.TestCase):
             self.assertEqual(manifest["implementation"]["rerank_mode"], "shadow")
             self.assertIn("attributes_source_sha256", manifest["implementation"])
             self.assertIn("reranker_source_sha256", manifest["implementation"])
+            self.assertIn("slot_ledger_source_sha256", manifest["implementation"])
+            self.assertIn("clarification_source_sha256", manifest["implementation"])
+            self.assertEqual(
+                len(manifest["implementation"]["shadow_analysis_source_sha256"]), 64
+            )
+            self.assertEqual(
+                len(manifest["implementation"]["slot_ledger_source_sha256"]), 64
+            )
+            self.assertEqual(
+                len(manifest["implementation"]["clarification_source_sha256"]), 64
+            )
+            self.assertEqual(
+                manifest["implementation"]["slot_ledger_schema_version"],
+                "p3.slot-ledger.v1",
+            )
+            self.assertEqual(
+                manifest["implementation"]["question_value_schema_version"],
+                "p3.question-value.v1",
+            )
+            self.assertEqual(manifest["implementation"]["clarification_mode"], "shadow")
+            self.assertTrue(manifest["shadow_policy_analysis"]["target_blind"])
+            self.assertEqual(manifest["shadow_policy_analysis"]["turn_count"], 1)
+            self.assertTrue(manifest_path.with_name("shadow_policy.json").exists())
             self.assertEqual(manifest["catalog_sha256"], overview["data"][0]["sha256"])
             self.assertEqual(manifest["dataset_sha256"], overview["data"][1]["sha256"])
 
@@ -292,10 +354,13 @@ class ObserverTraceTest(unittest.TestCase):
                 runtime.trace("public_test_1")
             catalog_path.write_text(catalog_text, encoding="utf-8")
 
-            source_path = root / "starter" / "agent.py"
-            source_path.parent.mkdir(parents=True)
+            source_path = root / "starter" / "clarification.py"
+            source_path.parent.mkdir(parents=True, exist_ok=True)
             source_path.write_text("# changed after server startup\n", encoding="utf-8")
             self.assertTrue(runtime.overview()["source_state"]["restart_required"])
+            self.assertTrue(
+                runtime.overview()["source_state"]["files"]["clarification"]["changed"]
+            )
             with self.assertRaises(StaleRuntimeError):
                 runtime.start_evaluation()
 
@@ -313,6 +378,14 @@ class ObserverTraceTest(unittest.TestCase):
             generalization_source = root / "scripts" / "evaluate_generalization.py"
             generalization_source.parent.mkdir(parents=True)
             generalization_source.write_text("# fixed test runner\n", encoding="utf-8")
+            for relative_path in (
+                "starter/slot_ledger.py",
+                "starter/clarification.py",
+                "observer/shadow_analysis.py",
+            ):
+                source = root / relative_path
+                source.parent.mkdir(parents=True, exist_ok=True)
+                source.write_text(f"# fixed {relative_path}\n", encoding="utf-8")
             product = {
                 "parent_asin": "A",
                 "title": "Blue cotton running shoe",
@@ -450,6 +523,26 @@ class ObserverTraceTest(unittest.TestCase):
             self.assertEqual(manifest["implementation"]["rerank_mode"], "shadow")
             self.assertIn("attributes_source_sha256", manifest["implementation"])
             self.assertIn("reranker_source_sha256", manifest["implementation"])
+            self.assertIn("slot_ledger_source_sha256", manifest["implementation"])
+            self.assertIn("clarification_source_sha256", manifest["implementation"])
+            self.assertEqual(
+                len(manifest["implementation"]["shadow_analysis_source_sha256"]), 64
+            )
+            self.assertEqual(
+                len(manifest["implementation"]["slot_ledger_source_sha256"]), 64
+            )
+            self.assertEqual(
+                len(manifest["implementation"]["clarification_source_sha256"]), 64
+            )
+            self.assertEqual(
+                manifest["implementation"]["slot_ledger_schema_version"],
+                "p3.slot-ledger.v1",
+            )
+            self.assertEqual(
+                manifest["implementation"]["question_value_schema_version"],
+                "p3.question-value.v1",
+            )
+            self.assertEqual(manifest["implementation"]["clarification_mode"], "shadow")
 
             generalization_source.write_text("# changed\n", encoding="utf-8")
             with self.assertRaises(StaleRuntimeError):

@@ -181,6 +181,8 @@ class BenchmarkResourcesTest(unittest.TestCase):
         self.assertEqual(artifact["configuration"]["captured_routes"], list(ROUTES))
         self.assertEqual(len(artifact["configuration"]["attribute_source_sha256"]), 64)
         self.assertEqual(len(artifact["configuration"]["reranker_source_sha256"]), 64)
+        self.assertEqual(len(artifact["configuration"]["slot_ledger_source_sha256"]), 64)
+        self.assertEqual(len(artifact["configuration"]["clarification_source_sha256"]), 64)
         for run in artifact["runs"]:
             self.assertGreater(run["respond_call_count"], 0)
             self.assertEqual(
