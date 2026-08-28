@@ -102,6 +102,15 @@ rerun or renamed as new candidates. SPLADE, COIL, ColBERT, and another generic e
 checkpoint remain lower-priority feasibility studies because current recall and resource
 evidence do not justify immediate activation.
 
+The recommendation is now implemented as a pre-metric isolated P8 protocol. Its frozen
+selection and confirmation corpus hashes are respectively
+`1c11d73d7c8ced617ce874e15a563f240731ca9654ed42bcc4f773b7b4da81ee` and
+`3ae6f8ff7ab0362399b348c3443daa5b7138aab9cf72e944b7e11dd71d7d3dde`.
+Independent review aligned builder/runtime evidence confidence, removed an uncovered slot,
+sanitized the worker spec, expanded source/evaluator locks, and added a fresh direct served-
+Agent reference bridge. The full project suite passes `387/387`; no P8 selection,
+confirmation, or released-public metric has yet been run, so no P8 performance claim exists.
+
 ## Evidence boundary
 
 - Official facts above are checked against organizer-controlled sources.

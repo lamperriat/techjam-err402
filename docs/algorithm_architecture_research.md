@@ -94,6 +94,48 @@ measured bucket justifies it. Every model path must declare model/version/licens
 hash, disk/RAM, latency, token/network behavior, and an offline fallback before public
 gating.
 
+## P8 pre-registered explicit-negative execution
+
+P8 isolates one mechanism-level hypothesis after the P5 PRF, P6 depth, and P7 BGE studies
+were rejected. It does not count parameter or checkpoint variants as new architectures.
+The served R08 Agent remains the control and `starter/agent.py` remains unchanged until a
+separate promotion stage.
+
+The frozen local selection and confirmation splits each contain 200 catalog-derived
+sessions with 200 unique targets and scenario mix 80/80/30/10. Both exclude the union of
+released-public, P1, P5, P6, and P7 targets and exclude each other. Their canonical hashes
+are `1c11d73d7c8ced617ce874e15a563f240731ca9654ed42bcc4f773b7b4da81ee` and
+`3ae6f8ff7ab0362399b348c3443daa5b7138aab9cf72e944b7e11dd71d7d3dde`.
+Each visible negative value is missing from the target yet occurs in at least three other
+catalog documents in a shared reliable category bucket; leaf buckets take priority,
+coarse buckets are a bounded fallback, and there is no global fallback. This deliberately
+tests explicit-negative execution and is not a private-distribution estimate.
+
+| ID | Role | Frozen behavior |
+| --- | --- | --- |
+| `P8.B00.served_agent` | independent reference | Fresh direct `Agent(coverage/off/fast)` process; C00 must match its full result, response trace, and exact totals |
+| `P8.C00.r08_coverage` | control | Exact served `coverage/off/fast` response behavior |
+| `P8.S00.explicit_negative_shadow` | diagnostic | Computes the proposal but must return C00 output exactly |
+| `P8.R01.explicit_negative_partition` | sole active candidate | May stably partition the first 50 R08 candidates as compatible, unknown, then explicit violation |
+
+Only a current-version, active, hard, `polarity=-1`, confidence `1.0`,
+source=`excluded_terms` record in the slot whitelist is executable. Values must be a
+single normalized ASCII token. Product evidence must have confidence at least `0.90` and
+come from reliable structured fields; description is excluded. Missing evidence remains
+unknown, ties preserve R08 order, the base tail is untouched, and violation candidates are
+used only when compatible plus unknown candidates cannot fill Top 10.
+
+Every worker receives no target, sample ID, scenario, split path, prior/public path, or result;
+it receives a sanitized mechanism spec rather than the parent promotion-gate matrix.
+The parent alone opens frozen sessions, drives the official evaluator, and creates exact
+integer aggregates. Formal selection requires clean pushed Git state, source-blob and input
+locks, contract/integrity/network/exception gates, no HR or scenario-HR regression, strict
+MRR and TechnicalScore gains, non-increasing MTTC, zero hit-to-miss, resource ratios no
+worse than `1.30x` wall, `1.30x` response P95, and `1.20x` peak RSS, plus exact fresh-process
+repeat. The official evaluator blob and all direct/transitive Agent dependencies are bound
+to canonical source paths. Confirmation stays unopened unless selection passes every gate. At this checkpoint
+the code and corpora are pre-metric: no P8 selection, confirmation, or public result exists.
+
 ## P5 pre-registered guarded session PRF
 
 P5 is isolated from the frozen P4 matrix and treats the promoted R08 coverage route as

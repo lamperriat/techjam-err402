@@ -36,6 +36,41 @@ Last updated: 2026-08-28 SGT.
   or set them explicitly for a production run. `retrieval_mode=control` preserves the
   pre-P4 weighted-RRF output for paired experiments.
 
+## P8 explicit-negative experiment: pre-metric implementation
+
+- Added a deterministic P8 corpus builder with frozen official/prior input hashes and two
+  frozen 200-session outputs. Selection SHA-256 is
+  `1c11d73d7c8ced617ce874e15a563f240731ca9654ed42bcc4f773b7b4da81ee`;
+  confirmation SHA-256 is
+  `3ae6f8ff7ab0362399b348c3443daa5b7138aab9cf72e944b7e11dd71d7d3dde`.
+  The 400 targets are mutually disjoint and exclude released-public plus P1/P5/P6/P7.
+- Negative values are catalog-derived only: same reliable category bucket, minimum three
+  supporting documents, leaf before coarse, no global fallback, and no description, Agent,
+  FTS, prior result, or metric input.
+- Added pure high-confidence explicit-negative compilation and a stable
+  `compatible -> unknown -> explicit_violation` partition over the first 50 R08 candidates.
+  Unknown metadata is never treated as a conflict; the untouched tail and deterministic
+  violation fallback preserve complete catalog-only output.
+- Added experiment-only C00/S00/R01 Agents. C00 is response/route-equal to explicit served
+  `coverage/off/fast`; S00 is output-equal shadow diagnostics; R01 is the sole active arm.
+  No P8 module is imported by `starter/agent.py`.
+- Added a fresh-process offline worker and parent runner. The worker receives no label,
+  target, sample ID, scenario, corpus/public/prior path, evaluator, or result. The parent
+  owns the official evaluator and emits aggregate metrics, exact totals, gates, resources,
+  and hashes without per-session records.
+- The focused P8 suite passes `63/63` and the complete project suite passes `387/387`,
+  including lifecycle, control/shadow equality,
+  catalog support, source isolation, exact metric reconstruction, resource/repeat gates,
+  confirmation non-disclosure, and artifact redaction. No P8 selection, confirmation, or
+  released-public metric has been run, and the served Agent/public score is unchanged.
+- Independent review found and fixed two pre-freeze validity gaps: catalog evidence in the
+  builder now uses the same `>=0.90` confidence threshold as runtime, and the untested
+  `feature` execution slot was removed. The worker now receives a sanitized mechanism spec,
+  the source lock covers canonical transitive paths, and the evaluator has a direct official-
+  blob gate. A fresh direct `Agent(coverage/off/fast)` worker is the formal B00 reference;
+  C00 must match its complete functional result, ordered response trace, and exact totals on
+  every opened split.
+
 ## Current public evaluation
 
 The integrated Agent was run against the complete released 200-session evaluator after all code changes in this entry.

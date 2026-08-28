@@ -1,0 +1,61 @@
+{
+  "schema_version": "p8.explicit-negative-matrix.v1",
+  "worker_factory": "starter.p8_lab:create_p8_agent",
+  "roles": {
+    "control": "P8.C00.r08_coverage",
+    "shadow": "P8.S00.explicit_negative_shadow",
+    "active": "P8.R01.explicit_negative_partition"
+  },
+  "served_control": {
+    "retrieval_mode": "coverage",
+    "rerank_mode": "off",
+    "question_policy": "fast"
+  },
+  "mechanism": {
+    "candidate_pool": 50,
+    "executable_constraint": {
+      "status": "active",
+      "polarity": -1,
+      "hardness": "hard",
+      "confidence": 1.0,
+      "source": "excluded_terms",
+      "version": "current_goal_only",
+      "value": "single_ascii_token",
+      "allowed_slots": [
+        "audience",
+        "material",
+        "color",
+        "closure",
+        "style",
+        "use_case"
+      ]
+    },
+    "product_evidence_min_confidence": 0.9,
+    "product_description_is_evidence": false,
+    "candidate_states": [
+      "compatible",
+      "unknown",
+      "explicit_violation"
+    ],
+    "aggregate": "any violation => explicit_violation; otherwise every constraint known-compatible => compatible; otherwise unknown",
+    "ordering": "stable compatible then stable unknown then stable explicit_violation",
+    "tie_break": "served R08 order",
+    "no_executable_constraint": "return served R08 order exactly",
+    "tail_policy": "partition the first 50 served candidates, then append the untouched served tail"
+  },
+  "resource_limits": {
+    "wall_ratio": 1.3,
+    "response_p95_ratio": 1.3,
+    "peak_rss_ratio": 1.2,
+    "rss_sample_ms": 10.0
+  },
+  "promotion_gates": {
+    "hit_rate_non_decrease": true,
+    "mrr_strict_increase": true,
+    "mttc_non_increase": true,
+    "technical_score_strict_increase": true,
+    "scenario_hit_rate_non_decrease": true,
+    "zero_hit_to_miss": true,
+    "repeat_exact": true
+  }
+}

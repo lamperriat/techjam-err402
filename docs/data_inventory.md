@@ -101,6 +101,16 @@ catalog; it does not load an undisclosed private dataset.
   `bad13262ca5cccd3585a80c255918a91c894c8d44d538435006064c3596f9546`.
   It is used only for pre-registered semantic route feasibility and remains neither
   organizer data nor a hidden-distribution proxy.
+- `experiments/p8_selection_product_disjoint.jsonl` and
+  `experiments/p8_confirmation_product_disjoint.jsonl` are two additional deterministic
+  explicit-negative stress splits, each with 200 unique targets and scenario mix
+  80/80/30/10. Their target sets are mutually disjoint and exclude the complete union of
+  released-public, P1, P5, P6, and P7 targets. Their frozen SHA-256 values are respectively
+  `1c11d73d7c8ced617ce874e15a563f240731ca9654ed42bcc4f773b7b4da81ee` and
+  `3ae6f8ff7ab0362399b348c3443daa5b7138aab9cf72e944b7e11dd71d7d3dde`.
+  Every generated negative has catalog support of at least three documents inside a
+  shared reliable category bucket; description and prior metrics are not inputs. These
+  splits are local mechanism stress tests, not organizer data or a private-set proxy.
 - `experiments/*.json` and versioned Workbench runs are participant outputs.
 - Attached audit/handoff ZIPs and prior-agent reports are project evidence, not new
   organizer labels.
