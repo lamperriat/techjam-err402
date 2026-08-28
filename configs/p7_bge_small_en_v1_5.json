@@ -1,0 +1,244 @@
+{
+  "schema_version": "p7.semantic-model-spec.v1",
+  "role": "experiment_only_dense_recall_feasibility",
+  "model": {
+    "repository": "BAAI/bge-small-en-v1.5",
+    "revision": "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
+    "license": "MIT",
+    "model_card": "https://huggingface.co/BAAI/bge-small-en-v1.5",
+    "license_notice": "third_party/bge-small-en-v1.5/LICENSE"
+  },
+  "runtime": {
+    "python": "3.11.16",
+    "numpy": "2.4.6",
+    "onnxruntime": "1.29.0",
+    "tokenizers": "0.23.1",
+    "execution_provider": "CPUExecutionProvider",
+    "execution_mode": "ORT_SEQUENTIAL",
+    "graph_optimization_level": "ORT_ENABLE_ALL",
+    "intra_op_threads": 1,
+    "inter_op_threads": 1,
+    "environment_before_numpy_or_onnxruntime_import": {
+      "OPENBLAS_NUM_THREADS": "1",
+      "OMP_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1",
+      "TOKENIZERS_PARALLELISM": "false",
+      "HF_HUB_OFFLINE": "1"
+    },
+    "network_required": false
+  },
+  "encoder": {
+    "embedding_dimensions": 384,
+    "model_supported_max_length": 512,
+    "max_length": 256,
+    "max_length_includes_special_tokens": true,
+    "max_length_reason": "intentional frozen CPU latency and index-build resource cutoff; not the upstream model maximum",
+    "batch_size": 32,
+    "pooling": "first_token_cls",
+    "normalization": "l2_float32",
+    "query_instruction": "Represent this sentence for searching relevant passages: ",
+    "document_instruction": "",
+    "add_special_tokens": true,
+    "padding": "longest_in_batch",
+    "padding_side": "right",
+    "truncation": true,
+    "truncation_side": "right",
+    "input_ids_dtype": "int64",
+    "attention_mask_dtype": "int64",
+    "token_type_ids": "use tokenizer output when present; otherwise an int64 zero array matching input_ids"
+  },
+  "document": {
+    "schema_version": "p7.catalog-document.v1",
+    "unicode_normalization": "NFKC",
+    "whitespace": "collapse_to_single_ascii_space",
+    "field_order": [
+      "title",
+      "categories",
+      "details",
+      "features",
+      "store",
+      "description"
+    ],
+    "mapping_order": "casefolded_key_then_original_key",
+    "sequence_order": "preserve_catalog_order",
+    "value_serialization": {
+      "null_or_empty_string": "omit",
+      "string": "NFKC then collapse Unicode whitespace to one ASCII space and strip",
+      "boolean": "lowercase JSON literal true or false",
+      "number": "locale-independent JSON number",
+      "sequence": "recursively serialize non-omitted elements in source order and join with space-semicolon-space",
+      "mapping": "normalize keys as strings; sort by (normalized_key.casefold(), normalized_key); recursively serialize values; render non-omitted entries as key space-equals-space value and join with space-semicolon-space",
+      "nested_values": "apply these rules recursively",
+      "separator_escaping": "none; literal separators in source content remain literal after normalization"
+    },
+    "field_format": "field_name: normalized_value",
+    "field_separator": " | ",
+    "missing_fields": "omit"
+  },
+  "query": {
+    "schema_version": "p7.visible-state-query.v1",
+    "source": "Agent._query_terms over current post-override visible state",
+    "term_order": "first_visible_occurrence_after_deduplication",
+    "term_separator": " ",
+    "excluded_terms_removed": true,
+    "empty_query": "return an empty dense route without invoking the tokenizer or model",
+    "target_blind": true
+  },
+  "index": {
+    "catalog_order": "parent_asin_ascending",
+    "matrix_dtype": "float32",
+    "shape": [50000, 384],
+    "search": "exact_full_matrix_dot_product",
+    "ranking": "score_desc_then_parent_asin_asc",
+    "ann_or_vector_database": false
+  },
+  "evaluation": {
+    "selection_corpus": {
+      "path": "experiments/p7_selection_product_disjoint.jsonl",
+      "samples_sha256": "bad13262ca5cccd3585a80c255918a91c894c8d44d538435006064c3596f9546",
+      "sample_count": 200,
+      "scenario_counts": {
+        "buying": 80,
+        "browsing": 80,
+        "intent_override": 30,
+        "boundary": 10
+      },
+      "public_evaluation_authorized": false
+    },
+    "variants": {
+      "P7.C00.r08_coverage": "served Agent with retrieval=coverage, rerank=off, question_policy=fast",
+      "P7.S00.bge_dense_shadow": "compute and record dense routes but return response objects exactly equal to C00 and compare their frozen canonical hashes"
+    },
+    "eligible_turns": {
+      "non_override": "every evaluator response turn whose frozen visible-state query is non-empty",
+      "intent_override": "only evaluator response turns turn >= behavior.override.turn, meaning the replacement message has already been delivered; the query must also be non-empty",
+      "empty_query": "excluded from recall and latency denominators and records an empty dense route",
+      "early_stop": "only turns actually reached by the unchanged C00 evaluator session are eligible"
+    },
+    "route_depths": {
+      "sparse_broad": 120,
+      "sparse_strict": 80,
+      "dense_report": [10, 40, 120],
+      "dense_rescue": 120
+    },
+    "recall_definitions": {
+      "sparse_turn_pool": "stable union of Broad-120 then Strict-80 for the same eligible turn",
+      "dense_union_turn_pool": "stable union of sparse_turn_pool then ordered Dense-120 for the same eligible turn",
+      "sparse_session_recalled": "target appears in sparse_turn_pool on at least one eligible turn",
+      "dense_session_recalled": "target appears in ordered Dense-120 on at least one eligible turn",
+      "dense_union_session_recalled": "target appears in dense_union_turn_pool on at least one eligible turn",
+      "rescued_session": "sparse_session_recalled is false and dense_session_recalled is true",
+      "strict_improvement": "dense-union session recall count is greater than sparse-only session recall count",
+      "scenario_span": "number of distinct frozen scenario_type labels among rescued sessions; labels are joined only after all target-blind route captures close"
+    },
+    "recall_gates": {
+      "minimum_rescued_sessions": 5,
+      "minimum_rescued_scenario_types": 2,
+      "require_strict_improvement": true,
+      "require_complete_target_blind_alignment": true,
+      "require_exact_control_shadow_responses": true,
+      "tie_policy": "any equality in sparse-only versus dense-union session recall is rejection; numeric resource thresholds are inclusive"
+    },
+    "resource_measurement": {
+      "required_asset_bytes": "sum file sizes of every model required_files entry, generated float32 embedding matrix, ordered-ASIN file, semantic-index manifest, and bundled third-party license; exclude source catalog, Python packages or wheels, and caches",
+      "cold_initialization_seconds": "fresh shadow worker monotonic time immediately before validating/hashing semantic model and index assets through tokenizer construction, CPU ONNX session construction, ordered-ASIN load, and memory-mapped matrix ready; exclude offline catalog embedding construction and sparse Agent construction",
+      "query_search_milliseconds": "per eligible turn monotonic time immediately before visible-state query string construction through tokenization, query ONNX inference, CLS/L2 processing, full-matrix dot product, and ordered Dense-120 result; exclude label joins and response generation",
+      "p95_method": "sort all eligible-turn durations ascending and select zero-based index ceil(0.95*N)-1",
+      "evaluation_wall_seconds": "each variant runs in an independent fresh worker; after its Agent and any semantic shadow are ready, monotonic time immediately around evaluator.evaluate through complete return",
+      "absolute_peak_rss_bytes": "operating-system process working set sampled at most every 10 ms from fresh-worker start through evaluation return; compare S00 absolute peak with C00 absolute peak from an independent worker",
+      "network_check": "force local/offline environment and record any socket connection attempt as a failure"
+    },
+    "resource_gates": {
+      "required_asset_bytes_max": 225000000,
+      "cold_initialization_seconds_max": 10.0,
+      "query_search_p95_milliseconds_max": 40.0,
+      "shadow_to_control_evaluation_wall_ratio_max": 1.5,
+      "shadow_to_control_absolute_peak_rss_ratio_max": 1.5,
+      "semantic_exception_count_max": 0,
+      "network_attempt_count_max": 0
+    },
+    "repeatability": {
+      "condition": "run only if every first-run recall, integrity, and resource gate passes",
+      "worker": "one new process with no reused tokenizer, ONNX session, matrix mapping, or Agent state; set every runtime environment_before_numpy_or_onnxruntime_import value before importing numpy, tokenizers, or onnxruntime",
+      "canonical_records": {
+        "response": "one record per reached turn containing 1-based corpus session ordinal, turn, and exact response object; exclude evaluator UUID, durations, process IDs, and timestamps",
+        "dense_route": "one record per eligible turn containing 1-based corpus session ordinal, turn, normalized query, and ordered entries of parent_asin plus score encoded as float(numpy.float32(score)).hex(); exclude evaluator UUID, labels, targets, durations, process IDs, and timestamps",
+        "serialization": "UTF-8 canonical JSON Lines with object keys sorted, compact separators, ensure_ascii=false, and LF after every record",
+        "digest": "SHA-256 over canonical serialized bytes"
+      },
+      "required_equal_hashes": [
+        "ordered_control_response_objects",
+        "ordered_shadow_response_objects",
+        "ordered_dense_routes_with_scores"
+      ]
+    },
+    "decision": {
+      "all_gates_pass": "P7 establishes route feasibility only and permits a newly preregistered P8 hybrid-admission study on a fresh disjoint corpus",
+      "recall_or_integrity_fail": "reject BGE for P7; do not run released-public evaluation and do not tune P7",
+      "recall_pass_resource_fail": "reject BGE for P7; MiniLM fallback requires a fresh P8 corpus and new preregistration",
+      "active_recommendation_candidate_in_p7": false
+    }
+  },
+  "required_files": [
+    {
+      "path": "1_Pooling/config.json",
+      "bytes": 190,
+      "sha256": "d1caf60c96f5fba2157c0c26b76d80818fad6cf0b8eb5e73ec372ff9818eba5c"
+    },
+    {
+      "path": "config.json",
+      "bytes": 743,
+      "sha256": "094f8e891b932f2000c92cfc663bac4c62069f5d8af5b5278c4306aef3084750"
+    },
+    {
+      "path": "config_sentence_transformers.json",
+      "bytes": 124,
+      "sha256": "940d5f50db195fa6e5e6a4f122c095f77880de259d74b14a65779ed48bdd7c56"
+    },
+    {
+      "path": "modules.json",
+      "bytes": 349,
+      "sha256": "84e40c8e006c9b1d6c122e02cba9b02458120b5fb0c87b746c41e0207cf642cf"
+    },
+    {
+      "path": "onnx/model.onnx",
+      "bytes": 133093490,
+      "sha256": "828e1496d7fabb79cfa4dcd84fa38625c0d3d21da474a00f08db0f559940cf35"
+    },
+    {
+      "path": "README.md",
+      "bytes": 94783,
+      "sha256": "ddb964361a55c6e5dfca6361615854b260c9c960205d04c7520151aaa1d75837"
+    },
+    {
+      "path": "sentence_bert_config.json",
+      "bytes": 52,
+      "sha256": "84e39fda68ccbff05bfa723ae9c0e70e23e2ec373b76e0f8c6e71af72a693cbf"
+    },
+    {
+      "path": "special_tokens_map.json",
+      "bytes": 125,
+      "sha256": "b6d346be366a7d1d48332dbc9fdf3bf8960b5d879522b7799ddba59e76237ee3"
+    },
+    {
+      "path": "tokenizer.json",
+      "bytes": 711396,
+      "sha256": "d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66"
+    },
+    {
+      "path": "tokenizer_config.json",
+      "bytes": 366,
+      "sha256": "9261e7d79b44c8195c1cada2b453e55b00aeb81e907a6664974b4d7776172ab3"
+    },
+    {
+      "path": "vocab.txt",
+      "bytes": 231508,
+      "sha256": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3"
+    }
+  ],
+  "fallback": {
+    "served_agent": "R08 coverage/off/fast",
+    "missing_or_invalid_asset": "do_not_construct_semantic_shadow",
+    "production_agent_imports_semantic_runtime": false
+  }
+}

@@ -456,6 +456,40 @@ QuestionValue diagnostics**, not as the complete IntentGraph target architecture
 
 ## Change history
 
+### 2026-08-28 - P7 quadruple-disjoint corpus and semantic feasibility freeze
+
+- Added a fourth deterministic corpus builder that hard-checks the official catalog
+  SHA-256, public Git blob, canonical P1/P5/P6 sample hashes, the expected P7 output hash,
+  catalog/prior counts, sample-ID families, all six prior pairwise target
+  overlaps, four selected-target overlaps, scenario mix, and output-path safety before it
+  writes. The ignored result has 200 unique targets, prior union 800, mix 80/80/30/10,
+  every overlap zero, and SHA-256
+  `bad13262ca5cccd3585a80c255918a91c894c8d44d538435006064c3596f9546`.
+- Fixed public identity checking before freeze to use the official LF-normalized Git blob
+  `121dbec9c1368c81cd887d6959e62507512139c0`, avoiding false failure from Windows/Linux
+  line-ending differences. Derived raw hashes are recorded only as reference metadata;
+  canonical sample hashes are the cross-platform hard gate.
+- Added an optional, pinned CPU semantic runtime manifest and a machine-readable model
+  spec for MIT-licensed `BAAI/bge-small-en-v1.5` revision
+  `5c38ec7c405ec4b44b94cc5a9bb96e735b38267a`. It freezes all eleven asset hashes,
+  preprocessing, query/document schemas, CLS pooling, float32 normalization/indexing,
+  exact tie ordering, and byte-for-byte sparse fallback boundaries. The config now also
+  contains the normative eligibility, recall, timing, RSS, byte-scope, repeatability, tie,
+  and decision definitions; 256 tokens is explicitly a resource cutoff below the model's
+  512-token capability. OpenBLAS/OMP/MKL and ORT execution/optimization are explicitly
+  pinned before imports. The upstream MIT notice is bundled under `third_party/`.
+- P7 is pre-registered as C00 plus output-identical dense shadow only. It has no active
+  recommendation candidate and cannot authorize public evaluation. Dense recall must
+  rescue at least five sessions across two scenarios and pass strict local asset,
+  initialization, P95, evaluation-time, RSS, determinism, and target-blindness gates
+  before any hybrid admission design can begin on a fresh corpus.
+- No P7 route metric was read while the corpus, model choice, runtime versions, constants,
+  or gates were being frozen. The served `starter/agent.py` remains unchanged and does
+  not import the optional semantic runtime.
+- No P7 route metric or outcome is claimed in this entry. At the hardened preregistration
+  checkpoint, the full suite passes `273/273`, P7 corpus/model-spec tests pass `15/15`,
+  official participant assets pass `14/14`, and `pip check` reports no broken dependency.
+
 ### 2026-08-28 - P6 frozen adaptive-depth selection rejection
 
 - Ran the P6 selection exactly once from clean, pushed pre-metric commit `873cbd2`.

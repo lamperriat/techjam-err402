@@ -295,6 +295,87 @@ C00 without confirmation or released-public evaluation. P6 remains experiment-on
 further sparse cutoff expansion is stopped; the next recall experiment must test a
 mechanism-level semantic route on a fresh corpus.
 
+## P7 pre-registered dense-recall feasibility
+
+P7 is intentionally a route-recall feasibility study, not another active Top-10 candidate.
+Its fourth catalog-derived 200-session corpus has SHA-256
+`bad13262ca5cccd3585a80c255918a91c894c8d44d538435006064c3596f9546`, scenario mix
+80/80/30/10, 200 unique targets, and zero target overlap with each of released-public,
+P1, P5, and P6. The four prior inputs contain 800 mutually disjoint targets; all six
+pairwise input overlaps are also zero. Public identity is checked by its LF-normalized Git
+blob rather than a platform-specific CRLF file hash. Before writing, the builder also
+requires the frozen catalog SHA-256, canonical sample hashes for P1/P5/P6, and the
+expected P7 output hash; raw derived-file hashes are informational metadata only so
+equivalent CRLF/LF JSONL is portable. Content drift cannot silently replace the corpus.
+
+The sole semantic model is `BAAI/bge-small-en-v1.5`, MIT licensed, frozen at revision
+`5c38ec7c405ec4b44b94cc5a9bb96e735b38267a`. The FP32 ONNX file is 133,093,490 bytes
+with SHA-256 `828e1496d7fabb79cfa4dcd84fa38625c0d3d21da474a00f08db0f559940cf35`;
+the tokenizer SHA-256 is
+`d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66`.
+All eleven required file sizes and hashes, runtime versions, text serialization, query
+instruction, 256-token cutoff, CLS pooling, L2 normalization, CPU provider/threading,
+and exact-search ordering are frozen in `configs/p7_bge_small_en_v1_5.json`. The model
+is loaded only from a local path; runtime download is forbidden. The 256-token cutoff is
+an intentional CPU-resource choice below the model's supported 512-token maximum, not a
+claim about the upstream default. The same spec fixes recursive mapping/list/scalar
+serialization, separator behavior, special tokens, token-type IDs, right truncation and
+padding, and empty-query handling. The upstream MIT notice is retained at
+`third_party/bge-small-en-v1.5/LICENSE` for any future asset distribution.
+
+P7 has exactly two roles:
+
+| ID | Role | Output behavior |
+| --- | --- | --- |
+| `P7.C00.r08_coverage` | control | Actual served `Agent(coverage/off/fast)` |
+| `P7.S00.bge_dense_shadow` | diagnostic | Computes dense routes but returns C00 responses exactly |
+
+There is no active or selectable P7 variant. Product documents use only title, categories,
+details, features, store, and description in the frozen order. Query text is the current
+post-override `Agent._query_terms` sequence; targets, sample IDs, scenario labels, future
+turns, public results, and evaluator internals are unavailable to the semantic runtime.
+The 50,000 normalized 384-dimensional float32 vectors are sorted by `parent_asin`, and
+retrieval uses a full matrix dot product with `(-score, parent_asin)` ordering. ANN and a
+vector database are deliberately excluded at this scale.
+
+The model spec is normative for the gate. In particular, an eligible non-override turn is
+an actually reached C00 response turn with a non-empty visible query; an override turn is
+eligible only at or after `behavior.override.turn`, when the replacement message has
+already been delivered. Empty queries produce an empty route and enter neither recall nor
+latency denominators. Sparse recall is the per-turn stable union of Broad-120 then
+Strict-80, accumulated across eligible turns. Dense recall is Dense-120 accumulated the
+same way. Equal sparse-only and dense-union session recall is a rejection, while resource
+limits themselves are inclusive.
+
+After all responses and target-blind route captures are closed, labels may be joined only
+to report target presence at dense Top 10/40/120 and the sparse-union/dense-union pools.
+Intent Override turns before the replacement intent are excluded. A session is rescued
+only when its target is absent from Broad-120 union Strict-80 on every eligible turn but
+present in Dense-120 on at least one eligible turn. Feasibility requires at least five
+rescued sessions spanning at least two scenario types, strict session-recall improvement,
+complete target-blind alignment, and exact C00/S00 response equality.
+
+The first run must also show local-only/no-network execution, zero semantic exceptions,
+required asset bytes at most 225,000,000, semantic cold initialization at most 10 seconds,
+semantic query-plus-exact-search P95 at most 40 ms, complete shadow evaluation time at
+most 1.50x C00, and absolute peak RSS at most 1.50x C00. An otherwise passing result must
+repeat in fresh workers with exact response and ordered dense-route hashes. Any tie or
+failed gate rejects BGE on P7 without public evaluation or parameter changes. If recall
+passes but a resource gate fails, an AVX2 MiniLM fallback requires a fresh P8 corpus and
+new preregistration. Only a fully passing P7 route study may justify designing a hybrid
+Top-10 admission policy, also on a new corpus.
+
+The machine-readable resource section defines byte scope and every timing boundary. Asset
+bytes include the eleven model files, embedding matrix, ordered-ASIN file, index manifest,
+and bundled license. Cold initialization includes validation plus tokenizer, CPU ONNX,
+ASIN, and matrix readiness in a fresh worker, but excludes offline embedding construction.
+Per-turn P95 spans visible-query construction through ordered Dense-120. Evaluation wall
+time is measured around `evaluate` only after construction, and OS working set is sampled
+from fresh-worker start through return for both C00 and S00. A repeat uses a new worker and
+must exactly match ordered response and scored-route hashes. Each worker sets OpenBLAS,
+OMP, and MKL to one thread before importing NumPy/ONNX Runtime; ORT stays sequential with
+one intra/inter-op thread and `ORT_ENABLE_ALL` graph optimization.
+
 ## P4 frozen 200-session architecture-matrix result (historical)
 
 The full matrix ran from clean commit `e5d0d4966d01da9932d835cb3a754475b6fa13e2`.

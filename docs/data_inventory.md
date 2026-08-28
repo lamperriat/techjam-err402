@@ -94,6 +94,13 @@ catalog; it does not load an undisclosed private dataset.
   `27544cdb6ed9495808c35bbab09b4dbadcb88a1d75d162f17bb4fba6ee8841c7`.
   It is local catalog-derived stress data, not organizer-private data or a private-set
   distribution proxy.
+- `experiments/p7_selection_product_disjoint.jsonl` is a fourth frozen 200-session local
+  stress corpus. Its targets are disjoint from released-public, P1, P5, and P6; the four
+  prior target sets are themselves pairwise disjoint. It preserves the 80/80/30/10 mix
+  and has SHA-256
+  `bad13262ca5cccd3585a80c255918a91c894c8d44d538435006064c3596f9546`.
+  It is used only for pre-registered semantic route feasibility and remains neither
+  organizer data nor a hidden-distribution proxy.
 - `experiments/*.json` and versioned Workbench runs are participant outputs.
 - Attached audit/handoff ZIPs and prior-agent reports are project evidence, not new
   organizer labels.

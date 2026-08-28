@@ -132,6 +132,18 @@ remains in `scripts/evaluate_p6.py` as an auditable record, but this corpus must
 rerun for tuning; a future selection requires a fresh disjoint corpus and a mechanism-
 level different hypothesis. The default Agent remains R08 coverage.
 
+P7 therefore changes mechanism rather than sparse constants. It freezes an MIT-licensed,
+CPU-only BGE-small ONNX route on a fourth corpus disjoint from public/P1/P5/P6. P7 is
+shadow recall feasibility only: it cannot change recommendations or trigger a public run.
+The model revision, every local asset hash, preprocessing, exact-search order, runtime
+versions, recall threshold, and resource limits are frozen in
+`configs/p7_bge_small_en_v1_5.json` and `docs/algorithm_architecture_research.md`.
+That machine-readable contract also fixes eligible-turn, rescue, byte, timing, RSS, tie,
+and repeat-worker definitions; the model's upstream MIT notice is retained under
+`third_party/`. No P7 outcome has been measured at this checkpoint.
+The optional packages are isolated in `requirements-semantic.txt`; the default Agent
+continues to use only the standard library.
+
 Direct `Agent()` construction reads three optional experiment variables:
 `TECHJAM_RETRIEVAL_MODE` (`coverage` or `control`),
 `TECHJAM_RERANK_MODE` (`off`, `shadow`, or experimental `active`) and
