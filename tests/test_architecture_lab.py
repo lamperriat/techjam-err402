@@ -206,6 +206,37 @@ class ArchitectureLabTests(unittest.TestCase):
         )
         self.assertGreater(agent.variant_stats.activations, 0)
 
+    def test_numeric_budget_requires_price_context_and_rejects_measurements(self) -> None:
+        self.assertIsNone(
+            ArchitectureAgent._budget_constraint(
+                ["I need a necklace about 21.25inch long."]
+            )
+        )
+        self.assertIsNone(
+            ArchitectureAgent._budget_constraint(
+                ["I want a bag under 30 cm wide."]
+            )
+        )
+        self.assertIsNone(
+            ArchitectureAgent._budget_constraint(
+                ["I need around 30 items."]
+            )
+        )
+        self.assertEqual(
+            ArchitectureAgent._budget_constraint(
+                ["My budget is around 30 dollars."]
+            ),
+            ("around", 30.0),
+        )
+        self.assertEqual(
+            ArchitectureAgent._budget_constraint(["Please keep the price under 45."]),
+            ("under", 45.0),
+        )
+        self.assertEqual(
+            ArchitectureAgent._budget_constraint(["I can spend up to $55."]),
+            ("under", 55.0),
+        )
+
     def test_numeric_budget_is_cleared_by_no_preference_and_goal_override(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             agent = ArchitectureAgent(self._catalog(directory), "R12.numeric_budget")

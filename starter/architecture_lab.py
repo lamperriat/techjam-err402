@@ -248,6 +248,15 @@ _AROUND_RE = re.compile(
     re.IGNORECASE,
 )
 _BARE_PRICE_RE = re.compile(r"\$\s*(\d+(?:\.\d+)?)")
+_PRICE_CONTEXT_RE = re.compile(
+    r"(?:\$|\b(?:budget|price|cost|spend|pay|afford|usd|dollars?|bucks?)\b)",
+    re.IGNORECASE,
+)
+_NON_PRICE_UNIT_RE = re.compile(
+    r"^\s*(?:in(?:ch(?:es)?)?|ft|feet|foot|yd|yards?|cm|mm|m|meters?|"
+    r"oz|ounces?|lb|lbs|pounds?|kg|kilograms?|g|grams?)\b",
+    re.IGNORECASE,
+)
 
 
 def _dedupe(*routes: Iterable[str]) -> list[str]:
@@ -747,14 +756,22 @@ class ArchitectureAgent(Agent):
         text = " ".join(messages)
         semantic: list[tuple[int, str, float]] = []
         for kind, pattern in (("under", _UNDER_RE), ("over", _OVER_RE), ("around", _AROUND_RE)):
-            semantic.extend(
-                (match.start(), kind, float(match.group(1)))
-                for match in pattern.finditer(text)
-            )
+            for match in pattern.finditer(text):
+                value_end = match.end(1)
+                if _NON_PRICE_UNIT_RE.match(text[value_end:]):
+                    continue
+                context = text[max(0, match.start() - 32):min(len(text), value_end + 24)]
+                if not _PRICE_CONTEXT_RE.search(context):
+                    continue
+                semantic.append((match.start(), kind, float(match.group(1))))
         if semantic:
             _, kind, value = max(semantic)
             return kind, value
-        matches = list(_BARE_PRICE_RE.finditer(text))
+        matches = [
+            match
+            for match in _BARE_PRICE_RE.finditer(text)
+            if not _NON_PRICE_UNIT_RE.match(text[match.end(1):])
+        ]
         return ("around", float(matches[-1].group(1))) if matches else None
 
     def _budget_rank(self, state: SessionState, base_ids: list[str]) -> tuple[list[str], bool, bool]:
