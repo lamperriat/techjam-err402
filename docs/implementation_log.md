@@ -405,7 +405,7 @@ This replaces the handoff comparator behavior that printed aggregate deltas but 
 
 ## Verification completed
 
-- The complete current suite passes `153/153` Python unit/integration tests after adding
+- The P4 promotion checkpoint passed `153/153` Python unit/integration tests after adding
   the P4 architecture lab, official-asset integrity, contract, lifecycle, budget,
   promotion bridge, R12 hygiene, and Workbench retrieval-mode coverage tests.
 - Agent tests cover accumulation, natural openers/requirements/no-preference, pending-question interruption, category changes, negative phrases and false negations, false override prevention, first/repeated/selective overrides, Boundary exhaustion, question policies, five ranking routes, mode safety, catalog-price shadow ingestion, bounded diagnostic memory, output cap/final turn, optional usage, and target-blind trace/component diagnostics.
@@ -455,6 +455,19 @@ ordering, and heuristic clarification, plus normalized slot/attribute/rerank/
 QuestionValue diagnostics**, not as the complete IntentGraph target architecture.
 
 ## Change history
+
+### 2026-08-28 - P6 triple-disjoint selection corpus freeze
+
+- Added a deterministic P6 corpus builder that excludes the union of all released-public,
+  frozen P1-derived, and frozen P5-derived targets. It hard-checks the P1 canonical hash,
+  the P5 file hash, counts, sample-ID families, pairwise input disjointness, catalog
+  membership, scenario mix, and output-path safety before writing anything.
+- The ignored P6 corpus contains 200 unique targets with zero overlap against each of the
+  three prior target sets, scenario mix 80/80/30/10, and canonical SHA-256
+  `27544cdb6ed9495808c35bbab09b4dbadcb88a1d75d162f17bb4fba6ee8841c7`.
+  This freezes a fresh local selection surface for the next pre-registered experiment;
+  it remains catalog-derived stress data and is not evidence about the private 800.
+- The complete suite passes `201/201` tests at this corpus-freeze checkpoint.
 
 ### 2026-08-28 - P5 independent selection corpus and pre-registered guarded PRF
 

@@ -87,6 +87,13 @@ catalog; it does not load an undisclosed private dataset.
   released-public and P1-derived targets, scenario mix 80/80/30/10, and SHA-256
   `0d58a32f65b67c9408558a59df461c340691928a791117099a56049e177efa0c`. It is also local
   stress data, not organizer-private data or a hidden-distribution estimate.
+- `experiments/p6_selection_product_disjoint.jsonl` is the next frozen 200-session
+  selection corpus. Its 200 targets are disjoint from the released-public, P1-derived,
+  and P5-derived targets (zero overlap with all three), its scenario mix is 80/80/30/10,
+  and its canonical SHA-256 is
+  `27544cdb6ed9495808c35bbab09b4dbadcb88a1d75d162f17bb4fba6ee8841c7`.
+  It is local catalog-derived stress data, not organizer-private data or a private-set
+  distribution proxy.
 - `experiments/*.json` and versioned Workbench runs are participant outputs.
 - Attached audit/handoff ZIPs and prior-agent reports are project evidence, not new
   organizer labels.
