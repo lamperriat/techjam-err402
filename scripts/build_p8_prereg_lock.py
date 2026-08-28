@@ -190,6 +190,12 @@ def _git_blob_sha1(path: Path) -> str:
     return hashlib.sha1(header + payload).hexdigest()
 
 
+def _raw_git_blob_sha1(path: Path) -> str:
+    payload = path.read_bytes()
+    header = f"blob {len(payload)}\0".encode("ascii")
+    return hashlib.sha1(header + payload).hexdigest()
+
+
 def _git(project_root: Path, *arguments: str, binary: bool = False) -> str | bytes:
     completed = subprocess.run(
         ["git", "-c", f"safe.directory={project_root.resolve().as_posix()}", *arguments],
@@ -255,22 +261,34 @@ def _required_paths_from_runner(runner_path: Path) -> dict[str, str]:
     return {name: SOURCE_PATHS[name] for name in sorted(names)}
 
 
-def _tracked_head_identity(path: Path, project_root: Path) -> dict[str, Any]:
+def _tracked_head_identity(
+    path: Path,
+    project_root: Path,
+    *,
+    include_git_blob: bool = False,
+) -> dict[str, Any]:
     entry = _file_entry(path, project_root)
     relative = entry["path"]
     _git(project_root, "ls-files", "--error-unmatch", relative)
-    blob = _git(project_root, "show", f"HEAD:{relative}", binary=True)
-    assert isinstance(blob, bytes)
-    if len(blob) != entry["bytes"] or hashlib.sha256(blob).hexdigest() != entry["sha256"]:
-        raise PreregLockError(f"working bytes differ from HEAD blob: {relative}")
-    return entry
+    working_blob = str(
+        _git(project_root, "hash-object", f"--path={relative}", "--", relative)
+    )
+    head_blob = str(_git(project_root, "rev-parse", f"HEAD:{relative}"))
+    if (
+        re.fullmatch(r"[a-f0-9]{40}", working_blob) is None
+        or working_blob != head_blob
+    ):
+        raise PreregLockError(f"working content differs from HEAD Git blob: {relative}")
+    return {**entry, **({"git_blob_sha1": head_blob} if include_git_blob else {})}
 
 
 def capture_source_lock(project_root: Path, revision: Mapping[str, str]) -> dict[str, Any]:
     required = _required_paths_from_runner(project_root / SOURCE_PATHS["evaluate_p8"])
     selected = {**required, "lock_builder": SOURCE_PATHS["lock_builder"]}
     files = {
-        name: _tracked_head_identity(project_root / relative, project_root)
+        name: _tracked_head_identity(
+            project_root / relative, project_root, include_git_blob=True
+        )
         for name, relative in selected.items()
     }
     return {
@@ -447,7 +465,10 @@ def build_prereg_lock(
             "git_commit": revision["git_commit"],
             "git_branch": revision["git_branch"],
             "files": {
-                name: _file_entry(root / relative, root)
+                name: {
+                    **_file_entry(root / relative, root),
+                    "git_blob_sha1": _raw_git_blob_sha1(root / relative),
+                }
                 for name, relative in selected_sources.items()
             },
         }

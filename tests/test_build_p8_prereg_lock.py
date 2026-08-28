@@ -256,12 +256,14 @@ class BuildP8PreregLockTests(unittest.TestCase):
             source.write_bytes(b"working\n")
 
             def fake_git(_root: Path, *arguments: str, binary: bool = False):
-                if arguments[0] == "show":
-                    return b"head\n"
-                return b"" if binary else ""
+                if arguments[0] == "hash-object":
+                    return "a" * 40
+                if arguments[0] == "rev-parse":
+                    return "b" * 40
+                return ""
 
             with patch.object(lock_builder, "_git", side_effect=fake_git):
-                with self.assertRaisesRegex(lock_builder.PreregLockError, "HEAD blob"):
+                with self.assertRaisesRegex(lock_builder.PreregLockError, "HEAD Git blob"):
                     lock_builder._tracked_head_identity(source, root)
 
     def test_atomic_create_refuses_overwrite_and_leaves_no_temp(self) -> None:

@@ -70,6 +70,11 @@ Last updated: 2026-08-28 SGT.
   blob gate. A fresh direct `Agent(coverage/off/fast)` worker is the formal B00 reference;
   C00 must match its complete functional result, ordered response trace, and exact totals on
   every opened split.
+- The preregistration source lock records both the raw runtime file SHA-256 and the
+  Git-filtered blob SHA-1. This locks the exact imported bytes while correctly proving
+  commit membership for legitimate Windows CRLF checkouts; a direct raw-byte comparison
+  against Git's normalized LF blob was rejected during dry lock generation before any
+  lock or metric existed.
 
 ## Current public evaluation
 

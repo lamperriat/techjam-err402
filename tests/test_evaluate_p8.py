@@ -15,6 +15,7 @@ def _file_entry(path: Path, root: Path) -> dict:
         "path": path.relative_to(root).as_posix(),
         "bytes": path.stat().st_size,
         "sha256": evaluate_p8._sha256_file(path),
+        "git_blob_sha1": "f" * 40,
     }
 
 
@@ -198,8 +199,8 @@ class P8LockTests(unittest.TestCase):
             source = {"git_commit": "a" * 40, "git_branch": "branch", "files": files}
 
             def fake_git(_root: Path, *arguments: str, binary: bool = False):
-                if arguments[0] == "show":
-                    return b"frozen\n"
+                if arguments[0] in {"hash-object", "rev-parse"}:
+                    return "f" * 40
                 if arguments[:2] == ("branch", "--show-current"):
                     return "branch"
                 return b"" if binary else ""
@@ -223,8 +224,10 @@ class P8LockTests(unittest.TestCase):
             source = {"git_commit": "a" * 40, "git_branch": "branch", "files": files}
 
             def fake_git(_root: Path, *arguments: str, binary: bool = False):
-                if arguments[0] == "show":
-                    return b"changed\n"
+                if arguments[0] == "hash-object":
+                    return "f" * 40
+                if arguments[0] == "rev-parse":
+                    return "e" * 40
                 if arguments[:2] == ("branch", "--show-current"):
                     return "branch"
                 return b"" if binary else ""

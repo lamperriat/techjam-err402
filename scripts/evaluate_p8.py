@@ -354,7 +354,12 @@ def _validate_source_lock(
         )
     identities: dict[str, Any] = {}
     for name, entry in files.items():
-        path, frozen = _validate_file_entry(project_root, entry, f"source {name}")
+        path, frozen = _validate_file_entry(
+            project_root, entry, f"source {name}", extras={"git_blob_sha1"}
+        )
+        declared_blob = _validate_hex(
+            frozen["git_blob_sha1"], 40, f"source {name} Git blob"
+        )
         expected_path = (project_root / REQUIRED_SOURCE_PATHS[name]).resolve()
         if path.resolve() != expected_path:
             raise P8RunnerError(f"source {name} does not use its canonical project path")
@@ -362,9 +367,11 @@ def _validate_source_lock(
         if enforce_git:
             _assert_tracked(project_root, path, f"source {name}")
             relative = path.resolve().relative_to(project_root.resolve()).as_posix()
-            blob = _git(project_root, "show", f"{commit}:{relative}", binary=True)
-            assert isinstance(blob, bytes)
-            if len(blob) != frozen["bytes"] or hashlib.sha256(blob).hexdigest() != frozen["sha256"]:
+            working_blob = str(
+                _git(project_root, "hash-object", f"--path={relative}", "--", relative)
+            )
+            commit_blob = str(_git(project_root, "rev-parse", f"{commit}:{relative}"))
+            if working_blob != declared_blob or commit_blob != declared_blob:
                 raise P8RunnerError(f"source {name} differs from the preregistered Git blob")
     if enforce_git:
         if _git(project_root, "branch", "--show-current") != branch:
