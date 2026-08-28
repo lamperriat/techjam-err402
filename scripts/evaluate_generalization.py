@@ -16,6 +16,11 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from evaluator.local_evaluator import catalog_index, evaluate, load_jsonl
+from scripts.gate_provenance import (
+    assert_gate_snapshot_stable,
+    capture_gate_snapshot,
+    validate_clean_frozen_snapshot,
+)
 from starter.agent import Agent
 from starter.architecture_lab import SPEC_BY_ID, ArchitectureAgent
 from starter.attributes import SCHEMA_VERSION as ATTRIBUTE_SCHEMA_VERSION
@@ -691,6 +696,37 @@ def main(argv: list[str] | None = None) -> int:
             "the frozen-winner released-public gate requires exactly 200 sessions"
         )
     catalog_ids, categories, products = catalog_index(args.catalog)
+    provenance_sources = {
+        "runner": Path(__file__).resolve(),
+        "gate_provenance": PROJECT_ROOT / "scripts" / "gate_provenance.py",
+        "agent": PROJECT_ROOT / "starter" / "agent.py",
+        "architecture_lab": PROJECT_ROOT / "starter" / "architecture_lab.py",
+        "attributes": PROJECT_ROOT / "starter" / "attributes.py",
+        "clarification": PROJECT_ROOT / "starter" / "clarification.py",
+        "frozen_winner": PROJECT_ROOT / "starter" / "frozen_winner.py",
+        "reranker": PROJECT_ROOT / "starter" / "reranker.py",
+        "response_contract": PROJECT_ROOT / "starter" / "response_contract.py",
+        "slot_ledger": PROJECT_ROOT / "starter" / "slot_ledger.py",
+        "evaluator": PROJECT_ROOT / "evaluator" / "local_evaluator.py",
+        "tracked_selection_summary": PROJECT_ROOT / "docs" / "p4_architecture_results.json",
+    }
+    provenance_inputs = {
+        "catalog": args.catalog.resolve(),
+        "released_public": args.dataset.resolve(),
+    }
+    preflight = capture_gate_snapshot(
+        PROJECT_ROOT,
+        source_paths=provenance_sources,
+        input_paths=provenance_inputs,
+        selection_commit=SELECTION_COMMIT,
+        frozen_architecture_path=PROJECT_ROOT / "starter" / "architecture_lab.py",
+        local_selection_artifact=(
+            PROJECT_ROOT / "experiments" / "p4_architecture_search.json"
+        ),
+        expected_selection_artifact_sha256=SELECTION_RESULT_SHA256,
+    )
+    if args.architecture_variant:
+        validate_clean_frozen_snapshot(preflight)
     artifact: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "configuration": {
@@ -754,6 +790,7 @@ def main(argv: list[str] | None = None) -> int:
             "target_blind_transform": True,
         },
         "corpora": {},
+        "provenance": {"preflight": preflight},
     }
     if args.corpus in {"public", "both"}:
         artifact["corpora"]["released_public"] = evaluate_suites(
@@ -821,6 +858,21 @@ def main(argv: list[str] | None = None) -> int:
             "checks": checks,
             "passed": all(checks.values()),
         }
+
+    postflight = capture_gate_snapshot(
+        PROJECT_ROOT,
+        source_paths=provenance_sources,
+        input_paths=provenance_inputs,
+        selection_commit=SELECTION_COMMIT,
+        frozen_architecture_path=PROJECT_ROOT / "starter" / "architecture_lab.py",
+        local_selection_artifact=(
+            PROJECT_ROOT / "experiments" / "p4_architecture_search.json"
+        ),
+        expected_selection_artifact_sha256=SELECTION_RESULT_SHA256,
+    )
+    assert_gate_snapshot_stable(preflight, postflight)
+    artifact["provenance"]["postflight"] = postflight
+    artifact["provenance"]["snapshot_stable"] = True
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(

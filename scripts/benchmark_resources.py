@@ -36,6 +36,11 @@ from evaluator.local_evaluator import (  # noqa: E402
     load_jsonl,
     materialize_hidden_fields,
 )
+from scripts.gate_provenance import (  # noqa: E402
+    assert_gate_snapshot_stable,
+    capture_gate_snapshot,
+    validate_clean_frozen_snapshot,
+)
 from starter.agent import Agent, SessionState  # noqa: E402
 from starter.architecture_lab import (  # noqa: E402
     SPEC_BY_ID,
@@ -1006,6 +1011,37 @@ def _parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    provenance_sources = {
+        "runner": Path(__file__).resolve(),
+        "gate_provenance": PROJECT_ROOT / "scripts" / "gate_provenance.py",
+        "agent": PROJECT_ROOT / "starter" / "agent.py",
+        "architecture_lab": PROJECT_ROOT / "starter" / "architecture_lab.py",
+        "attributes": PROJECT_ROOT / "starter" / "attributes.py",
+        "clarification": PROJECT_ROOT / "starter" / "clarification.py",
+        "frozen_winner": PROJECT_ROOT / "starter" / "frozen_winner.py",
+        "reranker": PROJECT_ROOT / "starter" / "reranker.py",
+        "response_contract": PROJECT_ROOT / "starter" / "response_contract.py",
+        "slot_ledger": PROJECT_ROOT / "starter" / "slot_ledger.py",
+        "evaluator": PROJECT_ROOT / "evaluator" / "local_evaluator.py",
+        "tracked_selection_summary": PROJECT_ROOT / "docs" / "p4_architecture_results.json",
+    }
+    provenance_inputs = {
+        "catalog": args.catalog.resolve(),
+        "released_public": args.dataset.resolve(),
+    }
+    preflight = capture_gate_snapshot(
+        PROJECT_ROOT,
+        source_paths=provenance_sources,
+        input_paths=provenance_inputs,
+        selection_commit=SELECTION_COMMIT,
+        frozen_architecture_path=PROJECT_ROOT / "starter" / "architecture_lab.py",
+        local_selection_artifact=(
+            PROJECT_ROOT / "experiments" / "p4_architecture_search.json"
+        ),
+        expected_selection_artifact_sha256=SELECTION_RESULT_SHA256,
+    )
+    if args.architecture_variant:
+        validate_clean_frozen_snapshot(preflight)
     artifact = build_benchmark(
         args.catalog,
         args.dataset,
@@ -1019,6 +1055,29 @@ def main(argv: list[str] | None = None) -> int:
         rss_sample_ms=args.rss_sample_ms,
         verbose=True,
     )
+    postflight = capture_gate_snapshot(
+        PROJECT_ROOT,
+        source_paths=provenance_sources,
+        input_paths=provenance_inputs,
+        selection_commit=SELECTION_COMMIT,
+        frozen_architecture_path=PROJECT_ROOT / "starter" / "architecture_lab.py",
+        local_selection_artifact=(
+            PROJECT_ROOT / "experiments" / "p4_architecture_search.json"
+        ),
+        expected_selection_artifact_sha256=SELECTION_RESULT_SHA256,
+    )
+    assert_gate_snapshot_stable(preflight, postflight)
+    artifact["provenance"] = {
+        "preflight": preflight,
+        "postflight": postflight,
+        "snapshot_stable": True,
+    }
+    if args.architecture_variant:
+        checks = artifact["frozen_winner_gate"]["checks"]
+        checks["released_public_session_count_200"] = all(
+            run["sample_count"] == 200 for run in artifact["runs"]
+        )
+        artifact["frozen_winner_gate"]["passed"] = all(checks.values())
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(artifact, indent=2, ensure_ascii=False) + "\n",
