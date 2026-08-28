@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts.benchmark_resources import (
+    ArchitectureRankCaptureAgent,
     ROUTES,
     SessionCapture,
     TurnCapture,
@@ -16,6 +17,7 @@ from scripts.benchmark_resources import (
     build_route_audit,
     latency_summary,
 )
+from starter.frozen_winner import FROZEN_WINNER_ID
 
 
 PRODUCTS = [
@@ -215,6 +217,92 @@ class BenchmarkResourcesTest(unittest.TestCase):
     def test_cli_defaults_to_off_reranking(self) -> None:
         args = _parser().parse_args([])
         self.assertEqual(args.rerank_mode, "off")
+        self.assertIsNone(args.architecture_variant)
+
+    def test_frozen_winner_capture_matches_served_final_route(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            catalog, _ = self._files(directory)
+            agent = ArchitectureRankCaptureAgent(
+                catalog,
+                FROZEN_WINNER_ID,
+                question_policy="fast",
+            )
+            try:
+                agent.reset("opaque", {})
+                response = agent.respond(
+                    "opaque",
+                    "I need a women's blue cotton casual dress.",
+                    10,
+                    10,
+                )
+                rankings = agent.take_last_rankings()
+            finally:
+                agent.connection.close()
+
+        self.assertEqual(
+            [value.__name__ for value in ArchitectureRankCaptureAgent.mro()[:4]],
+            [
+                "ArchitectureRankCaptureAgent",
+                "RankCaptureAgent",
+                "ArchitectureAgent",
+                "Agent",
+            ],
+        )
+        self.assertIsNotNone(rankings)
+        self.assertEqual(
+            [item["parent_asin"] for item in response["recommendations"]],
+            rankings["final"][:10],
+        )
+        self.assertEqual(agent.architecture_spec.variant_id, FROZEN_WINNER_ID)
+        self.assertEqual(agent.rerank_mode, "off")
+
+    def test_frozen_winner_two_run_gate_is_complete(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            catalog, dataset = self._files(directory)
+            artifact = build_benchmark(
+                catalog,
+                dataset,
+                runs=2,
+                architecture_variant=FROZEN_WINNER_ID,
+                rss_sample_ms=1.0,
+            )
+
+        self.assertTrue(artifact["frozen_winner_gate"]["passed"])
+        self.assertEqual(artifact["determinism"]["status"], "passed")
+        for run in artifact["runs"]:
+            self.assertEqual(len(run["target_blind_trace_sha256"]), 64)
+            self.assertEqual(len(run["architecture_stats_sha256"]), 64)
+            self.assertIsNotNone(run["architecture_stats"])
+
+    def test_frozen_winner_rejects_unfrozen_combinations(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            catalog, dataset = self._files(directory)
+            for kwargs in (
+                {"architecture_variant": "R07.combsum_bm25"},
+                {
+                    "architecture_variant": FROZEN_WINNER_ID,
+                    "question_policy": "boundary",
+                },
+                {
+                    "architecture_variant": FROZEN_WINNER_ID,
+                    "rerank_mode": "shadow",
+                },
+                {
+                    "architecture_variant": FROZEN_WINNER_ID,
+                    "runs": 1,
+                },
+                {
+                    "architecture_variant": FROZEN_WINNER_ID,
+                    "sample_limit": 1,
+                },
+            ):
+                with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
+                    build_benchmark(
+                        catalog,
+                        dataset,
+                        rss_sample_ms=1.0,
+                        **kwargs,
+                    )
 
     def test_invalid_programmatic_rerank_mode_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

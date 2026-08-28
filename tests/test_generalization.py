@@ -17,6 +17,7 @@ from scripts.evaluate_generalization import (
     evaluate_suites,
     perturb_message,
 )
+from starter.frozen_winner import FROZEN_WINNER_ID
 
 
 class FakeAgent:
@@ -33,7 +34,9 @@ class FakeAgent:
 
 class GeneralizationTest(unittest.TestCase):
     def test_cli_defaults_to_off_reranking(self) -> None:
-        self.assertEqual(_parser().parse_args([]).rerank_mode, "off")
+        args = _parser().parse_args([])
+        self.assertEqual(args.rerank_mode, "off")
+        self.assertIsNone(args.architecture_variant)
 
     def test_dev_and_challenge_paraphrases_preserve_visible_constraint(self) -> None:
         original = (
@@ -183,6 +186,92 @@ class GeneralizationTest(unittest.TestCase):
         self.assertEqual(calls[0]["question_policy"], "fast")
         self.assertEqual(calls[0]["rerank_mode"], "shadow")
         self.assertEqual(artifact["sample_count"], 1)
+
+    def test_suite_runner_uses_only_the_frozen_winner(self) -> None:
+        calls: list[dict] = []
+
+        class Connection:
+            def close(self) -> None:
+                pass
+
+        class CapturingArchitectureAgent:
+            def __init__(
+                self,
+                catalog_path: Path,
+                variant_id: str,
+                **kwargs: object,
+            ) -> None:
+                calls.append({
+                    "catalog_path": catalog_path,
+                    "variant_id": variant_id,
+                    **kwargs,
+                })
+                self.connection = Connection()
+
+            def experiment_stats(self) -> dict:
+                return {"activations": 1, "output_changes": 1}
+
+        result = {
+            "sample_count": 1,
+            "hit_rate_at_10": 0.0,
+            "mrr": 0.0,
+            "mttc": 11.0,
+            "efficiency": 0.0,
+            "recommended_technical_score": 0.0,
+            "reported_token_usage": {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+            },
+            "scenario_metrics": {},
+            "sessions": [],
+        }
+        with (
+            patch(
+                "scripts.evaluate_generalization.ArchitectureAgent",
+                CapturingArchitectureAgent,
+            ),
+            patch("scripts.evaluate_generalization.evaluate", return_value=result),
+        ):
+            artifact = evaluate_suites(
+                Path("catalog.jsonl"),
+                [{"sample_id": "sample"}],
+                set(),
+                {},
+                {},
+                [],
+                "fast",
+                "unit",
+                "off",
+                FROZEN_WINNER_ID,
+            )
+
+        self.assertEqual(calls[0]["variant_id"], FROZEN_WINNER_ID)
+        self.assertEqual(calls[0]["question_policy"], "fast")
+        self.assertEqual(
+            artifact["suites"]["canonical"]["architecture_stats"],
+            {"activations": 1, "output_changes": 1},
+        )
+
+    def test_suite_runner_rejects_unfrozen_winner_configuration(self) -> None:
+        for variant, question_policy, rerank_mode in (
+            ("R07.combsum_bm25", "fast", "off"),
+            (FROZEN_WINNER_ID, "boundary", "off"),
+            (FROZEN_WINNER_ID, "fast", "shadow"),
+        ):
+            with self.subTest(variant=variant), self.assertRaises(ValueError):
+                evaluate_suites(
+                    Path("catalog.jsonl"),
+                    [],
+                    set(),
+                    {},
+                    {},
+                    [],
+                    question_policy,
+                    "unit",
+                    rerank_mode,
+                    variant,
+                )
 
 
 if __name__ == "__main__":

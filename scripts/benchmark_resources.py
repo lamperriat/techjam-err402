@@ -37,13 +37,28 @@ from evaluator.local_evaluator import (  # noqa: E402
     materialize_hidden_fields,
 )
 from starter.agent import Agent, SessionState  # noqa: E402
+from starter.architecture_lab import (  # noqa: E402
+    SPEC_BY_ID,
+    ArchitectureAgent,
+)
 from starter.attributes import SCHEMA_VERSION as ATTRIBUTE_SCHEMA_VERSION  # noqa: E402
 from starter.clarification import SCHEMA_VERSION as QUESTION_VALUE_SCHEMA_VERSION  # noqa: E402
+from starter.frozen_winner import (  # noqa: E402
+    FROZEN_WINNER_ID,
+    SELECTION_COMMIT,
+    SELECTION_CORPUS_SHA256,
+    SELECTION_RESULT_SHA256,
+    validate_frozen_winner_configuration,
+)
 from starter.reranker import SCORER_VERSION  # noqa: E402
+from starter.response_contract import (  # noqa: E402
+    SCHEMA_VERSION as RESPONSE_CONTRACT_SCHEMA_VERSION,
+    validate_response,
+)
 from starter.slot_ledger import SCHEMA_VERSION as SLOT_LEDGER_SCHEMA_VERSION  # noqa: E402
 
 
-SCHEMA_VERSION = "track4-resource-recall-v2"
+SCHEMA_VERSION = "track4-resource-recall-v3"
 RERANK_MODES = ("off", "shadow", "active")
 ROUTES = ("broad", "strict", "fused", "reranked", "final")
 RECALL_CUTOFFS = (10, 20, 50, 80, 120)
@@ -263,6 +278,7 @@ class PeakRssSampler:
 class TurnCapture:
     turn: int
     rankings: dict[str, tuple[str, ...]]
+    response: dict[str, Any] | None = None
 
 
 @dataclass
@@ -309,12 +325,18 @@ class RankCaptureAgent(Agent):
         return rankings
 
 
+class ArchitectureRankCaptureAgent(RankCaptureAgent, ArchitectureAgent):
+    """Capture the same final routes produced by one Architecture Lab variant."""
+
+
 class TargetBlindBenchmarkProbe:
     """Timing/capture wrapper that exposes only the official Agent arguments."""
 
-    def __init__(self, delegate: RankCaptureAgent) -> None:
+    def __init__(self, delegate: RankCaptureAgent, catalog_ids: set[str]) -> None:
         self.delegate = delegate
+        self.catalog_ids = catalog_ids
         self.latencies_ns: list[int] = []
+        self.contract_errors: list[str] = []
         self.sessions: list[SessionCapture] = []
         self._session_by_opaque_id: dict[str, SessionCapture] = {}
 
@@ -332,8 +354,21 @@ class TargetBlindBenchmarkProbe:
         top_k: int,
     ) -> dict:
         started = time.perf_counter_ns()
+        response: dict[str, Any] | None = None
         try:
-            return self.delegate.respond(session_id, user_message, turn, top_k)
+            response = self.delegate.respond(session_id, user_message, turn, top_k)
+            violations = validate_response(response, self.catalog_ids)
+            if violations:
+                self.contract_errors.extend(
+                    f"turn {turn}: {value}" for value in violations
+                )
+                raise ValueError("; ".join(violations))
+            return response
+        except Exception as exc:
+            marker = f"turn {turn}: {type(exc).__name__}: {exc}"
+            if marker not in self.contract_errors:
+                self.contract_errors.append(marker)
+            raise
         finally:
             self.latencies_ns.append(time.perf_counter_ns() - started)
             rankings = self.delegate.take_last_rankings()
@@ -343,8 +378,37 @@ class TargetBlindBenchmarkProbe:
                     for route in ROUTES
                 }
                 self._session_by_opaque_id[session_id].turns.append(
-                    TurnCapture(turn=turn, rankings=normalized)
+                    TurnCapture(
+                        turn=turn,
+                        rankings=normalized,
+                        response=(
+                            json.loads(json.dumps(response, ensure_ascii=False))
+                            if response is not None
+                            else None
+                        ),
+                    )
                 )
+
+
+def target_blind_trace_hashes(
+    captures: list[SessionCapture],
+) -> tuple[str, list[str]]:
+    """Hash complete ordered responses/routes without IDs, targets, or timing."""
+
+    sessions = [
+        [
+            {
+                "turn": capture.turn,
+                "response": capture.response,
+                "rankings": {
+                    route: list(capture.rankings.get(route, ())) for route in ROUTES
+                },
+            }
+            for capture in session.turns
+        ]
+        for session in captures
+    ]
+    return _stable_sha256(sessions), [_stable_sha256(session) for session in sessions]
 
 
 def _best_route_rank(
@@ -500,6 +564,7 @@ def run_once(
     run_number: int,
     question_policy: str,
     rerank_mode: str = "off",
+    architecture_variant: str | None = None,
     scenarios: tuple[str, ...] = (),
     sample_offset: int = 0,
     sample_limit: int = 0,
@@ -528,17 +593,25 @@ def run_once(
         index_started = time.perf_counter()
         # Explicit None is the no-key/no-network default.  Environment credentials
         # are neither read nor copied into the artifact.
-        agent = RankCaptureAgent(
-            catalog_path,
-            llm_client=None,
-            question_policy=question_policy,
-            rerank_mode=rerank_mode,
+        agent = (
+            ArchitectureRankCaptureAgent(
+                catalog_path,
+                architecture_variant,
+                question_policy=question_policy,
+            )
+            if architecture_variant
+            else RankCaptureAgent(
+                catalog_path,
+                llm_client=None,
+                question_policy=question_policy,
+                rerank_mode=rerank_mode,
+            )
         )
         index_build_seconds = time.perf_counter() - index_started
         index_peak, post_index_rss = sampler.end_stage()
         llm_disabled = agent.llm_client is None
 
-        probe = TargetBlindBenchmarkProbe(agent)
+        probe = TargetBlindBenchmarkProbe(agent, catalog_ids)
         sampler.begin_stage()
         evaluator_started = time.perf_counter()
         evaluator_result = evaluate(
@@ -550,6 +623,15 @@ def run_once(
         )
         evaluator_wall_seconds = time.perf_counter() - evaluator_started
         evaluator_peak, post_evaluator_rss = sampler.end_stage()
+        if probe.contract_errors:
+            raise RuntimeError(
+                "strict response contract failed: "
+                + "; ".join(probe.contract_errors[:5])
+            )
+        architecture_stats = (
+            agent.experiment_stats() if architecture_variant else None
+        )
+        trace_sha256, session_trace_sha256 = target_blind_trace_hashes(probe.sessions)
 
         # Close all retrieval state before labels are joined to captured routes.
         agent.connection.close()
@@ -589,6 +671,11 @@ def run_once(
             },
             "respond_call_count": len(probe.latencies_ns),
             "respond_latency": latency_summary(probe.latencies_ns),
+            "contract_errors": list(probe.contract_errors),
+            "architecture_stats": architecture_stats,
+            "architecture_stats_sha256": _stable_sha256(architecture_stats),
+            "target_blind_trace_sha256": trace_sha256,
+            "target_blind_session_trace_sha256": session_trace_sha256,
             "memory": {
                 "backend": sampler.backend,
                 "sampling_interval_ms": rss_sample_ms,
@@ -633,6 +720,7 @@ def build_benchmark(
     runs: int = 2,
     question_policy: str = "fast",
     rerank_mode: str = "off",
+    architecture_variant: str | None = None,
     scenarios: tuple[str, ...] = (),
     sample_offset: int = 0,
     sample_limit: int = 0,
@@ -649,6 +737,19 @@ def build_benchmark(
         raise ValueError("RSS sampling interval must be positive")
     if rerank_mode not in RERANK_MODES:
         raise ValueError(f"rerank mode must be one of: {', '.join(RERANK_MODES)}")
+    validate_frozen_winner_configuration(
+        architecture_variant,
+        question_policy=question_policy,
+        rerank_mode=rerank_mode,
+    )
+    if architecture_variant and runs != 2:
+        raise ValueError("the complete frozen-winner resource gate requires runs=2")
+    if architecture_variant and scenarios:
+        raise ValueError("the complete frozen-winner resource gate forbids scenario filters")
+    if architecture_variant and sample_offset != 0:
+        raise ValueError("the complete frozen-winner resource gate requires sample_offset=0")
+    if architecture_variant and sample_limit != 0:
+        raise ValueError("the complete frozen-winner resource gate requires sample_limit=0")
 
     run_results: list[dict[str, Any]] = []
     for run_number in range(1, runs + 1):
@@ -663,6 +764,7 @@ def build_benchmark(
             run_number=run_number,
             question_policy=question_policy,
             rerank_mode=rerank_mode,
+            architecture_variant=architecture_variant,
             scenarios=scenarios,
             sample_offset=sample_offset,
             sample_limit=sample_limit,
@@ -682,6 +784,8 @@ def build_benchmark(
         (
             item["official_result_sha256"],
             item["route_audit_sha256"],
+            item["target_blind_trace_sha256"],
+            item["architecture_stats_sha256"],
             item["respond_call_count"],
         )
         for item in run_results
@@ -689,7 +793,7 @@ def build_benchmark(
     determinism_checked = len(run_results) >= 2
     deterministic = len(set(signatures)) == 1 if determinism_checked else None
 
-    return {
+    artifact = {
         "schema_version": SCHEMA_VERSION,
         "configuration": {
             "catalog_path": str(catalog_path),
@@ -709,6 +813,12 @@ def build_benchmark(
             "clarification_source_sha256": _sha256(
                 PROJECT_ROOT / "starter" / "clarification.py"
             ),
+            "response_contract_source_sha256": _sha256(
+                PROJECT_ROOT / "starter" / "response_contract.py"
+            ),
+            "frozen_winner_source_sha256": _sha256(
+                PROJECT_ROOT / "starter" / "frozen_winner.py"
+            ),
             "evaluator_source_sha256": _sha256(
                 PROJECT_ROOT / "evaluator" / "local_evaluator.py"
             ),
@@ -717,9 +827,22 @@ def build_benchmark(
             "reranker_scorer_version": SCORER_VERSION,
             "slot_ledger_schema_version": SLOT_LEDGER_SCHEMA_VERSION,
             "question_value_schema_version": QUESTION_VALUE_SCHEMA_VERSION,
+            "response_contract_schema_version": RESPONSE_CONTRACT_SCHEMA_VERSION,
             "runs": runs,
             "question_policy": question_policy,
             "rerank_mode": rerank_mode,
+            "architecture_variant": architecture_variant,
+            "architecture_spec": (
+                SPEC_BY_ID[architecture_variant].as_dict()
+                if architecture_variant
+                else None
+            ),
+            "architecture_source_sha256": _sha256(
+                PROJECT_ROOT / "starter" / "architecture_lab.py"
+            ),
+            "selection_commit": SELECTION_COMMIT,
+            "selection_corpus_sha256": SELECTION_CORPUS_SHA256,
+            "selection_result_sha256": SELECTION_RESULT_SHA256,
             "captured_routes": list(ROUTES),
             "scenario_filter": list(scenarios),
             "sample_offset": sample_offset,
@@ -745,8 +868,9 @@ def build_benchmark(
                 "to immutable route captures after evaluation and after SQLite is closed."
             ),
             "determinism": (
-                "Exact SHA-256 equality of complete official results and route audits, plus "
-                "respond-call-count equality; timing and RSS are intentionally excluded."
+                "Exact SHA-256 equality of complete official results, complete ordered "
+                "target-blind response/route traces, route audits, architecture stats, and "
+                "respond-call counts; timing and RSS are intentionally excluded."
             ),
         },
         "determinism": {
@@ -761,6 +885,8 @@ def build_benchmark(
                     "run_number": item["run_number"],
                     "official_result_sha256": item["official_result_sha256"],
                     "route_audit_sha256": item["route_audit_sha256"],
+                    "target_blind_trace_sha256": item["target_blind_trace_sha256"],
+                    "architecture_stats_sha256": item["architecture_stats_sha256"],
                     "respond_call_count": item["respond_call_count"],
                 }
                 for item in run_results
@@ -771,6 +897,40 @@ def build_benchmark(
         ),
         "runs": run_results,
     }
+    if architecture_variant:
+        checks = {
+            "exactly_two_runs": len(run_results) == 2,
+            "all_selected_sessions_evaluated": all(
+                item["sample_count"] == run_results[0]["sample_count"]
+                for item in run_results
+            ),
+            "deterministic_complete_functional_trace": deterministic is True,
+            "strict_response_contract_clean": all(
+                not item["contract_errors"] for item in run_results
+            ),
+            "no_key_and_zero_reported_tokens": all(
+                item["no_key_default"]["verified"] for item in run_results
+            ),
+            "latency_count_matches_respond_calls": all(
+                item["respond_latency"]["count"] == item["respond_call_count"]
+                for item in run_results
+            ),
+            "rss_measurement_available": all(
+                item["memory"]["run_peak_rss_bytes"] is not None
+                and item["memory"]["backend"] != "unavailable"
+                for item in run_results
+            ),
+        }
+        artifact["frozen_winner_gate"] = {
+            "winner": FROZEN_WINNER_ID,
+            "checks": checks,
+            "passed": all(checks.values()),
+            "note": (
+                "The official rules publish no numeric latency or RSS threshold; this gate "
+                "proves measurement completeness, not compliance with an unpublished limit."
+            ),
+        }
+    return artifact
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -826,6 +986,11 @@ def _parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--architecture-variant",
+        choices=(FROZEN_WINNER_ID,),
+        help="Measure the sole frozen winner; requires question-policy fast/rerank-mode off.",
+    )
+    parser.add_argument(
         "--rss-sample-ms",
         type=float,
         default=10.0,
@@ -847,6 +1012,7 @@ def main(argv: list[str] | None = None) -> int:
         runs=args.runs,
         question_policy=args.question_policy,
         rerank_mode=args.rerank_mode,
+        architecture_variant=args.architecture_variant,
         scenarios=tuple(dict.fromkeys(args.scenario)),
         sample_offset=args.sample_offset,
         sample_limit=args.sample_limit,
@@ -859,6 +1025,8 @@ def main(argv: list[str] | None = None) -> int:
         encoding="utf-8",
     )
     print(f"[benchmark] wrote {args.output}", flush=True)
+    if args.architecture_variant and not artifact["frozen_winner_gate"]["passed"]:
+        return 2
     determinism = artifact["determinism"]
     if (
         determinism["checked"]

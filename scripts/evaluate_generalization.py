@@ -17,13 +17,25 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from evaluator.local_evaluator import catalog_index, evaluate, load_jsonl
 from starter.agent import Agent
+from starter.architecture_lab import SPEC_BY_ID, ArchitectureAgent
 from starter.attributes import SCHEMA_VERSION as ATTRIBUTE_SCHEMA_VERSION
 from starter.clarification import SCHEMA_VERSION as QUESTION_VALUE_SCHEMA_VERSION
+from starter.frozen_winner import (
+    FROZEN_WINNER_ID,
+    SELECTION_COMMIT,
+    SELECTION_CORPUS_SHA256,
+    SELECTION_RESULT_SHA256,
+    validate_frozen_winner_configuration,
+)
 from starter.reranker import SCORER_VERSION
+from starter.response_contract import (
+    SCHEMA_VERSION as RESPONSE_CONTRACT_SCHEMA_VERSION,
+    ContractRecorder,
+)
 from starter.slot_ledger import SCHEMA_VERSION as SLOT_LEDGER_SCHEMA_VERSION
 
 
-SCHEMA_VERSION = "p2.generalization.v1"
+SCHEMA_VERSION = "p4.generalization.v2"
 RERANK_MODES = ("off", "shadow", "active")
 METRIC_KEYS = (
     "hit_rate_at_10",
@@ -493,26 +505,46 @@ def evaluate_suites(
     question_policy: str,
     corpus_name: str,
     rerank_mode: str = "off",
+    architecture_variant: str | None = None,
 ) -> dict[str, Any]:
+    validate_frozen_winner_configuration(
+        architecture_variant,
+        question_policy=question_policy,
+        rerank_mode=rerank_mode,
+    )
     runs: dict[str, dict[str, Any]] = {}
     canonical_result: dict[str, Any] | None = None
     ordered_names = list(dict.fromkeys(["canonical", *suite_names]))
     for suite_name in ordered_names:
         print(f"[generalization] {corpus_name}/{suite_name}: building index", flush=True)
         build_started = time.perf_counter()
-        delegate = Agent(
-            catalog_path,
-            question_policy=question_policy,
-            rerank_mode=rerank_mode,
+        delegate = (
+            ArchitectureAgent(
+                catalog_path,
+                architecture_variant,
+                question_policy=question_policy,
+            )
+            if architecture_variant
+            else Agent(
+                catalog_path,
+                question_policy=question_policy,
+                rerank_mode=rerank_mode,
+            )
         )
         build_seconds = round(time.perf_counter() - build_started, 3)
-        adapter = PerturbedAgent(delegate, SUITES[suite_name])
+        contract = ContractRecorder(delegate, catalog_ids)
+        adapter = PerturbedAgent(contract, SUITES[suite_name])
         try:
             evaluation_started = time.perf_counter()
             result = evaluate(adapter, samples, catalog_ids, categories, products)
             evaluation_seconds = round(time.perf_counter() - evaluation_started, 3)
         finally:
             delegate.connection.close()
+        if contract.errors:
+            raise RuntimeError(
+                f"suite {suite_name} violated the strict response contract: "
+                + "; ".join(contract.errors[:5])
+            )
         if suite_name == "canonical":
             canonical_result = result
         assert canonical_result is not None
@@ -539,7 +571,19 @@ def evaluate_suites(
             "timing": {
                 "index_build_seconds": build_seconds,
                 "evaluation_seconds": evaluation_seconds,
+                "respond_latency": {
+                    "count": len(contract.latencies_ms),
+                    "mean_ms": round(
+                        sum(contract.latencies_ms) / len(contract.latencies_ms), 6
+                    ) if contract.latencies_ms else None,
+                    "max_ms": round(max(contract.latencies_ms), 6)
+                    if contract.latencies_ms else None,
+                },
             },
+            "contract_errors": list(contract.errors),
+            "architecture_stats": (
+                delegate.experiment_stats() if architecture_variant else None
+            ),
             "metrics": _metrics(result),
             "delta_vs_canonical": _delta(result, canonical_result),
             "session_changes_vs_canonical": _session_changes(result, canonical_result),
@@ -611,6 +655,14 @@ def _parser() -> argparse.ArgumentParser:
             "recommendations, active serves reranked output (default: off)."
         ),
     )
+    parser.add_argument(
+        "--architecture-variant",
+        choices=(FROZEN_WINNER_ID,),
+        help=(
+            "Run one frozen target-blind Architecture Lab variant. This is a gate for a "
+            "preselected winner, not a public-set architecture search."
+        ),
+    )
     parser.add_argument("--write-derived-dataset", type=Path)
     return parser
 
@@ -618,8 +670,26 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
 
+    validate_frozen_winner_configuration(
+        args.architecture_variant,
+        question_policy=args.question_policy,
+        rerank_mode=args.rerank_mode,
+    )
+
     suite_names = _suite_names(args.suite)
+    expected_winner_suites = [name for name in SUITES if name != "canonical"]
+    if args.architecture_variant:
+        if args.corpus != "public":
+            raise ValueError("the frozen-winner generalization gate requires corpus=public")
+        if suite_names != expected_winner_suites:
+            raise ValueError(
+                "the frozen-winner generalization gate requires --suite all"
+            )
     public_samples = load_jsonl(args.dataset)
+    if args.architecture_variant and len(public_samples) != 200:
+        raise ValueError(
+            "the frozen-winner released-public gate requires exactly 200 sessions"
+        )
     catalog_ids, categories, products = catalog_index(args.catalog)
     artifact: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -630,9 +700,32 @@ def main(argv: list[str] | None = None) -> int:
             "dataset_sha256": _sha256(args.dataset),
             "question_policy": args.question_policy,
             "rerank_mode": args.rerank_mode,
+            "architecture_variant": args.architecture_variant,
+            "architecture_spec": (
+                SPEC_BY_ID[args.architecture_variant].as_dict()
+                if args.architecture_variant
+                else None
+            ),
             "suite_names": ["canonical", *suite_names],
             "suite_registry_sha256": _suite_registry_sha256(),
             "runner_source_sha256": _sha256(Path(__file__)),
+            "architecture_source_sha256": _sha256(
+                PROJECT_ROOT / "starter" / "architecture_lab.py"
+            ),
+            "frozen_winner_source_sha256": _sha256(
+                PROJECT_ROOT / "starter" / "frozen_winner.py"
+            ),
+            "evaluation_role": (
+                "post_selection_frozen_winner_gate"
+                if args.architecture_variant
+                else "generalization_evaluation"
+            ),
+            "selection_performed": False,
+            "public_used_for_selection": False,
+            "candidate_count": 1 if args.architecture_variant else 0,
+            "selection_commit": SELECTION_COMMIT,
+            "selection_corpus_sha256": SELECTION_CORPUS_SHA256,
+            "selection_result_sha256": SELECTION_RESULT_SHA256,
             "agent_source_sha256": _sha256(PROJECT_ROOT / "starter" / "agent.py"),
             "attribute_source_sha256": _sha256(
                 PROJECT_ROOT / "starter" / "attributes.py"
@@ -646,6 +739,9 @@ def main(argv: list[str] | None = None) -> int:
             "clarification_source_sha256": _sha256(
                 PROJECT_ROOT / "starter" / "clarification.py"
             ),
+            "response_contract_source_sha256": _sha256(
+                PROJECT_ROOT / "starter" / "response_contract.py"
+            ),
             "evaluator_source_sha256": _sha256(
                 PROJECT_ROOT / "evaluator" / "local_evaluator.py"
             ),
@@ -653,6 +749,7 @@ def main(argv: list[str] | None = None) -> int:
             "reranker_scorer_version": SCORER_VERSION,
             "slot_ledger_schema_version": SLOT_LEDGER_SCHEMA_VERSION,
             "question_value_schema_version": QUESTION_VALUE_SCHEMA_VERSION,
+            "response_contract_schema_version": RESPONSE_CONTRACT_SCHEMA_VERSION,
             "network_required": False,
             "target_blind_transform": True,
         },
@@ -669,6 +766,7 @@ def main(argv: list[str] | None = None) -> int:
             args.question_policy,
             "released_public",
             args.rerank_mode,
+            args.architecture_variant,
         )
     if args.corpus in {"derived", "both"}:
         derived_samples, metadata = build_product_disjoint_samples(
@@ -692,7 +790,36 @@ def main(argv: list[str] | None = None) -> int:
                 args.question_policy,
                 "derived_product_disjoint",
                 args.rerank_mode,
+                args.architecture_variant,
             ),
+        }
+
+    if args.architecture_variant:
+        public = artifact["corpora"]["released_public"]
+        runs = public["suites"]
+        noncanonical = [runs[name] for name in expected_winner_suites]
+        checks = {
+            "all_registered_phrase_suites_present": (
+                list(runs) == ["canonical", *expected_winner_suites]
+            ),
+            "all_runs_complete": all(
+                run["metrics"]["sample_count"] == 200 for run in runs.values()
+            ),
+            "strict_response_contract_clean": all(
+                not run["contract_errors"] for run in runs.values()
+            ),
+            "all_selected_rules_covered": all(
+                run["transform"]["coverage_valid"] for run in noncanonical
+            ),
+            "zero_canonical_hit_to_phrase_miss": all(
+                run["session_changes_vs_canonical"]["hit_to_miss_count"] == 0
+                for run in noncanonical
+            ),
+        }
+        artifact["frozen_winner_gate"] = {
+            "winner": FROZEN_WINNER_ID,
+            "checks": checks,
+            "passed": all(checks.values()),
         }
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -700,6 +827,8 @@ def main(argv: list[str] | None = None) -> int:
         json.dumps(artifact, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
     print(f"[generalization] wrote {args.output}", flush=True)
+    if args.architecture_variant and not artifact["frozen_winner_gate"]["passed"]:
+        return 2
     return 0
 
 
