@@ -41,7 +41,12 @@ from scripts.gate_provenance import (  # noqa: E402
     capture_gate_snapshot,
     validate_clean_frozen_snapshot,
 )
-from starter.agent import Agent, SessionState  # noqa: E402
+from starter.agent import (  # noqa: E402
+    RETRIEVAL_MODES,
+    Agent,
+    SessionState,
+    resolve_retrieval_mode,
+)
 from starter.architecture_lab import (  # noqa: E402
     SPEC_BY_ID,
     ArchitectureAgent,
@@ -63,7 +68,7 @@ from starter.response_contract import (  # noqa: E402
 from starter.slot_ledger import SCHEMA_VERSION as SLOT_LEDGER_SCHEMA_VERSION  # noqa: E402
 
 
-SCHEMA_VERSION = "track4-resource-recall-v3"
+SCHEMA_VERSION = "track4-resource-recall-v4"
 RERANK_MODES = ("off", "shadow", "active")
 ROUTES = ("broad", "strict", "fused", "reranked", "final")
 RECALL_CUTOFFS = (10, 20, 50, 80, 120)
@@ -570,6 +575,7 @@ def run_once(
     question_policy: str,
     rerank_mode: str = "off",
     architecture_variant: str | None = None,
+    retrieval_mode: str | None = None,
     scenarios: tuple[str, ...] = (),
     sample_offset: int = 0,
     sample_limit: int = 0,
@@ -610,6 +616,7 @@ def run_once(
                 llm_client=None,
                 question_policy=question_policy,
                 rerank_mode=rerank_mode,
+                retrieval_mode=retrieval_mode,
             )
         )
         index_build_seconds = time.perf_counter() - index_started
@@ -726,6 +733,7 @@ def build_benchmark(
     question_policy: str = "fast",
     rerank_mode: str = "off",
     architecture_variant: str | None = None,
+    retrieval_mode: str | None = None,
     scenarios: tuple[str, ...] = (),
     sample_offset: int = 0,
     sample_limit: int = 0,
@@ -746,6 +754,13 @@ def build_benchmark(
         architecture_variant,
         question_policy=question_policy,
         rerank_mode=rerank_mode,
+    )
+    if architecture_variant and retrieval_mode is not None:
+        raise ValueError("frozen architecture gates do not accept retrieval_mode")
+    resolved_retrieval_mode = (
+        None
+        if architecture_variant
+        else resolve_retrieval_mode(retrieval_mode, rerank_mode)
     )
     if architecture_variant and runs != 2:
         raise ValueError("the complete frozen-winner resource gate requires runs=2")
@@ -770,6 +785,7 @@ def build_benchmark(
             question_policy=question_policy,
             rerank_mode=rerank_mode,
             architecture_variant=architecture_variant,
+            retrieval_mode=resolved_retrieval_mode,
             scenarios=scenarios,
             sample_offset=sample_offset,
             sample_limit=sample_limit,
@@ -836,6 +852,11 @@ def build_benchmark(
             "runs": runs,
             "question_policy": question_policy,
             "rerank_mode": rerank_mode,
+            "retrieval_mode": (
+                f"architecture:{architecture_variant}"
+                if architecture_variant
+                else resolved_retrieval_mode
+            ),
             "architecture_variant": architecture_variant,
             "architecture_spec": (
                 SPEC_BY_ID[architecture_variant].as_dict()
@@ -844,6 +865,9 @@ def build_benchmark(
             ),
             "architecture_source_sha256": _sha256(
                 PROJECT_ROOT / "starter" / "architecture_lab.py"
+            ),
+            "coverage_source_sha256": _sha256(
+                PROJECT_ROOT / "starter" / "coverage.py"
             ),
             "selection_commit": SELECTION_COMMIT,
             "selection_corpus_sha256": SELECTION_CORPUS_SHA256,
@@ -996,6 +1020,14 @@ def _parser() -> argparse.ArgumentParser:
         help="Measure the sole frozen winner; requires question-policy fast/rerank-mode off.",
     )
     parser.add_argument(
+        "--retrieval-mode",
+        choices=RETRIEVAL_MODES,
+        help=(
+            "control serves weighted RRF; coverage serves promoted R08. Default: coverage "
+            "when rerank is off, otherwise control."
+        ),
+    )
+    parser.add_argument(
         "--rss-sample-ms",
         type=float,
         default=10.0,
@@ -1018,6 +1050,7 @@ def main(argv: list[str] | None = None) -> int:
         "architecture_lab": PROJECT_ROOT / "starter" / "architecture_lab.py",
         "attributes": PROJECT_ROOT / "starter" / "attributes.py",
         "clarification": PROJECT_ROOT / "starter" / "clarification.py",
+        "coverage": PROJECT_ROOT / "starter" / "coverage.py",
         "frozen_winner": PROJECT_ROOT / "starter" / "frozen_winner.py",
         "reranker": PROJECT_ROOT / "starter" / "reranker.py",
         "response_contract": PROJECT_ROOT / "starter" / "response_contract.py",
@@ -1049,6 +1082,7 @@ def main(argv: list[str] | None = None) -> int:
         question_policy=args.question_policy,
         rerank_mode=args.rerank_mode,
         architecture_variant=args.architecture_variant,
+        retrieval_mode=args.retrieval_mode,
         scenarios=tuple(dict.fromkeys(args.scenario)),
         sample_offset=args.sample_offset,
         sample_limit=args.sample_limit,

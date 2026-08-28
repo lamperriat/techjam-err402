@@ -21,7 +21,7 @@ from scripts.gate_provenance import (
     capture_gate_snapshot,
     validate_clean_frozen_snapshot,
 )
-from starter.agent import Agent
+from starter.agent import RETRIEVAL_MODES, Agent, resolve_retrieval_mode
 from starter.architecture_lab import SPEC_BY_ID, ArchitectureAgent
 from starter.attributes import SCHEMA_VERSION as ATTRIBUTE_SCHEMA_VERSION
 from starter.clarification import SCHEMA_VERSION as QUESTION_VALUE_SCHEMA_VERSION
@@ -40,7 +40,7 @@ from starter.response_contract import (
 from starter.slot_ledger import SCHEMA_VERSION as SLOT_LEDGER_SCHEMA_VERSION
 
 
-SCHEMA_VERSION = "p4.generalization.v2"
+SCHEMA_VERSION = "p4.generalization.v3"
 RERANK_MODES = ("off", "shadow", "active")
 METRIC_KEYS = (
     "hit_rate_at_10",
@@ -511,11 +511,19 @@ def evaluate_suites(
     corpus_name: str,
     rerank_mode: str = "off",
     architecture_variant: str | None = None,
+    retrieval_mode: str | None = None,
 ) -> dict[str, Any]:
     validate_frozen_winner_configuration(
         architecture_variant,
         question_policy=question_policy,
         rerank_mode=rerank_mode,
+    )
+    if architecture_variant and retrieval_mode is not None:
+        raise ValueError("frozen architecture gates do not accept retrieval_mode")
+    resolved_retrieval_mode = (
+        None
+        if architecture_variant
+        else resolve_retrieval_mode(retrieval_mode, rerank_mode)
     )
     runs: dict[str, dict[str, Any]] = {}
     canonical_result: dict[str, Any] | None = None
@@ -534,6 +542,7 @@ def evaluate_suites(
                 catalog_path,
                 question_policy=question_policy,
                 rerank_mode=rerank_mode,
+                retrieval_mode=resolved_retrieval_mode,
             )
         )
         build_seconds = round(time.perf_counter() - build_started, 3)
@@ -668,6 +677,14 @@ def _parser() -> argparse.ArgumentParser:
             "preselected winner, not a public-set architecture search."
         ),
     )
+    parser.add_argument(
+        "--retrieval-mode",
+        choices=RETRIEVAL_MODES,
+        help=(
+            "control serves weighted RRF; coverage serves promoted R08. Default: coverage "
+            "when rerank is off, otherwise control."
+        ),
+    )
     parser.add_argument("--write-derived-dataset", type=Path)
     return parser
 
@@ -679,6 +696,13 @@ def main(argv: list[str] | None = None) -> int:
         args.architecture_variant,
         question_policy=args.question_policy,
         rerank_mode=args.rerank_mode,
+    )
+    if args.architecture_variant and args.retrieval_mode is not None:
+        raise ValueError("frozen architecture gates do not accept --retrieval-mode")
+    retrieval_mode = (
+        None
+        if args.architecture_variant
+        else resolve_retrieval_mode(args.retrieval_mode, args.rerank_mode)
     )
 
     suite_names = _suite_names(args.suite)
@@ -703,6 +727,7 @@ def main(argv: list[str] | None = None) -> int:
         "architecture_lab": PROJECT_ROOT / "starter" / "architecture_lab.py",
         "attributes": PROJECT_ROOT / "starter" / "attributes.py",
         "clarification": PROJECT_ROOT / "starter" / "clarification.py",
+        "coverage": PROJECT_ROOT / "starter" / "coverage.py",
         "frozen_winner": PROJECT_ROOT / "starter" / "frozen_winner.py",
         "reranker": PROJECT_ROOT / "starter" / "reranker.py",
         "response_contract": PROJECT_ROOT / "starter" / "response_contract.py",
@@ -736,6 +761,11 @@ def main(argv: list[str] | None = None) -> int:
             "dataset_sha256": _sha256(args.dataset),
             "question_policy": args.question_policy,
             "rerank_mode": args.rerank_mode,
+            "retrieval_mode": (
+                f"architecture:{args.architecture_variant}"
+                if args.architecture_variant
+                else retrieval_mode
+            ),
             "architecture_variant": args.architecture_variant,
             "architecture_spec": (
                 SPEC_BY_ID[args.architecture_variant].as_dict()
@@ -775,6 +805,9 @@ def main(argv: list[str] | None = None) -> int:
             "clarification_source_sha256": _sha256(
                 PROJECT_ROOT / "starter" / "clarification.py"
             ),
+            "coverage_source_sha256": _sha256(
+                PROJECT_ROOT / "starter" / "coverage.py"
+            ),
             "response_contract_source_sha256": _sha256(
                 PROJECT_ROOT / "starter" / "response_contract.py"
             ),
@@ -804,6 +837,7 @@ def main(argv: list[str] | None = None) -> int:
             "released_public",
             args.rerank_mode,
             args.architecture_variant,
+            retrieval_mode,
         )
     if args.corpus in {"derived", "both"}:
         derived_samples, metadata = build_product_disjoint_samples(
@@ -828,6 +862,7 @@ def main(argv: list[str] | None = None) -> int:
                 "derived_product_disjoint",
                 args.rerank_mode,
                 args.architecture_variant,
+                retrieval_mode,
             ),
         }
 

@@ -31,6 +31,7 @@ class EvaluateAgentTest(unittest.TestCase):
         args = _parser().parse_args([])
         self.assertEqual(args.rerank_mode, "off")
         self.assertEqual(args.question_policy, "fast")
+        self.assertIsNone(args.retrieval_mode)
 
     def test_run_propagates_mode_and_closes_agent(self) -> None:
         constructions: list[dict[str, object]] = []
@@ -64,6 +65,7 @@ class EvaluateAgentTest(unittest.TestCase):
                 Path("dataset.jsonl"),
                 question_policy="boundary",
                 rerank_mode="shadow",
+                retrieval_mode="control",
             )
 
         self.assertIs(result, RESULT)
@@ -74,6 +76,7 @@ class EvaluateAgentTest(unittest.TestCase):
                 "llm_client": None,
                 "question_policy": "boundary",
                 "rerank_mode": "shadow",
+                "retrieval_mode": "control",
             },
         )
         self.assertTrue(constructions[0]["agent"].connection.closed)
@@ -110,8 +113,9 @@ class EvaluateAgentTest(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(written_result, RESULT)
         self.assertNotIn("schema_version", written_result)
-        self.assertEqual(manifest["schema_version"], "p2.evaluate-agent.v1")
+        self.assertEqual(manifest["schema_version"], "p4.evaluate-agent.v2")
         self.assertEqual(manifest["configuration"]["rerank_mode"], "active")
+        self.assertEqual(manifest["configuration"]["retrieval_mode"], "control")
         self.assertEqual(manifest["run"]["metrics"]["hit_rate_at_10"], 1.0)
         self.assertEqual(len(manifest["implementation"]["agent_source_sha256"]), 64)
         self.assertEqual(len(manifest["implementation"]["attribute_source_sha256"]), 64)
@@ -123,6 +127,7 @@ class EvaluateAgentTest(unittest.TestCase):
             dataset,
             question_policy="fast",
             rerank_mode="active",
+            retrieval_mode="control",
         )
 
 

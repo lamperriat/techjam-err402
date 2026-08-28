@@ -37,6 +37,7 @@ class GeneralizationTest(unittest.TestCase):
         args = _parser().parse_args([])
         self.assertEqual(args.rerank_mode, "off")
         self.assertIsNone(args.architecture_variant)
+        self.assertIsNone(args.retrieval_mode)
 
     def test_dev_and_challenge_paraphrases_preserve_visible_constraint(self) -> None:
         original = (
@@ -185,6 +186,7 @@ class GeneralizationTest(unittest.TestCase):
 
         self.assertEqual(calls[0]["question_policy"], "fast")
         self.assertEqual(calls[0]["rerank_mode"], "shadow")
+        self.assertEqual(calls[0]["retrieval_mode"], "control")
         self.assertEqual(artifact["sample_count"], 1)
 
     def test_suite_runner_uses_only_the_frozen_winner(self) -> None:

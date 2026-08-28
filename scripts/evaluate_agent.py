@@ -21,14 +21,18 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from evaluator.local_evaluator import catalog_index, evaluate, load_jsonl  # noqa: E402
-from starter.agent import Agent  # noqa: E402
+from starter.agent import (  # noqa: E402
+    RETRIEVAL_MODES,
+    Agent,
+    resolve_retrieval_mode,
+)
 from starter.attributes import SCHEMA_VERSION as ATTRIBUTE_SCHEMA_VERSION  # noqa: E402
 from starter.clarification import SCHEMA_VERSION as QUESTION_VALUE_SCHEMA_VERSION  # noqa: E402
 from starter.reranker import SCORER_VERSION  # noqa: E402
 from starter.slot_ledger import SCHEMA_VERSION as SLOT_LEDGER_SCHEMA_VERSION  # noqa: E402
 
 
-SCHEMA_VERSION = "p2.evaluate-agent.v1"
+SCHEMA_VERSION = "p4.evaluate-agent.v2"
 QUESTION_POLICIES = ("fast", "boundary", "conservative")
 RERANK_MODES = ("off", "shadow", "active")
 METRIC_KEYS = (
@@ -75,6 +79,7 @@ def run_evaluation(
     *,
     question_policy: str = "fast",
     rerank_mode: str = "off",
+    retrieval_mode: str | None = None,
 ) -> tuple[dict[str, Any], float]:
     """Execute the released evaluator without changing its interaction flow."""
 
@@ -84,6 +89,11 @@ def run_evaluation(
         )
     if rerank_mode not in RERANK_MODES:
         raise ValueError(f"rerank mode must be one of: {', '.join(RERANK_MODES)}")
+    resolved_retrieval_mode = resolve_retrieval_mode(retrieval_mode, rerank_mode)
+    if resolved_retrieval_mode not in RETRIEVAL_MODES:
+        raise ValueError(
+            f"retrieval mode must be one of: {', '.join(RETRIEVAL_MODES)}"
+        )
 
     started = time.perf_counter()
     samples = load_jsonl(dataset_path)
@@ -93,6 +103,7 @@ def run_evaluation(
         llm_client=None,
         question_policy=question_policy,
         rerank_mode=rerank_mode,
+        retrieval_mode=resolved_retrieval_mode,
     )
     try:
         result = evaluate(agent, samples, catalog_ids, categories, products)
@@ -108,6 +119,7 @@ def build_manifest(
     *,
     question_policy: str,
     rerank_mode: str,
+    retrieval_mode: str,
     elapsed_seconds: float,
 ) -> dict[str, Any]:
     return {
@@ -119,6 +131,7 @@ def build_manifest(
             "dataset_sha256": _sha256(dataset_path),
             "question_policy": question_policy,
             "rerank_mode": rerank_mode,
+            "retrieval_mode": retrieval_mode,
             "network_required": False,
             "llm_client": None,
         },
@@ -136,6 +149,9 @@ def build_manifest(
             ),
             "clarification_source_sha256": _sha256(
                 PROJECT_ROOT / "starter" / "clarification.py"
+            ),
+            "coverage_source_sha256": _sha256(
+                PROJECT_ROOT / "starter" / "coverage.py"
             ),
             "evaluator_source_sha256": _sha256(
                 PROJECT_ROOT / "evaluator" / "local_evaluator.py"
@@ -166,6 +182,14 @@ def _parser() -> argparse.ArgumentParser:
         help="Provenance manifest path (default: <output stem>.manifest.json).",
     )
     parser.add_argument(
+        "--retrieval-mode",
+        choices=RETRIEVAL_MODES,
+        help=(
+            "control serves weighted RRF; coverage serves the promoted R08 cascade. "
+            "Default: coverage when rerank is off, otherwise control."
+        ),
+    )
+    parser.add_argument(
         "--question-policy",
         choices=QUESTION_POLICIES,
         default="fast",
@@ -184,11 +208,13 @@ def _parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    retrieval_mode = resolve_retrieval_mode(args.retrieval_mode, args.rerank_mode)
     result, elapsed_seconds = run_evaluation(
         args.catalog,
         args.dataset,
         question_policy=args.question_policy,
         rerank_mode=args.rerank_mode,
+        retrieval_mode=retrieval_mode,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
@@ -203,6 +229,7 @@ def main(argv: list[str] | None = None) -> int:
         result,
         question_policy=args.question_policy,
         rerank_mode=args.rerank_mode,
+        retrieval_mode=retrieval_mode,
         elapsed_seconds=elapsed_seconds,
     )
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -213,7 +240,8 @@ def main(argv: list[str] | None = None) -> int:
 
     metrics = _metrics(result)
     print(
-        f"[evaluate] mode={args.rerank_mode} samples={metrics['sample_count']} "
+        f"[evaluate] retrieval={retrieval_mode} rerank={args.rerank_mode} "
+        f"samples={metrics['sample_count']} "
         f"HR@10={metrics['hit_rate_at_10']:.6f} MRR={metrics['mrr']:.6f} "
         f"MTTC={metrics['mttc']:.6f} "
         f"score={metrics['recommended_technical_score']:.6f}",

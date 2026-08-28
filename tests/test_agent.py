@@ -58,6 +58,7 @@ class AgentTest(unittest.TestCase):
         self.assertTrue(response["recommendations"])
         self.assertEqual(agent.question_policy, "fast")
         self.assertEqual(agent.rerank_mode, "off")
+        self.assertEqual(agent.retrieval_mode, "coverage")
 
     def test_rerank_mode_validation_and_environment_default(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -66,8 +67,17 @@ class AgentTest(unittest.TestCase):
                 agent = Agent(catalog)
             self.addCleanup(agent.connection.close)
             self.assertEqual(agent.rerank_mode, "shadow")
+            self.assertEqual(agent.retrieval_mode, "control")
             with self.assertRaisesRegex(ValueError, "rerank_mode"):
                 Agent(catalog, rerank_mode="unknown")
+            with self.assertRaisesRegex(ValueError, "retrieval_mode"):
+                Agent(catalog, retrieval_mode="unknown")
+            with self.assertRaisesRegex(ValueError, "requires rerank_mode=off"):
+                Agent(
+                    catalog,
+                    retrieval_mode="coverage",
+                    rerank_mode="shadow",
+                )
 
     def test_reports_injected_llm_usage(self) -> None:
         llm_client = Mock()

@@ -21,6 +21,7 @@ from starter.attributes import (
     normalize_value,
     product_slot,
 )
+from starter.coverage import order_by_query_coverage
 
 
 SCHEMA_VERSION = "p4.architecture-lab.v1"
@@ -288,6 +289,7 @@ class ArchitectureAgent(Agent):
             catalog_path,
             question_policy=question_policy,
             rerank_mode="off",
+            retrieval_mode="control",
         )
 
     def _build_index(self) -> None:
@@ -574,16 +576,13 @@ class ArchitectureAgent(Agent):
     def _strategy_coverage_cascade(
         self, state: SessionState, rankings: dict[str, list[str]]
     ) -> StrategyResult:
-        terms = set(self._query_terms(state))
+        terms = self._query_terms(state)
         rows = self._rows(rankings["fused"][:200])
-        rank = {value: index for index, value in enumerate(rankings["fused"], start=1)}
-        coverage = {
-            identifier: len(terms & set(_terms(" ".join(values))))
-            for identifier, values in rows.items()
-        }
-        final = sorted(
+        final, _ = order_by_query_coverage(
+            terms,
             rankings["fused"],
-            key=lambda value: (-coverage.get(value, 0), rank[value]),
+            rows,
+            _terms,
         )
         return StrategyResult(tuple(final), bool(terms), routes=("coverage",))
 

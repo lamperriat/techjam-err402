@@ -96,10 +96,10 @@ class ArchitectureLabTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "stage graphs"):
             validate_registry((*SPECS, duplicate))
 
-    def test_control_is_response_equal_to_default_agent(self) -> None:
+    def test_control_is_response_equal_to_explicit_control_agent(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             catalog = self._catalog(directory)
-            default = Agent(catalog)
+            default = Agent(catalog, retrieval_mode="control")
             control = ArchitectureAgent(catalog, CONTROL_ID)
             self.addCleanup(default.connection.close)
             self.addCleanup(control.connection.close)
@@ -115,6 +115,29 @@ class ArchitectureLabTests(unittest.TestCase):
                     control.respond("same", message, turn, 10),
                     default.respond("same", message, turn, 10),
                 )
+
+    def test_promoted_agent_is_response_equal_to_frozen_r08(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            catalog = self._catalog(directory)
+            promoted = Agent(catalog, retrieval_mode="coverage")
+            frozen = ArchitectureAgent(catalog, "R08.coverage_cascade")
+            self.addCleanup(promoted.connection.close)
+            self.addCleanup(frozen.connection.close)
+            promoted.reset("same", {})
+            frozen.reset("same", {})
+            messages = [
+                "I'm looking for women's dresses, but I'm still exploring.",
+                "For that, what matters is: cotton; color: blue.",
+                "I don't have an additional preference for feature.",
+            ]
+            for turn, message in enumerate(messages, start=1):
+                self.assertEqual(
+                    frozen.respond("same", message, turn, 10),
+                    promoted.respond("same", message, turn, 10),
+                )
+
+        self.assertEqual(promoted.retrieval_mode, "coverage")
+        self.assertEqual(frozen.retrieval_mode, "control")
 
     def test_all_variants_preserve_contract_and_catalog_boundary(self) -> None:
         catalog_ids = {product["parent_asin"] for product in PRODUCTS}

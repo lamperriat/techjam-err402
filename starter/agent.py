@@ -22,6 +22,10 @@ from starter.clarification import (
     empty_question_shadow,
     rank_question_values,
 )
+from starter.coverage import (
+    SCHEMA_VERSION as COVERAGE_SCHEMA_VERSION,
+    order_by_query_coverage,
+)
 from starter.reranker import RERANK_TOP_N, SCORER_VERSION, rerank_top_n
 from starter.slot_ledger import (
     SCHEMA_VERSION as SLOT_LEDGER_SCHEMA_VERSION,
@@ -34,6 +38,7 @@ from starter.slot_ledger import (
 TOKEN_RE = re.compile(r"[a-z0-9]+", re.IGNORECASE)
 ATTRIBUTE_CACHE_LIMIT = 10_000
 RANKING_DIAGNOSTIC_LIMIT = 128
+RETRIEVAL_MODES = ("control", "coverage")
 CATEGORY_PATTERNS = (
     re.compile(
         r"^\s*(?:i(?:'m| am)\s+)?(?:looking|searching|shopping)\s+for\s+"
@@ -210,6 +215,15 @@ CHANGED_MIND_CONTENT_RE = re.compile(
     r"\bchange(?:d)?\s+my\s+mind\b\s*[:.;,-]\s*(?P<new>.+)$",
     re.IGNORECASE,
 )
+
+
+def resolve_retrieval_mode(
+    retrieval_mode: str | None,
+    rerank_mode: str,
+) -> str:
+    requested = retrieval_mode or os.getenv("TECHJAM_RETRIEVAL_MODE")
+    resolved = (requested or ("coverage" if rerank_mode == "off" else "control"))
+    return resolved.strip().lower()
 
 
 def _text(value: object) -> str:
@@ -475,6 +489,7 @@ class Agent:
         question_policy: str | None = None,
         trace_sink: Callable[[dict[str, Any]], None] | None = None,
         rerank_mode: str | None = None,
+        retrieval_mode: str | None = None,
     ) -> None:
         self.catalog_path = Path(catalog_path)
         self.llm_client = llm_client
@@ -491,6 +506,16 @@ class Agent:
         ).strip().lower()
         if self.rerank_mode not in {"off", "shadow", "active"}:
             raise ValueError("rerank_mode must be one of: off, shadow, active")
+        self.retrieval_mode = resolve_retrieval_mode(
+            retrieval_mode,
+            self.rerank_mode,
+        )
+        if self.retrieval_mode not in RETRIEVAL_MODES:
+            raise ValueError(
+                "retrieval_mode must be one of: " + ", ".join(RETRIEVAL_MODES)
+            )
+        if self.retrieval_mode == "coverage" and self.rerank_mode != "off":
+            raise ValueError("coverage retrieval requires rerank_mode=off")
         self.connection = sqlite3.connect(":memory:", check_same_thread=False)
         self._lock = threading.RLock()
         self._sessions: dict[str, SessionState] = {}
@@ -582,6 +607,8 @@ class Agent:
                 "memory_mode": "versioned multi-turn state",
                 "question_policy": self.question_policy,
                 "rerank_mode": self.rerank_mode,
+                "retrieval_mode": self.retrieval_mode,
+                "coverage_schema_version": COVERAGE_SCHEMA_VERSION,
                 "rerank_top_n": RERANK_TOP_N,
                 "reranker_version": SCORER_VERSION,
                 "attribute_schema_version": ATTRIBUTE_SCHEMA_VERSION,
@@ -882,6 +909,28 @@ class Agent:
                 ),
             }
         final_ids = reranked_ids if self.rerank_mode == "active" else list(fused_ids)
+        coverage_diagnostics = {
+            "schema_version": COVERAGE_SCHEMA_VERSION,
+            "active": False,
+            "changed_top_10": False,
+        }
+        if self.retrieval_mode == "coverage":
+            searchable_fields = self._load_coverage_fields(
+                fused_ids,
+                candidate_rowids,
+            )
+            final_ids, coverage_diagnostics = order_by_query_coverage(
+                query_terms,
+                fused_ids,
+                searchable_fields,
+                _terms,
+            )
+            coverage_diagnostics = {**coverage_diagnostics, "active": True}
+        diagnostics = {
+            **diagnostics,
+            "retrieval_mode": self.retrieval_mode,
+            "coverage": coverage_diagnostics,
+        }
         self._store_ranking_diagnostics(state, diagnostics)
         return {
             "broad": broad_ids,
@@ -891,9 +940,38 @@ class Agent:
             "final": final_ids,
         }
 
+    def _load_coverage_fields(
+        self,
+        parent_asins: list[str],
+        candidate_rowids: dict[str, int],
+    ) -> dict[str, tuple[str, str, str, str, str, str]]:
+        rowids = [
+            candidate_rowids[parent_asin]
+            for parent_asin in parent_asins
+            if parent_asin in candidate_rowids
+        ]
+        if not rowids:
+            return {}
+        placeholders = ",".join("?" for _ in rowids)
+        rows = self.connection.execute(
+            "SELECT parent_asin, title, categories, features, details, store, description "
+            f"FROM products WHERE rowid IN ({placeholders})",
+            rowids,
+        ).fetchall()
+        return {
+            str(row[0]): tuple(str(value or "") for value in row[1:])
+            for row in rows
+        }
+
     def _empty_rerank_diagnostics(self) -> dict[str, Any]:
         return {
             "mode": self.rerank_mode,
+            "retrieval_mode": self.retrieval_mode,
+            "coverage": {
+                "schema_version": COVERAGE_SCHEMA_VERSION,
+                "active": False,
+                "changed_top_10": False,
+            },
             "top_n": RERANK_TOP_N,
             "pool_size": 0,
             "scorer_version": SCORER_VERSION,
@@ -1022,6 +1100,8 @@ class Agent:
             "prefer_other_next": state.prefer_other_next,
             "question_policy": self.question_policy,
             "rerank_mode": self.rerank_mode,
+            "retrieval_mode": self.retrieval_mode,
+            "coverage_schema_version": COVERAGE_SCHEMA_VERSION,
             "rerank_top_n": RERANK_TOP_N,
             "reranker_version": SCORER_VERSION,
             "attribute_schema_version": ATTRIBUTE_SCHEMA_VERSION,
@@ -1150,7 +1230,11 @@ class Agent:
                 reranked_top_results = result_rows("reranked")
                 final_top_results = result_rows("final")
                 self._trace(session_id, turn, "retrieval", {
-                    "engine": "SQLite FTS5 BM25 + weighted RRF + constraint reranker",
+                    "engine": (
+                        "SQLite FTS5 BM25 + weighted RRF + query-term coverage cascade"
+                        if self.retrieval_mode == "coverage"
+                        else "SQLite FTS5 BM25 + weighted RRF + constraint reranker"
+                    ),
                     "candidate_count": len(rankings["final"]),
                     "route_counts": {
                         route: len(identifiers) for route, identifiers in rankings.items()
@@ -1162,6 +1246,8 @@ class Agent:
                         if key != "breakdowns"
                     },
                     "rerank_affects_output": self.rerank_mode == "active",
+                    "retrieval_mode": self.retrieval_mode,
+                    "coverage": rerank_diagnostics["coverage"],
                     "raw_fused_top_results": raw_fused_top_results,
                     "reranked_top_results": reranked_top_results,
                     "final_top_results": final_top_results,

@@ -180,6 +180,7 @@ class BenchmarkResourcesTest(unittest.TestCase):
         self.assertNotIn("must-not-appear-in-artifact", serialized)
         self.assertNotIn("OPENAI_API_KEY", serialized)
         self.assertEqual(artifact["configuration"]["rerank_mode"], "shadow")
+        self.assertEqual(artifact["configuration"]["retrieval_mode"], "control")
         self.assertEqual(artifact["configuration"]["captured_routes"], list(ROUTES))
         self.assertEqual(len(artifact["configuration"]["attribute_source_sha256"]), 64)
         self.assertEqual(len(artifact["configuration"]["reranker_source_sha256"]), 64)
@@ -218,6 +219,7 @@ class BenchmarkResourcesTest(unittest.TestCase):
         args = _parser().parse_args([])
         self.assertEqual(args.rerank_mode, "off")
         self.assertIsNone(args.architecture_variant)
+        self.assertIsNone(args.retrieval_mode)
 
     def test_frozen_winner_capture_matches_served_final_route(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -268,6 +270,10 @@ class BenchmarkResourcesTest(unittest.TestCase):
             )
 
         self.assertTrue(artifact["frozen_winner_gate"]["passed"])
+        self.assertEqual(
+            artifact["configuration"]["retrieval_mode"],
+            f"architecture:{FROZEN_WINNER_ID}",
+        )
         self.assertEqual(artifact["determinism"]["status"], "passed")
         for run in artifact["runs"]:
             self.assertEqual(len(run["target_blind_trace_sha256"]), 64)
