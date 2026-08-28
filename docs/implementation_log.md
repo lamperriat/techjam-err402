@@ -456,6 +456,30 @@ QuestionValue diagnostics**, not as the complete IntentGraph target architecture
 
 ## Change history
 
+### 2026-08-28 - P6 frozen adaptive-depth selection rejection
+
+- Ran the P6 selection exactly once from clean, pushed pre-metric commit `873cbd2`.
+  Preflight/postflight branch, commit, status, source hashes, and input hashes are exact.
+  Artifact SHA-256 is
+  `5c2608b874f53b42e687b10ca5be352f8926856a8160712b468f8896df5331bf`.
+- C00 and R01 tied exactly at HR `0.905000`, MRR `0.581312`, MTTC `3.470000`,
+  TechnicalScore `0.777494`, 181 hits, and official-contribution sum x25200 `3918567`.
+  R01 made 193 deep queries and 44 safe rank-10 output changes, but changed zero target
+  outcomes, ranks, hit turns, or official per-session contributions.
+- Post-hoc pool evidence rejected the cutoff hypothesis independently of Top-10 scoring:
+  base@120 and deep@240 both found targets on the same 144 eligible turns and recalled the
+  same 126 sessions; deep-only recovery was zero turns and zero sessions.
+- R01 evaluation time was `1.720x` the real served Agent and `1.710x` C00; response P95
+  was `2.213x` served and `2.282x` C00; absolute peak RSS was `1.266x` served, while RSS
+  increment was `1.327x` C00. It failed the frozen quality, recall, and resource gates.
+- Decision: `retain_control_active_rejected`. Confirmation was correctly not attempted,
+  released-public was not evaluated, `starter/agent.py` remains unchanged, and P6 will not
+  be tuned or rerun on this corpus. The formal served public result remains the prior R08
+  result documented above.
+- A separate read-only result audit recomputed the artifact digest, all 15 source and five
+  input hashes, 29 R01 gates, exact totals, resource ratios, worker metadata, and target-
+  isolation boundary. It found no decision-level discrepancy and did not rerun evaluation.
+
 ### 2026-08-28 - P6 guarded adaptive-depth pre-metric implementation freeze
 
 - Added a P6-only pure guard and experiment Agent. It repeats the exact broad FTS query

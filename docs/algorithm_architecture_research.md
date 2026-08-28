@@ -268,6 +268,33 @@ once for final confirmation only after every P6 selection, repeat, and resource 
 passes. A tie or any failed gate retains R08, and P6 parameters will not be tuned on the
 same corpus.
 
+## P6 frozen selection result
+
+The sole P6 selection ran once from clean, pushed commit
+`873cbd2665483319398b1c1a3f61f96a98f11522`. Preflight and postflight Git, source, and
+input snapshots match exactly. The result artifact is ignored from Git and has SHA-256
+`5c2608b874f53b42e687b10ca5be352f8926856a8160712b468f8896df5331bf`.
+
+C00 and R01 both recorded 181/200 hits, RR sum x2520 `292981`, MTTC-turn sum `694`, and
+official-contribution sum x25200 `3918567`: HR `0.905000`, MRR `0.581312`, MTTC
+`3.470000`, and TechnicalScore `0.777494`. R01 issued 193 deep queries and changed rank
+10 on 44 of 675 turns, but caused zero hit, rank, turn, or official-contribution changes
+across all 200 sessions. Every contract, Top-9, one-newcomer, coverage, excluded-term,
+prefix, target-blindness, policy-prefix, scenario, and zero-regression invariant passed.
+
+The pool audit provides a stronger stopping signal: after excluding 76 pre-override turns,
+base@120 and deep@240 each contained the target on the same 144 eligible turns and recalled
+the same 126 sessions. Deep-only recovered zero turns and zero sessions. R01 therefore
+failed both strict pool-recall and strict TechnicalScore-improvement gates.
+
+R01 also failed resource gates. Evaluation time was `1.720x` the real served Agent and
+`1.710x` C00; response P95 was `2.213x` served and `2.282x` C00; absolute peak RSS was
+`1.266x` served. Its absolute peak RSS was `1.139x` C00 and passed that one comparison,
+but worker-local RSS increment was `1.327x` C00 and failed. Selection validly retained
+C00 without confirmation or released-public evaluation. P6 remains experiment-only, and
+further sparse cutoff expansion is stopped; the next recall experiment must test a
+mechanism-level semantic route on a fresh corpus.
+
 ## P4 frozen 200-session architecture-matrix result (historical)
 
 The full matrix ran from clean commit `e5d0d4966d01da9932d835cb3a754475b6fa13e2`.
