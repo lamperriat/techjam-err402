@@ -38,6 +38,122 @@ Last updated: 2026-08-29 SGT.
   or set them explicitly for a production run. `retrieval_mode=control` preserves the
   pre-P4 weighted-RRF output for paired experiments.
 
+## P11 Top-10-preserving reranker: pre-formal source-freeze candidate
+
+This section records verified pre-formal infrastructure, not an experiment outcome. The
+served Agent remains R08 `coverage/off/fast`; P9 remains frozen and was neither modified
+nor rerun. The separate preregistration lock has not been generated. No P11 formal
+evaluator, released-public evaluation, or production promotion has occurred.
+
+- Added an exact future-experiment metric bridge that validates HR, MRR, MTTC,
+  Efficiency, TechnicalScore, `best_rank`, and reciprocal-rank consistency in the official
+  order: the evaluator first rounds aggregate HR/MRR/MTTC to six decimals, then computes
+  Efficiency and TechnicalScore from those rounded values. Focused fixtures cover the P9
+  one-millionth boundary without altering the frozen P9 artifact or decision.
+- Added a fixed P11 B00/C00/S00/R01 experiment layer. B00 is a fresh direct served-Agent
+  reference, C00 must be response/trace-equal to R08, S00 computes diagnostics but must
+  return C00 output, and R01 may only permute the exact R08 Top 10. The member set and
+  every rank after 10 are invariant; any feature, sidecar, or instrumentation failure
+  returns the complete R08 order.
+- Added scorer `p11.top10-linear.v3` with Broad/Strict/RRF rank priors, frozen-IDF query
+  coverage, three catalog field groups, subtype consistency, positive
+  observed/inferred/unknown evidence, P9 explicit-conflict partitioning, and constraint
+  source-turn/version weighting. Hard-clause evidence combines exact field-local 2/3-grams
+  with an exact 4-12-token full-clause match; the complete phrase contributes 50% of that
+  component. Within each conflict bucket, relevance is partitioned into anchored,
+  non-chaining near-tie groups at `<=0.002`; subtype-normalized Bayesian rating/popularity
+  is used only inside a group and cannot cross a material relevance gap.
+- The scorer performs one at-most-ten-row sidecar fetch per turn and avoids runtime JSON,
+  candidate-loop regex compilation, model initialization, dense retrieval, and LLM calls.
+  Its precise added-work bound is `O(B+S+U+10×F)`, with frozen route caps `B<=120`,
+  `S<=80`, and `U<=200`; feature fetch/scoring itself is `O(10×F)` and remains
+  independent of the 50,000-row catalog size.
+- Added a catalog-only, label-free, target-blind compressed SQLite sidecar builder and a
+  read-only immutable loader. The current verified 50,000-row asset is `32,501,760` bytes,
+  below the 32 MiB cap, with SHA-256
+  `83b6d8c04be6666173806b6e9cb03301eecb8ca58a60272bfa719e6533380473`.
+  Its feature registry is
+  `c2c6b4309e5bbf8e092f625957ae5f0cdeb193adcc48d552e5291837803749b1`, and its semantics
+  hash is `abae7be9ab9073593ca40309177408adf20e460e3153fe95ec942fb53b47a488`.
+- Added seven deterministic fresh corpora. Their 920 targets are mutually disjoint and
+  disjoint from the 1,800-target released-public/P1/P5/P6/P7/P8/P9 opened registry:
+
+| P11 split | Rows | SHA-256 |
+| --- | ---: | --- |
+| Primary representative | 200 | `1d578694c3226d1b008d2c9f2f252ed63d114a544c82c218c06116b13c00cf84` |
+| Uniform tail | 200 | `87d2334dd28dded92df2d8c8897f7f9552efb655bc74488d49dafe2f6efc1dfd` |
+| Confirmation | 200 | `6dfdcdaf8cd6a091a9b82c192b076ad4e48a89b4023d5ef65394a6d6daf737ba` |
+| Negative failure slice | 80 | `c0c593dc90af45ec9f3dcdfaaace286f9b0a53c52d0a833c8d292a4488126290` |
+| Budget failure slice | 80 | `a522134897f7ab8348c327a9a53d30075033dc379bcec610777201abfbb6ee91` |
+| Override failure slice | 80 | `1eeb7e552f2ef0ce8aae413adb7a6393891f1e265c774728ed6ba3b35685df95` |
+| Missing-evidence failure slice | 80 | `2aca6b723b592b84caf173fb55c231e8572d0844da9f57cd0c89b9e0489f4ef9` |
+
+  Primary and confirmation each preserve the 80/80/30/10 scenario mix and the same
+  catalog-only popularity quota. Uniform-tail is a separate non-regression surface.
+  Corpus metadata SHA-256 is
+  `40995692dda99dbca7d94382568e656f45aa1575874f37625d07feb1d8866b8e`; it records all 7
+  opened-to-new comparisons, all 36 opened-pair comparisons, and all 21 new-pair
+  comparisons as zero overlap. The four 80-row failure slices are only prebuilt and
+  hash/schema/disjointness-validated: `runs_per_slice=0`, so they are not effect estimates
+  or promotion evidence. Released public is used only for identity and target exclusion,
+  never weight search.
+- Added a fail-closed preregistration builder and parent/worker runner. Formal lock
+  generation requires a completely clean, pushed HEAD, exact official origin/upstream
+  proof, official catalog/public/evaluator/config identities, the complete source closure,
+  all corpus identities, and the final sidecar identity. The lock builder hashes
+  confirmation bytes but does not JSON-parse confirmation.
+- Added fresh staged workers with role-specific read access, source/runtime manifests,
+  exact B00/C00 and C00/S00 equality, Top-10/tail guards, absolute role deadlines, a
+  frozen 5,400-second `time.monotonic` whole-formal-run deadline, and persistent one-shot
+  attempt/confirmation markers. The pre-import audit reports every denial through a
+  parent-owned, role/nonce/sequence-bound stdout event stream and immediately terminates
+  with code 96; an event-channel identity/write failure terminates with code 98. A clean
+  exit is accepted only after the reader reaches EOF and the supervisor counts exactly
+  equal the O_EXCL final-record counts. Candidate `atexit` callbacks and agent cleanup
+  remain inside this audit boundary. The v3 final record measures peak RSS only after
+  those callbacks finish; the parent loads it only after a clean exit, validates its exact
+  schema, and replaces the worker's untrusted pre-exit memory field. Windows uses typed
+  `GetProcessMemoryInfo/PeakWorkingSetSize`. The staged import root is the fixed bootstrap
+  stage, not a path inferred from a candidate worker.
+- SQLite access is also role-scoped inside the bootstrap. Every exposed `connect` and
+  `Connection` alias is wrapped, every connection receives an authorizer, returned
+  connection/cursor objects do not expose the raw handle, and ATTACH/DETACH, authorizer
+  mutation, and extension loading fail-stop through the same bound event stream. Tests
+  cover the direct `Connection` constructor and statically concatenated SQL/method names;
+  B00/C00 still report that they never opened the sidecar, while S00/R01 verify the exact
+  immutable sidecar identity.
+- The preregistration source scan now combines raw text, decoded bytes, recursive compiled
+  constants, and bounded static-expression extraction for concatenation, repetition,
+  f-strings, and literal joins. It rejects every complete ASIN-shaped value and the frozen
+  target-blind forbidden operations even when assembled from bounded static fragments.
+  After each of primary, uniform-tail, and confirmation is semantically loaded, the parent
+  independently scans the complete 24-file source closure for that split's exact target
+  identifiers before launching any worker for that split. Each proof is bound to the
+  recomputed target-registry hash and exposes only aggregate counts and hashes; the final
+  artifact scrub covers all loaded target and sample identifiers.
+  This remains a trusted-Python boundary, not a hostile-native OS sandbox against arbitrary
+  dynamic construction, reflection, re-imported low-level modules, or native code.
+- Promotion is fail-closed and requires strict TechnicalScore gains on primary and
+  confirmation, primary delta at least `0.005`, paired 10,000-resample 95% bootstrap lower
+  bounds above zero, uniform-tail non-regression, no HR/MRR/scenario-HR/MTTC regression,
+  zero hit-to-miss, wall/P95/RSS ratios at most `1.15/1.20/1.10` against both B00 served
+  and C00 control, exact fresh-process repeats, and clean
+  contract/target-blind/network/token/exception audits. The paired bootstrap uses the
+  explicitly frozen unrounded per-session TechnicalScore contribution; exact rounded
+  official aggregate scores are validated separately.
+- Runner hardening has independent GO reviews for the parent audit stream and all three
+  target-source scans; a final independent readiness re-review of the later SQLite/RSS
+  hardening also returned GO for source freeze.
+  The P11 focused suite passes `99/99`, the full project suite passes `557/557`, and the
+  official asset verifier passes `14/14`. A real four-role zero-session smoke reports zero
+  network, denied-audit, and generic exception events and records valid post-`atexit`
+  Windows peak RSS for all roles. Formal readiness still requires the source commit/push,
+  a separately committed/pushed preregistration lock, and a clean `--dry-preflight` from
+  the locked HEAD.
+- `configs/p11_prereg_lock.json`, the formal-attempt and confirmation-consumption markers,
+  and `experiments/p11_top10_evaluation.json` do not exist at this checkpoint. Therefore
+  there are no P11 selection/confirmation metrics and no promote/reject decision to report.
+
 ## P9 compact-negative experiment: frozen retain decision
 
 - Added a compact catalog-only evidence sidecar, P9-only C00/S00/R01 layers, deterministic

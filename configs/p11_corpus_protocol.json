@@ -1,0 +1,214 @@
+{
+  "budget_minimum_peer_count_per_side": 3,
+  "budget_thresholds": [
+    10,
+    15,
+    20,
+    25,
+    30,
+    40,
+    50,
+    75,
+    100,
+    150,
+    200,
+    300,
+    500
+  ],
+  "catalog": {
+    "count": 50000,
+    "path": "data/catalog.jsonl",
+    "sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67"
+  },
+  "failure_plan_seed": "track4-p11-failure-plan-v1",
+  "metadata_filename": "p11_corpora.metadata.json",
+  "opened_corpora": {
+    "p1": {
+      "canonical_samples_sha256": "38c6a9fedd4a3e02d8f581e2d04d8467203d7275c3ff0eb691a57f5025c010ae",
+      "path": "experiments/p1_derived_product_disjoint.jsonl",
+      "rows": 200,
+      "sample_id_prefix": "derived_p1_"
+    },
+    "p5": {
+      "canonical_samples_sha256": "0d58a32f65b67c9408558a59df461c340691928a791117099a56049e177efa0c",
+      "path": "experiments/p5_selection_product_disjoint.jsonl",
+      "rows": 200,
+      "sample_id_prefix": "derived_p5_"
+    },
+    "p6": {
+      "canonical_samples_sha256": "27544cdb6ed9495808c35bbab09b4dbadcb88a1d75d162f17bb4fba6ee8841c7",
+      "path": "experiments/p6_selection_product_disjoint.jsonl",
+      "rows": 200,
+      "sample_id_prefix": "derived_p6_"
+    },
+    "p7": {
+      "canonical_samples_sha256": "bad13262ca5cccd3585a80c255918a91c894c8d44d538435006064c3596f9546",
+      "path": "experiments/p7_selection_product_disjoint.jsonl",
+      "rows": 200,
+      "sample_id_prefix": "derived_p7_"
+    },
+    "p8_confirmation": {
+      "canonical_samples_sha256": "3ae6f8ff7ab0362399b348c3443daa5b7138aab9cf72e944b7e11dd71d7d3dde",
+      "path": "experiments/p8_confirmation_product_disjoint.jsonl",
+      "rows": 200,
+      "sample_id_prefix": "derived_p8_confirmation_"
+    },
+    "p8_selection": {
+      "canonical_samples_sha256": "1c11d73d7c8ced617ce874e15a563f240731ca9654ed42bcc4f773b7b4da81ee",
+      "path": "experiments/p8_selection_product_disjoint.jsonl",
+      "rows": 200,
+      "sample_id_prefix": "derived_p8_selection_"
+    },
+    "p9_confirmation": {
+      "canonical_samples_sha256": "4bbd9d53f32e3773de18bab881ba6e5ef0887ca86701897798ee086430ed08d9",
+      "path": "experiments/p9_confirmation_product_disjoint.jsonl",
+      "rows": 200,
+      "sample_id_prefix": "derived_p9_confirmation_"
+    },
+    "p9_selection": {
+      "canonical_samples_sha256": "6298cbd6d7507f4b163ab4979a86ff109e0dffa90557e3b28e5d20d129e5be9f",
+      "path": "experiments/p9_selection_product_disjoint.jsonl",
+      "rows": 200,
+      "sample_id_prefix": "derived_p9_selection_"
+    },
+    "released_public": {
+      "canonical_samples_sha256": "6c726257fec25575716ee65b095f94c48402b6e14e83341518610f45fbfbec6d",
+      "path": "data/public_set.jsonl",
+      "rows": 200,
+      "sample_id_prefix": "public_"
+    }
+  },
+  "opened_target_union_count": 1800,
+  "popularity_definition": "catalog-only mid-rank percentile: (count(rating_number < v) + 0.5 * count(rating_number = v)) / 50000",
+  "public_distribution_boundary": {
+    "allowed_use": "one-time aggregate popularity quota design and target exclusion only",
+    "agent_outputs_or_ranks_used": false,
+    "median_rating_number": 6846,
+    "weight_search_allowed": false
+  },
+  "representative_popularity_bins": [
+    {
+      "count": 4,
+      "high": 0.5,
+      "low": 0.0
+    },
+    {
+      "count": 3,
+      "high": 0.75,
+      "low": 0.5
+    },
+    {
+      "count": 20,
+      "high": 0.9,
+      "low": 0.75
+    },
+    {
+      "count": 11,
+      "high": 0.95,
+      "low": 0.9
+    },
+    {
+      "count": 16,
+      "high": 0.975,
+      "low": 0.95
+    },
+    {
+      "count": 20,
+      "high": 0.99,
+      "low": 0.975
+    },
+    {
+      "count": 126,
+      "high": 1.0,
+      "low": 0.99
+    }
+  ],
+  "schema_version": "p11.corpus-protocol.v1",
+  "splits": {
+    "confirmation": {
+      "count": 200,
+      "expected_samples_sha256": "6dfdcdaf8cd6a091a9b82c192b076ad4e48a89b4023d5ef65394a6d6daf737ba",
+      "filename": "p11_confirmation.jsonl",
+      "sample_id_prefix": "derived_p11_confirmation_",
+      "scenario_counts": {
+        "boundary": 10,
+        "browsing": 80,
+        "buying": 80,
+        "intent_override": 30
+      },
+      "seed": "track4-p11-confirmation-v1"
+    },
+    "failure_budget": {
+      "count": 80,
+      "expected_samples_sha256": "a522134897f7ab8348c327a9a53d30075033dc379bcec610777201abfbb6ee91",
+      "filename": "p11_failure_budget.jsonl",
+      "sample_id_prefix": "derived_p11_failure_budget_",
+      "scenario_counts": {
+        "browsing": 40,
+        "buying": 40
+      },
+      "seed": "track4-p11-failure-budget-v1"
+    },
+    "failure_missing_evidence": {
+      "count": 80,
+      "expected_samples_sha256": "2aca6b723b592b84caf173fb55c231e8572d0844da9f57cd0c89b9e0489f4ef9",
+      "filename": "p11_failure_missing_evidence.jsonl",
+      "sample_id_prefix": "derived_p11_failure_missing_",
+      "scenario_counts": {
+        "browsing": 40,
+        "buying": 40
+      },
+      "seed": "track4-p11-failure-missing-v1"
+    },
+    "failure_negative": {
+      "count": 80,
+      "expected_samples_sha256": "c0c593dc90af45ec9f3dcdfaaace286f9b0a53c52d0a833c8d292a4488126290",
+      "filename": "p11_failure_negative.jsonl",
+      "sample_id_prefix": "derived_p11_failure_negative_",
+      "scenario_counts": {
+        "boundary": 4,
+        "browsing": 32,
+        "buying": 32,
+        "intent_override": 12
+      },
+      "seed": "track4-p11-failure-negative-v1"
+    },
+    "failure_override": {
+      "count": 80,
+      "expected_samples_sha256": "1eeb7e552f2ef0ce8aae413adb7a6393891f1e265c774728ed6ba3b35685df95",
+      "filename": "p11_failure_override.jsonl",
+      "sample_id_prefix": "derived_p11_failure_override_",
+      "scenario_counts": {
+        "intent_override": 80
+      },
+      "seed": "track4-p11-failure-override-v1"
+    },
+    "primary": {
+      "count": 200,
+      "expected_samples_sha256": "1d578694c3226d1b008d2c9f2f252ed63d114a544c82c218c06116b13c00cf84",
+      "filename": "p11_primary_representative.jsonl",
+      "sample_id_prefix": "derived_p11_primary_",
+      "scenario_counts": {
+        "boundary": 10,
+        "browsing": 80,
+        "buying": 80,
+        "intent_override": 30
+      },
+      "seed": "track4-p11-primary-representative-v1"
+    },
+    "uniform_tail": {
+      "count": 200,
+      "expected_samples_sha256": "87d2334dd28dded92df2d8c8897f7f9552efb655bc74488d49dafe2f6efc1dfd",
+      "filename": "p11_uniform_tail.jsonl",
+      "maximum_popularity_percentile_exclusive": 0.9,
+      "sample_id_prefix": "derived_p11_uniform_tail_",
+      "scenario_counts": {
+        "boundary": 10,
+        "browsing": 80,
+        "buying": 80,
+        "intent_override": 30
+      },
+      "seed": "track4-p11-uniform-tail-v1"
+    }
+  }
+}

@@ -94,6 +94,58 @@ measured bucket justifies it. Every model path must declare model/version/licens
 hash, disk/RAM, latency, token/network behavior, and an offline fallback before public
 gating.
 
+## P11 Top-10 set-preserving reranker: pre-formal implementation
+
+P11 implements the next bounded ranking hypothesis without changing the served Agent.
+R08 `coverage/off/fast` remains the fallback and B00 reference. C00 must reproduce B00;
+S00 computes the proposal but returns C00; R01 may only permute the exact current Top 10
+and must preserve every candidate after rank 10. The scorer is the fixed monotonic
+`p11.top10-linear.v3`: Broad/Strict/RRF priors, IDF-weighted and field-specific evidence,
+exact latest-hard-clause coverage, subtype agreement, positive observed/inferred/unknown
+evidence, source-turn/override version, and the P9 compatible/unknown/violation partition.
+Subtype-normalized Bayesian rating and popularity are restricted to anchored,
+non-chaining relevance near-ties; raw popularity cannot dominate relevance.
+
+The feature asset is built only from the frozen 50,000-row catalog and opened read-only
+only by S00/R01. Its current size is 32,501,760 bytes and SHA-256 is
+`83b6d8c04be6666173806b6e9cb03301eecb8ca58a60272bfa719e6533380473`.
+Online added work is bounded by `O(B+S+U+10*F)` with `B<=120`, `S<=80`, and `U<=200`;
+the feature fetch/scoring stage itself is `O(10*F)`. There is no dense catalog scan,
+runtime LLM/token use, candidate-loop JSON parsing, or repeated regex/model setup.
+
+Seven deterministic corpora contain 920 mutually disjoint new targets and exclude all
+1,800 opened released-public/P1/P5/P6/P7/P8/P9 targets. Primary and confirmation each
+contain 200 sessions with the same catalog-only head/mid/tail quota and 80/80/30/10
+scenario mix; uniform-tail contains 200 sessions; four 80-row mechanism slices are
+hash/schema/disjointness diagnostics only and have `runs_per_slice=0`. Confirmation bytes
+are identity-hashed before selection but are not semantically parsed unless primary
+initial, primary exact repeat, and uniform-tail gates all pass.
+
+The future metric bridge exactly follows the official evaluator: round aggregate HR,
+MRR, and MTTC to six decimals, compute efficiency from rounded MTTC, then compute and
+round TechnicalScore. Tests reproduce the frozen P9 one-millionth boundary without
+changing or rerunning P9. Promotion requires strict score gains on primary and
+confirmation, primary delta at least 0.005, positive paired-bootstrap lower bounds,
+uniform-tail non-regression, zero hit-to-miss, no HR/MRR/MTTC/scenario regression,
+fresh exact repeats, and wall/P95/RSS ratios within 1.15/1.20/1.10 against both B00 and
+C00.
+
+Formal execution is one-shot and aggregate-only. A pre-import audit sends every denial
+to a parent-owned role/nonce/sequence-bound stream and then fail-stops; clean exit requires
+exact agreement between supervisor counts and the O_EXCL v3 final record. That record is
+written after candidate `atexit` callbacks and supplies the parent-verified process peak
+RSS; the worker's earlier memory value is discarded. SQLite constructors and connect
+aliases return guarded connection/cursor facades with an installed authorizer, so
+ATTACH/DETACH, authorizer mutation, and extension loading fail-stop even through the
+public `Connection` constructor. Raw/static source scans reconstruct bounded constant
+concatenations before lock construction, and exact target scans run after each split is
+loaded but before that split's workers. This is a documented trusted-Python boundary, not
+an OS sandbox for hostile native or arbitrary reflective code. The focused suite is
+`99/99`, the complete regression is `557/557`, official assets are `14/14`, and a real
+four-role zero-session smoke has valid post-`atexit` peak RSS with zero network, denial,
+or generic-exception events. No P11 lock, formal marker, confirmation result, or promotion
+decision exists; source/lock commit-and-push plus dry preflight remain required.
+
 ## P9 compact-negative execution result
 
 P9 is execution engineering for the P8 mechanism, not an additional ranking architecture.

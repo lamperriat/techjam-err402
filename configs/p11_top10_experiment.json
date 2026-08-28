@@ -1,0 +1,85 @@
+{
+  "artifact_policy": {
+    "aggregate_and_hash_only": true,
+    "atomic_fail_if_exists": true,
+    "raw_asins_allowed": false,
+    "raw_sample_ids_allowed": false,
+    "raw_sessions_allowed": false
+  },
+  "bootstrap": {
+    "confidence": 0.95,
+    "lower_bound_strictly_above_zero": true,
+    "method": "paired_nearest_rank_percentile",
+    "resamples": 10000,
+    "seed": 20260829,
+    "unit": "paired_unrounded_session_technical_score_delta"
+  },
+  "corpus_protocol": {
+    "path": "configs/p11_corpus_protocol.json",
+    "schema_version": "p11.corpus-protocol.v1"
+  },
+  "deadline_policy": {
+    "clock": "time.monotonic",
+    "dry_preflight_applies": false,
+    "formal_evaluation_seconds": 5400,
+    "scope": "entire_formal_run_including_all_role_process_phases"
+  },
+  "execution_order": [
+    "primary_initial",
+    "primary_exact_repeat_if_eligible",
+    "uniform_tail_non_regression_if_primary_repeat_passes",
+    "confirmation_semantic_parse_if_all_previous_gates_pass",
+    "confirmation_initial",
+    "confirmation_exact_repeat_if_eligible",
+    "final_promotion_gate"
+  ],
+  "feature_contract": {
+    "feature_registry_sha256": "c2c6b4309e5bbf8e092f625957ae5f0cdeb193adcc48d552e5291837803749b1",
+    "feature_schema_version": "p11.top10-features.v2",
+    "feature_semantics_sha256": "abae7be9ab9073593ca40309177408adf20e460e3153fe95ec942fb53b47a488",
+    "scorer_version": "p11.top10-linear.v3",
+    "tail_preserved": true,
+    "top10_membership_preserved": true
+  },
+  "promotion_gates": {
+    "all_scenario_hit_rates_non_decrease": true,
+    "confirmation_technical_score_strict_increase": true,
+    "contract_clean": true,
+    "exceptions_zero": true,
+    "fresh_exact_repeat": true,
+    "hit_rate_non_decrease": true,
+    "mrr_non_decrease": true,
+    "mttc_no_worse": true,
+    "network_attempts_zero": true,
+    "primary_minimum_absolute_technical_score_delta": 0.005,
+    "primary_technical_score_strict_increase": true,
+    "target_blind": true,
+    "token_usage_zero": true,
+    "uniform_tail_quality_non_regression": true,
+    "zero_hit_to_miss": true
+  },
+  "public_evaluation_run": false,
+  "resource_limits": {
+    "peak_rss_ratio": 1.1,
+    "response_p95_ratio": 1.2,
+    "wall_ratio": 1.15
+  },
+  "roles": {
+    "active": "P11.R01.top10_linear",
+    "control": "P11.C00.r08_coverage",
+    "served": "P11.B00.served_agent",
+    "shadow": "P11.S00.top10_linear_shadow"
+  },
+  "schema_version": "p11.top10-experiment.v1",
+  "served_control": {
+    "question_policy": "fast",
+    "rerank_mode": "off",
+    "retrieval_mode": "coverage"
+  },
+  "sidecar_policy": {
+    "catalog_only": true,
+    "identity_hashed_before_and_after": true,
+    "maximum_bytes": 33554432,
+    "opened_by_active_and_shadow_only": true
+  }
+}
