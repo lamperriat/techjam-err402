@@ -168,7 +168,7 @@ response-trace hash
 S00 matched those outputs exactly. The frozen metrics were HR `0.940000`, MRR
 `0.593937`, MTTC `3.080000`, and TechnicalScore `0.806581`.
 
-R01 computed 48 PRF routes over 631 turns and made 21 guarded Top-10 tail changes, but
+R01 computed 48 PRF routes over 604 turns and made 21 guarded Top-10 tail changes, but
 all 200 per-session official contributions were unchanged: no hit/miss, hit turn, or
 target-rank improvement or regression occurred. Its aggregate metrics therefore tied
 C00 exactly, failing the strict TechnicalScore-improvement gate. It also took

@@ -171,6 +171,7 @@ def _source_paths() -> dict[str, Path]:
         "prf": PROJECT_ROOT / "starter" / "prf.py",
         "agent": PROJECT_ROOT / "starter" / "agent.py",
         "coverage": PROJECT_ROOT / "starter" / "coverage.py",
+        "reranker": PROJECT_ROOT / "starter" / "reranker.py",
         "attributes": PROJECT_ROOT / "starter" / "attributes.py",
         "clarification": PROJECT_ROOT / "starter" / "clarification.py",
         "slot_ledger": PROJECT_ROOT / "starter" / "slot_ledger.py",

@@ -16,6 +16,7 @@ from scripts.evaluate_p5 import (
     main,
     select_winner,
     served_reference_bridge,
+    _source_paths,
     validate_selection_samples,
 )
 
@@ -106,6 +107,13 @@ class P5RunnerTests(unittest.TestCase):
             0.80,
             functional_hash="control-functional",
         )
+
+    def test_source_snapshot_includes_direct_agent_reranker_dependency(self) -> None:
+        paths = _source_paths()
+
+        self.assertIn("reranker", paths)
+        self.assertEqual(paths["reranker"].name, "reranker.py")
+        self.assertTrue(paths["reranker"].is_file())
 
     def test_selection_validation_checks_both_exclusion_sets(self) -> None:
         samples = [
