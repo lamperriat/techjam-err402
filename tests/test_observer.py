@@ -62,6 +62,18 @@ class ObserverTraceTest(unittest.TestCase):
             self.assertEqual(os.environ["TECHJAM_RERANK_MODE"], "off")
             serve.assert_called_once_with()
 
+    def test_windows_launchers_do_not_embed_a_machine_specific_conda_path(self) -> None:
+        project_root = Path(__file__).resolve().parents[1]
+        cmd = (project_root / "Start Observer.cmd").read_text(encoding="utf-8")
+        vbs = (project_root / "Start Observer.vbs").read_text(encoding="utf-8")
+
+        self.assertNotIn("D:\\450\\conda", cmd)
+        self.assertNotIn("D:\\450\\conda", vbs)
+        self.assertIn("CONDA_DEFAULT_ENV", cmd)
+        self.assertIn("CONDA_DEFAULT_ENV", vbs)
+        self.assertIn("conda run -n tiktok", cmd)
+        self.assertIn("conda run -n tiktok", vbs)
+
     def test_coverage_retrieval_rejects_shadow_and_active_rerank(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             catalog_path = Path(directory) / "catalog.jsonl"

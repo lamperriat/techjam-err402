@@ -9,12 +9,8 @@ shell.CurrentDirectory = root
 condaPrefix = shell.ExpandEnvironmentStrings("%CONDA_PREFIX%")
 pythonw = ""
 
-If files.FileExists("D:\450\conda\envs\tiktok\pythonw.exe") Then
-  pythonw = "D:\450\conda\envs\tiktok\pythonw.exe"
-End If
-
-If pythonw = "" And condaPrefix <> "%CONDA_PREFIX%" Then
-  If LCase(files.GetFileName(condaPrefix)) = "tiktok" Then
+If condaPrefix <> "%CONDA_PREFIX%" Then
+  If LCase(shell.ExpandEnvironmentStrings("%CONDA_DEFAULT_ENV%")) = "tiktok" Then
     If files.FileExists(files.BuildPath(condaPrefix, "pythonw.exe")) Then
       pythonw = files.BuildPath(condaPrefix, "pythonw.exe")
     End If
