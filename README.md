@@ -71,6 +71,29 @@ Run a mode-controlled evaluator experiment with a separate provenance manifest:
 python3 scripts/evaluate_agent.py --rerank-mode shadow --output experiments/p2_shadow.json
 ```
 
+Verify that the official catalog, public sessions, and evaluator are complete and
+unchanged:
+
+```bash
+python3 scripts/verify_official_assets.py
+```
+
+Run the isolated P4 target-blind architecture matrix only from a clean committed tree:
+
+```bash
+python3 scripts/evaluate_architectures.py --variants all --confirm-top 3
+```
+
+This selects on the frozen public-target-disjoint local stress corpus, not on the
+released-public labels. It does not change the default Agent. See
+`docs/algorithm_architecture_research.md` for the 14 mechanisms and promotion gates.
+
+Direct `Agent()` construction reads two optional experiment variables:
+`TECHJAM_RERANK_MODE` (`off`, `shadow`, or rejected `active`) and
+`TECHJAM_QUESTION_POLICY` (`fast`, `boundary`, or `conservative`). Production and
+official evaluation should clear inherited values or explicitly use `off` and `fast`.
+The one-click Workbench deliberately selects output-safe `shadow` diagnostics.
+
 ## LLM Client Configuration
 
 The OpenAI-compatible client is optional and is not constructed by the default offline Agent. Core evaluation uses only the Python standard library. Install the optional client dependencies only when developing or testing model-assisted features:

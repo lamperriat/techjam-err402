@@ -145,8 +145,9 @@ python scripts/evaluate_agent.py --rerank-mode active --output experiments/p2_ac
 ```
 
 `off` is the production/default path. `shadow` computes diagnostics but must remain
-strictly output-equal to off. `active` is an experiment flag; v1 currently scores below
-P1 and must not be used as the default.
+strictly output-equal to off. `active` currently executes the v2 Top-10-member-safe
+control; both v1 and v2 scored below their frozen selection gates and must not be used
+as the default.
 
 The evaluator overwrites ignored `results.json`. Copy important experiment outputs into another ignored experiment directory before the next run. Compare complete results, including all session rows, with:
 

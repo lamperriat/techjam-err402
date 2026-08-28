@@ -6,7 +6,9 @@ Last updated: 2026-08-28 SGT.
 
 ## Current verified implementation
 
-- Branch: `p2-attributes-rerank`
+- Branch: `p4-architecture-search`
+- P3 implementation: `9cc9262` (`feat: add auditable clarification shadows`)
+- P3 verification and data inventory: `87447fb` (`docs: record p3 gates and official data inventory`)
 - Frozen P1 head: `02f0741` on `p1-generalization`
 - P2 core implementation: `586f3dd` (`feat: add target-blind shortlist reranker`)
 - P2 Workbench/tooling: `4610480` (`feat: expose rerank experiments in workbench`)
@@ -24,6 +26,9 @@ Last updated: 2026-08-28 SGT.
 - Official catalog release SHA-256: `07fd142631fd6b03e2b4d09988c3eb7d53720e9d57010c79db48eeaada50a8f8`; local compressed asset is identical
 - Official public-set Git blob: `121dbec9c1368c81cd887d6959e62507512139c0`; local Git-normalized content is identical
 - Default execution: offline, no LLM object, no API key, no network call, zero reported tokens
+- Direct `Agent()` defaults are `TECHJAM_RERANK_MODE=off` and
+  `TECHJAM_QUESTION_POLICY=fast`; clear inherited values or set them explicitly for a
+  production run. The Workbench launcher deliberately requests `shadow` for diagnostics.
 
 ## Current public evaluation
 
@@ -348,7 +353,8 @@ This replaces the handoff comparator behavior that printed aggregate deltas but 
 
 ## Verification completed
 
-- 114 Python unit/integration tests pass.
+- 134 Python unit/integration tests pass after adding the isolated P4 architecture-lab,
+  official-asset integrity, contract, lifecycle, budget, gate, and winner-selection tests.
 - Agent tests cover accumulation, natural openers/requirements/no-preference, pending-question interruption, category changes, negative phrases and false negations, false override prevention, first/repeated/selective overrides, Boundary exhaustion, question policies, five ranking routes, mode safety, catalog-price shadow ingestion, bounded diagnostic memory, output cap/final turn, optional usage, and target-blind trace/component diagnostics.
 - Attribute/reranker/ledger/QuestionValue tests cover normalization boundaries, immutable provenance, unknown values, source confidence, noise removal, scorer arithmetic, negative penalties, deterministic ties, immutable fused input, Top-10 member and tail safety, lifecycle retirement/hard restatement, multi-value entropy control, final-turn suppression, and candidate-price coverage.
 - Generalization tests cover phrase payload preservation, adapter input isolation, deterministic stratified public-target-disjoint generation, and rerank-mode propagation.
@@ -392,6 +398,28 @@ slot/attribute/rerank/QuestionValue diagnostics in shadow**, not as the complete
 IntentGraph target architecture.
 
 ## Change history
+
+### 2026-08-28 — P4 target-blind architecture search infrastructure
+
+- Added an experiment-only `ArchitectureAgent` registry with one exact control and 14
+  materially different retrieval, fusion, constraint, state, diversification, budget,
+  and routing mechanisms. The default `starter.agent.Agent` output path is unchanged.
+- Added a frozen product-disjoint matrix runner with strict response-contract validation,
+  control-integrity failure, activation/output-change accounting, session/scenario gates,
+  hit-to-miss rejection, separate raw/eligible winners, and deterministic confirmation.
+- Contract-invalid or incomplete variants cannot count toward the ten-experiment
+  requirement. R09 never backfills a known negative conflict; R11/R13 scope browsing
+  evidence to the current goal version; R12 is honestly `not_counted` when the selection
+  corpus exposes no numeric budget message.
+- Added preflight and postflight Git/source/input snapshots. A long run is discarded if
+  any direct source, input, Git branch/commit, dirty state, or derived-path state changes.
+  The artifact records all parsed invocation values and hashes direct Agent dependencies.
+- Added the complete offline official-asset verifier and a rules-first audit. The local
+  catalog/public/evaluator assets pass all row, schema, uniqueness, membership, scenario,
+  Git-blob, and release-hash checks.
+- An 8-session matrix smoke test exercised the complete runner and 13 non-control designs
+  changed output; it is explicitly not selection evidence. The frozen 200-session matrix
+  is intentionally deferred until this implementation is committed and the tree is clean.
 
 ### 2026-08-28 — P3 auditable slot and clarification shadows
 

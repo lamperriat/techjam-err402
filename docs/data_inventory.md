@@ -81,6 +81,7 @@ derived target IDs as ranking features.
 From the repository root in PowerShell:
 
 ```powershell
+python scripts/verify_official_assets.py
 git ls-remote upstream refs/heads/main refs/tags/participant-kit
 Get-FileHash -Algorithm SHA256 data\releases\catalog.jsonl.gz
 (Get-Content data\catalog.jsonl | Measure-Object -Line).Lines
@@ -88,5 +89,6 @@ Get-FileHash -Algorithm SHA256 data\releases\catalog.jsonl.gz
 git diff --exit-code upstream/main -- data\public_set.jsonl
 ```
 
-The remote and release checks require network access. Row counts, local hashes, target
-membership, schema checks, and evaluator runs remain offline.
+The verifier performs the complete offline row/schema/uniqueness/target-membership,
+scenario-mix, SHA-256, and Git-blob audit in one command. The remote and release checks
+require network access; all local integrity checks and evaluator runs remain offline.
