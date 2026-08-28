@@ -1,6 +1,6 @@
 # Official Requirements and Compliance Audit
 
-Last verified: 2026-08-28 SGT.
+Last verified: 2026-08-29 SGT.
 
 This document is the rules-first boundary for implementation and experiments. It
 separates organizer-published requirements from local safeguards, inferred risks, and
@@ -96,12 +96,22 @@ pre-registered wall, response-P95, and peak-RSS gates. The protocol retained C00
 run repeat, did not open confirmation, and did not rerun the released public set. Therefore
 P8 cannot change the official-evidence table above or support a private-800 claim.
 
+P9 is also separate local stress evidence. It used two additional target-disjoint
+catalog-derived splits and a 1.42 MiB catalog-only sidecar. R01 passed its quality and
+resource gates on both opened splits and selection exact repeat passed, but confirmation
+B00/C00/S00 failed only a one-millionth TechnicalScore bridge check caused by different
+rounding order. Confirmation repeat was not attempted, so the frozen protocol retained
+C00 and made no released-public run or production change. This is neither organizer
+validation nor evidence about the private 800. The staged Python audit/read boundary is
+not an OS sandbox against hostile native code.
+
 ## Competition-level timing and submission obligations
 
 The Official Rules define the Submission Period as 2026-08-29 12:00 SGT through
 2026-09-01 12:00 SGT and require an existing project to receive a significant update
-after the period starts. All commits recorded through 2026-08-28 are therefore
-pre-competition evidence only; they cannot satisfy the post-start update requirement.
+after the period starts. Every commit recorded here was made before 2026-08-29 12:00 SGT
+and is therefore pre-competition evidence only; none can satisfy the post-start update
+requirement.
 
 The public Devpost overview additionally requests a written project description and
 tech stack, a public code repository with a comprehensive README, and a public

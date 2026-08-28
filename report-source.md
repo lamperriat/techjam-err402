@@ -1,10 +1,10 @@
 # Track 4 Research and Compliance Source Registry
 
-Last checked: 2026-08-28 SGT.
+Last checked: 2026-08-29 SGT.
 
 Audience: Track 4 implementation team, reviewers, and submission auditors.
 
-Scope: organizer-controlled requirements and data, P4-P8 architecture decisions, and
+Scope: organizer-controlled requirements and data, P4-P9 architecture decisions, and
 submission-readiness claims. This is the repository's canonical research report and
 claim/source ledger. It separates organizer requirements, primary research, and
 repository-local measurements. A paper can motivate an experiment; only this
@@ -19,7 +19,7 @@ their absence locally is intentional rather than a failed download. No additiona
 official train split, embeddings, images, review text, purchase history, private labels,
 or hidden intent cards were found in the repository or participant release.
 
-On 2026-08-28 SGT, the official remote still resolved to `main` commit
+On 2026-08-29 SGT, the official remote still resolved to `main` commit
 `34078351e1c3615e5505a2e829600b56a542e462` and participant tag
 `2a6cc8e776da66ce69b1cbd237838fbc43f32587`. The release still exposed the three authored
 assets `catalog.jsonl.gz`, `SHA256SUMS`, and `techjam-participant-kit.zip`. The local
@@ -27,8 +27,9 @@ offline verifier passed 14/14 checks. These facts establish participant-kit comp
 they do not expose or validate the private 800 sessions or the final judging hardware.
 
 The current evidence also does **not** justify saying that every project plan or
-submission obligation is complete. P8 R01 was rejected on resource gates and the completed
-selection retained C00; the competition-window significant update, public/default-branch
+submission obligation is complete. P9 retained C00 because its confirmation repeat was
+never reached after a decision-affecting metric-bridge mismatch; no public run or served
+promotion followed. The competition-window significant update, public/default-branch
 release, short report, team-contribution disclosure, and three-minute demonstration remain
 separate gates.
 
@@ -78,7 +79,7 @@ separate gates.
 | Are the private 800 rows or final hardware limits knowable? | Not published | Treat them as known unknowns and preserve deterministic offline/resource fallbacks |
 | May the team change the Agent architecture? | Yes; the contract and evaluator are fixed, while retrieval, state, routing, clarification, reranking, and legal model choices are participant work | Keep official artifacts byte-stable while improving `starter/` and experiment-only modules |
 | Is R08 proven best on the private set? | No; it is the best eligible design under one frozen local selection protocol and a bounded public confirmation | Keep claims local and scenario-specific |
-| Should P5 PRF, P6 depth, P7 BGE, or P8 explicit-negative execution be rerun on its frozen corpus? | No; each already failed a preregistered value/resource gate | Use a fresh target-disjoint protocol; P8 may motivate execution engineering but not a same-corpus rerun or a fake new architecture |
+| Should P5 PRF, P6 depth, P7 BGE, P8, or P9 be rerun on its frozen corpus? | No; each protocol has consumed its frozen evidence | P9 may motivate a separately preregistered replication with new targets and a corrected metric bridge, but not a same-corpus rerun, result-driven tuning, or a fake new architecture |
 | Is a generic dense/model swap the next priority? | No; local sparse union already recovered 198/200 P7 targets and the tested dense route rescued zero while failing wall/RSS gates | Prioritize shortlist discrimination, negative constraints, state, and question policy |
 | Are submission obligations complete? | No | Preserve a separate post-start implementation commit, before/after evidence, public repository/default-branch verification, report, licensing, and demo checklist |
 
@@ -121,6 +122,35 @@ encouraging mechanism signal from production eligibility: the same-corpus result
 be retuned or rerun, and it is not evidence about the organizer-private 800 sessions. The
 redacted aggregate artifact SHA-256 is
 `0b29d13c59796582385bdec32c877a8de2518ee7464b0f96709a71ef139d4670`.
+
+## P9 frozen compact-negative result
+
+P9 preserved the P8 constraint semantics while replacing repeated product parsing with a
+1,486,848-byte catalog-only SQLite evidence sidecar. Source/spec commit `d03690d` and the
+separate preregistration lock commit `e36d515` were pushed before metrics. The selection
+and confirmation splits contain 200 unique targets each, exclude every released-public and
+P1/P5/P6/P7/P8 target, exclude one another, and have canonical SHA-256 values
+`6298cbd6d7507f4b163ab4979a86ff109e0dffa90557e3b28e5d20d129e5be9f` and
+`4bbd9d53f32e3773de18bab881ba6e5ef0887ca86701897798ee086430ed08d9`.
+
+R01 passed every quality and resource gate on selection and its exact repeat. Initial
+confirmation also changed C00 to R01 HR/MRR/MTTC/Score from
+`0.185000/0.056688/9.330000/0.142906` to
+`0.225000/0.084885/8.960000/0.178765`, with eight miss-to-hit, zero hit-to-miss, and no
+scenario hit-count regression. The compact executor stayed inside all pre-registered
+bootstrap, wall, P95, RSS, asset, offline, and zero-token limits.
+
+The frozen decision is still `retain_p9_c00`. Confirmation B00, C00, and S00 failed only
+`exact_totals_match_official_metrics`: the official evaluator first rounds HR, MRR, and
+MTTC to six decimals and then reports Score `0.142906`, while P9's bridge rounded the exact
+per-session contribution sum to `0.142907`. That one-millionth false negative prevented
+confirmation repeat. It was not a confirmation-repeat failure or a production-eligible
+pass. No released-public run or promotion occurred, and P9 must not be rerun after metrics.
+The ignored redacted artifact SHA-256 is
+`62134b9555cb33df5c1009f341ff15eccd2782d5f33c00cb5d86699b18a4ee66`.
+Fresh isolated Python workers, audit hooks, read-boundary checks, and direct AST scans
+constrain trusted Python execution, but this is not an OS sandbox; hostile native code is
+not sandboxed.
 
 ## Evidence boundary
 

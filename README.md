@@ -190,6 +190,22 @@ frozen decision is `retain_p8_c00`. Repeat was not attempted, confirmation was n
 and released-public was not rerun. P8 therefore remains experiment-only and the served R08
 Agent/public score is unchanged; the same P8 corpus will not be tuned or rerun.
 
+P9 then tested the same frozen semantics with a compact catalog-only evidence sidecar on
+two new target-disjoint 200-session splits. On selection, C00 to R01 changed
+HR/MRR/MTTC/Score from `0.210000/0.065454/9.175000/0.161136` to
+`0.250000/0.089877/8.785000/0.196263`; on confirmation, the initial runs changed them from
+`0.185000/0.056688/9.330000/0.142906` to
+`0.225000/0.084885/8.960000/0.178765`. Each split had eight miss-to-hit, zero hit-to-miss,
+and no scenario hit-count regression. All frozen bootstrap, wall, response-P95, and RSS
+ratios passed, and selection exact repeat passed. The formal decision is nevertheless
+`retain_p9_c00`: confirmation B00/C00/S00 failed only a metric bridge check because the
+official evaluator computes Score from six-decimal rounded aggregate metrics (`0.142906`),
+while the bridge rounded the exact per-session contribution sum (`0.142907`). Confirmation
+repeat was therefore not attempted and remains inconclusive. P9 was not rerun, released-
+public was not evaluated, and no production promotion occurred. The served Agent remains
+R08 `coverage/off/fast` with the public checkpoint above. P9's isolated Python audit
+boundary is not an OS sandbox against hostile native code.
+
 Direct `Agent()` construction reads three optional experiment variables:
 `TECHJAM_RETRIEVAL_MODE` (`coverage` or `control`),
 `TECHJAM_RERANK_MODE` (`off`, `shadow`, or experimental `active`) and

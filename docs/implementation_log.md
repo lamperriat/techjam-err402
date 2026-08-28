@@ -2,11 +2,13 @@
 
 This tracked document records only code and behavior that exist in the repository and have been verified. Planning, hypotheses, and unvalidated designs belong in ignored `docs/internal_plan.md`; the current working-tree architecture belongs in ignored `docs/current_architecture.md`.
 
-Last updated: 2026-08-28 SGT.
+Last updated: 2026-08-29 SGT.
 
 ## Current verified implementation
 
 - Branch: `p4-architecture-search`
+- P9 preregistration lock: `e36d515` (`chore: freeze p9 preregistration lock`)
+- P9 compact-negative protocol: `d03690d` (`feat: add hardened compact-negative p9 protocol`)
 - P4 served/reference bridge: `1f8fd3c` (`test: bridge frozen and promoted response traces`)
 - P4 served promotion: `97bc89c` (`feat: promote coverage cascade into served agent`)
 - P4 frozen matrix: `e5d0d49` (`feat: add target-blind architecture search lab`)
@@ -35,6 +37,43 @@ Last updated: 2026-08-28 SGT.
   `TECHJAM_RERANK_MODE=off`, and `TECHJAM_QUESTION_POLICY=fast`; clear inherited values
   or set them explicitly for a production run. `retrieval_mode=control` preserves the
   pre-P4 weighted-RRF output for paired experiments.
+
+## P9 compact-negative experiment: frozen retain decision
+
+- Added a compact catalog-only evidence sidecar, P9-only C00/S00/R01 layers, deterministic
+  selection/confirmation builders, staged fresh-process worker, preregistration builder,
+  strict runner, and focused tests without importing P9 into `starter/agent.py`.
+- The 50,000-row sidecar is 1,486,848 bytes, label-free and target-blind, with SHA-256
+  `2bc5846b7f6efb2e8395ea99b6bca5b585fb1507d23d6289dbc00d7600d22128`.
+  The two 200-target P9 splits are mutually disjoint and exclude released-public plus
+  P1/P5/P6/P7/P8; their SHA-256 values are
+  `6298cbd6d7507f4b163ab4979a86ff109e0dffa90557e3b28e5d20d129e5be9f` and
+  `4bbd9d53f32e3773de18bab881ba6e5ef0887ca86701897798ee086430ed08d9`.
+- Source/spec was frozen and pushed in `d03690d`; the separate preregistration lock commit
+  is `e36d515`, with lock SHA-256
+  `32d113e4927925039786054faf9fe35a1ee86606f971b0b60904b6cad9453ced`.
+  The complete suite passed `458/458` before the sole formal run and again after result
+  documentation; official assets passed `14/14`.
+- Selection C00 to R01 changed hits `42 -> 50`, HR `0.210000 -> 0.250000`, MRR
+  `0.065454 -> 0.089877`, MTTC `9.175000 -> 8.785000`, and Score
+  `0.161136 -> 0.196263`. The exact B00/C00/R01 repeat passed.
+- Confirmation initial C00 to R01 changed hits `37 -> 45`, HR `0.185000 -> 0.225000`,
+  MRR `0.056688 -> 0.084885`, MTTC `9.330000 -> 8.960000`, and Score
+  `0.142906 -> 0.178765`. Both splits had eight miss-to-hit, zero hit-to-miss, 11 earlier
+  hits, 25 rank improvements, and no scenario hit-count regression.
+- All R01 bootstrap/wall/P95/RSS ratios passed on selection initial, selection repeat, and
+  confirmation initial. Eleven fresh worker runs used distinct PIDs/nonces and recorded
+  zero network, denied-read, process-creation, contract, integrity, or generic-exception
+  events. The worker controls trusted Python with staging, audit hooks, read boundaries,
+  and direct AST scans; it is not an OS sandbox against hostile native code.
+- The frozen decision is `retain_p9_c00`. Confirmation B00/C00/S00 failed only the exact-
+  metric bridge: the official evaluator first rounds aggregate metrics and reports Score
+  `0.142906`; the bridge rounded the exact contribution sum to `0.142907`. Confirmation
+  repeat was therefore not attempted. This is an inconclusive repeat boundary, not an
+  algorithm/resource failure or a confirmation pass. No P9 rerun, released-public run, or
+  production promotion occurred.
+- The ignored redacted aggregate artifact SHA-256 is
+  `62134b9555cb33df5c1009f341ff15eccd2782d5f33c00cb5d86699b18a4ee66`.
 
 ## P8 explicit-negative experiment: completed frozen selection
 
@@ -100,7 +139,8 @@ Last updated: 2026-08-28 SGT.
 
 ## Current public evaluation
 
-The integrated Agent was run against the complete released 200-session evaluator after all code changes in this entry.
+These metrics are the last verified served-public checkpoint. The released public set was
+not rerun for P5-P9, and P9 did not modify the served Agent.
 
 | Scope | Sessions | Hit Rate@10 | MRR | MTTC |
 | --- | ---: | ---: | ---: | ---: |

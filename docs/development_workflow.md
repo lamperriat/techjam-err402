@@ -225,13 +225,19 @@ Successful browser-started evaluations refresh `results.json`; evaluator and gen
 3. The first architecture wave is complete: 14 raw candidates were run, 13 were
    semantically valid/effective after the R12 false-activation audit, and R08 alone passed
    selection and promotion gates.
-4. P5 PRF, P6 depth, P7 BGE, and P8 explicit-negative partition are frozen rejected
-   experiments. P8 showed a quality gain on its local stress selection but failed wall,
-   P95, and RSS gates; it must not be tuned or rerun on that corpus.
-5. Use only unlabeled microbenchmarks to diagnose P8 allocation/resource overhead. Any
-   optimized executor requires a new frozen target-disjoint P9 protocol and still counts
-   as execution engineering, not another ranking architecture.
-6. Advance only a survivor that passes fresh selection, repeat, confirmation, strict
+4. P5 PRF, P6 depth, P7 BGE, P8, and P9 are frozen completed experiments and must not be
+   rerun or tuned on their consumed corpora. P9 preserved P8's quality signal while passing
+   its resource limits on two opened splits, but a metric-bridge rounding false negative
+   prevented confirmation repeat; the formal decision therefore retained C00.
+5. Repair the exact-versus-official aggregate bridge only with synthetic unit fixtures.
+   Any replication must keep the P9 mechanism unchanged, use new target-disjoint splits,
+   and be identified as execution validation rather than a new ranking architecture.
+6. The next feature family is structured numeric-budget interval execution. It needs a
+   separate preregistration and fresh targets; P9/public outcomes must not select its
+   intervals, fallbacks, or question policy. Because P4 R12 already tested a bounded price
+   ranker, this work is not counted as another architecture unless a preregistered stage-
+   graph audit proves a materially different mechanism.
+7. Advance only a survivor that passes fresh selection, repeat, confirmation, strict
    quality/resource gates, then one released-public/phrase confirmation. Semantic
    dependencies additionally require recall, licensing, offline, and packaging evidence.
 
@@ -243,5 +249,6 @@ robustness and resource gates, normalized product attributes, a shadow SlotLedge
 candidate-aware QuestionValue diagnostics, and cross-session shadow analysis. It has not
 made the slot ledger the retrieval source of truth, activated candidate-aware questioning,
 implemented served hard filtering/relaxation or numeric budget execution, or added
-dense/profile/semantic ranking. P8 explicit-negative partition and deterministic active
-rerank v1/v2 remain rejected experiment-only implementations.
+dense/profile/semantic ranking. P8/P9 explicit-negative partition and deterministic active
+rerank v1/v2 remain experiment-only implementations; P9 did not complete confirmation
+repeat and is not served.

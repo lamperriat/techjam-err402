@@ -1,6 +1,6 @@
 # P4 Target-Blind Architecture Search
 
-Last updated: 2026-08-28 SGT.
+Last updated: 2026-08-29 SGT.
 
 ## Decision summary
 
@@ -93,6 +93,55 @@ fusion. A shortlist cross-encoder or late-interaction reranker follows only when
 measured bucket justifies it. Every model path must declare model/version/license, asset
 hash, disk/RAM, latency, token/network behavior, and an offline fallback before public
 gating.
+
+## P9 compact-negative execution result
+
+P9 is execution engineering for the P8 mechanism, not an additional ranking architecture.
+It keeps the exact single-token, six-slot, current hard-negative semantics and stable
+`compatible -> unknown -> explicit_violation` partition, but reads packed catalog-only
+evidence for the first 50 served candidates from one compact SQLite sidecar. The sidecar is
+1,486,848 bytes with SHA-256
+`2bc5846b7f6efb2e8395ea99b6bca5b585fb1507d23d6289dbc00d7600d22128`.
+
+Source/spec commit `d03690d` and preregistration lock commit `e36d515` were clean, pushed,
+and separate. The lock SHA-256 is
+`32d113e4927925039786054faf9fe35a1ee86606f971b0b60904b6cad9453ced`.
+Selection and confirmation each contain 200 unique targets with scenario mix 80/80/30/10;
+they exclude one another and every released-public/P1/P5/P6/P7/P8 target. Their hashes are
+`6298cbd6d7507f4b163ab4979a86ff109e0dffa90557e3b28e5d20d129e5be9f` and
+`4bbd9d53f32e3773de18bab881ba6e5ef0887ca86701897798ee086430ed08d9`.
+
+| Split | Role | Hits | HR@10 | MRR | MTTC | TechnicalScore |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Selection | C00 | 42 | 0.210000 | 0.065454 | 9.175000 | 0.161136 |
+| Selection | R01 | 50 | 0.250000 | 0.089877 | 8.785000 | 0.196263 |
+| Confirmation initial | C00 | 37 | 0.185000 | 0.056688 | 9.330000 | 0.142906 |
+| Confirmation initial | R01 | 45 | 0.225000 | 0.084885 | 8.960000 | 0.178765 |
+
+Both opened splits recorded eight miss-to-hit, zero hit-to-miss, 11 earlier-hit, and 25
+rank-improvement changes, with no scenario hit-count regression. Selection B00/C00/R01
+exact repeat passed. R01 resource ratios versus same-run C00 were:
+
+| Run | Bootstrap | Wall | Response P95 | Peak RSS |
+| --- | ---: | ---: | ---: | ---: |
+| Selection initial | 1.030053x | 0.938716x | 0.965906x | 1.006108x |
+| Selection repeat | 1.023690x | 0.965395x | 0.993089x | 1.013835x |
+| Confirmation initial | 1.039614x | 0.982127x | 1.076450x | 1.018611x |
+
+The frozen limits were respectively 1.20x, 1.30x, 1.30x, and 1.20x, so all resource gates
+passed. Eleven fresh workers used distinct PIDs/nonces and reported zero network, denied
+read, process-creation, or generic-exception events. This is a staged trusted-Python audit
+boundary, not an OS sandbox against hostile native code.
+
+The final decision remains `retain_p9_c00`. Confirmation was parsed and initially run, but
+B00/C00/S00 failed only `exact_totals_match_official_metrics`: exact contribution
+`720249 / (25200*200)` rounds to `0.142907`, whereas the official evaluator first rounds
+aggregate MRR to `0.056688`, then computes Score `0.1429064`, reported as `0.142906`.
+Confirmation repeat was therefore not attempted. This is a bridge false negative, not an
+algorithm/resource regression, but it changes the frozen promotion path and cannot be
+repaired by rerunning P9 after metrics. Released-public was not run and the served R08
+Agent was not modified. Artifact SHA-256:
+`62134b9555cb33df5c1009f341ff15eccd2782d5f33c00cb5d86699b18a4ee66`.
 
 ## P8 pre-registered explicit-negative execution
 
