@@ -1,0 +1,75 @@
+{
+  "schema_version": "p9.compact-negative-matrix.v1",
+  "worker_factory": "starter.p9_lab:create_p9_agent",
+  "roles": {
+    "control": "P9.C00.r08_coverage",
+    "shadow": "P9.S00.compact_negative_shadow",
+    "active": "P9.R01.compact_negative_partition"
+  },
+  "served_control": {
+    "retrieval_mode": "coverage",
+    "rerank_mode": "off",
+    "question_policy": "fast"
+  },
+  "mechanism": {
+    "candidate_pool": 50,
+    "executable_constraint": {
+      "status": "active",
+      "polarity": -1,
+      "hardness": "hard",
+      "confidence": 1.0,
+      "source": "excluded_terms",
+      "version": "current_goal_only",
+      "value": "single_normalized_ascii_token",
+      "allowed_slots": [
+        "audience",
+        "closure",
+        "color",
+        "material",
+        "style",
+        "use_case"
+      ]
+    },
+    "evidence_asset": {
+      "schema_version": "p9.compact-negative-evidence.v1",
+      "registry_sha256": "6e007f76e29aa97d06de7aa8c65f4cfe4fe505a8ec9c04e131d971bef9892fe6",
+      "semantics_sha256": "a527cb016e64e87fe3edfc571a9793700ffabcfe75fc31893e531a584dd54a31",
+      "catalog_only": true,
+      "label_free": true,
+      "maximum_bytes": 16777216
+    },
+    "product_evidence_min_confidence": 0.9,
+    "product_description_is_evidence": false,
+    "candidate_states": [
+      "compatible",
+      "unknown",
+      "explicit_violation"
+    ],
+    "ordering": "stable compatible then stable unknown then stable explicit_violation",
+    "tie_break": "served R08 order",
+    "no_executable_constraint": "return served R08 order exactly",
+    "tail_policy": "partition the first 50 served candidates, then append the untouched served tail"
+  },
+  "resource_limits": {
+    "bootstrap_ratio": 1.2,
+    "wall_ratio": 1.3,
+    "response_p95_ratio": 1.3,
+    "peak_rss_ratio": 1.2,
+    "evidence_asset_max_bytes": 16777216,
+    "rss_sample_ms": 10.0,
+    "bootstrap_timeout_seconds": 120.0,
+    "request_timeout_seconds": 30.0,
+    "finalize_timeout_seconds": 30.0,
+    "exit_timeout_seconds": 10.0,
+    "cumulative_worker_io_timeout_seconds": 180.0
+  },
+  "promotion_gates": {
+    "hit_rate_non_decrease": true,
+    "mrr_strict_increase": true,
+    "mttc_non_increase": true,
+    "technical_score_strict_increase": true,
+    "scenario_hit_rate_non_decrease": true,
+    "zero_hit_to_miss": true,
+    "repeat_exact": true
+  }
+}
