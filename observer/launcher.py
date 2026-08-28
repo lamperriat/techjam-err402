@@ -52,7 +52,10 @@ def main() -> None:
             )
         from observer.server import main as serve
 
-        os.environ.setdefault("TECHJAM_RERANK_MODE", "shadow")
+        # The no-terminal launcher is the reproducible served preset.  Do not let
+        # stale shell variables silently turn it into an invalid or diagnostic run.
+        os.environ["TECHJAM_RETRIEVAL_MODE"] = "coverage"
+        os.environ["TECHJAM_RERANK_MODE"] = "off"
         serve()
     except Exception as exc:
         log_path.write_text(traceback.format_exc(), encoding="utf-8")

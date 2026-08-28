@@ -20,7 +20,7 @@ from evaluator.local_evaluator import (
     normalize_recommendations,
 )
 from observer.events import TraceRecorder
-from starter.agent import Agent, _terms
+from starter.agent import RETRIEVAL_MODES, Agent, _terms
 
 
 RERANK_MODES = {"off", "shadow", "active"}
@@ -41,11 +41,29 @@ def _agent_rerank_mode(agent: Any) -> str:
         return "off"
 
 
+def _normalize_retrieval_mode(value: object) -> str:
+    mode = str(value or "control").strip().lower()
+    if mode not in RETRIEVAL_MODES:
+        raise ValueError(
+            "retrieval_mode must be one of: " + ", ".join(RETRIEVAL_MODES)
+        )
+    return mode
+
+
+def _agent_retrieval_mode(agent: Any) -> str:
+    value = getattr(agent, "retrieval_mode", "control")
+    try:
+        return _normalize_retrieval_mode(value)
+    except ValueError:
+        return "control"
+
+
 def _create_agent(
     catalog_path: str | Path,
     *,
     trace_sink: Any | None = None,
     rerank_mode: str | None = None,
+    retrieval_mode: str | None = None,
 ) -> Agent:
     """Construct current or pre-reranker Agents without misreporting their mode."""
     parameters = inspect.signature(Agent).parameters
@@ -54,6 +72,8 @@ def _create_agent(
         kwargs["trace_sink"] = trace_sink
     if "rerank_mode" in parameters:
         kwargs["rerank_mode"] = rerank_mode
+    if "retrieval_mode" in parameters:
+        kwargs["retrieval_mode"] = retrieval_mode
     return Agent(catalog_path, **kwargs)
 
 
@@ -126,6 +146,7 @@ def _agent_diagnostics(agent: Any, session_id: str, target: str) -> dict[str, An
     return {
         "state": snapshot,
         "rerank_mode": _agent_rerank_mode(agent),
+        "retrieval_mode": _agent_retrieval_mode(agent),
         "route_counts": {
             "broad": len(broad),
             "strict": len(strict),
@@ -148,6 +169,11 @@ def _agent_diagnostics(agent: Any, session_id: str, target: str) -> dict[str, An
             for key, value in rerank_diagnostics.items()
             if key != "breakdowns"
         },
+        "coverage_diagnostics": (
+            rerank_diagnostics.get("coverage")
+            if isinstance(rerank_diagnostics.get("coverage"), dict)
+            else {"active": False}
+        ),
         "actual_route": "final" if "final" in rankings else "fused",
         "error": error,
     }
@@ -226,6 +252,7 @@ class TraceRunner:
         dataset_path: str | Path = "data/public_set.jsonl",
         results_path: str | Path = "results.json",
         rerank_mode: str | None = None,
+        retrieval_mode: str | None = None,
     ) -> TraceRunner:
         samples = load_jsonl(dataset_path)
         catalog_ids, categories, products = catalog_index(catalog_path)
@@ -239,6 +266,7 @@ class TraceRunner:
                 catalog_path,
                 trace_sink=recorder.emit,
                 rerank_mode=rerank_mode,
+                retrieval_mode=retrieval_mode,
             ),
             samples,
             catalog_ids,
@@ -344,6 +372,8 @@ class TraceRunner:
                     retrieval["candidate_count"] = event_data.get("candidate_count")
                     retrieval["route_counts"] = event_data.get("route_counts") or {}
                     retrieval["engine"] = event_data.get("engine")
+                    retrieval["retrieval_mode"] = event_data.get("retrieval_mode")
+                    retrieval["coverage_diagnostics"] = event_data.get("coverage")
                 elif agent_event.get("layer") == "state":
                     state_snapshot = dict(event_data)
 
@@ -359,14 +389,19 @@ class TraceRunner:
                 "target_rerank_breakdown"
             ]
             retrieval["rerank_diagnostics"] = diagnostics["rerank_diagnostics"]
+            retrieval["coverage_diagnostics"] = diagnostics[
+                "coverage_diagnostics"
+            ]
             retrieval["posthoc_target_rank"] = diagnostics["target_final_rank"]
             retrieval["actual_route"] = diagnostics["actual_route"]
             retrieval["rerank_mode"] = diagnostics["rerank_mode"]
+            retrieval["retrieval_mode"] = diagnostics["retrieval_mode"]
             retrieval["diagnostic_error"] = diagnostics["error"]
             retrieval["posthoc_note"] = (
                 "Public ground truth was joined after Agent.respond and ranked locally against "
                 "target-blind broad, strict, fused, reranked, and final route IDs. The final "
-                "route is the actual output order; legacy Agents fall back to fused."
+                "route is the actual output order; in coverage mode fused is the control and "
+                "final is the promoted coverage order. Legacy Agents fall back to fused."
             )
             ranked = normalize_recommendations(response.get("recommendations"), self.catalog_ids)
             validation = _output_diagnostics(response.get("recommendations"), self.catalog_ids)
@@ -475,6 +510,7 @@ class TraceRunner:
             "intent_card": card,
             "behavior": behavior,
             "rerank_mode": _agent_rerank_mode(self.agent),
+            "retrieval_mode": _agent_retrieval_mode(self.agent),
             "result": {
                 "hit": hit_turn is not None,
                 "first_hit_turn": hit_turn,

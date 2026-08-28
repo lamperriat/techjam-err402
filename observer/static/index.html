@@ -39,8 +39,8 @@
       <div class="hero panel">
         <div>
           <div class="eyebrow">CURRENT IMPLEMENTATION TRUTH</div>
-          <h2>当前是真实可运行的状态化稀疏融合 + 属性重排 Agent</h2>
-          <p>已完成可审计的会话状态、双路 BM25、加权 RRF、目标盲属性 reranker，以及只读的 slot ledger / 候选感知澄清 shadow；策略激活与 dense retrieval 仍待门禁验证。</p>
+          <h2>当前是真实可运行的状态化稀疏融合 + Query-term Coverage Agent</h2>
+          <p>已完成可审计的会话状态、双路 BM25、加权 RRF 与独立的 Query-term Coverage 检索层；目标盲属性 reranker 与 slot ledger / 候选感知澄清 shadow 保留各自的运行模式与诊断语义。</p>
           <p id="codeFreshness" class="boundary-note hidden"></p>
         </div>
         <div class="hero-actions">
@@ -164,7 +164,7 @@
     <section id="labPage" class="page">
       <div class="lab-layout">
         <section class="panel section-card chat-panel">
-          <div class="section-heading"><div><div class="eyebrow">MANUAL AGENT PLAYGROUND</div><h2>直接体验当前 Agent</h2></div><button id="labReset" class="secondary-button">新会话</button></div>
+          <div class="section-heading"><div><div class="eyebrow">MANUAL AGENT PLAYGROUND</div><h2>直接体验当前 Agent</h2></div><div class="lab-heading-actions"><span id="labModeBadge" class="badge">retrieval — · rerank —</span><button id="labReset" class="secondary-button">新会话</button></div></div>
           <div id="labHistory" class="lab-history"><div class="empty-row">点击“新会话”，然后输入购物需求。</div></div>
           <form id="labForm" class="lab-form"><input id="labInput" class="input" autocomplete="off" placeholder="例如：I need comfortable black running shoes"><button class="primary-button" type="submit">发送</button></form>
         </section>

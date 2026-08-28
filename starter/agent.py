@@ -1208,6 +1208,9 @@ class Agent:
                     id(state), self._empty_rerank_diagnostics()
                 )
                 breakdowns = rerank_diagnostics["breakdowns"]
+                coverage_by_parent_asin = rerank_diagnostics.get(
+                    "coverage", {}
+                ).get("coverage_by_parent_asin", {})
 
                 def result_rows(route: str) -> list[dict[str, Any]]:
                     return [
@@ -1222,6 +1225,7 @@ class Agent:
                                 self._fusion_score(asin, broad_rank, strict_rank), 8
                             ),
                             "rerank": breakdowns.get(asin),
+                            "matched_query_term_count": coverage_by_parent_asin.get(asin),
                         }
                         for asin in rankings[route][:10]
                     ]

@@ -255,6 +255,15 @@ def main() -> None:
             "the selected mode is fixed for this Workbench process."
         ),
     )
+    parser.add_argument(
+        "--retrieval-mode",
+        choices=("control", "coverage"),
+        default=None,
+        help=(
+            "Agent retrieval mode. Defaults to TECHJAM_RETRIEVAL_MODE, then coverage for "
+            "rerank off or control for shadow/active; fixed for this process."
+        ),
+    )
     args = parser.parse_args()
 
     if args.host not in {"127.0.0.1", "localhost"}:
@@ -268,10 +277,15 @@ def main() -> None:
         args.results,
         project_root=project_root,
         rerank_mode=args.rerank_mode,
+        retrieval_mode=args.retrieval_mode,
     )
     server = ExclusiveHTTPServer((args.host, args.port), make_handler(runtime))
     url = f"http://{args.host}:{args.port}"
     print(f"IntentGraph Layer Observer: {url}")
+    print(
+        f"Runtime preset: retrieval={runtime.retrieval_mode}, "
+        f"rerank={runtime.rerank_mode}"
+    )
     print("Press Ctrl+C to stop.")
     if not args.no_browser:
         threading.Timer(0.4, lambda: webbrowser.open(url)).start()

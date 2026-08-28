@@ -23,6 +23,7 @@ from observer.shadow_analysis import (
 )
 from observer.trace import (
     TraceRunner,
+    _agent_retrieval_mode,
     _agent_rerank_mode,
     _create_agent,
     _product_view,
@@ -30,6 +31,7 @@ from observer.trace import (
 from starter.agent import Agent, _terms
 from starter.attributes import SCHEMA_VERSION as ATTRIBUTE_SCHEMA_VERSION
 from starter.clarification import SCHEMA_VERSION as QUESTION_VALUE_SCHEMA_VERSION
+from starter.coverage import SCHEMA_VERSION as COVERAGE_SCHEMA_VERSION
 from starter.reranker import SCORER_VERSION
 from starter.slot_ledger import SCHEMA_VERSION as SLOT_LEDGER_SCHEMA_VERSION
 
@@ -59,6 +61,11 @@ DOCUMENTS = {
     "source_clarification": (
         "Candidate-aware clarification shadow",
         "starter/clarification.py",
+        "Source",
+    ),
+    "source_coverage": (
+        "Promoted query-term coverage cascade",
+        "starter/coverage.py",
         "Source",
     ),
     "source_shadow_analysis": (
@@ -229,6 +236,7 @@ class WorkbenchRuntime:
         self._agent_lock = threading.RLock()
         self._git = self._git_state()
         self.rerank_mode = _agent_rerank_mode(self.trace_runner.agent)
+        self.retrieval_mode = _agent_retrieval_mode(self.trace_runner.agent)
         self.project_id = hashlib.sha256(
             str(self.project_root).casefold().encode("utf-8")
         ).hexdigest()[:16]
@@ -238,6 +246,7 @@ class WorkbenchRuntime:
             "reranker": self.project_root / "starter" / "reranker.py",
             "slot_ledger": self.project_root / "starter" / "slot_ledger.py",
             "clarification": self.project_root / "starter" / "clarification.py",
+            "coverage": self.project_root / "starter" / "coverage.py",
             "shadow_analysis": self.project_root / "observer" / "shadow_analysis.py",
             "evaluator": self.project_root / "evaluator" / "local_evaluator.py",
             "generalization": self.project_root / "scripts" / "evaluate_generalization.py",
@@ -262,6 +271,7 @@ class WorkbenchRuntime:
         results_path: str | Path = "results.json",
         project_root: str | Path | None = None,
         rerank_mode: str | None = None,
+        retrieval_mode: str | None = None,
     ) -> WorkbenchRuntime:
         started = time.perf_counter()
         root = Path(project_root or Path.cwd()).resolve()
@@ -278,6 +288,7 @@ class WorkbenchRuntime:
             dataset,
             results,
             rerank_mode=rerank_mode,
+            retrieval_mode=retrieval_mode,
         )
         baseline_path = root / "docs" / "baseline_results.json"
         baseline = (
@@ -326,6 +337,7 @@ class WorkbenchRuntime:
             "trace_schema": TRACE_SCHEMA_VERSION,
             "project_id": self.project_id,
             "rerank_mode": self.rerank_mode,
+            "retrieval_mode": self.retrieval_mode,
             "restart_required": source_state["restart_required"],
         }
 
@@ -359,7 +371,7 @@ class WorkbenchRuntime:
     def _require_current_source(self) -> None:
         if self._source_state()["restart_required"]:
             raise StaleRuntimeError(
-                "Agent/attributes/reranker/slot-ledger/clarification/shadow-analysis/"
+                "Agent/attributes/reranker/coverage/slot-ledger/clarification/shadow-analysis/"
                 "evaluator/generalization "
                 "source or loaded catalog/dataset changed after Workbench startup; restart "
                 "Workbench before running it"
@@ -407,6 +419,7 @@ class WorkbenchRuntime:
                 "network_required": False,
                 "project_id": self.project_id,
                 "rerank_mode": self.rerank_mode,
+                "retrieval_mode": self.retrieval_mode,
             },
             "repository": self._git,
             "source_state": self._source_state(),
@@ -470,13 +483,24 @@ class WorkbenchRuntime:
             {"layer": "Dense retrieval", "status": "not implemented", "detail": "Roadmap experiment, not an official requirement", "source": None},
             {"layer": "Fusion", "status": "implemented", "detail": "Deterministic weighted RRF over broad and strict sparse routes", "source": "starter/agent.py"},
             {
+                "layer": "Query-term coverage cascade",
+                "status": "implemented",
+                "mode": self.retrieval_mode,
+                "detail": (
+                    "Promoted R08 deterministically orders the fused pool by distinct visible "
+                    "query-term matches and preserves fused rank on ties; coverage mode serves "
+                    "this order, while control mode bypasses it"
+                ),
+                "source": "starter/coverage.py + starter/agent.py",
+            },
+            {
                 "layer": "Constraint reranking",
                 "status": "implemented",
                 "mode": self.rerank_mode,
                 "detail": (
-                    "Deterministic Top-50 scores are loaded in "
-                    f"{self.rerank_mode} mode; off/shadow keep fused output, while active "
-                    "may reorder only the original Top 10 within equal-coverage groups"
+                    "Deterministic Top-50 constraint scores run only in shadow/active modes; "
+                    "off bypasses this layer, shadow leaves the selected retrieval route "
+                    "unchanged, and active is permitted only with control retrieval"
                 ),
                 "source": "starter/attributes.py + starter/reranker.py + starter/agent.py",
             },
@@ -642,12 +666,14 @@ class WorkbenchRuntime:
                 job.total = len(self.trace_runner.samples)
             job.log(
                 "Building a fresh in-memory Agent index "
-                f"(rerank mode: {self.rerank_mode}; slot ledger: shadow; "
+                f"(retrieval mode: {self.retrieval_mode}; rerank mode: {self.rerank_mode}; "
+                "slot ledger: shadow; "
                 f"candidate clarification: {'shadow' if self.rerank_mode != 'off' else 'disabled'})"
             )
             agent = _create_agent(
                 self.catalog_path,
                 rerank_mode=self.rerank_mode,
+                retrieval_mode=self.retrieval_mode,
             )
             samples = list(self.trace_runner.samples.values())
             progress_agent = _ProgressAgent(agent, job, samples)
@@ -687,17 +713,20 @@ class WorkbenchRuntime:
                     "agent": "starter.agent.Agent",
                     "question_policy": agent.question_policy,
                     "rerank_mode": _agent_rerank_mode(agent),
+                    "retrieval_mode": _agent_retrieval_mode(agent),
                     "agent_source_sha256": source_hashes["agent"],
                     "attributes_source_sha256": source_hashes["attributes"],
                     "reranker_source_sha256": source_hashes["reranker"],
                     "slot_ledger_source_sha256": source_hashes["slot_ledger"],
                     "clarification_source_sha256": source_hashes["clarification"],
+                    "coverage_source_sha256": source_hashes["coverage"],
                     "shadow_analysis_source_sha256": source_hashes["shadow_analysis"],
                     "evaluator_source_sha256": source_hashes["evaluator"],
                     "attribute_schema_version": ATTRIBUTE_SCHEMA_VERSION,
                     "reranker_scorer_version": SCORER_VERSION,
                     "slot_ledger_schema_version": SLOT_LEDGER_SCHEMA_VERSION,
                     "question_value_schema_version": QUESTION_VALUE_SCHEMA_VERSION,
+                    "coverage_schema_version": COVERAGE_SCHEMA_VERSION,
                     "clarification_mode": (
                         "shadow" if _agent_rerank_mode(agent) != "off" else "disabled"
                     ),
@@ -730,6 +759,7 @@ class WorkbenchRuntime:
                 job.summary = {
                     **_metrics(result),
                     "rerank_mode": _agent_rerank_mode(agent),
+                    "retrieval_mode": _agent_retrieval_mode(agent),
                     "shadow_policy": shadow_policy["summary"],
                 }
             job.log("Evaluation completed")
@@ -795,15 +825,18 @@ class WorkbenchRuntime:
                 "default",
                 "--rerank-mode",
                 self.rerank_mode,
+                "--retrieval-mode",
+                self.retrieval_mode,
                 "--output",
                 str(artifact_path),
             ]
             flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
             environment = os.environ.copy()
             environment["TECHJAM_RERANK_MODE"] = self.rerank_mode
+            environment["TECHJAM_RETRIEVAL_MODE"] = self.retrieval_mode
             job.log(
                 "Running canonical, phrase-perturbed, and product-disjoint stress suites "
-                f"(rerank mode: {self.rerank_mode})"
+                f"(retrieval mode: {self.retrieval_mode}; rerank mode: {self.rerank_mode})"
             )
             job.process = subprocess.Popen(
                 command,
@@ -843,6 +876,7 @@ class WorkbenchRuntime:
             summary = {
                 "artifact": str(artifact_path.relative_to(self.project_root)),
                 "rerank_mode": self.rerank_mode,
+                "retrieval_mode": self.retrieval_mode,
                 "released_public": {
                     "robustness": public.get("robustness"),
                     "canonical": canonical_metrics,
@@ -879,6 +913,7 @@ class WorkbenchRuntime:
                 "dataset_sha256": provenance["input_hashes"]["dataset"],
                 "implementation": {
                     "rerank_mode": self.rerank_mode,
+                    "retrieval_mode": self.retrieval_mode,
                     "agent_source_sha256": provenance["source_hashes"]["agent"],
                     "attributes_source_sha256": provenance["source_hashes"][
                         "attributes"
@@ -890,6 +925,7 @@ class WorkbenchRuntime:
                     "clarification_source_sha256": provenance["source_hashes"][
                         "clarification"
                     ],
+                    "coverage_source_sha256": provenance["source_hashes"]["coverage"],
                     "shadow_analysis_source_sha256": provenance["source_hashes"][
                         "shadow_analysis"
                     ],
@@ -901,6 +937,7 @@ class WorkbenchRuntime:
                     "reranker_scorer_version": SCORER_VERSION,
                     "slot_ledger_schema_version": SLOT_LEDGER_SCHEMA_VERSION,
                     "question_value_schema_version": QUESTION_VALUE_SCHEMA_VERSION,
+                    "coverage_schema_version": COVERAGE_SCHEMA_VERSION,
                     "clarification_mode": (
                         "shadow" if self.rerank_mode != "off" else "disabled"
                     ),
@@ -1043,6 +1080,7 @@ class WorkbenchRuntime:
             "profile": safe_profile,
             "history": [],
             "rerank_mode": self.rerank_mode,
+            "retrieval_mode": self.retrieval_mode,
         }
 
     def lab_respond(self, session_id: str, message: str) -> dict[str, Any]:
@@ -1083,6 +1121,7 @@ class WorkbenchRuntime:
         return {
             "session_id": session_id,
             "rerank_mode": self.rerank_mode,
+            "retrieval_mode": self.retrieval_mode,
             **entry,
         }
 

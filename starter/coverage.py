@@ -49,5 +49,8 @@ def order_by_query_coverage(
         "coverage_histogram": dict(
             sorted(histogram.items(), key=lambda item: int(item[0]))
         ),
+        "coverage_by_parent_asin": {
+            identifier: coverage[identifier] for identifier in original
+        },
         "changed_top_10": ordered[:10] != original[:10],
     }

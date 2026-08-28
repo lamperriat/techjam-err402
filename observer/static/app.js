@@ -94,20 +94,21 @@ function renderOverview() {
   const overview = state.overview;
   if (!overview) return;
   const repository = overview.repository || {};
+  const retrievalMode = overview.runtime?.retrieval_mode ?? "unrecorded";
   const rerankMode = overview.runtime?.rerank_mode || "off";
-  $("#repoBadge").textContent = `${repository.branch || "no git"} @ ${repository.commit || "—"}${repository.dirty ? " · dirty" : ""} · rerank ${rerankMode}`;
+  $("#repoBadge").textContent = `${repository.branch || "no git"} @ ${repository.commit || "—"}${repository.dirty ? " · dirty" : ""} · retrieval ${retrievalMode} · rerank ${rerankMode}`;
   const runtime = overview.runtime;
   const sourceState = overview.source_state || { restart_required: false, files: {} };
   const agentSource = (sourceState.files || {}).agent || {};
   $("#runtimeFacts").innerHTML = [
     ["Python", runtime.python], ["SQLite", runtime.sqlite], ["初始化", `${fmt(runtime.initialization_seconds, 2)} s`],
-    ["Trace schema", runtime.trace_schema], ["Rerank mode", rerankMode], ["网络", runtime.network_required ? "required" : "offline"], ["进程", runtime.executable],
+    ["Trace schema", runtime.trace_schema], ["Retrieval mode", retrievalMode], ["Rerank mode", rerankMode], ["网络", runtime.network_required ? "required" : "offline"], ["进程", runtime.executable],
     ["Loaded Agent", agentSource.loaded_sha256 ? `${agentSource.loaded_sha256.slice(0, 12)}…` : "unavailable"],
   ].map(([label, value]) => `<div class="fact"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`).join("");
   const freshness = $("#codeFreshness");
   freshness.classList.toggle("hidden", !sourceState.restart_required);
   freshness.textContent = sourceState.restart_required
-    ? "检测到 Agent/attributes/reranker/slot-ledger/clarification/shadow-analysis/evaluator/generalization 源码或已加载的 catalog/public set 在 Workbench 启动后发生变化。为防止混用新旧代码或数据产生假实验，请先停止并重新双击 Start Observer.vbs；评测、泛化、重放和 Lab 已锁定。"
+    ? "检测到 Agent/attributes/reranker/coverage/slot-ledger/clarification/shadow-analysis/evaluator/generalization 源码或已加载的 catalog/public set 在 Workbench 启动后发生变化。为防止混用新旧代码或数据产生假实验，请先停止并重新双击 Start Observer.vbs；评测、泛化、重放和 Lab 已锁定。"
     : "";
   $$('[data-action="evaluation"], [data-action="generalization"]').forEach(button => { button.disabled = sourceState.restart_required; });
   [$("#refreshTrace"), $("#labReset"), $("#labInput")].forEach(element => {
@@ -228,8 +229,10 @@ function renderTurn() {
   const output = eventData(turn, "output");
   const posthocRank = turn.retrieval.posthoc_target_rank;
   const routeCounts = turn.retrieval.route_counts || retrieval.route_counts || {};
-  const mode = turn.retrieval.rerank_mode || state.trace.rerank_mode || "off";
+  const retrievalMode = turn.retrieval.retrieval_mode || retrieval.retrieval_mode || state.trace.retrieval_mode || "unrecorded";
+  const rerankMode = turn.retrieval.rerank_mode || state.trace.rerank_mode || "off";
   const rerank = retrieval.rerank || {};
+  const coverage = retrieval.coverage || turn.retrieval.coverage_diagnostics || rerank.coverage || {};
   const slotLedger = session.slot_ledger || {};
   const questionShadow = policy.question_shadow || rerank.question_shadow || {};
   const shadowQuestion = questionShadow.selected_attribute || "none";
@@ -250,6 +253,22 @@ function renderTurn() {
   const blockedQuestions = (questionShadow.blocked_attributes || []).join(", ") || "none";
   const targetBreakdown = turn.retrieval.target_rerank_breakdown || {};
   const targetEvidence = (targetBreakdown.matched_evidence || []).join(", ") || "no normalized match";
+  const coverageActive = coverage.active === true ? "active" : coverage.active === false ? "inactive" : "unrecorded";
+  const coverageValue = value => value === null || value === undefined ? "unrecorded" : String(value);
+  const coverageHistogram = coverage.coverage_histogram && typeof coverage.coverage_histogram === "object"
+    ? Object.entries(coverage.coverage_histogram).map(([count, candidates]) => `${count}:${candidates}`).join(" · ") || "empty"
+    : "unrecorded";
+  const coverageChanged = coverage.changed_top_10 === true
+    ? "yes"
+    : coverage.changed_top_10 === false ? "no" : "unrecorded";
+  const coverageRouteLabel = retrievalMode === "coverage"
+    ? "Control fused → Coverage final · retrieval stage, not rerank"
+    : retrievalMode === "control"
+      ? "Control fused → Control final · coverage inactive"
+      : "Control fused → Final · retrieval mode unrecorded";
+  const finalRouteLabel = retrievalMode === "coverage"
+    ? "Coverage final"
+    : retrievalMode === "control" ? "Control final" : "Final (retrieval unrecorded)";
   $("#turnLabel").textContent = `Turn ${turn.turn} / ${state.trace.turns.length}`;
   $("#turnLatency").textContent = `${fmt(turn.elapsed_ms, 1)} ms · tokens ${(turn.usage.prompt_tokens || 0) + (turn.usage.completion_tokens || 0)}`;
   $("#prevTurn").disabled = state.turnIndex === 0;
@@ -264,10 +283,11 @@ function renderTurn() {
     layerCard(2, "Parse", terms, `broad ${parse.fts_expression || "empty"} · strict ${parse.strict_fts_expression || "empty"}`),
     layerCard(3, "Agent state", `${esc(session.memory_mode || "No state event")}<br><b>Active slots:</b> ${esc(activeLedger)}<br><b>Retired:</b> ${esc(retiredPreview)}`, `v${session.version ?? 1} · ${(session.active_terms || []).length} active terms · ${slotLedger.active_count ?? 0}/${slotLedger.record_count ?? 0} ledger slots · ${retiredLedger.length} retired · ${session.override_count || 0} overrides · pending ${esc(session.pending_attribute || "none")}`),
     layerCard(4, "Sparse retrieval + fusion", `${fmt(retrieval.candidate_count ?? turn.retrieval.candidate_count, 0)} candidates<br><b>${esc(retrieval.engine || "SQLite FTS5 BM25 + weighted RRF")}</b>`, `broad ${routeCounts.broad ?? 0} · strict ${routeCounts.strict ?? 0} · fused ${routeCounts.fused ?? 0} · ${fmt(output.elapsed_ms, 2)} ms`, posthocRank ? "success" : ""),
-    layerCard(5, "Constraint rerank", `Mode: <b>${esc(mode)}</b> · pool <b>${rerank.pool_size ?? 0}/${rerank.top_n ?? 50}</b><br>Reranked ${routeCounts.reranked ?? routeCounts.fused ?? 0} · Final ${routeCounts.final ?? routeCounts.fused ?? 0}`, `${rerank.scorer_version || "legacy/no scorer"} · ${rerank.attribute_schema_version || "no attribute schema"} · ${retrieval.rerank_affects_output ? "affects output" : "diagnostic only"}`),
-    layerCard(6, "Target annotation", `Broad: <b>${turn.retrieval.target_broad_rank ?? "not found"}</b> · Strict: <b>${turn.retrieval.target_strict_rank ?? "not found"}</b><br>Fused: <b>${turn.retrieval.target_fused_rank ?? "not found"}</b> · Reranked: <b>${turn.retrieval.target_reranked_rank ?? turn.retrieval.target_fused_rank ?? "not found"}</b><br>Final: <b>${posthocRank ?? "not found"}</b> · Top 10: <b>${turn.target_top10_rank ?? "no"}</b><br>Rerank total: <b>${fmt(targetBreakdown.total, 4)}</b> · ${esc(targetEvidence)}`, `joined after Agent.respond · actual route ${turn.retrieval.actual_route || "fused"}`, posthocRank ? "" : "alert", "post-hoc"),
-    layerCard(7, "Policy", `Actual ask: <b>${esc(policy.ask_attribute ?? turn.ask_attribute ?? "none")}</b><br>Candidate-aware shadow: <b>${esc(shadowQuestion)}</b> · value ${fmt(shadowTop.score, 4)}<br>${esc(shadowComponents)}<br><b>Candidate split:</b> ${esc(shadowValues)}<br>${esc(turn.event)}`, `${esc(policy.reason || "next action")} · blocked ${esc(blockedQuestions)} · shadow does not affect output`),
-    layerCard(8, "Score", esc(scoreText), `${turn.failure_code} · ${turn.eligible_for_hit ? "eligible" : "blocked"}`, turn.hit ? "success" : "", "derived"),
+    layerCard(5, "Query-term Coverage", `Mode: <b>${esc(retrievalMode)}</b> · Active: <b>${esc(coverageActive)}</b><br>Query terms: <b>${esc(coverageValue(coverage.query_term_count))}</b> · covered candidates: <b>${esc(coverageValue(coverage.covered_candidate_count))}</b><br>Maximum coverage: <b>${esc(coverageValue(coverage.maximum_coverage))}</b><br>Histogram: <b>${esc(coverageHistogram)}</b><br>Changed Top 10: <b>${esc(coverageChanged)}</b>`, coverageRouteLabel, coverage.active === true ? "coverage-active" : ""),
+    layerCard(6, "Constraint rerank", `Mode: <b>${esc(rerankMode)}</b> · pool <b>${rerank.pool_size ?? 0}/${rerank.top_n ?? 50}</b><br>Constraint-ranked ${routeCounts.reranked ?? routeCounts.fused ?? 0}`, `${rerank.scorer_version || "legacy/no scorer"} · ${rerank.attribute_schema_version || "no attribute schema"} · ${retrieval.rerank_affects_output ? "affects output" : "diagnostic only"}`),
+    layerCard(7, "Target annotation", `Broad: <b>${turn.retrieval.target_broad_rank ?? "not found"}</b> · Strict: <b>${turn.retrieval.target_strict_rank ?? "not found"}</b><br>Control fused: <b>${turn.retrieval.target_fused_rank ?? "not found"}</b> · Constraint diagnostic: <b>${turn.retrieval.target_reranked_rank ?? turn.retrieval.target_fused_rank ?? "not found"}</b><br>${esc(finalRouteLabel)}: <b>${posthocRank ?? "not found"}</b> · Top 10: <b>${turn.target_top10_rank ?? "no"}</b><br>Constraint score: <b>${fmt(targetBreakdown.total, 4)}</b> · ${esc(targetEvidence)}`, `joined after Agent.respond · actual route ${turn.retrieval.actual_route || "fused"}`, posthocRank ? "" : "alert", "post-hoc"),
+    layerCard(8, "Policy", `Actual ask: <b>${esc(policy.ask_attribute ?? turn.ask_attribute ?? "none")}</b><br>Candidate-aware shadow: <b>${esc(shadowQuestion)}</b> · value ${fmt(shadowTop.score, 4)}<br>${esc(shadowComponents)}<br><b>Candidate split:</b> ${esc(shadowValues)}<br>${esc(turn.event)}`, `${esc(policy.reason || "next action")} · blocked ${esc(blockedQuestions)} · shadow does not affect output`),
+    layerCard(9, "Score", esc(scoreText), `${turn.failure_code} · ${turn.eligible_for_hit ? "eligible" : "blocked"}`, turn.hit ? "success" : "", "derived"),
   ].join("");
   $("#conversation").innerHTML = `
     <div class="bubble user"><span class="bubble-label">SIMULATED USER</span>${esc(turn.user_message)}</div>
@@ -290,16 +310,22 @@ function renderTarget() {
 
 function renderRecommendations(turn, actualResults) {
   const evidenceById = Object.fromEntries(actualResults.map(item => [item.parent_asin, item]));
-  const mode = turn.retrieval.rerank_mode || state.trace.rerank_mode || "off";
-  $("#rankSummary").textContent = `${turn.valid_recommendation_count} valid · rerank ${mode} · post-hoc final target rank ${turn.retrieval.posthoc_target_rank ?? "not found"}`;
+  const retrievalMode = turn.retrieval.retrieval_mode || state.trace.retrieval_mode || "unrecorded";
+  const rerankMode = turn.retrieval.rerank_mode || state.trace.rerank_mode || "off";
+  $("#rankSummary").textContent = `${turn.valid_recommendation_count} valid · retrieval ${retrievalMode} · rerank ${rerankMode} · post-hoc final target rank ${turn.retrieval.posthoc_target_rank ?? "not found"}`;
   $("#recommendationRows").innerHTML = turn.recommendations.map((product, index) => {
     const evidence = evidenceById[product.parent_asin] || {};
     const breakdown = evidence.rerank || {};
     const score = breakdown.total ?? evidence.fusion_score ?? evidence.bm25_score;
-    const ranks = `F${evidence.fused_rank ?? "—"} → R${evidence.reranked_rank ?? "—"} → Final ${evidence.final_rank ?? index + 1}`;
+    const ranks = retrievalMode === "coverage"
+      ? `Control fused ${evidence.fused_rank ?? "—"} → Coverage final ${evidence.final_rank ?? index + 1}`
+      : `Control fused ${evidence.fused_rank ?? "—"} → ${retrievalMode === "unrecorded" ? "Final (retrieval unrecorded)" : "Control final"} ${evidence.final_rank ?? index + 1}`;
+    const coverageCount = evidence.matched_query_term_count == null
+      ? "coverage unrecorded"
+      : `coverage ${evidence.matched_query_term_count} matched terms`;
     const components = breakdown.total == null
-      ? "rerank not computed"
-      : `prior ${fmt(breakdown.rrf_prior, 2)} · cat ${fmt(breakdown.category_consistency, 2)} · slot ${fmt(breakdown.positive_slot_match, 2)} · exact ${fmt(breakdown.exact_feature_match, 2)} · violation ${fmt(breakdown.negative_violation, 2)}`;
+      ? `${coverageCount} · rerank not computed`
+      : `${coverageCount} · prior ${fmt(breakdown.rrf_prior, 2)} · cat ${fmt(breakdown.category_consistency, 2)} · slot ${fmt(breakdown.positive_slot_match, 2)} · exact ${fmt(breakdown.exact_feature_match, 2)} · violation ${fmt(breakdown.negative_violation, 2)}`;
     return `<tr class="${product.is_target ? "target-row" : ""}"><td class="rank-number">${index + 1}</td><td class="product-name">${esc(product.title)}</td><td class="asin">${esc(product.parent_asin)}</td><td>${fmt(score, 6)}<small>${esc(ranks)}<br>${esc(components)}</small></td><td>${product.price == null ? "—" : `$${esc(product.price)}`}</td><td>${product.average_rating ?? "—"}</td><td class="signal">${product.is_target ? "TARGET" : ""}</td></tr>`;
   }).join("") || `<tr><td colspan="7" class="empty-row">No valid recommendations</td></tr>`;
 }
@@ -409,16 +435,17 @@ async function loadExperiments() {
 }
 
 function renderExperiments() {
-  $("#experimentsTable").innerHTML = `<table><thead><tr><th>Experiment</th><th>Created</th><th>HR@10</th><th>MRR</th><th>MTTC</th><th>Score</th><th>Shadow policy</th><th>Default-suite robust HR</th><th>Scenario HR</th></tr></thead><tbody>${state.experiments.map(item => {
+  $("#experimentsTable").innerHTML = `<table><thead><tr><th>Experiment</th><th>Created</th><th>Retrieval</th><th>Rerank</th><th>HR@10</th><th>MRR</th><th>MTTC</th><th>Score</th><th>Shadow policy</th><th>Default-suite robust HR</th><th>Scenario HR</th></tr></thead><tbody>${state.experiments.map(item => {
     const metrics = item.metrics || {}; const scenarios = metrics.scenario_metrics || {};
-    const mode = item.implementation?.rerank_mode || "off";
+    const retrievalMode = item.implementation?.retrieval_mode ?? item.configuration?.retrieval_mode ?? "unrecorded";
+    const rerankMode = item.implementation?.rerank_mode ?? item.configuration?.rerank_mode ?? "unrecorded";
     const robust = item.robustness?.released_public?.all_suites_robust_hit_rate;
     const shadow = item.shadow_policy_analysis || {};
     const shadowText = shadow.turn_count == null
       ? "—"
       : `${shadow.disagreement_count}/${shadow.turn_count} disagree · ${shadow.shadow_question_turns} selected · ${shadow.blocked_selection_violations} blocked`;
     const scenarioText = Object.entries(scenarios).map(([name, values]) => `${scenarioName(name)} ${pct(values.hit_rate_at_10)}`).join(" · ");
-    return `<tr><td class="product-name">${esc(item.label)}<small>rerank ${esc(mode)}</small></td><td>${esc(item.created_at || "reference")}</td><td>${pct(metrics.hit_rate_at_10)}</td><td>${fmt(metrics.mrr, 4)}</td><td>${fmt(metrics.mttc, 2)}</td><td>${fmt(metrics.recommended_technical_score, 5)}</td><td class="small muted">${esc(shadowText)}</td><td>${robust == null ? "—" : pct(robust)}</td><td class="small muted">${esc(scenarioText || "—")}</td></tr>`;
+    return `<tr><td class="product-name">${esc(item.label)}</td><td>${esc(item.created_at || "reference")}</td><td>${esc(retrievalMode)}</td><td>${esc(rerankMode)}</td><td>${pct(metrics.hit_rate_at_10)}</td><td>${fmt(metrics.mrr, 4)}</td><td>${fmt(metrics.mttc, 2)}</td><td>${fmt(metrics.recommended_technical_score, 5)}</td><td class="small muted">${esc(shadowText)}</td><td>${robust == null ? "—" : pct(robust)}</td><td class="small muted">${esc(scenarioText || "—")}</td></tr>`;
   }).join("")}</tbody></table>`;
 }
 
@@ -431,7 +458,10 @@ async function reloadResults() {
 async function resetLab() {
   try {
     state.lab = await postJSON("/api/lab/reset");
-    $("#labHistory").innerHTML = `<div class="system-message">新会话 ${esc(state.lab.session_id.slice(-8))} · rerank ${esc(state.lab.rerank_mode || "off")} · 当前 Agent 会累积对话约束；可用多轮消息观察状态、改写、稀疏融合与属性重排变化。</div>`;
+    const retrievalMode = state.lab.retrieval_mode ?? "unrecorded";
+    const rerankMode = state.lab.rerank_mode ?? "unrecorded";
+    $("#labModeBadge").textContent = `retrieval ${retrievalMode} · rerank ${rerankMode}`;
+    $("#labHistory").innerHTML = `<div class="system-message">新会话 ${esc(state.lab.session_id.slice(-8))} · retrieval ${esc(retrievalMode)} · rerank ${esc(rerankMode)} · 当前 Agent 会累积对话约束；可用多轮消息观察状态、稀疏融合、Query-term Coverage 与独立的属性重排诊断。</div>`;
     $("#labEvents").textContent = "等待第一条消息。";
     $("#labInput").focus();
   } catch (error) { toast(error.message, "error"); }
@@ -441,6 +471,9 @@ async function sendLabMessage(message) {
   if (!state.lab) await resetLab();
   try {
     const entry = await postJSON("/api/lab/respond", { session_id: state.lab.session_id, message });
+    const retrievalMode = entry.retrieval_mode ?? state.lab.retrieval_mode ?? "unrecorded";
+    const rerankMode = entry.rerank_mode ?? state.lab.rerank_mode ?? "unrecorded";
+    $("#labModeBadge").textContent = `retrieval ${retrievalMode} · rerank ${rerankMode}`;
     const recommendations = entry.recommendations.map((product, index) => `<li><b>${index + 1}</b><span>${esc(product.title)}</span><code>${esc(product.parent_asin)}</code></li>`).join("");
     $("#labHistory").insertAdjacentHTML("beforeend", `<div class="bubble user"><span class="bubble-label">YOU · TURN ${entry.turn}</span>${esc(message)}</div><div class="bubble agent"><span class="bubble-label">AGENT</span>${esc(entry.response.message)}<small>ask_attribute: ${esc(entry.response.ask_attribute ?? "null")}</small></div><ol class="lab-recommendations">${recommendations || "<li>No results</li>"}</ol>`);
     $("#labHistory").scrollTop = $("#labHistory").scrollHeight;
@@ -478,7 +511,7 @@ async function checkHealth() {
   const status = $("#runtimeStatus");
   try {
     const health = await requestJSON("/api/health");
-    status.classList.remove("offline"); status.querySelector("span:last-child").textContent = `${health.branch || "local"} @ ${health.commit || "—"} · rerank ${health.rerank_mode || "off"}`;
+    status.classList.remove("offline"); status.querySelector("span:last-child").textContent = `${health.branch || "local"} @ ${health.commit || "—"} · retrieval ${health.retrieval_mode ?? "unrecorded"} · rerank ${health.rerank_mode ?? "unrecorded"}`;
     if (state.overview && health.restart_required !== state.overview.source_state?.restart_required) {
       state.overview = await requestJSON("/api/overview");
       renderOverview();
