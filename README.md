@@ -140,7 +140,8 @@ versions, recall threshold, and resource limits are frozen in
 `configs/p7_bge_small_en_v1_5.json` and `docs/algorithm_architecture_research.md`.
 That machine-readable contract also fixes eligible-turn, rescue, byte, timing, RSS, tie,
 and repeat-worker definitions; the model's upstream MIT notice is retained under
-`third_party/`. No P7 outcome has been measured at this checkpoint.
+`third_party/`. The sole frozen P7 run has now completed and rejected BGE; the default
+Agent remains R08 coverage.
 The optional packages are isolated in `requirements-semantic.txt`; the default Agent
 continues to use only the standard library.
 
@@ -158,8 +159,8 @@ The command validates every source/model hash, refuses to replace an existing ou
 directory, encodes products in ascending `parent_asin` order, and atomically publishes
 `experiments/p7_index/embeddings.npy`, `parent_asins.txt`, and
 `semantic-index.manifest.json`. It reads no session file or evaluation label. The index
-has not yet been admitted into recommendation output; P7 must first pass its frozen
-target-blind recall, latency, RSS, offline, and repeatability gates.
+is locked by `configs/p7_semantic_index_lock.json` but has not been admitted into
+recommendation output because P7 failed its frozen recall and resource gates.
 
 `starter/p7_lab.py` uses the same capture subclass for control and shadow. The shadow
 computes Dense-120 after the served sparse routes but returns the untouched response
@@ -167,8 +168,21 @@ object. `scripts/evaluate_p7.py` keeps simulator labels in the parent; a separat
 `scripts/p7_worker.py` receives only semantic bootstrap paths, ordinary profile and
 visible-turn inputs, and a corpus ordinal. Labels are joined only after both initial
 workers have exited. Formal execution is refused until the built index has a tracked hash
-lock and the complete preflight is clean and pushed. No P7 route or target metric has been
-run while implementing this infrastructure.
+lock and the complete preflight is clean and pushed. No P7 route or target metric was run
+while implementing this infrastructure. The sole metric-bearing run used clean/pushed
+commit `be29edf`; its ignored aggregate artifact SHA-256 is
+`c487f55e1d3ca3da93553eaf6d2782bac0d07925150b568dc8b73476b60c1b56`.
+
+P7 passed response alignment, all 33 integrity checks, cold initialization, query P95,
+asset size, offline/network, and exception gates. Sparse Broad-120 union Strict-80 recalled
+198/200 sessions; Dense-120 alone recalled 115/200 and the sparse-plus-dense union remained
+198/200, so dense rescued zero sessions. It also used `1.552x` C00 evaluation time and
+`2.759x` C00 absolute peak RSS, above both `1.50x` limits. The repeat worker therefore did
+not run, BGE was rejected without a released-public evaluation, and this P7 corpus must not
+be rerun or tuned. Because recall itself failed, a smaller dense model is not the next
+fallback. The next fresh-corpus experiment will isolate execution of high-confidence
+explicit negative constraints over the served sparse candidates before any further work on
+budget, positive hard filters, or candidate-aware clarification.
 
 Direct `Agent()` construction reads three optional experiment variables:
 `TECHJAM_RETRIEVAL_MODE` (`coverage` or `control`),

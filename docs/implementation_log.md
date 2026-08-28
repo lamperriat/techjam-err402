@@ -571,6 +571,33 @@ QuestionValue diagnostics**, not as the complete IntentGraph target architecture
   CLI remains metric-free at this checkpoint, released-public remains untouched, and the
   served `coverage/off/fast` Agent remains unchanged.
 
+### 2026-08-28 - P7 frozen BGE feasibility rejection
+
+- Ran the only metric-bearing P7 study from clean/pushed commit `be29edf`. The ignored
+  15,736-byte artifact SHA-256 is
+  `c487f55e1d3ca3da93553eaf6d2782bac0d07925150b568dc8b73476b60c1b56`.
+  Pre/post source snapshots match HEAD and origin exactly across all 34 code, evaluator,
+  corpus, catalog, model, license, lock, and index files.
+- C00 and S00 response hashes are exactly equal; all 6 alignment checks, all 33 integrity
+  checks, worker isolation, output contract, catalog membership, zero exception, and zero
+  network gates pass. The two workers each captured 583 reached non-empty turns; labels
+  were joined only after they exited, and no per-target/sample/session identifier is in
+  the artifact.
+- Sparse Broad-120 union Strict-80 recalled 198/200 sessions. Dense recall was 53/200 at
+  10, 75/200 at 40, and 115/200 at 120; sparse plus Dense-120 still recalled 198/200.
+  Dense rescued zero sessions across zero scenario types, so all three recall gates fail.
+- Asset bytes (`211,493,793`), cold initialization (`0.648087s`), query-plus-search P95
+  (`30.6435ms`), RSS availability, network, and exception gates pass. S00/C00 evaluation
+  wall ratio `1.552145` and absolute peak RSS ratio `2.759477` exceed their `1.50` limits.
+- The frozen condition therefore did not launch the repeat worker and correctly returned
+  `reject_p7_bge`. P7 will not be rerun or tuned, released-public was not evaluated, and
+  `starter/agent.py` remains R08 `coverage/off/fast` with public HR `0.945000`, MRR
+  `0.606175`, MTTC `3.335000`, and TechnicalScore `0.807652`.
+- Because recall failed independently of resources, no smaller dense fallback is promoted.
+  The next fresh-corpus preregistration will isolate high-confidence explicit-negative
+  constraint execution over the served sparse candidates before budget, positive hard
+  filtering, or candidate-aware clarification.
+
 ### 2026-08-28 - P6 frozen adaptive-depth selection rejection
 
 - Ran the P6 selection exactly once from clean, pushed pre-metric commit `873cbd2`.

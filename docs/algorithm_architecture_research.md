@@ -406,6 +406,48 @@ a clean pushed Git snapshot, build-commit blobs matching the lock, and unchanged
 sources/inputs before and after the run. No P7 route metric was read while implementing or
 testing these pieces.
 
+### P7 frozen result
+
+The 50,000-row index was built once from semantic-source commit `09a911a`. Matrix,
+ordered-ASIN, external-manifest, and tracked-lock SHA-256 values are respectively
+`84897381c106b909b9e3d44229187d12f23796f108cfec97904db1cbeeb2d407`,
+`3af465b23ff2d33614501472edf02d2953ccfc170d2fe3348d55cd51c8ef0d54`,
+`cca932a8b4d0a160e0a409ec6ce9cf3b68c99e3b95bddb911b9c7d83b67365ba`, and
+`be9304a358aaa29de9337d56cc7d6c86bfdcf9a19fe694bc6291107aa444376b`.
+Independent verification found 50,000 finite unit vectors, exact catalog/ASIN order, all
+eleven model assets and the license intact, and required assets of `211,493,793` bytes.
+
+The first direct CLI attempt exposed a project-root import bootstrap defect and stopped
+before importing the evaluator or reading any selection row. It produced no result. The
+bootstrap-only correction and isolated regression were committed and pushed as `be29edf`;
+no experiment mechanism or gate changed. The only metric-bearing run then completed from
+that clean/pushed commit. Its aggregate artifact is 15,736 bytes with SHA-256
+`c487f55e1d3ca3da93553eaf6d2782bac0d07925150b568dc8b73476b60c1b56`.
+
+| Gate evidence | Observed | Result |
+| --- | ---: | --- |
+| C00/S00 response and route alignment | 6/6 checks | pass |
+| Target-blind integrity | 33/33 checks | pass |
+| Sparse Broad-120 ∪ Strict-80 session recall | 198/200 | reference |
+| Dense session recall @10 / @40 / @120 | 53 / 75 / 115 | diagnostic |
+| Sparse ∪ Dense session recall | 198/200 | fail: no strict gain |
+| Rescued sessions / scenario types | 0 / 0 | fail |
+| Cold initialization | 0.6481 s | pass |
+| Query plus exact-search P95 | 30.6435 ms | pass |
+| Required assets | 211,493,793 bytes | pass |
+| S00/C00 evaluation wall ratio | 1.5521 | fail (`>1.50`) |
+| S00/C00 absolute peak RSS ratio | 2.7595 | fail (`>1.50`) |
+| Semantic/generic exceptions; network attempts | 0 / 0 / 0 | pass |
+
+Initial recall and resource gates failed, so the pre-registered condition correctly did
+not launch a repeat worker and the decision is `reject_p7_bge`. No target identifiers were
+recorded, no released-public run occurred, and the served R08 Agent is unchanged. Because
+the recall gate failed independently of resources, MiniLM is not authorized as the next
+fallback. The next fresh P8 study should isolate high-confidence active hard-negative slot
+execution as a stable compatibility partition over existing sparse candidates; budget,
+positive hard filters, parser expansion, dense retrieval, and clarification activation
+remain separate future hypotheses.
+
 ## P4 frozen 200-session architecture-matrix result (historical)
 
 The full matrix ran from clean commit `e5d0d4966d01da9932d835cb3a754475b6fa13e2`.
