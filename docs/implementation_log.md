@@ -36,7 +36,7 @@ Last updated: 2026-08-28 SGT.
   or set them explicitly for a production run. `retrieval_mode=control` preserves the
   pre-P4 weighted-RRF output for paired experiments.
 
-## P8 explicit-negative experiment: pre-metric implementation
+## P8 explicit-negative experiment: completed frozen selection
 
 - Added a deterministic P8 corpus builder with frozen official/prior input hashes and two
   frozen 200-session outputs. Selection SHA-256 is
@@ -59,10 +59,9 @@ Last updated: 2026-08-28 SGT.
   owns the official evaluator and emits aggregate metrics, exact totals, gates, resources,
   and hashes without per-session records.
 - The focused P8 suite passes `63/63` and the complete project suite passes `387/387`,
-  including lifecycle, control/shadow equality,
-  catalog support, source isolation, exact metric reconstruction, resource/repeat gates,
-  confirmation non-disclosure, and artifact redaction. No P8 selection, confirmation, or
-  released-public metric has been run, and the served Agent/public score is unchanged.
+  including lifecycle, control/shadow equality, catalog support, source isolation, exact
+  metric reconstruction, resource/repeat gates, confirmation non-disclosure, and artifact
+  redaction.
 - Independent review found and fixed two pre-freeze validity gaps: catalog evidence in the
   builder now uses the same `>=0.90` confidence threshold as runtime, and the untested
   `feature` execution slot was removed. The worker now receives a sanitized mechanism spec,
@@ -75,6 +74,29 @@ Last updated: 2026-08-28 SGT.
   commit membership for legitimate Windows CRLF checkouts; a direct raw-byte comparison
   against Git's normalized LF blob was rejected during dry lock generation before any
   lock or metric existed.
+- P8 source/spec was frozen and pushed in `8f5a5e8`; the Git-filter-aware source-lock fix
+  was frozen and pushed in `1b1edd5`. The separately committed preregistration lock is
+  `2847459`; it binds source commit `1b1edd5`, 15 canonical source files, the official
+  evaluator blob, catalog/public/prior identities, both P8 splits, and metadata. Lock
+  SHA-256 is `357f5b81897e25b80830ff46d0fb1efcadbf2f25ac31afa05fe837246f9bce7d`.
+- The only formal P8 selection run completed from clean pushed commit `2847459`. The fresh
+  B00 served reference and C00 control matched exactly. On this local catalog-derived,
+  product-disjoint stress split, C00 recorded 46/200 hits, HR@10 `0.230000`, MRR
+  `0.078494`, MTTC `8.980000`, and TechnicalScore `0.178948`; R01 recorded 54/200 hits,
+  HR@10 `0.270000`, MRR `0.113218`, MTTC `8.615000`, and TechnicalScore `0.216665`.
+  R01 produced eight miss-to-hit changes, zero hit-to-miss changes, 11 earlier hits, and
+  31 rank improvements; all four scenario hit-rate non-regression gates passed.
+- R01 was nevertheless rejected by the pre-registered resource gates: wall ratio
+  `1.303476 > 1.30`, response-P95 ratio `1.836056 > 1.30`, and peak-RSS ratio
+  `1.261027 > 1.20`. All contract, integrity, network, exception, activation, and quality
+  gates passed. Because the active arm was ineligible, repeat was not attempted,
+  confirmation remained unopened, and no released-public evaluation was run. The decision
+  is `retain_p8_c00`; `starter/agent.py` and the served public score remain unchanged.
+- The ignored aggregate artifact is
+  `experiments/p8_explicit_negative_evaluation.json`, SHA-256
+  `0b29d13c59796582385bdec32c877a8de2518ee7464b0f96709a71ef139d4670`.
+  It contains no per-session records or target/sample identifiers. These P8 numbers are a
+  synthetic stress-test result, not an official public score or a private-800 estimate.
 
 ## Current public evaluation
 
@@ -485,7 +507,10 @@ file. Historical audit reports must still distinguish the earlier type-only wrap
 5. Served clarification still uses a fixed order. Candidate-aware QuestionValue exists only in shadow; its Top-50 candidates are equally weighted, missing values are not modeled as a bucket, and its constants have not passed an activation gate.
 6. No explicit Buying/Browsing router is implemented; hidden scenario labels are never available to the Agent.
 7. Profile data is stored but not used for personalization.
-8. There is no structured hard filter/relaxation execution, dense retrieval, learned reranker, or semantic reranker. The deterministic constraint scorer does not yet enforce negative constraints as a veto or bound Top-10 rank displacement; active v1 and v2 both failed their gates and remain disabled.
+8. The served path has no structured hard filter/relaxation execution, dense retrieval,
+   learned reranker, or semantic reranker. P8 implements explicit-negative partitioning only
+   in an isolated experiment; despite selection quality gains it failed the frozen resource
+   gates and is not imported by the served Agent. Active rerank v1/v2 also remain disabled.
 9. Budget buckets are visible in QuestionValue shadow, but a user budget such as `under $50` does not yet become a numeric range filter or ranking constraint. Budget questioning cannot be activated until that downstream path exists.
 10. The controlled P3 shadow resource audit is deterministic but fails the planned time gate at `2.01x` off total wall time, so shadow remains development-only.
 
@@ -633,10 +658,9 @@ QuestionValue diagnostics**, not as the complete IntentGraph target architecture
   `reject_p7_bge`. P7 will not be rerun or tuned, released-public was not evaluated, and
   `starter/agent.py` remains R08 `coverage/off/fast` with public HR `0.945000`, MRR
   `0.606175`, MTTC `3.335000`, and TechnicalScore `0.807652`.
-- Because recall failed independently of resources, no smaller dense fallback is promoted.
-  The next fresh-corpus preregistration will isolate high-confidence explicit-negative
-  constraint execution over the served sparse candidates before budget, positive hard
-  filtering, or candidate-aware clarification.
+- Because recall failed independently of resources, no smaller dense fallback was promoted.
+  The planned next fresh-corpus preregistration became P8 explicit-negative execution; its
+  completed frozen result and resource rejection are recorded at the top of this document.
 
 ### 2026-08-28 - P6 frozen adaptive-depth selection rejection
 

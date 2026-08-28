@@ -225,11 +225,15 @@ Successful browser-started evaluations refresh `results.json`; evaluator and gen
 3. The first architecture wave is complete: 14 raw candidates were run, 13 were
    semantically valid/effective after the R12 false-activation audit, and R08 alone passed
    selection and promotion gates.
-4. Start any next wave on a new frozen target-blind corpus/protocol and advance only one
-   survivor to public/phrase/resource confirmation.
-5. Prefer structured constraint execution and measured miss rescue before dense/local
-   semantic dependencies; introduce either only with recall, licensing, offline, and
-   resource evidence.
+4. P5 PRF, P6 depth, P7 BGE, and P8 explicit-negative partition are frozen rejected
+   experiments. P8 showed a quality gain on its local stress selection but failed wall,
+   P95, and RSS gates; it must not be tuned or rerun on that corpus.
+5. Use only unlabeled microbenchmarks to diagnose P8 allocation/resource overhead. Any
+   optimized executor requires a new frozen target-disjoint P9 protocol and still counts
+   as execution engineering, not another ranking architecture.
+6. Advance only a survivor that passes fresh selection, repeat, confirmation, strict
+   quality/resource gates, then one released-public/phrase confirmation. Semantic
+   dependencies additionally require recall, licensing, offline, and packaging evidence.
 
 The repository has completed no-credential reliability, Workbench diagnostics,
 versioned term state, pending-question lifecycle, broader target-blind phrase parsing,
@@ -238,6 +242,6 @@ term coverage ordering, heuristic clarification, strict result comparison, P1/P3
 robustness and resource gates, normalized product attributes, a shadow SlotLedger,
 candidate-aware QuestionValue diagnostics, and cross-session shadow analysis. It has not
 made the slot ledger the retrieval source of truth, activated candidate-aware questioning,
-implemented hard filtering/relaxation or numeric budget execution, or added
-dense/profile/semantic ranking. Deterministic active rerank v1/v2 remain rejected
-experiments.
+implemented served hard filtering/relaxation or numeric budget execution, or added
+dense/profile/semantic ranking. P8 explicit-negative partition and deterministic active
+rerank v1/v2 remain rejected experiment-only implementations.

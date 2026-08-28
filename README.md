@@ -179,10 +179,16 @@ asset size, offline/network, and exception gates. Sparse Broad-120 union Strict-
 198/200, so dense rescued zero sessions. It also used `1.552x` C00 evaluation time and
 `2.759x` C00 absolute peak RSS, above both `1.50x` limits. The repeat worker therefore did
 not run, BGE was rejected without a released-public evaluation, and this P7 corpus must not
-be rerun or tuned. Because recall itself failed, a smaller dense model is not the next
-fallback. The next fresh-corpus experiment will isolate execution of high-confidence
-explicit negative constraints over the served sparse candidates before any further work on
-budget, positive hard filters, or candidate-aware clarification.
+be rerun or tuned.
+
+The subsequent frozen P8 experiment isolated high-confidence explicit-negative execution.
+On its 200-session catalog-derived selection stress split, R01 improved C00 HR from `0.23`
+to `0.27`, MRR from `0.078494` to `0.113218`, and MTTC from `8.98` to `8.615`, with eight
+miss-to-hit and zero hit-to-miss changes. It nevertheless failed all three pre-registered
+resource ratios (wall `1.303476x`, response P95 `1.836056x`, peak RSS `1.261027x`), so the
+frozen decision is `retain_p8_c00`. Repeat was not attempted, confirmation was never opened,
+and released-public was not rerun. P8 therefore remains experiment-only and the served R08
+Agent/public score is unchanged; the same P8 corpus will not be tuned or rerun.
 
 Direct `Agent()` construction reads three optional experiment variables:
 `TECHJAM_RETRIEVAL_MODE` (`coverage` or `control`),

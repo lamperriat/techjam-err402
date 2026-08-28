@@ -27,9 +27,10 @@ offline verifier passed 14/14 checks. These facts establish participant-kit comp
 they do not expose or validate the private 800 sessions or the final judging hardware.
 
 The current evidence also does **not** justify saying that every project plan or
-submission obligation is complete. P8 remains an experiment in progress, and the
-competition-window significant update, public/default-branch release, short report,
-team-contribution disclosure, and three-minute demonstration remain separate gates.
+submission obligation is complete. P8 R01 was rejected on resource gates and the completed
+selection retained C00; the competition-window significant update, public/default-branch
+release, short report, team-contribution disclosure, and three-minute demonstration remain
+separate gates.
 
 ## Organizer and data sources
 
@@ -77,7 +78,7 @@ team-contribution disclosure, and three-minute demonstration remain separate gat
 | Are the private 800 rows or final hardware limits knowable? | Not published | Treat them as known unknowns and preserve deterministic offline/resource fallbacks |
 | May the team change the Agent architecture? | Yes; the contract and evaluator are fixed, while retrieval, state, routing, clarification, reranking, and legal model choices are participant work | Keep official artifacts byte-stable while improving `starter/` and experiment-only modules |
 | Is R08 proven best on the private set? | No; it is the best eligible design under one frozen local selection protocol and a bounded public confirmation | Keep claims local and scenario-specific |
-| Should P5 PRF, P6 depth expansion, or the P7 BGE formulation be rerun on their frozen corpora? | No; each already failed a preregistered value/resource gate | Use a fresh target-disjoint protocol and a mechanism-level change |
+| Should P5 PRF, P6 depth, P7 BGE, or P8 explicit-negative execution be rerun on its frozen corpus? | No; each already failed a preregistered value/resource gate | Use a fresh target-disjoint protocol; P8 may motivate execution engineering but not a same-corpus rerun or a fake new architecture |
 | Is a generic dense/model swap the next priority? | No; local sparse union already recovered 198/200 P7 targets and the tested dense route rescued zero while failing wall/RSS gates | Prioritize shortlist discrimination, negative constraints, state, and question policy |
 | Are submission obligations complete? | No | Preserve a separate post-start implementation commit, before/after evidence, public repository/default-branch verification, report, licensing, and demo checklist |
 
@@ -102,14 +103,24 @@ rerun or renamed as new candidates. SPLADE, COIL, ColBERT, and another generic e
 checkpoint remain lower-priority feasibility studies because current recall and resource
 evidence do not justify immediate activation.
 
-The recommendation is now implemented as a pre-metric isolated P8 protocol. Its frozen
+The recommendation was implemented as an isolated P8 protocol. Its frozen
 selection and confirmation corpus hashes are respectively
 `1c11d73d7c8ced617ce874e15a563f240731ca9654ed42bcc4f773b7b4da81ee` and
 `3ae6f8ff7ab0362399b348c3443daa5b7138aab9cf72e944b7e11dd71d7d3dde`.
 Independent review aligned builder/runtime evidence confidence, removed an uncovered slot,
 sanitized the worker spec, expanded source/evaluator locks, and added a fresh direct served-
-Agent reference bridge. The full project suite passes `387/387`; no P8 selection,
-confirmation, or released-public metric has yet been run, so no P8 performance claim exists.
+Agent reference bridge. The full project suite passes `387/387`.
+
+The one frozen selection run improved the local product-disjoint stress result from C00
+HR/MRR/MTTC/Score `0.230000/0.078494/8.980000/0.178948` to R01
+`0.270000/0.113218/8.615000/0.216665`, with eight miss-to-hit and zero hit-to-miss changes.
+R01 still failed the pre-registered wall, response-P95, and peak-RSS ratios, so the protocol
+retained C00. Selection repeat was not attempted because R01 was resource-ineligible;
+confirmation was not opened and the released public set was not run. This separates an
+encouraging mechanism signal from production eligibility: the same-corpus result will not
+be retuned or rerun, and it is not evidence about the organizer-private 800 sessions. The
+redacted aggregate artifact SHA-256 is
+`0b29d13c59796582385bdec32c877a8de2518ee7464b0f96709a71ef139d4670`.
 
 ## Evidence boundary
 

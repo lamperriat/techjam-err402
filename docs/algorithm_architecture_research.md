@@ -133,8 +133,35 @@ locks, contract/integrity/network/exception gates, no HR or scenario-HR regressi
 MRR and TechnicalScore gains, non-increasing MTTC, zero hit-to-miss, resource ratios no
 worse than `1.30x` wall, `1.30x` response P95, and `1.20x` peak RSS, plus exact fresh-process
 repeat. The official evaluator blob and all direct/transitive Agent dependencies are bound
-to canonical source paths. Confirmation stays unopened unless selection passes every gate. At this checkpoint
-the code and corpora are pre-metric: no P8 selection, confirmation, or public result exists.
+to canonical source paths. Confirmation stays unopened unless selection passes every gate.
+
+The separately committed lock (`2847459`, lock SHA-256
+`357f5b81897e25b80830ff46d0fb1efcadbf2f25ac31afa05fe837246f9bce7d`) bound source
+commit `1b1edd5`. The single formal selection run produced:
+
+| Role | Hits / 200 | HR@10 | MRR | MTTC | TechnicalScore |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| C00 served R08 control | 46 | 0.230000 | 0.078494 | 8.980000 | 0.178948 |
+| R01 explicit-negative partition | 54 | 0.270000 | 0.113218 | 8.615000 | 0.216665 |
+
+R01 passed every pre-registered quality gate: eight miss-to-hit changes, zero hit-to-miss,
+11 earlier hits, 31 rank improvements, and no scenario hit-count regression. Buying improved
+from 17 to 22 hits and Browsing from 21 to 24; Intent Override stayed 6 and Boundary stayed
+2. It failed all three resource-ratio gates:
+
+| Resource | C00 | R01 | Ratio | Gate |
+| --- | ---: | ---: | ---: | ---: |
+| Evaluation wall | 67.515189 s | 88.004442 s | 1.303476x | <= 1.30x |
+| Response P95 | 69.3608 ms | 127.3503 ms | 1.836056x | <= 1.30x |
+| Peak RSS | 205,406,208 B | 259,022,848 B | 1.261027x | <= 1.20x |
+
+The frozen decision is therefore `retain_p8_c00`. Repeat was not attempted, confirmation
+remained unopened, and the released public set was not run. The ignored redacted aggregate
+artifact has SHA-256
+`0b29d13c59796582385bdec32c877a8de2518ee7464b0f96709a71ef139d4670`.
+This is evidence that explicit visible negatives can help on this deliberately constructed
+local stress split, not an official-public or organizer-private performance claim. P8 is not
+retuned or rerun on the same corpus.
 
 ## P5 pre-registered guarded session PRF
 
@@ -484,11 +511,11 @@ that clean/pushed commit. Its aggregate artifact is 15,736 bytes with SHA-256
 Initial recall and resource gates failed, so the pre-registered condition correctly did
 not launch a repeat worker and the decision is `reject_p7_bge`. No target identifiers were
 recorded, no released-public run occurred, and the served R08 Agent is unchanged. Because
-the recall gate failed independently of resources, MiniLM is not authorized as the next
-fallback. The next fresh P8 study should isolate high-confidence active hard-negative slot
-execution as a stable compatibility partition over existing sparse candidates; budget,
-positive hard filters, parser expansion, dense retrieval, and clarification activation
-remain separate future hypotheses.
+the recall gate failed independently of resources, MiniLM was not authorized as the next
+fallback. The planned fresh P8 study subsequently isolated high-confidence active hard-
+negative slot execution as a stable compatibility partition; its completed selection and
+resource rejection are recorded above. Budget, positive hard filters, parser expansion,
+dense retrieval, and clarification activation remain separate hypotheses.
 
 ## P4 frozen 200-session architecture-matrix result (historical)
 

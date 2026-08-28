@@ -90,6 +90,12 @@ These facts show reproducibility on released/local inputs only. The organizer ha
 endorsed this architecture, and no participant can verify or claim its performance on
 the private 800 sessions before organizer evaluation.
 
+P8 is separate local stress evidence, not an organizer result. Its one frozen 200-session
+catalog-derived selection improved R01 versus C00 quality metrics but failed the
+pre-registered wall, response-P95, and peak-RSS gates. The protocol retained C00, did not
+run repeat, did not open confirmation, and did not rerun the released public set. Therefore
+P8 cannot change the official-evidence table above or support a private-800 claim.
+
 ## Competition-level timing and submission obligations
 
 The Official Rules define the Submission Period as 2026-08-29 12:00 SGT through

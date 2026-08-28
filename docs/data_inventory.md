@@ -111,6 +111,11 @@ catalog; it does not load an undisclosed private dataset.
   Every generated negative has catalog support of at least three documents inside a
   shared reliable category bucket; description and prior metrics are not inputs. These
   splits are local mechanism stress tests, not organizer data or a private-set proxy.
+- `experiments/p8_explicit_negative_evaluation.json` is the ignored, redacted participant
+  output from the one frozen P8 selection, SHA-256
+  `0b29d13c59796582385bdec32c877a8de2518ee7464b0f96709a71ef139d4670`.
+  It contains aggregate metrics/resources/hashes only. Selection repeat was not attempted,
+  confirmation rows were never parsed, and the released public set was not run.
 - `experiments/*.json` and versioned Workbench runs are participant outputs.
 - Attached audit/handoff ZIPs and prior-agent reports are project evidence, not new
   organizer labels.
