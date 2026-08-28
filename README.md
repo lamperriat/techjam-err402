@@ -144,6 +144,22 @@ and repeat-worker definitions; the model's upstream MIT notice is retained under
 The optional packages are isolated in `requirements-semantic.txt`; the default Agent
 continues to use only the standard library.
 
+The P7 offline semantic core and catalog-only index builder are now implemented, but they
+remain experiment infrastructure and are not imported by the served Agent. After installing
+the optional pinned environment, build the ignored local index from the frozen catalog and
+already-downloaded model assets with:
+
+```powershell
+python scripts/build_p7_semantic_index.py
+```
+
+The command validates every source/model hash, refuses to replace an existing output
+directory, encodes products in ascending `parent_asin` order, and atomically publishes
+`experiments/p7_index/embeddings.npy`, `parent_asins.txt`, and
+`semantic-index.manifest.json`. It reads no session file or evaluation label. The index
+has not yet been admitted into recommendation output; P7 must first pass its frozen
+target-blind recall, latency, RSS, offline, and repeatability gates.
+
 Direct `Agent()` construction reads three optional experiment variables:
 `TECHJAM_RETRIEVAL_MODE` (`coverage` or `control`),
 `TECHJAM_RERANK_MODE` (`off`, `shadow`, or experimental `active`) and

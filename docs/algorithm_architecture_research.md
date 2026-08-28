@@ -376,6 +376,16 @@ must exactly match ordered response and scored-route hashes. Each worker sets Op
 OMP, and MKL to one thread before importing NumPy/ONNX Runtime; ORT stays sequential with
 one intra/inter-op thread and `ORT_ENABLE_ALL` graph optimization.
 
+The pre-measurement implementation now includes `starter/semantic.py` and
+`scripts/build_p7_semantic_index.py`. The semantic module has no eager NumPy, tokenizer, or
+ONNX Runtime import; it establishes the frozen environment before dynamic imports, verifies
+all eleven model files, performs the specified BGE CLS/L2 encoding, and loads a hash-checked
+`.npy` matrix by memory map. Exact search performs a stable descending float32 score sort;
+because rows begin in ascending ASIN order, score ties preserve the required ASIN order.
+The builder reads only the model spec, catalog, model assets, and license, then atomically
+publishes the matrix, LF-only ordered-ASIN file, and manifest. It refuses to overwrite an
+existing output. No P7 route metric was read while implementing or testing these pieces.
+
 ## P4 frozen 200-session architecture-matrix result (historical)
 
 The full matrix ran from clean commit `e5d0d4966d01da9932d835cb3a754475b6fa13e2`.

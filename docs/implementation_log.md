@@ -490,6 +490,29 @@ QuestionValue diagnostics**, not as the complete IntentGraph target architecture
   checkpoint, the full suite passes `273/273`, P7 corpus/model-spec tests pass `15/15`,
   official participant assets pass `14/14`, and `pip check` reports no broken dependency.
 
+### 2026-08-28 - P7 offline encoder and catalog-only index builder
+
+- Added a standard-library-at-import semantic core. It validates the full model spec and
+  model assets before dynamically importing the exact NumPy/tokenizers/ONNX Runtime stack,
+  pins the pre-import environment, and constructs CPU-only sequential BGE inference with
+  the frozen tokenizer, 256-token cutoff, CLS pooling, and float32 L2 normalization.
+- Added the exact recursive catalog serializer and a validated `.npy` memory-mapped index
+  loader. The loader hard-checks canonical model-spec identity, catalog identity, matrix
+  and ASIN size/SHA, float32 shape/C ordering, LF-only unique ascending ASIN rows, and
+  stable score-descending/ASIN-ascending search. Empty queries return no route without
+  invoking the model.
+- Added a catalog-only offline builder with no evaluator/session import. It validates the
+  official catalog and all model/license assets, sorts 50,000 products by ASIN, encodes in
+  frozen batches, verifies finite unit vectors, records preprocessing/runtime/resources,
+  and publishes the matrix, ASIN file, and manifest through one same-filesystem rename.
+  Existing output is never replaced and failures clean only the builder-owned temp path.
+- The real ignored BGE assets passed a 32-document CPU smoke: shape `(32, 384)`, dtype
+  float32, CPU provider only, and vector norms within float32 tolerance of one. This is a
+  runtime compatibility check, not a P7 recall/resource result.
+- Semantic/builder focused tests pass `20/20`; the full suite passes `293/293`, official
+  participant assets remain `14/14`, and `pip check` is clean. `starter/agent.py` and the
+  served R08 output path remain unchanged. No evaluator or P7 route metric was run/read.
+
 ### 2026-08-28 - P6 frozen adaptive-depth selection rejection
 
 - Ran the P6 selection exactly once from clean, pushed pre-metric commit `873cbd2`.
