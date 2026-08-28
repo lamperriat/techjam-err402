@@ -80,7 +80,7 @@ LOW_FINAL_RANK
 OUTPUT_OR_NORMALIZATION_MISS
 ```
 
-Hard/soft slot objects, structured constraint-gate counts, candidate-aware information gain, RSS/fallback telemetry, and codes such as `FILTER_KILLED_TARGET` or `WRONG_QUESTION` still belong to the target architecture. Normalized product evidence and reranker ranks are now real trace fields, but active v1 failed its gate and remains disabled.
+Hard/soft slot objects and candidate-aware information gain now exist as target-blind shadow diagnostics. Structured filter/relaxation counts and codes such as `FILTER_KILLED_TARGET` or `WRONG_QUESTION` still belong to the target architecture. Normalized product evidence and reranker ranks are real trace fields, but active v1/v2 and shadow resource gates failed, so served output remains fused.
 
 ## 4. The development loop
 
@@ -90,10 +90,11 @@ Every improvement should change one causal layer at a time.
 2. Add a focused unit test that fails before the change.
 3. Implement the smallest change that passes it.
 4. Run all unit tests.
-5. Run the full public evaluator.
-6. Run the fixed phrase-perturbation/product-disjoint robustness gate.
-7. Compare overall metrics, four scenarios, robustness, runtime, and the relevant intermediate diagnostic.
-8. Keep the change only when the evidence matches the hypothesis and no unacceptable regression appears.
+5. Select or reject the hypothesis on the frozen public-target-disjoint corpus.
+6. Only the single surviving configuration may run the full public evaluator and phrase suites.
+7. Run repeated determinism, latency, RSS, no-key, and leakage gates before activation.
+8. Compare overall metrics, four scenarios, robustness, runtime, and the relevant intermediate diagnostic.
+9. Keep the change only when the evidence matches the hypothesis and no unacceptable regression appears.
 
 An experiment record should contain:
 
@@ -181,9 +182,9 @@ environment / data / Git / index health
 
 It also includes catalog/FTS5 search, full product JSON, a target-free manual Agent lab, experiment comparison, and an allowlisted document library. The control plane runs only fixed test/evaluation actions and does not execute arbitrary shell input. A per-instance token and same-origin/Host checks protect the local API.
 
-The Workbench fingerprints Agent, attributes, reranker, evaluator, and generalization code plus catalog/public-set inputs loaded at startup and compares them with disk. After any monitored file changes, evaluation, every replay, and Lab execution are blocked until restart. Background evaluation checks freshness both before execution and before artifact finalization, while its manifest uses the captured start-of-run provenance. This prevents an experiment from silently mixing an old imported class or cached data with later disk hashes.
+The Workbench fingerprints Agent, attributes, reranker, slot-ledger, clarification, shadow-analysis, evaluator, and generalization code plus catalog/public-set inputs loaded at startup and compares them with disk. After any monitored file changes, evaluation, every replay, and Lab execution are blocked until restart. Background evaluation checks freshness both before execution and before artifact finalization, while its manifest uses the captured start-of-run provenance. This prevents an experiment from silently mixing an old imported class or cached data with later disk hashes.
 
-Trace events are emitted by the actual Agent through an optional versioned callback. The state layer reports the Agent's version, category, active/excluded terms, known/asked/exhausted attributes, and override count. Retrieval reports broad, strict, fused, reranked, and final routes plus target-blind score components. Public target ranks and its candidate breakdown are joined only after `Agent.respond` and are labelled post-hoc.
+Trace events are emitted by the actual Agent through an optional versioned callback. The state layer reports the Agent's version, category, active/excluded terms, known/asked/exhausted attributes, override count, and full shadow slot lifecycle. Retrieval reports broad, strict, fused, reranked, and final routes plus target-blind score components; policy shows actual and QuestionValue shadow decisions. Public target ranks and its candidate breakdown are joined only after `Agent.respond` and are labelled post-hoc.
 
 Every public replay gives the Agent an opaque random session ID. The Agent receives only profile, generated user message, turn, and `top_k`; it never receives `sample_id`, target, intent card, scenario, behavior, or prior results. The server is loopback-only and must not be attached to private final labels.
 
@@ -191,10 +192,10 @@ Successful browser-started evaluations refresh `results.json`; evaluator and gen
 
 ## 7. Current improvement order
 
-1. Keep P1 frozen and retain P2 attributes as shadow evidence; active rerank v1 is rejected.
-2. Test coverage-aware, Top-10-safe promotion on the product-disjoint corpus before one final public gate. Do not add ASIN exceptions.
-3. Build a normalized conversation slot ledger, then candidate-aware clarification in shadow mode; activate only if overall and Boundary/Override gates pass.
-4. Consider dense retrieval only for measured sparse recall misses and only after resource/distribution gates pass.
-5. Consider a local semantic model only after deterministic candidate discrimination remains the measured bottleneck.
+1. Keep the P1 served output frozen; active rerank v1/v2 and current P3 shadow activation are rejected by recorded quality/resource gates.
+2. Treat the normalized attributes, SlotLedger, QuestionValue, and Workbench analysis as experiment infrastructure, not production claims.
+3. Compare at least 10 materially different target-blind architectures on the frozen product-disjoint selection corpus, with one hypothesis and provenance per variant.
+4. Advance only the best eligible architecture to one public/phrase/resource confirmation gate; do not add sample/ASIN exceptions.
+5. Prefer structured constraint execution and measured miss rescue before dense/local semantic dependencies; introduce either only with recall and resource evidence.
 
-The repository has completed no-credential reliability, Workbench diagnostics, versioned term state, pending-question lifecycle, broader target-blind phrase parsing, Override/Boundary handling, broad/strict sparse routes, weighted RRF, heuristic clarification, strict result comparison, the P1 robustness/resource gate, normalized product attributes, and an output-safe rerank shadow. It has not implemented a normalized conversation slot graph, active candidate-aware questioning, attribute hard filtering, dense retrieval, profile personalization, or semantic reranking. Deterministic active rerank v1 exists only as a rejected experiment flag.
+The repository has completed no-credential reliability, Workbench diagnostics, versioned term state, pending-question lifecycle, broader target-blind phrase parsing, Override/Boundary handling, broad/strict sparse routes, weighted RRF, heuristic clarification, strict result comparison, P1/P3 robustness and resource gates, normalized product attributes, a shadow SlotLedger, candidate-aware QuestionValue diagnostics, and cross-session shadow analysis. It has not made the slot ledger the retrieval source of truth, activated candidate-aware questioning, implemented hard filtering/relaxation or numeric budget execution, or added dense/profile/semantic ranking. Deterministic active rerank v1/v2 remain rejected experiments.

@@ -1,0 +1,92 @@
+# Official Data Inventory and Integrity
+
+Last verified: 2026-08-28 SGT.
+
+This document separates organizer-released participant data from local experiments and
+records the checks needed to detect a stale, truncated, or unofficial dataset.
+
+## Official source snapshot
+
+- Repository: <https://github.com/TechJam2026/techjam-conversational-search>
+- Latest `main` checked: `34078351e1c3615e5505a2e829600b56a542e462`
+- Participant tag: `2a6cc8e776da66ce69b1cbd237838fbc43f32587`
+- Release: <https://github.com/TechJam2026/techjam-conversational-search/releases/tag/participant-kit>
+- Release publication time: `2026-08-24T08:49:52Z`
+
+The remote `main` value and release metadata were checked directly against GitHub on
+2026-08-28. The release contains only `catalog.jsonl.gz`, `SHA256SUMS`, and the complete
+participant-kit ZIP.
+
+## Participant-facing data
+
+| File | Verified contents | Integrity evidence |
+| --- | --- | --- |
+| `data/catalog.jsonl` | 50,000 rows; 50,000 unique, non-empty `parent_asin`; no duplicates | decompressed SHA-256 `da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67` |
+| `data/releases/catalog.jsonl.gz` | exact official release asset; 19,235,996 bytes | SHA-256 `07fd142631fd6b03e2b4d09988c3eb7d53720e9d57010c79db48eeaada50a8f8`, equal to official `SHA256SUMS` |
+| `data/public_set.jsonl` | 200 sessions; 200 unique sample IDs; 200 unique targets; every target exists in catalog | Git blob `121dbec9c1368c81cd887d6959e62507512139c0`, equal to official `upstream/main` |
+
+Catalog rows contain exactly these ten fields:
+
+```text
+parent_asin, title, features, description, price,
+categories, details, average_rating, rating_number, store
+```
+
+Public scenario counts are:
+
+```text
+buying             80
+browsing           80
+intent_override    30
+boundary           10
+```
+
+The working-tree public file uses Windows CRLF, so its raw file SHA differs from the LF
+Git object. Git-normalized content and every JSON row are identical to the official
+file; this is a line-ending difference, not a dataset change.
+
+## What the organizer does and does not release
+
+The participant kit releases:
+
+- the frozen 50,000-product catalog;
+- 200 labeled public development sessions;
+- the weak starter Agent;
+- the deterministic local evaluator;
+- the Agent contract, scoring configuration, specification, and submission rules.
+
+The organizer keeps 800 additional sessions private for final evaluation. Those sessions
+are not present in this repository, its reachable history, the official participant ZIP,
+`data/`, or local `experiments/`.
+
+The public session rows do not include raw user IDs, review text, timestamps, purchase
+history, an intent card, or simulator-policy internals. The evaluator function named
+`materialize_hidden_fields` derives local simulator inputs from the released target and
+catalog; it does not load an undisclosed private dataset.
+
+## Local data that is not organizer data
+
+- `experiments/p1_derived_product_disjoint.jsonl` is a deterministic catalog-derived
+  stress corpus. Its targets exclude all 200 released-public targets. It is not private
+  evaluation data and is not a hidden-leaderboard proxy.
+- `experiments/*.json` and versioned Workbench runs are participant outputs.
+- Attached audit/handoff ZIPs and prior-agent reports are project evidence, not new
+  organizer labels.
+
+No Agent rule may use sample IDs, public target IDs, scenario labels, result files, or
+derived target IDs as ranking features.
+
+## Recheck procedure
+
+From the repository root in PowerShell:
+
+```powershell
+git ls-remote upstream refs/heads/main refs/tags/participant-kit
+Get-FileHash -Algorithm SHA256 data\releases\catalog.jsonl.gz
+(Get-Content data\catalog.jsonl | Measure-Object -Line).Lines
+(Get-Content data\public_set.jsonl | Measure-Object -Line).Lines
+git diff --exit-code upstream/main -- data\public_set.jsonl
+```
+
+The remote and release checks require network access. Row counts, local hashes, target
+membership, schema checks, and evaluator runs remain offline.

@@ -10,16 +10,19 @@ Last updated: 2026-08-28 SGT.
 - Frozen P1 head: `02f0741` on `p1-generalization`
 - P2 core implementation: `586f3dd` (`feat: add target-blind shortlist reranker`)
 - P2 Workbench/tooling: `4610480` (`feat: expose rerank experiments in workbench`)
+- P2 v1 gate record: `f91b547` (`docs: record p2 rerank gate results`)
 - Optional dependency isolation: `71383b5` (`build: isolate optional LLM dependencies`)
 - Resource/route benchmark: `38ca016` (`test: add resource and route recall benchmark`)
 - P1 implementation commit: `abae926` (`feat: add generalization gate and robust intent state`)
 - P1 parent checkpoint: `66cb1cf` (`docs: finalize integration verification`)
 - Stateful Agent integration: `5fed7a7` (`feat: integrate stateful sparse shopping agent`)
 - Workbench baseline: `f4e435b` (`feat: add agent layer workbench`)
-- Official upstream main checked on 2026-08-27: `34078351e1c3615e5505a2e829600b56a542e462`
+- Official upstream main rechecked on 2026-08-28: `34078351e1c3615e5505a2e829600b56a542e462`
 - Runtime: Python 3.11.16 in the existing `tiktok` Conda environment
 - Catalog: 50,000 parseable rows and 50,000 unique non-empty `parent_asin` values
 - Public set: 200 sessions and 200 unique targets, split 80 Buying / 80 Browsing / 30 Intent Override / 10 Boundary
+- Official catalog release SHA-256: `07fd142631fd6b03e2b4d09988c3eb7d53720e9d57010c79db48eeaada50a8f8`; local compressed asset is identical
+- Official public-set Git blob: `121dbec9c1368c81cd887d6959e62507512139c0`; local Git-normalized content is identical
 - Default execution: offline, no LLM object, no API key, no network call, zero reported tokens
 
 ## Current public evaluation
@@ -70,10 +73,80 @@ does not treat as normalized attribute evidence. This is recorded as a failed
 experiment, not presented as an improvement. Because the public activation gate failed,
 active v1 was not advanced to the more expensive generalization and resource gates.
 
-The preliminary shadow end-to-end run took `36.816` seconds versus the P1 two-run total
-baseline of approximately `23.5–23.6` seconds. This single comparison is about `1.57x`
-and slightly exceeds the planned `1.5x` gate; a controlled P2 resource artifact is still
-required before any future activation.
+The preliminary P2 observation already suggested a time regression. The later controlled
+P3 two-run artifact, recorded below against the final current source, confirms that
+shadow exceeds the planned `1.5x` time gate.
+
+## P2 v2 Top-10-member-safe control
+
+The next target-blind control computes the same Top-50 score diagnostics but permits
+movement only inside the original Fused Top 10. It preserves the Top-10 member set and
+the complete order below rank 10. Adjacent candidates may cross only when both expose
+the same requested-slot coverage signature. This removes the v1 hit-to-miss failure mode
+by construction, but it does not bound rank displacement or guarantee an MRR gain.
+
+The strategy was selected on the fixed 200-session product-disjoint corpus before any
+new public gate:
+
+| Derived canonical | HR@10 | MRR | MTTC | TechnicalScore |
+| --- | ---: | ---: | ---: | ---: |
+| Frozen P1 | 0.935000 | 0.630183 | 3.185000 | 0.812855 |
+| P2 v2 control | 0.935000 | 0.624960 | 3.185000 | 0.811288 |
+
+The control produced 6 best-rank improvements, 7 regressions, and zero hit-to-miss or
+miss-to-hit changes. MRR fell by `0.005223` and TechnicalScore by `0.001567`, so v2 was
+rejected without using the public set as a tuning loop and without running an active
+resource gate. `off` remains the default.
+
+## P3 slot and clarification shadows
+
+`starter/slot_ledger.py` adds an auditable, target-blind normalized constraint history.
+Each immutable record contains slot, normalized value, polarity, hardness, source,
+confidence, source turn, state version, and an `active`, `superseded`, or `deleted`
+lifecycle. Selective changes retire only the removed constraint; a no-preference event
+deletes the named slot in the shadow view; explicit later evidence can reopen it. A
+later, locally scoped hard restatement supersedes the earlier soft record without
+upgrading unrelated values in a contrast clause. The ledger is diagnostic and does not
+yet compile retrieval queries.
+
+`starter/clarification.py` ranks unanswered attributes over the Fused Top-50 normalized
+product views using:
+
+```text
+normalized information gain * catalog coverage * answerability - turn cost
+```
+
+Known, asked, exhausted, pending, category, and active-ledger attributes are omitted.
+Each candidate contributes one primary value so multi-value combinations do not create
+artificial entropy. Brand and feature are cardinality-penalized rather than rewarded for
+raw long-tail entropy. Catalog prices are preserved in a shadow-only metadata side table,
+so budget buckets can be diagnosed when price coverage exists. Turn 10 can expose the
+evidence but never selects another question. The selected QuestionValue is exposed in
+trace and Workbench beside the actual fixed-order question, but it does not change
+`ask_attribute` or recommendations.
+
+After the final current-tree source freeze, a fresh `off` run and a fresh `shadow` run both produced
+HR@10 `0.940000`, MRR `0.605258`, MTTC `3.375000`, and TechnicalScore `0.804077`.
+Their complete evaluator JSONs strictly match each other and frozen P1. The run manifests
+include Agent, attributes, reranker, slot-ledger, clarification, evaluator, catalog, and
+public-set hashes.
+
+The same final source produced identical canonical session results on the frozen
+public-target-disjoint corpus: HR@10 `0.935000`, MRR `0.630183`, MTTC `3.185000`, and
+TechnicalScore `0.812855`. Both corpora therefore pass the non-interference gate; this
+does not establish that the shadow question policy is better.
+
+The controlled two-run resource audit passed determinism in both modes but failed the
+planned `1.5x` activation budget:
+
+| Mode | Mean total | Mean evaluator | Mean respond P95 | Mean peak RSS |
+| --- | ---: | ---: | ---: | ---: |
+| off | 25.436 s | 22.090 s | 71.156 ms | 369.7 MiB |
+| shadow | 51.145 s | 47.742 s | 133.037 ms | 434.6 MiB |
+
+Shadow is `2.01x` the off total wall time, `1.87x` the respond P95, and `1.18x` the
+mean peak RSS. It remains a development diagnostic. The in-memory ranking-diagnostic
+cache is bounded to 128 sessions to prevent unbounded Top-50 breakdown accumulation.
 
 ## Implemented Agent behavior
 
@@ -89,6 +162,7 @@ required before any future activation.
 - per-turn terms and attribute classes;
 - version, version anchor, and override count;
 - the fast-policy `prefer_other_next` event.
+- an auditable normalized shadow slot ledger.
 
 `reset` replaces prior state for that session. `respond` validates turn 1–10 and positive `top_k`, updates state, ranks products, selects at most one allowed clarification attribute, and returns at most 10 catalog-backed recommendation objects. `drop_session` releases development replay/Lab state.
 
@@ -147,8 +221,9 @@ registry SHA-256 is
 `starter/reranker.py` is a deterministic pure scorer over the fused Top 50. It exposes
 RRF prior, category consistency, positive slot match, exact feature match, negative
 violation, total score, and matched evidence. Missing values remain unknown rather than
-violations. It never mutates the original fused list and always appends candidates below
-the Top-50 pool in their original order.
+violations. Scoring diagnostics cover Top 50; active v2 can move only members of the
+original Top 10 within equal requested-slot coverage groups and preserves the full order
+from rank 11 onward. The mode is rejected and off remains the default.
 
 The Agent exposes five auditable routes: `broad`, `strict`, `fused`, `reranked`, and
 `final`. `off` skips attribute scoring; `shadow` computes it without changing output;
@@ -189,7 +264,7 @@ The local Workbench is a loopback-only development control plane, not part of of
 - Overview: runtime, Git, source fingerprint, data/hash/index health, metrics, and truthful algorithm registry.
 - Session Diagnostics: deterministic public replay, actual Agent events, output validation, and post-hoc score diagnosis.
 - Catalog & Index: 50k catalog browsing, field-weighted BM25 search, and raw product JSON.
-- Runs & Experiments: fixed test/evaluator/generalization jobs, progress, logs, cancellation, metrics, and versioned manifests.
+- Runs & Experiments: fixed test/evaluator/generalization jobs, progress, logs, cancellation, metrics, versioned manifests, and target-blind cross-session shadow-policy summaries.
 - Lab: target-free calls to the real `reset/respond` interface with opaque session IDs.
 - Documents: read-only allowlisted project documentation and source.
 
@@ -223,7 +298,7 @@ Completed replays and evicted Lab sessions release Agent and recorder state.
 - CSP and frame protections;
 - fixed allowlisted test/evaluation/Lab/shutdown controls;
 - no arbitrary shell or filesystem browser;
-- loaded-vs-disk Agent/evaluator/generalization runner plus catalog/public-set fingerprints, with stale-runtime blocking for every replay, evaluation, generalization, and Lab call;
+- loaded-vs-disk Agent/attributes/reranker/slot-ledger/clarification/shadow-analysis/evaluator/generalization sources plus catalog/public-set fingerprints, with stale-runtime blocking for every replay, evaluation, generalization, and Lab call;
 - evaluation provenance captured before the background job and rechecked before artifact finalization, so a manifest cannot mix loaded code/data with later disk hashes.
 
 The Workbench must not be publicly deployed or connected to private final labels.
@@ -273,12 +348,12 @@ This replaces the handoff comparator behavior that printed aggregate deltas but 
 
 ## Verification completed
 
-- 94 Python unit/integration tests pass.
-- Agent tests cover accumulation, natural openers/requirements/no-preference, pending-question interruption, category changes, negative phrases and false negations, false override prevention, first/repeated/selective overrides, Boundary exhaustion, question policies, five ranking routes, mode safety, output cap/final turn, optional usage, and target-blind trace/component diagnostics.
-- Attribute/reranker tests cover normalization boundaries, immutable provenance, unknown values, source confidence, noise removal, scorer arithmetic, negative penalties, deterministic ties, immutable fused input, Top-50 scope, and untouched tails.
+- 114 Python unit/integration tests pass.
+- Agent tests cover accumulation, natural openers/requirements/no-preference, pending-question interruption, category changes, negative phrases and false negations, false override prevention, first/repeated/selective overrides, Boundary exhaustion, question policies, five ranking routes, mode safety, catalog-price shadow ingestion, bounded diagnostic memory, output cap/final turn, optional usage, and target-blind trace/component diagnostics.
+- Attribute/reranker/ledger/QuestionValue tests cover normalization boundaries, immutable provenance, unknown values, source confidence, noise removal, scorer arithmetic, negative penalties, deterministic ties, immutable fused input, Top-10 member and tail safety, lifecycle retirement/hard restatement, multi-value entropy control, final-turn suppression, and candidate-price coverage.
 - Generalization tests cover phrase payload preservation, adapter input isolation, deterministic stratified public-target-disjoint generation, and rerank-mode propagation.
 - Comparator tests cover formatting/line-ending equality, session-level mismatch, missing keys/list order, and invalid JSON.
-- Existing evaluator, LLM client, Workbench replay, catalog/Lab/background evaluation, HTTP token/cross-site, and exclusive-listener tests pass. A controlled fake-process orchestration test also covers the fixed generalization command, six-step progress, evaluation mutex, result/manifest parsing, source provenance, and stale-source rejection.
+- Existing evaluator, LLM client, Workbench replay, catalog/Lab/background evaluation, HTTP token/cross-site, and exclusive-listener tests pass. Observer tests also cover P3 source fingerprints/schema metadata, cross-session target-blind shadow artifacts, visible ledger/QuestionValue components, and stale-source rejection.
 - `node --check observer/static/app.js` passes.
 - The complete 200-session evaluator completed successfully with no LLM environment variables.
 - The final direct public evaluator result strictly matches the canonical result produced through the target-blind robustness wrapper.
@@ -292,29 +367,45 @@ The v0.6 release material was independently audited before integration:
 - source.zip, bundle target tree, and the shared project source files matched byte-for-byte;
 - bundle history is complete and contains official `3407835` as an ancestor;
 - the patch exactly represents `367f1bf -> 89ef66c`, not `3407835 -> 89ef66c`;
-- the participant evaluator differs from official `3407835` by an `AgentBase` Protocol/type annotation only; scoring behavior was cross-run with the official blob and produced the same complete result;
+- historical participant commit `914879c` added an `AgentBase` Protocol/type annotation only; the current file has been restored and has no diff from official upstream blob `7c808347b31ef3121a9cbc4810ac3eb325f950ba`;
 - the packaged `original_baseline_reference/starter_agent.py` is a participant optional-client baseline, not the pristine official starter.
 
-Documentation must therefore say “official scoring behavior preserved,” not “unmodified official evaluator.”
+The current repository may describe the evaluator as restored to the official upstream
+file. Historical audit reports must still distinguish the earlier type-only wrapper.
 
 ## Current limitations
 
-1. The state model is a term/turn ledger, not a normalized slot-level IntentGraph. Explicit old→new spans are selective, but a vague `ignore earlier` override can still remove unrelated preferences introduced in the same anchor turn.
+1. The retrieval source of truth remains the term/turn state. A normalized slot ledger now exists in shadow, but it does not yet compile structured filters or retrieval queries. Explicit old→new spans are selective, while a vague `ignore earlier` override can still remove unrelated preferences introduced in the same anchor turn.
 2. The parser now passes three frozen equivalent-phrase families, but it remains deterministic and English-pattern based; this is not unrestricted semantic parsing.
 3. The default fast policy benefits from the public simulator's `other` disclosure behavior. This is protocol adaptation, not direct label leakage, but it creates public-strategy overfitting risk.
 4. The product-disjoint corpus is derived from the same frozen catalog and official simulator, so it tests target overlap and wording robustness but is not an independent approximation of the private distribution.
-5. Clarification uses a fixed order, not candidate entropy or expected information gain.
+5. Served clarification still uses a fixed order. Candidate-aware QuestionValue exists only in shadow; its Top-50 candidates are equally weighted, missing values are not modeled as a bucket, and its constants have not passed an activation gate.
 6. No explicit Buying/Browsing router is implemented; hidden scenario labels are never available to the Agent.
 7. Profile data is stored but not used for personalization.
-8. There is no structured hard filter/relaxation ledger, dense retrieval, learned reranker, or semantic reranker. A deterministic constraint scorer exists, but active v1 failed its gate and remains disabled by default.
-9. P1 has a two-run no-key resource/route baseline; P2 shadow has only a preliminary wall-time observation and still needs a controlled repeated RSS/P95 artifact if a future scorer passes the public gate.
+8. There is no structured hard filter/relaxation execution, dense retrieval, learned reranker, or semantic reranker. The deterministic constraint scorer does not yet enforce negative constraints as a veto or bound Top-10 rank displacement; active v1 and v2 both failed their gates and remain disabled.
+9. Budget buckets are visible in QuestionValue shadow, but a user budget such as `under $50` does not yet become a numeric range filter or ranking constraint. Budget questioning cannot be activated until that downstream path exists.
+10. The controlled P3 shadow resource audit is deterministic but fails the planned time gate at `2.01x` off total wall time, so shadow remains development-only.
 
 The current served implementation should be described as a **versioned stateful sparse
-retrieval and weighted-RRF baseline with heuristic clarification, plus a disabled/shadow
-normalized-attribute rerank experiment**, not as the complete IntentGraph target
-architecture.
+retrieval and weighted-RRF baseline with heuristic clarification, plus normalized
+slot/attribute/rerank/QuestionValue diagnostics in shadow**, not as the complete
+IntentGraph target architecture.
 
 ## Change history
+
+### 2026-08-28 — P3 auditable slot and clarification shadows
+
+- Added immutable normalized slot history with active/superseded/deleted lifecycles,
+  scoped hard restatements, selective override retirement, and no-preference deletion.
+- Added candidate-aware QuestionValue diagnostics, candidate-price ingestion, active-slot
+  blocking, final-turn suppression, and bounded ranking-diagnostic memory without changing
+  served questions or recommendations.
+- Added full Workbench ledger/QuestionValue cards, cross-session target-blind policy
+  artifacts, schema/source provenance, and stale-runtime coverage.
+- Restored `evaluator/local_evaluator.py` to the official upstream Git blob and verified
+  public and product-disjoint off/shadow functional equality.
+- Expanded the suite from 94 to 114 tests. The two-run resource audit failed the shadow
+  time gate, so P3 remains diagnostic and the default remains off.
 
 ### 2026-08-28 — P2 normalized attributes and gated rerank (`586f3dd`, `4610480`)
 

@@ -46,7 +46,7 @@ The command writes per-session results and aggregate metrics to `results.json`.
 The official weak BM25 starter reference scores Hit Rate@10 `0.125`, MRR `0.068034`, and
 MTTC `9.81` on the released public set. See `docs/baseline_results.json`.
 
-The current integrated Agent implements versioned multi-turn term state, a target-blind parsed-turn layer, pending-question lifecycle, explicit Override and Boundary handling, broad/strict FTS5 retrieval, weighted RRF, and heuristic clarification. P2 also includes normalized product attributes and a deterministic Top-50 constraint reranker behind explicit `off / shadow / active` modes. `off` remains the default. Its verified served result is:
+The current integrated Agent implements versioned multi-turn term state, a target-blind parsed-turn layer, pending-question lifecycle, explicit Override and Boundary handling, broad/strict FTS5 retrieval, weighted RRF, and heuristic clarification. P2/P3 also include normalized product attributes, an auditable slot ledger, a deterministic constraint scorer, and candidate-aware QuestionValue diagnostics behind explicit `off / shadow / active` rerank modes. These additions remain diagnostic: active rerank v1/v2 failed their quality gates and shadow failed the repeated resource time gate. `off` remains the default. Its verified served result is:
 
 | Hit Rate@10 | MRR | MTTC | Efficiency | TechnicalScore |
 | ---: | ---: | ---: | ---: | ---: |
@@ -54,7 +54,7 @@ The current integrated Agent implements versioned multi-turn term state, a targe
 
 These are public-development metrics and do not predict the private 800-session result. P1 also supplies fixed phrase-perturbation suites and a deterministic 200-product-derived, public-target-disjoint stress corpus. All released-public dev/challenge/audit phrase suites currently retain HR@10 `0.94`; the derived corpus is a local stress tool, not organizer data or a hidden-score estimate. The deterministic parser and default `fast` policy remain documented overfitting risks.
 
-The P2 shadow mode is strictly output-equal to off and exposes five auditable routes:
+The final P3 shadow mode is strictly output-equal to off on both the public and frozen product-disjoint corpora and exposes five auditable routes:
 `broad`, `strict`, `fused`, `reranked`, and `final`. Experimental active v1 scored HR@10
 `0.93`, MRR `0.599974`, MTTC `3.43`, and TechnicalScore `0.796392`, so it failed the
 activation gate and is deliberately not the default.
@@ -95,13 +95,13 @@ The Workbench provides:
 - an honest algorithm registry that distinguishes implemented, baseline-only, and planned layers;
 - all 200 public sessions with actual Agent events and separately labelled post-hoc target diagnostics;
 - frozen-catalog search and raw product inspection;
-- browser controls for the complete public evaluator, fixed phrase/product-disjoint generalization gate, unit tests, progress, cancellation, logs, and versioned local experiments;
+- browser controls for the complete public evaluator, fixed phrase/product-disjoint generalization gate, unit tests, progress, cancellation, logs, versioned local experiments, and cross-session target-blind shadow-policy analysis;
 - a target-free manual Agent playground and read-only project document library;
 - a safe in-page shutdown action.
 
-The server refuses non-loopback bind addresses, rejects cross-site API requests, requires an ephemeral local control token, and does not expose an arbitrary shell runner. It fingerprints the loaded Agent/attributes/reranker/evaluator source plus catalog/public-set inputs and blocks stale or mixed-version runs until the Workbench is restarted. Every public replay gives the Agent a fresh opaque session ID. The released simulator uses hidden target/scenario state only to generate the permitted user messages; raw labels, intent cards, behavior, and prior results are never passed into Agent decision features. Target-rank and scoring annotations are joined after `Agent.respond`.
+The server refuses non-loopback bind addresses, rejects cross-site API requests, requires an ephemeral local control token, and does not expose an arbitrary shell runner. It fingerprints the loaded Agent/attributes/reranker/slot-ledger/clarification/shadow-analysis/evaluator sources plus catalog/public-set inputs and blocks stale or mixed-version runs until the Workbench is restarted. Every public replay gives the Agent a fresh opaque session ID. The released simulator uses hidden target/scenario state only to generate the permitted user messages; raw labels, intent cards, behavior, and prior results are never passed into Agent decision features. Target-rank and scoring annotations are joined after `Agent.respond`.
 
-The Workbench displays the current versioned state, all five ranking routes, normalized attribute/rerank evidence, weighted fusion, heuristic policy, and post-hoc target ranks. It continues to label normalized conversation slot graphs, hard filtering, dense retrieval, candidate-aware clarification, profile ranking, and semantic reranking as missing rather than presenting roadmap layers as implemented. See `docs/agent_workbench.md` for the full usage, API, isolation, and maintenance contract.
+The Workbench displays the current versioned state, full slot-ledger lifecycle, all five ranking routes, normalized attribute/rerank evidence, weighted fusion, actual heuristic policy, candidate-aware shadow components, and post-hoc target ranks. It continues to label slot-ledger-driven retrieval, hard filtering/relaxation, numeric budget execution, dense retrieval, active candidate-aware clarification, profile ranking, and semantic reranking as missing rather than presenting roadmap layers as implemented. See `docs/agent_workbench.md` for the full usage, API, isolation, and maintenance contract.
 
 ## Agent Interface
 
@@ -155,11 +155,14 @@ docs/baseline_results.json        reproducible weak-starter reference score
 starter/agent.py                  editable stateful sparse Agent
 starter/attributes.py             target-blind normalized product/constraint views
 starter/reranker.py               deterministic gated Top-50 scorer
+starter/slot_ledger.py             auditable normalized conversation shadow
+starter/clarification.py           candidate-aware QuestionValue shadow
 evaluator/local_evaluator.py      public-set simulator and scorer
 scripts/compare_results.py        report and strict complete-result comparison
 scripts/evaluate_agent.py         mode-controlled evaluator + provenance manifest
 scripts/evaluate_generalization.py target-blind phrase/product-disjoint stress gate
 scripts/benchmark_resources.py    repeatability, RSS, latency, and route-recall audit
+observer/shadow_analysis.py        target-blind cross-session question diagnostics
 ```
 
 ## Judging and Submission Policy
