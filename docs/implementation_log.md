@@ -456,6 +456,26 @@ QuestionValue diagnostics**, not as the complete IntentGraph target architecture
 
 ## Change history
 
+### 2026-08-28 - P5 independent selection corpus and pre-registered guarded PRF
+
+- Added a deterministic P5 corpus builder that excludes both released-public and frozen
+  P1-derived targets, validates the 50,000/200/200 inputs, preserves the official scenario
+  mix, and writes cross-platform canonical hashes. The ignored frozen P5 corpus contains
+  200 unique targets with both overlaps equal to zero; SHA-256 is
+  `0d58a32f65b67c9408558a59df461c340691928a791117099a56049e177efa0c`.
+- Added isolated target-blind PRF primitives and a P5-only control/shadow/active Agent
+  registry without changing the served Agent or the frozen P4 architecture evidence.
+  Feedback uses cross-seed catalog-IDF evidence, an original-query-conjoined second FTS
+  route, low-weight rank fusion, and a protected Top-9/one-newcomer safety boundary.
+- Added a frozen P5 runner that hard-checks corpus identity and both exclusion sets,
+  compares C00 with evaluator and ordered-response hashes from a complete run of the
+  actual served coverage Agent, proves shadow output equality, enforces metric/scenario/
+  hit-to-miss/runtime gates, and repeats only an
+  eligible active candidate. Released-public rows are not evaluated by this runner.
+- The protocol, constants, formulas, and rejection gates were committed before opening
+  P5 metrics. Until that run is complete, this entry records implemented experiment
+  infrastructure rather than an effectiveness claim or promotion decision.
+
 ### 2026-08-28 — P4 target-blind architecture search and promotion
 
 - Added an experiment-only `ArchitectureAgent` registry with one exact control and 14

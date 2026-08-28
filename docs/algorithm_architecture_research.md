@@ -94,6 +94,70 @@ measured bucket justifies it. Every model path must declare model/version/licens
 hash, disk/RAM, latency, token/network behavior, and an offline fallback before public
 gating.
 
+## P5 pre-registered guarded session PRF
+
+P5 is isolated from the frozen P4 matrix and treats the promoted R08 coverage route as
+its control. The selection corpus is a second deterministic 200-session catalog-derived
+set with sample SHA-256
+`0d58a32f65b67c9408558a59df461c340691928a791117099a56049e177efa0c`. Its 200 unique
+targets overlap neither the 200 released-public targets nor the 200 P1-derived targets;
+its 80/80/30/10 scenario mix is fixed. This is local stress data, not organizer-private
+data or a private-distribution proxy.
+
+The following registry and parameters were frozen before reading any P5 metric:
+
+| ID | Role | Output behavior |
+| --- | --- | --- |
+| `P5.C00.r08_coverage` | control | Exact served `coverage/off` Agent behavior |
+| `P5.S00.prf_shadow` | diagnostic | Computes the full proposal but must return C00 output exactly |
+| `P5.R01.guarded_session_prf` | sole active candidate | May replace only the Top-10 tail under every guard below |
+
+For each turn, R01 takes at most five current coverage-ranked seeds whose original-query
+coverage is at least `max(2, maximum_seed_coverage - 1)`. At least three seeds and route
+agreement are required. Feedback is extracted only from title, categories, features,
+and details; store tokens dynamically suppress likely brand terms, and store/description
+never supply feedback. A term must be ASCII alphabetic, at least three characters, absent
+from the original and excluded terms, supported by at least three seeds and 60% of the
+available seeds, present across at least two field groups, have catalog document frequency
+at most 2%, and occur in at least three non-seed documents. At most four terms survive.
+Term score is BM25-style IDF times normalized reciprocal-log seed-rank support:
+
+```text
+idf(t) = ln(1 + (N - df(t) + 0.5) / (df(t) + 0.5))
+feedback(t) = idf(t) * sum_support(1/log2(seed_rank+1))
+                         / sum_all_seeds(1/log2(seed_rank+1))
+```
+
+The second FTS route is exactly `(Q1 OR ...) AND (F1 OR ...)`, uses the existing field
+weights and a fixed depth of 120, and therefore cannot retrieve a product from feedback
+terms alone. Different-query BM25 values are not combined. The target-blind proposal over
+the union instead uses ranks:
+
+```text
+C(d) = distinct original-query terms matched by d
+B(d) = 1 / (60 + fused_rank(d))
+P(d) = 0.15 / (60 + prf_rank(d))
+proposal key = (-C(d), -(B(d)+P(d)), fused_rank, prf_rank, parent_asin)
+```
+
+The served proposal preserves the original first nine results and admits at most one
+newcomer at rank 10. That candidate must rank ahead of the incumbent in the proposal,
+match at least two selected feedback terms, match no excluded term, and meet the
+incumbent's original-query coverage. A PRF-only candidate requires strictly higher
+coverage. A same-coverage candidate already in the base pool requires both broad and
+strict evidence when strict is available; otherwise it must be in broad Top-30.
+
+The frozen runner first evaluates the actual served `Agent(coverage/off)` and requires
+C00's complete 200-session evaluator hash and ordered response-trace hash to match. S00
+must also match both C00 hashes exactly and cannot win. R01 is eligible only with an
+effective output change, clean and complete
+contract, non-decreasing HR/MRR and every scenario HR, non-increasing MTTC, strictly
+higher TechnicalScore, zero hit-to-miss changes, and evaluation time no greater than
+1.30x C00. An eligible R01 must repeat with an identical complete functional hash. The
+released public set is read only to prove target exclusion and is not evaluated by the
+P5 selection runner. If R01 fails, C00 remains served and the parameters will not be
+tuned on this same P5 corpus.
+
 ## Frozen 200-session result
 
 The full matrix ran from clean commit `e5d0d4966d01da9932d835cb3a754475b6fa13e2`.

@@ -82,6 +82,11 @@ catalog; it does not load an undisclosed private dataset.
 - `experiments/p1_derived_product_disjoint.jsonl` is a deterministic catalog-derived
   stress corpus. Its targets exclude all 200 released-public targets. It is not private
   evaluation data and is not a hidden-leaderboard proxy.
+- `experiments/p5_selection_product_disjoint.jsonl` is a separately seeded deterministic
+  200-session selection corpus. It has 200 unique targets, zero overlap with both the
+  released-public and P1-derived targets, scenario mix 80/80/30/10, and SHA-256
+  `0d58a32f65b67c9408558a59df461c340691928a791117099a56049e177efa0c`. It is also local
+  stress data, not organizer-private data or a hidden-distribution estimate.
 - `experiments/*.json` and versioned Workbench runs are participant outputs.
 - Attached audit/handoff ZIPs and prior-agent reports are project evidence, not new
   organizer labels.
