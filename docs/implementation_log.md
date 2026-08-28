@@ -7,6 +7,11 @@ Last updated: 2026-08-28 SGT.
 ## Current verified implementation
 
 - Branch: `p4-architecture-search`
+- P4 served/reference bridge: `1f8fd3c` (`test: bridge frozen and promoted response traces`)
+- P4 served promotion: `97bc89c` (`feat: promote coverage cascade into served agent`)
+- P4 frozen matrix: `e5d0d49` (`feat: add target-blind architecture search lab`)
+- P4 Workbench alignment: `04b6e21` (`feat: align observer with promoted retrieval`)
+- P4 R12 hygiene fix: `eb626bc` (`fix: reject measurement-only budget signals`)
 - P3 implementation: `9cc9262` (`feat: add auditable clarification shadows`)
 - P3 verification and data inventory: `87447fb` (`docs: record p3 gates and official data inventory`)
 - Frozen P1 head: `02f0741` on `p1-generalization`
@@ -26,9 +31,10 @@ Last updated: 2026-08-28 SGT.
 - Official catalog release SHA-256: `07fd142631fd6b03e2b4d09988c3eb7d53720e9d57010c79db48eeaada50a8f8`; local compressed asset is identical
 - Official public-set Git blob: `121dbec9c1368c81cd887d6959e62507512139c0`; local Git-normalized content is identical
 - Default execution: offline, no LLM object, no API key, no network call, zero reported tokens
-- Direct `Agent()` defaults are `TECHJAM_RERANK_MODE=off` and
-  `TECHJAM_QUESTION_POLICY=fast`; clear inherited values or set them explicitly for a
-  production run. The Workbench launcher deliberately requests `shadow` for diagnostics.
+- Direct `Agent()` defaults are `TECHJAM_RETRIEVAL_MODE=coverage`,
+  `TECHJAM_RERANK_MODE=off`, and `TECHJAM_QUESTION_POLICY=fast`; clear inherited values
+  or set them explicitly for a production run. `retrieval_mode=control` preserves the
+  pre-P4 weighted-RRF output for paired experiments.
 
 ## Current public evaluation
 
@@ -36,23 +42,60 @@ The integrated Agent was run against the complete released 200-session evaluator
 
 | Scope | Sessions | Hit Rate@10 | MRR | MTTC |
 | --- | ---: | ---: | ---: | ---: |
-| Buying | 80 | 0.925000 | 0.586265 | 3.175000 |
-| Browsing | 80 | 0.975000 | 0.600724 | 3.012500 |
+| Buying | 80 | 0.925000 | 0.586057 | 3.162500 |
+| Browsing | 80 | 0.987500 | 0.603224 | 2.925000 |
 | Intent Override | 30 | 0.900000 | 0.655265 | 4.666667 |
 | Boundary | 10 | 0.900000 | 0.643452 | 4.000000 |
-| Overall | 200 | 0.940000 | 0.605258 | 3.375000 |
+| Overall | 200 | 0.945000 | 0.606175 | 3.335000 |
 
-Overall Efficiency is `0.762500`; recommended TechnicalScore is `0.804077`; prompt and completion token usage are both zero.
+Overall Efficiency is `0.766500`; recommended TechnicalScore is `0.807652`; prompt and
+completion token usage are both zero.
 
-Compared with the independently verified v0.6 handoff result, Hit Rate@10 and MRR are unchanged. The pending-question lifecycle lets one interrupted clarification be asked again, improving Intent Override MTTC from `4.700000` to `4.666667` and overall MTTC from `3.380000` to `3.375000`. Because session turns changed, the complete P1 JSON is intentionally not byte-for-byte or semantically identical to the v0.6 result.
+Compared with the explicit current-tree weighted-RRF control, promoted coverage changes
+HR@10 by `+0.005000`, MRR by `+0.000917`, MTTC by `-0.040000`, and TechnicalScore by
+`+0.003575`. The paired result has zero hit-to-miss and one miss-to-hit change.
 
 The pre-integration Workbench checkpoint reproduced the official weak baseline at HR@10 `0.125`, MRR `0.068034`, MTTC `9.81`, Efficiency `0.119`, and TechnicalScore `0.10671`. The current gain therefore comes from the stateful sparse Agent integration, not from the browser observer.
 
 These are public-development metrics, not a claim about the private 800 sessions.
 
+## P4 coverage-cascade promotion
+
+The frozen product-disjoint matrix recorded 14 raw non-control variants. A semantic
+activation audit found R12's only apparent activation was caused by parsing a head-
+circumference range (`21.25inch-25inch`) as a price. After rejecting that false
+activation, 13 genuinely independent effective designs remain, still above the required
+minimum of ten. A hygiene-only rerun on the same frozen corpus records zero R12
+activations, zero output changes, and exact control metrics; its ignored artifact SHA-256
+is `6428a2f4049f0b17dc7d9d6287716803aee596ff2e6d383ed625d86e84a7324f`.
+This confirms classification without rerunning winner selection. The raw matrix artifact
+is retained unchanged.
+
+R08 was the sole eligible selection winner and is now implemented in
+`starter/coverage.py` and served by `starter.agent.Agent` in the default
+`coverage + rerank off` configuration. It counts distinct visible query terms matched
+across the same catalog fields used by the frozen experiment, sorts by descending
+coverage, and preserves weighted-RRF fused rank on ties.
+
+The actual served Agent was independently run on canonical plus all eight registered
+phrase suites. Every complete result hash equals the frozen winner; canonical HR@10 is
+`0.945000`, MRR `0.606175`, MTTC `3.335000`, and TechnicalScore `0.807652`. The strict
+response contract, no-key execution, two-run functional determinism, public/phrase
+robustness, and resource measurement checks pass. A reference bridge additionally
+proves exact complete response traces and broad/strict/fused/final route equality. The
+combined artifact `experiments/p4_promoted_verification.json` has SHA-256
+`8a72f81dc9290f40c17384de49167c0bdfe080dbcf80f063ebc3a0d601152ec7`.
+
+The original architecture artifacts remain the selection evidence. Because promotion
+changed `architecture_lab.py` to pin the old control and share the coverage helper, its
+post-promotion working-tree bytes are no longer identical to the selection commit. The
+old unchanged-source gate is therefore legacy/frozen evidence; the served implementation
+is validated by `scripts/verify_promoted_agent.py`, not by pretending the promoted file
+never changed. None of this is evidence about the organizer-private 800 sessions.
+
 ## P2 shortlist-reranker evaluation
 
-P2 adds an explicitly gated `off / shadow / active` rerank mode. The default remains
+P2 adds an explicitly gated `off / shadow / active` rerank mode. The rerank default remains
 `off`; neither the released evaluator nor the normal Agent path activates an unproven
 scorer.
 
@@ -101,7 +144,7 @@ new public gate:
 The control produced 6 best-rank improvements, 7 regressions, and zero hit-to-miss or
 miss-to-hit changes. MRR fell by `0.005223` and TechnicalScore by `0.001567`, so v2 was
 rejected without using the public set as a tuning loop and without running an active
-resource gate. `off` remains the default.
+resource gate. Reranking `off` remains the default.
 
 ## P3 slot and clarification shadows
 
@@ -209,9 +252,13 @@ score(d) = I_b(d) / (60 + broad_rank)
          + 1.8 * I_s(d) / (20 + strict_rank)
 ```
 
-Ties use broad rank and then `parent_asin`. The response returns the first
-`min(top_k, 10)` IDs from the explicit `final` route. In the default `off` mode and in
-`shadow`, `final` is an unchanged copy of `fused`.
+Ties use broad rank and then `parent_asin`. The promoted `coverage` retrieval mode loads
+title, categories, features, details, store, and description for the fused candidate set,
+counts distinct active query terms found in those visible catalog fields, sorts by
+descending coverage, and preserves fused rank on ties. The response returns the first
+`min(top_k, 10)` IDs from the explicit `final` route. With default `coverage + off`,
+`fused` remains the control order, `reranked` remains equal to fused, and `final` is the
+coverage order. Explicit `control + off` leaves final equal to fused.
 
 ### Normalized attributes and shortlist reranking
 
@@ -231,10 +278,12 @@ original Top 10 within equal requested-slot coverage groups and preserves the fu
 from rank 11 onward. The mode is rejected and off remains the default.
 
 The Agent exposes five auditable routes: `broad`, `strict`, `fused`, `reranked`, and
-`final`. `off` skips attribute scoring; `shadow` computes it without changing output;
-`active` uses it only when explicitly requested. A bounded 10,000-view LRU cache avoids
-re-extracting common shortlist products. Target-blind debug diagnostics expose all
-component scores; the Observer joins public targets only after `respond` returns.
+`final`. In explicit control mode, `off` skips attribute scoring, `shadow` computes it
+without changing output, and `active` uses it only when explicitly requested. Coverage
+is restricted to rerank off to prevent an ungated composition. A bounded 10,000-view LRU
+cache avoids re-extracting common shortlist products. Target-blind debug diagnostics
+expose component and coverage evidence; the Observer joins public targets only after
+`respond` returns.
 
 ### Clarification policy
 
@@ -282,8 +331,9 @@ session -> parse -> retrieval -> state -> policy -> output
 ```
 
 Retrieval events expose broad/strict/fused/reranked/final counts, the weighted-RRF
-formula, rerank mode/version/cache data, and raw-fused/reranked/final Top-10 evidence.
-State events expose only information derived from the profile and conversation.
+formula, retrieval/rerank modes, coverage schema and matched-term evidence, and
+raw-fused/reranked/final Top-10 evidence. State events expose only information derived
+from the profile and conversation.
 
 For a public replay, the Observer calls `Agent.respond` with a random UUID session. Only
 after the response does it compare the target with target-blind route IDs and component
@@ -303,7 +353,9 @@ Completed replays and evicted Lab sessions release Agent and recorder state.
 - CSP and frame protections;
 - fixed allowlisted test/evaluation/Lab/shutdown controls;
 - no arbitrary shell or filesystem browser;
-- loaded-vs-disk Agent/attributes/reranker/slot-ledger/clarification/shadow-analysis/evaluator/generalization sources plus catalog/public-set fingerprints, with stale-runtime blocking for every replay, evaluation, generalization, and Lab call;
+- loaded-vs-disk Agent/coverage/attributes/reranker/slot-ledger/clarification/
+  shadow-analysis/evaluator/generalization sources plus catalog/public-set fingerprints,
+  with stale-runtime blocking for every replay, evaluation, generalization, and Lab call;
 - evaluation provenance captured before the background job and rechecked before artifact finalization, so a manifest cannot mix loaded code/data with later disk hashes.
 
 The Workbench must not be publicly deployed or connected to private final labels.
@@ -353,13 +405,18 @@ This replaces the handoff comparator behavior that printed aggregate deltas but 
 
 ## Verification completed
 
-- 134 Python unit/integration tests pass after adding the isolated P4 architecture-lab,
-  official-asset integrity, contract, lifecycle, budget, gate, and winner-selection tests.
+- The complete current suite passes `153/153` Python unit/integration tests after adding
+  the P4 architecture lab, official-asset integrity, contract, lifecycle, budget,
+  promotion bridge, R12 hygiene, and Workbench retrieval-mode coverage tests.
 - Agent tests cover accumulation, natural openers/requirements/no-preference, pending-question interruption, category changes, negative phrases and false negations, false override prevention, first/repeated/selective overrides, Boundary exhaustion, question policies, five ranking routes, mode safety, catalog-price shadow ingestion, bounded diagnostic memory, output cap/final turn, optional usage, and target-blind trace/component diagnostics.
 - Attribute/reranker/ledger/QuestionValue tests cover normalization boundaries, immutable provenance, unknown values, source confidence, noise removal, scorer arithmetic, negative penalties, deterministic ties, immutable fused input, Top-10 member and tail safety, lifecycle retirement/hard restatement, multi-value entropy control, final-turn suppression, and candidate-price coverage.
 - Generalization tests cover phrase payload preservation, adapter input isolation, deterministic stratified public-target-disjoint generation, and rerank-mode propagation.
 - Comparator tests cover formatting/line-ending equality, session-level mismatch, missing keys/list order, and invalid JSON.
-- Existing evaluator, LLM client, Workbench replay, catalog/Lab/background evaluation, HTTP token/cross-site, and exclusive-listener tests pass. Observer tests also cover P3 source fingerprints/schema metadata, cross-session target-blind shadow artifacts, visible ledger/QuestionValue components, and stale-source rejection.
+- Existing evaluator, LLM client, Workbench replay, catalog/Lab/background evaluation,
+  HTTP token/cross-site, and exclusive-listener tests pass. Observer tests also cover
+  retrieval-mode propagation, coverage evidence/provenance, fused-versus-final route
+  semantics, source fingerprints/schema metadata, cross-session target-blind shadow
+  artifacts, visible ledger/QuestionValue components, and stale-source rejection.
 - `node --check observer/static/app.js` passes.
 - The complete 200-session evaluator completed successfully with no LLM environment variables.
 - The final direct public evaluator result strictly matches the canonical result produced through the target-blind robustness wrapper.
@@ -392,36 +449,43 @@ file. Historical audit reports must still distinguish the earlier type-only wrap
 9. Budget buckets are visible in QuestionValue shadow, but a user budget such as `under $50` does not yet become a numeric range filter or ranking constraint. Budget questioning cannot be activated until that downstream path exists.
 10. The controlled P3 shadow resource audit is deterministic but fails the planned time gate at `2.01x` off total wall time, so shadow remains development-only.
 
-The current served implementation should be described as a **versioned stateful sparse
-retrieval and weighted-RRF baseline with heuristic clarification, plus normalized
-slot/attribute/rerank/QuestionValue diagnostics in shadow**, not as the complete
-IntentGraph target architecture.
+The current served implementation should be described as **versioned stateful sparse
+retrieval with weighted-RRF candidate fusion, promoted visible-query-term coverage
+ordering, and heuristic clarification, plus normalized slot/attribute/rerank/
+QuestionValue diagnostics**, not as the complete IntentGraph target architecture.
 
 ## Change history
 
-### 2026-08-28 — P4 target-blind architecture search infrastructure
+### 2026-08-28 — P4 target-blind architecture search and promotion
 
 - Added an experiment-only `ArchitectureAgent` registry with one exact control and 14
   materially different retrieval, fusion, constraint, state, diversification, budget,
-  and routing mechanisms. The default `starter.agent.Agent` output path is unchanged.
+  and routing candidates. Selection initially left `starter.agent.Agent` unchanged.
 - Added a frozen product-disjoint matrix runner with strict response-contract validation,
   control-integrity failure, activation/output-change accounting, session/scenario gates,
   hit-to-miss rejection, separate raw/eligible winners, and deterministic confirmation.
 - Contract-invalid or incomplete variants cannot count toward the ten-experiment
   requirement. R09 never backfills a known negative conflict; R11/R13 scope browsing
-  evidence to the current goal version; R12 is honestly `not_counted` when the selection
-  corpus exposes no numeric budget message.
+  evidence to the current goal version. The raw runner counted R12 after one output
+  change, but semantic audit proved that change came from a measurement-to-price regex
+  false positive. The corrected semantic-effective count is 13, not 14.
 - Added preflight and postflight Git/source/input snapshots. A long run is discarded if
   any direct source, input, Git branch/commit, dirty state, or derived-path state changes.
   The artifact records all parsed invocation values and hashes direct Agent dependencies.
 - Added the complete offline official-asset verifier and a rules-first audit. The local
   catalog/public/evaluator assets pass all row, schema, uniqueness, membership, scenario,
   Git-blob, and release-hash checks.
-- The frozen clean-tree 200-session matrix produced 14 effective, contract-clean
-  non-control designs. `R08.coverage_cascade` is the sole eligible selection winner:
+- The frozen clean-tree 200-session matrix recorded 14 mechanically effective,
+  contract-clean non-control variants; 13 remain genuinely effective after the R12
+  audit. `R08.coverage_cascade` is the sole eligible selection winner:
   HR `0.935→0.945`, MRR `0.630183→0.643516`, MTTC `3.185→3.115`, Score
   `0.812855→0.823255`, zero score regressions, and exact repeated functional output.
-  This is selection-corpus evidence only; public/phrase/resource gates remain pending.
+  That table is selection-corpus evidence only.
+- Promoted R08 into the served Agent and independently verified the actual default Agent
+  against the frozen/reference winner on all nine public phrase suites, complete response
+  traces, broad/strict/fused/final routes, strict contract, determinism, resources, and
+  no-key execution. The combined verification artifact SHA-256 is
+  `8a72f81dc9290f40c17384de49167c0bdfe080dbcf80f063ebc3a0d601152ec7`.
 
 ### 2026-08-28 — P3 auditable slot and clarification shadows
 
@@ -435,7 +499,7 @@ IntentGraph target architecture.
 - Restored `evaluator/local_evaluator.py` to the official upstream Git blob and verified
   public and product-disjoint off/shadow functional equality.
 - Expanded the suite from 94 to 114 tests. The two-run resource audit failed the shadow
-  time gate, so P3 remains diagnostic and the default remains off.
+  time gate, so P3 remains diagnostic and reranking remains off by default.
 
 ### 2026-08-28 — P2 normalized attributes and gated rerank (`586f3dd`, `4610480`)
 
@@ -448,7 +512,7 @@ IntentGraph target architecture.
 - Expanded the suite from 63 to 94 tests and preserved the P1 result exactly in both off
   and shadow modes.
 - Rejected active v1 after HR, MRR, MTTC, TechnicalScore, Buying HR, and preliminary
-  resource evidence failed the activation gates; the default remains off.
+  resource evidence failed the activation gates; reranking remains off by default.
 
 ### 2026-08-28 — P1 generalization and intent-state reliability (`abae926`)
 

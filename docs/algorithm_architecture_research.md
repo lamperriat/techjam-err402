@@ -4,11 +4,14 @@ Last updated: 2026-08-28 SGT.
 
 ## Decision summary
 
-The current served Agent remains unchanged while P4 compares isolated architectures.
-The existing sparse control already has fused recall `0.995` at 50 on the released
-public audit, and 11 of its 12 public misses entered that Top-50 pool. That local
-evidence makes shortlist discrimination and safe intent handling the first search
-priority; it does not prove that semantic retrieval is unnecessary on the private 800.
+P4 selected `R08.coverage_cascade` on the frozen public-target-disjoint corpus and has
+now promoted it into the served Agent. The explicit `control` mode remains weighted RRF;
+the default `coverage` mode orders that same candidate set by distinct visible-query-term
+coverage and preserves fused rank on ties. The existing sparse control had fused recall
+`0.995` at 50 on the released-public audit, and 11 of its 12 public misses entered that
+Top-50 pool. That local evidence motivated shortlist discrimination first; it does not
+prove that semantic retrieval is unnecessary or predict performance on the organizer-
+private 800 sessions.
 
 The research basis and official sources are frozen in `report-source.md`. RRF, MMR,
 conversational context selection, dense retrieval, learned sparse retrieval,
@@ -22,7 +25,9 @@ claim still requires a target-blind evaluator artifact.
 - Fixed policy: `question_policy=fast`, `rerank_mode=off`, Top-10, at most 10 turns.
 - Agent inputs: profile plus visible messages only; never target, sample ID, scenario,
   intent card, simulator behavior, prior result, or target rank.
-- Control: `C00.control_rrf`, required to be response-equal to the default Agent.
+- Control: `C00.control_rrf`, required to be response-equal to an explicit
+  `Agent(retrieval_mode="control")`. The default Agent changed only after selection and
+  promotion gates completed.
 - A design counts only when it is non-control, contract-clean, fully evaluated, has at
   least one activation, and changes at least one Top-10 output.
 - Promotion requires no HR, MRR, TechnicalScore, MTTC, scenario-HR, or hit-to-miss
@@ -45,7 +50,7 @@ python scripts/evaluate_architectures.py `
 
 | ID | Mechanism | Hypothesis and boundary |
 | --- | --- | --- |
-| C00 | Control weighted RRF | Exact current served sparse ranking; not counted as a new experiment |
+| C00 | Control weighted RRF | Exact pre-promotion/explicit-control sparse ranking; not counted as a new experiment |
 | R01 | Field RRF | Independent title/category, feature/detail, and description/store routes can recover field-specific evidence |
 | R02 | Category guard | A strict category-field route can suppress cross-category lexical matches, with deterministic fallback |
 | R03 | Turn RRF | Versioned per-turn routes can preserve useful evidence without flattening all terms into one query |
@@ -78,13 +83,16 @@ functional hashes. The full matrix must be run from a clean committed tree.
 
 ## Next architecture wave
 
-If no isolated local design passes the gate, the correct conclusion is that the sparse
-control remains the best eligible local architecture. The next justified wave is not
-more public-session rules. It is an offline, legally distributable semantic route—such
-as small E5 dense retrieval or SPLADE-style learned sparse expansion—followed by bounded
-hybrid fusion and, only if resources permit, a shortlist cross-encoder or late-
-interaction reranker. Each model path must declare model/version/license, asset hash,
-disk/RAM, latency, token/network behavior, and an offline fallback before public gating.
+R08 passed the isolated local gate, so the next wave must treat it as the served baseline
+and must not tune against repeated public-session outcomes. First split target-blind
+derived failures into candidate-truncation misses versus in-pool Top-10 discrimination.
+If in-pool errors dominate, test one bounded structured/shortlist mechanism; if genuine
+sparse truncation dominates, test an offline, legally distributable semantic route such
+as small E5 dense retrieval or SPLADE-style learned sparse expansion with bounded hybrid
+fusion. A shortlist cross-encoder or late-interaction reranker follows only when the
+measured bucket justifies it. Every model path must declare model/version/license, asset
+hash, disk/RAM, latency, token/network behavior, and an offline fallback before public
+gating.
 
 ## Frozen 200-session result
 
@@ -112,9 +120,18 @@ released-public target overlap was zero, and the ignored complete artifact SHA-2
 | R13 | 0.780 | 0.502887 | 4.645 | 0.667966 | 32 | reject |
 | R14 | 0.845 | 0.565756 | 3.975 | 0.732727 | 18 | reject |
 
-All 14 non-control designs were effective and contract-clean. R12 contradicted the
-static pre-audit by activating and changing output once; the measured artifact, not the
-pre-audit inference, is authoritative.
+The raw runner mechanically reported all 14 non-control variants as effective and
+contract-clean. A subsequent semantic activation audit found that R12's only activation
+parsed `21.25inch-25inch` head circumference as an "around 21.25" price. That is a
+measurement-to-price regex false positive, not a genuine numeric-budget activation. The
+regex was corrected to require price context and reject measurement units. The honest
+count is therefore 13 semantically independent effective designs, which still exceeds
+the required minimum of ten. A hygiene-only rerun on the same 200 product-disjoint
+sessions produced `activations=0`, `output_changes=0`, and metrics exactly equal to
+control. Its ignored artifact `experiments/p4_r12_hygiene.json` has SHA-256
+`6428a2f4049f0b17dc7d9d6287716803aee596ff2e6d383ed625d86e84a7324f`.
+This rerun confirms the classification; it does not rerun selection or choose a new
+winner. The raw matrix artifact remains unchanged as historical evidence.
 
 R08 is the sole eligible winner. Against control it produced zero per-session official-
 score regressions, five improvements, zero hit-to-miss changes, two miss-to-hit changes,
@@ -124,6 +141,37 @@ one earlier hit, and three rank improvements. Scenario HR was non-regressive: Bo
 `3e0b1211179748c9b0581c840d8ad23973045d863f3311f70738b9cd28e71ba7`.
 
 The matrix timing for R08 was 22.369 seconds versus 26.111 seconds for control in that
-single sequential process, but this is not a controlled resource claim. R08 must still
-pass released-public, phrase, repeated RSS/latency, no-key, and leakage gates before the
-default Agent may change.
+single sequential process, but this is not a controlled resource claim.
+
+## Promotion and served-implementation verification
+
+After selection was frozen, R08 passed the released-public, all-phrase, strict-contract,
+two-run determinism/resource-measurement, no-key, and target-blind reference-bridge
+checks. No organizer numeric resource threshold is published; this proves measurement
+completeness and reproducibility, not compliance with an unknown limit. The
+served `Agent(retrieval_mode="coverage", rerank_mode="off")` exactly reproduces the
+frozen winner across canonical plus eight registered phrase suites:
+
+| Evidence | Control | Promoted coverage | Delta |
+| --- | ---: | ---: | ---: |
+| HR@10 | 0.940000 | 0.945000 | +0.005000 |
+| MRR | 0.605258 | 0.606175 | +0.000917 |
+| MTTC | 3.375000 | 3.335000 | -0.040000 |
+| TechnicalScore | 0.804077 | 0.807652 | +0.003575 |
+
+The paired released-public comparison has zero hit-to-miss and one miss-to-hit change.
+All nine suite-result hashes match the frozen winner, the complete response trace and
+the broad/strict/fused/final routes are exact, the strict response contract is clean,
+and the promoted two-run trace is deterministic. The verification artifact is
+`experiments/p4_promoted_verification.json`, SHA-256
+`8a72f81dc9290f40c17384de49167c0bdfe080dbcf80f063ebc3a0d601152ec7`.
+
+The pre-promotion architecture artifacts remain the immutable selection evidence. The
+post-promotion `architecture_lab.py` necessarily changed to pin its control mode and use
+the shared coverage helper, so an old gate that requires that working-tree file to be
+byte-identical to the selection commit is now a legacy/frozen-evidence check, not proof
+of the served implementation. `scripts/verify_promoted_agent.py` supplies the explicit
+bridge: it compares frozen/reference artifacts with independent runs of the actual
+served Agent and checks response, route, contract, provenance, determinism, resource,
+and no-key invariants. These are public/local verification claims only; no private-800
+result is available.

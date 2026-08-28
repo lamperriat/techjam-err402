@@ -57,6 +57,7 @@ catalog objects.
 
 ## Current local integrity evidence
 
+- `python scripts/verify_official_assets.py` passes all `14/14` offline checks.
 - Official upstream `main`: `34078351e1c3615e5505a2e829600b56a542e462`.
 - Participant tag: `2a6cc8e776da66ce69b1cbd237838fbc43f32587`.
 - Current evaluator Git blob: `7c808347b31ef3121a9cbc4810ac3eb325f950ba`,
@@ -70,6 +71,24 @@ catalog objects.
   equal to the [official checksum](https://github.com/TechJam2026/techjam-conversational-search/releases/download/participant-kit/SHA256SUMS).
 
 See `docs/data_inventory.md` for row-level checks and the organizer/local data split.
+
+## Current local architecture evidence (not an organizer result)
+
+The repository now serves the locally selected `R08.coverage_cascade` when
+`retrieval_mode=coverage` and `rerank_mode=off`; this is the normal no-override Agent
+path. On the 200 organizer-released development sessions it records HR@10 `0.945000`,
+MRR `0.606175`, MTTC `3.335000`, and TechnicalScore `0.807652`. Against the explicit
+weighted-RRF control, the paired change is `+0.005000` HR, `+0.000917` MRR, `-0.040000`
+MTTC, and `+0.003575` TechnicalScore, with zero hit-to-miss and one miss-to-hit.
+
+The actual served Agent exactly matches the frozen winner on canonical plus eight phrase
+suites and passes the local strict-contract, deterministic-trace, repeated resource-
+measurement completeness, no-key, and reference-bridge checks. The combined
+verification artifact SHA-256 is
+`8a72f81dc9290f40c17384de49167c0bdfe080dbcf80f063ebc3a0d601152ec7`.
+These facts show reproducibility on released/local inputs only. The organizer has not
+endorsed this architecture, and no participant can verify or claim its performance on
+the private 800 sessions before organizer evaluation.
 
 ## Competition-level timing and submission obligations
 

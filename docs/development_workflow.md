@@ -45,11 +45,11 @@ Current integrated stateful-sparse result:
 
 | Metric | Value |
 | --- | ---: |
-| HitRate@10 | 0.940000 |
-| MRR | 0.605258 |
-| MTTC | 3.375000 |
-| Efficiency | 0.762500 |
-| TechnicalScore | 0.804077 |
+| HitRate@10 | 0.945000 |
+| MRR | 0.606175 |
+| MTTC | 3.335000 |
+| Efficiency | 0.766500 |
+| TechnicalScore | 0.807652 |
 
 The weak-starter reference remains HR@10 `0.125`, MRR `0.068034`, MTTC `9.81`, and TechnicalScore `0.10671`. Keep it as the original control, not as the description of the current Agent.
 
@@ -63,8 +63,9 @@ Do not start by reading random ranking code. Locate the first current layer wher
 | Session state | Was the latest message accumulated, negated, or treated as an override? Was the previous question answered or interrupted? | active/excluded terms, known/asked/exhausted/pending attributes, parsed events, version, turn ledger |
 | Query plan | Did the active state compile into the intended sparse query? | compiled query and parser/override events |
 | Retrieval | Was the public target present in broad OR or strict AND retrieval? | post-hoc target broad/strict ranks and route counts |
-| Fusion | Did weighted RRF push the target out of Top 10? | fused rank, fusion evidence |
-| Attribute rerank | Did comparable normalized evidence move it safely? | fused→reranked→final ranks, component score, matched evidence, mode |
+| Fusion control | Did weighted RRF push the target out of Top 10? | fused rank and fusion evidence |
+| Coverage cascade | Did visible-term coverage safely move it relative to fused control? | fused/final ranks, per-result matched-term counts, mode and schema provenance |
+| Attribute rerank | Did comparable normalized evidence move it safely in an experiment? | fused→reranked→final ranks, component score, matched evidence, mode |
 | Output | Did the actual final route or normalization lose it? | final rank and normalized Top 10 |
 | Clarification | Which fixed policy asked what, and was it repeated? | policy, `ask_attribute`, asked/exhausted attributes |
 | Runtime | Did the Agent fail or slow down? | per-turn elapsed time and exception event |
@@ -80,7 +81,12 @@ LOW_FINAL_RANK
 OUTPUT_OR_NORMALIZATION_MISS
 ```
 
-Hard/soft slot objects and candidate-aware information gain now exist as target-blind shadow diagnostics. Structured filter/relaxation counts and codes such as `FILTER_KILLED_TARGET` or `WRONG_QUESTION` still belong to the target architecture. Normalized product evidence and reranker ranks are real trace fields, but active v1/v2 and shadow resource gates failed, so served output remains fused.
+Hard/soft slot objects and candidate-aware information gain now exist as target-blind
+shadow diagnostics. Structured filter/relaxation counts and codes such as
+`FILTER_KILLED_TARGET` or `WRONG_QUESTION` still belong to the target architecture.
+Normalized product evidence and reranker ranks are real trace fields, but active v1/v2
+remain rejected. The served output is now the R08 coverage-ordered `final` route; the
+weighted-RRF `fused` route remains the explicit control and diagnostic reference.
 
 ## 4. The development loop
 
@@ -138,16 +144,17 @@ Run an explicit, provenance-recorded rerank experiment without changing the rele
 evaluator flow:
 
 ```powershell
-python scripts/evaluate_agent.py --rerank-mode off --output experiments/p2_off.json
-python scripts/evaluate_agent.py --rerank-mode shadow --output experiments/p2_shadow.json
-python scripts/compare_results.py --assert-equal experiments/p2_off.json experiments/p2_shadow.json
-python scripts/evaluate_agent.py --rerank-mode active --output experiments/p2_active.json
+python scripts/evaluate_agent.py --retrieval-mode coverage --rerank-mode off --output experiments/p4_coverage.json
+python scripts/evaluate_agent.py --retrieval-mode control --rerank-mode off --output experiments/p4_control.json
+python scripts/evaluate_agent.py --retrieval-mode control --rerank-mode shadow --output experiments/p2_shadow.json
+python scripts/evaluate_agent.py --retrieval-mode control --rerank-mode active --output experiments/p2_active.json
 ```
 
-`off` is the production/default path. `shadow` computes diagnostics but must remain
-strictly output-equal to off. `active` currently executes the v2 Top-10-member-safe
-control; both v1 and v2 scored below their frozen selection gates and must not be used
-as the default.
+`coverage + off` is the production/default path. `control + off` preserves the pre-P4
+weighted-RRF output for paired comparisons. `control + shadow` computes P2/P3
+diagnostics without serving them; `control + active` executes the rejected v2
+Top-10-member-safe experiment. Coverage is deliberately restricted to rerank off so an
+ungated combination cannot silently change the promoted architecture.
 
 The evaluator overwrites ignored `results.json`. Copy important experiment outputs into another ignored experiment directory before the next run. Compare complete results, including all session rows, with:
 
@@ -167,7 +174,12 @@ Use `--suite all --corpus public` for the frozen dev/challenge/audit phrase fami
 
 ## 6. Agent Workbench
 
-For normal development on this machine, double-click `Start Observer.vbs`. It launches through the existing `tiktok` environment without a terminal and opens `http://127.0.0.1:8765`. The one-click launcher uses output-safe `shadow` mode so the normalized attribute and rerank layers are visible; the actual final recommendations remain fused. Use the in-page **停止** action when finished. `Start Observer.cmd` and `python -m observer.launcher` remain fallback launch paths.
+For normal development on this machine, double-click `Start Observer.vbs`. It launches
+through the existing `tiktok` environment without a terminal and opens
+`http://127.0.0.1:8765`. The P4-aligned launcher uses the served `coverage + off` path;
+the UI separates the weighted-RRF fused control from the coverage-ordered final route and
+records retrieval-mode provenance. Use the in-page **停止** action when finished.
+`Start Observer.cmd` and `python -m observer.launcher` remain fallback launch paths.
 
 The Workbench now covers the complete local development loop:
 
@@ -183,9 +195,22 @@ environment / data / Git / index health
 
 It also includes catalog/FTS5 search, full product JSON, a target-free manual Agent lab, experiment comparison, and an allowlisted document library. The control plane runs only fixed test/evaluation actions and does not execute arbitrary shell input. A per-instance token and same-origin/Host checks protect the local API.
 
-The Workbench fingerprints Agent, attributes, reranker, slot-ledger, clarification, shadow-analysis, evaluator, and generalization code plus catalog/public-set inputs loaded at startup and compares them with disk. After any monitored file changes, evaluation, every replay, and Lab execution are blocked until restart. Background evaluation checks freshness both before execution and before artifact finalization, while its manifest uses the captured start-of-run provenance. This prevents an experiment from silently mixing an old imported class or cached data with later disk hashes.
+The Workbench fingerprints Agent, coverage, attributes, reranker, slot-ledger,
+clarification, shadow-analysis, evaluator, and generalization code plus catalog/public-
+set inputs loaded at startup and compares them with disk. After any monitored file
+changes, evaluation, every replay, and Lab execution are blocked until restart.
+Background evaluation checks freshness both before execution and before artifact
+finalization, while its manifest uses the captured start-of-run provenance. This
+prevents an experiment from silently mixing an old imported class or cached data with
+later disk hashes.
 
-Trace events are emitted by the actual Agent through an optional versioned callback. The state layer reports the Agent's version, category, active/excluded terms, known/asked/exhausted attributes, override count, and full shadow slot lifecycle. Retrieval reports broad, strict, fused, reranked, and final routes plus target-blind score components; policy shows actual and QuestionValue shadow decisions. Public target ranks and its candidate breakdown are joined only after `Agent.respond` and are labelled post-hoc.
+Trace events are emitted by the actual Agent through an optional versioned callback. The
+state layer reports the Agent's version, category, active/excluded terms,
+known/asked/exhausted attributes, override count, and full shadow slot lifecycle.
+Retrieval reports broad, strict, fused, reranked, and final routes; coverage mode also
+reports its schema, matched visible terms, per-result coverage, and whether Top 10 changed.
+Policy shows actual and QuestionValue shadow decisions. Public target ranks and candidate
+breakdowns are joined only after `Agent.respond` and are labelled post-hoc.
 
 Every public replay gives the Agent an opaque random session ID. The Agent receives only profile, generated user message, turn, and `top_k`; it never receives `sample_id`, target, intent card, scenario, behavior, or prior results. The server is loopback-only and must not be attached to private final labels.
 
@@ -193,10 +218,26 @@ Successful browser-started evaluations refresh `results.json`; evaluator and gen
 
 ## 7. Current improvement order
 
-1. Keep the P1 served output frozen; active rerank v1/v2 and current P3 shadow activation are rejected by recorded quality/resource gates.
-2. Treat the normalized attributes, SlotLedger, QuestionValue, and Workbench analysis as experiment infrastructure, not production claims.
-3. Compare at least 10 materially different target-blind architectures on the frozen product-disjoint selection corpus, with one hypothesis and provenance per variant.
-4. Advance only the best eligible architecture to one public/phrase/resource confirmation gate; do not add sample/ASIN exceptions.
-5. Prefer structured constraint execution and measured miss rescue before dense/local semantic dependencies; introduce either only with recall and resource evidence.
+1. Keep the promoted R08 served path reproducible; retain explicit weighted RRF as the
+   paired control and do not add sample/ASIN exceptions.
+2. Treat the normalized attributes, SlotLedger, QuestionValue, and Workbench analysis as
+   experiment infrastructure, not production claims.
+3. The first architecture wave is complete: 14 raw candidates were run, 13 were
+   semantically valid/effective after the R12 false-activation audit, and R08 alone passed
+   selection and promotion gates.
+4. Start any next wave on a new frozen target-blind corpus/protocol and advance only one
+   survivor to public/phrase/resource confirmation.
+5. Prefer structured constraint execution and measured miss rescue before dense/local
+   semantic dependencies; introduce either only with recall, licensing, offline, and
+   resource evidence.
 
-The repository has completed no-credential reliability, Workbench diagnostics, versioned term state, pending-question lifecycle, broader target-blind phrase parsing, Override/Boundary handling, broad/strict sparse routes, weighted RRF, heuristic clarification, strict result comparison, P1/P3 robustness and resource gates, normalized product attributes, a shadow SlotLedger, candidate-aware QuestionValue diagnostics, and cross-session shadow analysis. It has not made the slot ledger the retrieval source of truth, activated candidate-aware questioning, implemented hard filtering/relaxation or numeric budget execution, or added dense/profile/semantic ranking. Deterministic active rerank v1/v2 remain rejected experiments.
+The repository has completed no-credential reliability, Workbench diagnostics,
+versioned term state, pending-question lifecycle, broader target-blind phrase parsing,
+Override/Boundary handling, broad/strict sparse routes, weighted RRF, promoted visible-
+term coverage ordering, heuristic clarification, strict result comparison, P1/P3/P4
+robustness and resource gates, normalized product attributes, a shadow SlotLedger,
+candidate-aware QuestionValue diagnostics, and cross-session shadow analysis. It has not
+made the slot ledger the retrieval source of truth, activated candidate-aware questioning,
+implemented hard filtering/relaxation or numeric budget execution, or added
+dense/profile/semantic ranking. Deterministic active rerank v1/v2 remain rejected
+experiments.

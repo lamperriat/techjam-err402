@@ -46,15 +46,30 @@ The command writes per-session results and aggregate metrics to `results.json`.
 The official weak BM25 starter reference scores Hit Rate@10 `0.125`, MRR `0.068034`, and
 MTTC `9.81` on the released public set. See `docs/baseline_results.json`.
 
-The current integrated Agent implements versioned multi-turn term state, a target-blind parsed-turn layer, pending-question lifecycle, explicit Override and Boundary handling, broad/strict FTS5 retrieval, weighted RRF, and heuristic clarification. P2/P3 also include normalized product attributes, an auditable slot ledger, a deterministic constraint scorer, and candidate-aware QuestionValue diagnostics behind explicit `off / shadow / active` rerank modes. These additions remain diagnostic: active rerank v1/v2 failed their quality gates and shadow failed the repeated resource time gate. `off` remains the default. Its verified served result is:
+The current integrated Agent implements versioned multi-turn term state, a target-blind
+parsed-turn layer, pending-question lifecycle, explicit Override and Boundary handling,
+broad/strict FTS5 retrieval, weighted RRF, and heuristic clarification. P4 promotes the
+target-blind `R08.coverage_cascade`: with reranking off, the served default orders the
+weighted-RRF candidate set by the number of distinct visible query terms matched in
+catalog fields, preserving fused order on ties. P2/P3 normalized attributes, slot ledger,
+constraint scorer, and QuestionValue components remain diagnostics; active rerank v1/v2
+failed their gates. The verified served result is:
 
 | Hit Rate@10 | MRR | MTTC | Efficiency | TechnicalScore |
 | ---: | ---: | ---: | ---: | ---: |
-| 0.940000 | 0.605258 | 3.375000 | 0.762500 | 0.804077 |
+| 0.945000 | 0.606175 | 3.335000 | 0.766500 | 0.807652 |
 
-These are public-development metrics and do not predict the private 800-session result. P1 also supplies fixed phrase-perturbation suites and a deterministic 200-product-derived, public-target-disjoint stress corpus. All released-public dev/challenge/audit phrase suites currently retain HR@10 `0.94`; the derived corpus is a local stress tool, not organizer data or a hidden-score estimate. The deterministic parser and default `fast` policy remain documented overfitting risks.
+These are local measurements on the organizer-released 200-session development set and
+do not predict the organizer-private 800-session result. For canonical and each of eight
+phrase suites, the actual served Agent exactly reproduces the corresponding frozen-winner
+result. Against the explicit weighted-RRF control, coverage improves HR@10 by `0.005000`,
+MRR by `0.000917`, MTTC by `0.040000` turns, and TechnicalScore by `0.003575`, with zero
+hit-to-miss and one miss-to-hit change. The deterministic product-derived,
+public-target-disjoint corpus is a
+local stress tool, not organizer data or a hidden-score estimate.
 
-The final P3 shadow mode is strictly output-equal to off on both the public and frozen product-disjoint corpora and exposes five auditable routes:
+Historical P3 validation showed shadow strictly output-equal to control/off on both the
+public and frozen product-disjoint corpora and exposed five auditable routes:
 `broad`, `strict`, `fused`, `reranked`, and `final`. Experimental active v1 scored HR@10
 `0.93`, MRR `0.599974`, MTTC `3.43`, and TechnicalScore `0.796392`, so it failed the
 activation gate and is deliberately not the default.
@@ -68,7 +83,7 @@ python3 scripts/evaluate_generalization.py --corpus both --suite default
 Run a mode-controlled evaluator experiment with a separate provenance manifest:
 
 ```bash
-python3 scripts/evaluate_agent.py --rerank-mode shadow --output experiments/p2_shadow.json
+python3 scripts/evaluate_agent.py --retrieval-mode control --rerank-mode shadow --output experiments/p2_shadow.json
 ```
 
 Verify that the official catalog, public sessions, and evaluator are complete and
@@ -84,15 +99,20 @@ Run the isolated P4 target-blind architecture matrix only from a clean committed
 python3 scripts/evaluate_architectures.py --variants all --confirm-top 3
 ```
 
-This selects on the frozen public-target-disjoint local stress corpus, not on the
-released-public labels. It does not change the default Agent. See
-`docs/algorithm_architecture_research.md` for the 14 mechanisms and promotion gates.
+This selected on the frozen public-target-disjoint local stress corpus, not on the
+released-public labels. The matrix recorded 14 non-control candidates; a semantic audit
+found R12's sole activation was a measurement-to-price regex false positive, so 13 are
+counted as genuinely effective independent designs. R08 was the sole eligible winner and
+has now been promoted into the default Agent after public, phrase, contract,
+determinism, repeated resource-measurement, no-key, and reference-bridge checks. See
+`docs/algorithm_architecture_research.md` for the protocol and evidence boundary.
 
-Direct `Agent()` construction reads two optional experiment variables:
-`TECHJAM_RERANK_MODE` (`off`, `shadow`, or rejected `active`) and
+Direct `Agent()` construction reads three optional experiment variables:
+`TECHJAM_RETRIEVAL_MODE` (`coverage` or `control`),
+`TECHJAM_RERANK_MODE` (`off`, `shadow`, or experimental `active`) and
 `TECHJAM_QUESTION_POLICY` (`fast`, `boundary`, or `conservative`). Production and
-official evaluation should clear inherited values or explicitly use `off` and `fast`.
-The one-click Workbench deliberately selects output-safe `shadow` diagnostics.
+official evaluation should clear inherited values or explicitly use `coverage`, `off`,
+and `fast`. With no overrides, `Agent()` serves `coverage` with reranking off.
 
 ## LLM Client Configuration
 
@@ -110,7 +130,12 @@ See `docs/development_workflow.md` for the project mental model, debugging funne
 
 ## Agent Workbench
 
-On Windows, double-click `Start Observer.vbs` to start the local Workbench without opening a terminal. It uses the existing `tiktok` Conda environment, starts through `pythonw.exe`, and opens `http://127.0.0.1:8765`. The one-click development launcher uses output-safe `shadow` mode so rerank evidence is visible while recommendations retain the fused order. The normal Agent/evaluator default remains `off`. `Start Observer.cmd` and `python -m observer.launcher` are troubleshooting fallbacks.
+On Windows, double-click `Start Observer.vbs` to start the local Workbench without opening
+a terminal. It uses the existing `tiktok` Conda environment, starts through
+`pythonw.exe`, and opens `http://127.0.0.1:8765`. The P4 Workbench alignment uses the
+served `coverage + rerank off` path and labels the weighted-RRF `fused` control separately
+from the coverage-ordered `final` route. `Start Observer.cmd` and
+`python -m observer.launcher` are troubleshooting fallbacks.
 
 The Workbench provides:
 
@@ -122,9 +147,24 @@ The Workbench provides:
 - a target-free manual Agent playground and read-only project document library;
 - a safe in-page shutdown action.
 
-The server refuses non-loopback bind addresses, rejects cross-site API requests, requires an ephemeral local control token, and does not expose an arbitrary shell runner. It fingerprints the loaded Agent/attributes/reranker/slot-ledger/clarification/shadow-analysis/evaluator sources plus catalog/public-set inputs and blocks stale or mixed-version runs until the Workbench is restarted. Every public replay gives the Agent a fresh opaque session ID. The released simulator uses hidden target/scenario state only to generate the permitted user messages; raw labels, intent cards, behavior, and prior results are never passed into Agent decision features. Target-rank and scoring annotations are joined after `Agent.respond`.
+The server refuses non-loopback bind addresses, rejects cross-site API requests, requires
+an ephemeral local control token, and does not expose an arbitrary shell runner. It
+fingerprints the loaded Agent/coverage/attributes/reranker/slot-ledger/clarification/
+shadow-analysis/evaluator sources plus catalog/public-set inputs and blocks stale or
+mixed-version runs until the Workbench is restarted. Every public replay gives the Agent
+a fresh opaque session ID. The released simulator uses hidden target/scenario state only
+to generate the permitted user messages; raw labels, intent cards, behavior, and prior
+results are never passed into Agent decision features. Target-rank and scoring
+annotations are joined after `Agent.respond`.
 
-The Workbench displays the current versioned state, full slot-ledger lifecycle, all five ranking routes, normalized attribute/rerank evidence, weighted fusion, actual heuristic policy, candidate-aware shadow components, and post-hoc target ranks. It continues to label slot-ledger-driven retrieval, hard filtering/relaxation, numeric budget execution, dense retrieval, active candidate-aware clarification, profile ranking, and semantic reranking as missing rather than presenting roadmap layers as implemented. See `docs/agent_workbench.md` for the full usage, API, isolation, and maintenance contract.
+The Workbench displays the current versioned state, full slot-ledger lifecycle, all five
+ranking routes, the control-fused versus served-coverage ordering, coverage provenance,
+normalized attribute evidence, actual heuristic policy, candidate-aware shadow
+components, and post-hoc target ranks. It continues to label slot-ledger-driven retrieval,
+hard filtering/relaxation, numeric budget execution, dense retrieval, active candidate-
+aware clarification, profile ranking, and semantic reranking as missing rather than
+presenting roadmap layers as implemented. See `docs/agent_workbench.md` for the full
+usage, API, isolation, and maintenance contract.
 
 ## Agent Interface
 
@@ -176,6 +216,7 @@ docs/agent_api_contract.json      machine-readable Agent contract
 docs/evaluation_config.json       scoring configuration
 docs/baseline_results.json        reproducible weak-starter reference score
 starter/agent.py                  editable stateful sparse Agent
+starter/coverage.py               promoted target-blind R08 ordering helper
 starter/attributes.py             target-blind normalized product/constraint views
 starter/reranker.py               deterministic gated Top-50 scorer
 starter/slot_ledger.py             auditable normalized conversation shadow
@@ -185,6 +226,7 @@ scripts/compare_results.py        report and strict complete-result comparison
 scripts/evaluate_agent.py         mode-controlled evaluator + provenance manifest
 scripts/evaluate_generalization.py target-blind phrase/product-disjoint stress gate
 scripts/benchmark_resources.py    repeatability, RSS, latency, and route-recall audit
+scripts/verify_promoted_agent.py  frozen-reference to served-Agent promotion bridge
 observer/shadow_analysis.py        target-blind cross-session question diagnostics
 ```
 
