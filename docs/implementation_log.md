@@ -544,6 +544,33 @@ QuestionValue diagnostics**, not as the complete IntentGraph target architecture
   the sole formal P7 run remain pending at this checkpoint. No evaluator or P7 route metric
   was run/read, released-public was not evaluated, and `starter/agent.py` remains unchanged.
 
+### 2026-08-28 - P7 production index and pre-metric CLI bootstrap correction
+
+- Built the frozen catalog-only index once from semantic-source commit `09a911a`: 50,000
+  finite unit-normalized float32 rows by 384 dimensions. Matrix SHA-256 is
+  `84897381c106b909b9e3d44229187d12f23796f108cfec97904db1cbeeb2d407`;
+  the 50,000 unique sorted-ASIN file SHA-256 is
+  `3af465b23ff2d33614501472edf02d2953ccfc170d2fe3348d55cd51c8ef0d54`;
+  the external manifest SHA-256 is
+  `cca932a8b4d0a160e0a409ec6ce9cf3b68c99e3b95bddb911b9c7d83b67365ba`.
+- The build took `7422.871804s`. Its sampled Windows working-set peak was
+  `4,844,965,888` bytes from a `25,243,648`-byte baseline. Required model, index,
+  manifest, ordered-ASIN, and license assets total `211,493,793` bytes. Independent
+  verification recomputed the catalog documents, matrix properties, ASIN order, eleven
+  model assets, license, byte scope, and atomic publication without reading session data.
+- Added and pushed tracked lock `configs/p7_semantic_index_lock.json` in commit `b1a802b`.
+  Both lock validators passed, including build-commit Git blobs and current bytes; the
+  lock SHA-256 is
+  `be9304a358aaa29de9337d56cc7d6c86bfdcf9a19fe694bc6291107aa444376b`.
+- The first direct CLI invocation exited before importing the evaluator because Python
+  placed `scripts/`, not the project root, on `sys.path`. It produced no result file and
+  read no P7 metric. Added the project root at bootstrap plus an isolated `python -I`
+  subprocess regression that imports the official evaluator from an arbitrary working
+  directory. No corpus, model, query, route, response, metric, threshold, or gate changed.
+- P7 focused tests now pass `30/30`; the complete suite passes `323/323`. The corrected
+  CLI remains metric-free at this checkpoint, released-public remains untouched, and the
+  served `coverage/off/fast` Agent remains unchanged.
+
 ### 2026-08-28 - P6 frozen adaptive-depth selection rejection
 
 - Ran the P6 selection exactly once from clean, pushed pre-metric commit `873cbd2`.

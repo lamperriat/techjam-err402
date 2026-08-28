@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -158,6 +160,29 @@ def _bundle(role: str, messages: tuple[str, ...] = ("RED",)) -> dict:
 
 
 class P7RunnerTest(unittest.TestCase):
+    def test_direct_script_bootstrap_exposes_project_imports(self) -> None:
+        project_root = Path(__file__).resolve().parents[1]
+        script = project_root / "scripts" / "evaluate_p7.py"
+        probe = (
+            "import runpy,sys;"
+            f"ns=runpy.run_path({str(script)!r},run_name='p7_import_probe');"
+            "assert str(ns['PROJECT_ROOT']) in sys.path;"
+            "import evaluator.local_evaluator"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            completed = subprocess.run(
+                [sys.executable, "-I", "-c", probe],
+                cwd=directory,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        self.assertEqual(
+            completed.returncode,
+            0,
+            msg=f"stdout={completed.stdout}\nstderr={completed.stderr}",
+        )
+
     def test_canonical_jsonl_is_utf8_sorted_compact_lf_and_rejects_identity_keys(self) -> None:
         self.assertEqual(canonical_json_line({"z": "\u00e9", "a": 1}), b'{"a":1,"z":"\xc3\xa9"}\n')
         with self.assertRaisesRegex(P7RunnerError, "prohibited"):

@@ -24,6 +24,9 @@ from typing import Any, Iterable, Mapping
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 DEFAULT_SPEC = PROJECT_ROOT / "configs" / "p7_bge_small_en_v1_5.json"
 DEFAULT_CATALOG = PROJECT_ROOT / "data" / "catalog.jsonl"
 DEFAULT_SELECTION = PROJECT_ROOT / "experiments" / "p7_selection_product_disjoint.jsonl"
