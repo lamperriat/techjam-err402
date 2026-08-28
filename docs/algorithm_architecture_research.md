@@ -182,6 +182,76 @@ public evaluation was run, and the served Agent remains R08 coverage. The ignore
 artifact is `experiments/p5_prf_selection.json`, SHA-256
 `d0fce8879cd19f0853aeb632b56195a7496b690939581e8f4c731d4a0795d90f`.
 
+## P6 pre-registered guarded broad-depth doubling
+
+P6 tests one narrower hypothesis left unresolved by P5: the unchanged original-query
+broad FTS route may contain useful products below its fixed Top-120 cutoff. It does not
+extract feedback terms, add aliases, change BM25 weights, compare scores from different
+queries, or introduce a semantic model. Its third deterministic 200-session selection
+corpus has canonical SHA-256
+`27544cdb6ed9495808c35bbab09b4dbadcb88a1d75d162f17bb4fba6ee8841c7`, scenario mix
+80/80/30/10, and 200 unique targets with zero overlap against released-public, P1-derived,
+and P5-derived targets. This remains local catalog-derived stress data, not private data
+or a private-distribution proxy.
+
+The following is the complete P6 registry; only R01 may affect output:
+
+| ID | Role | Output behavior |
+| --- | --- | --- |
+| `P6.C00.r08_coverage` | control | Exact served `Agent(coverage/off)` behavior |
+| `P6.S00.adaptive_depth_shadow` | diagnostic | Computes the depth proposal but returns C00 output exactly |
+| `P6.R01.guarded_broad_depth_doubling` | sole active candidate | May admit one strictly higher-coverage deep-tail item at rank 10 |
+
+All parameters are frozen before reading any P6 result: broad base depth 120, one
+geometric doubling to 240, Top-K 10, protected prefix 9, at most one newcomer, minimum
+two distinct visible query terms, and an integer coverage margin of at least one. Let
+`Q` be the de-duplicated current query terms, `B` the broad route, `F` the served R08
+final route, and `C(d)` the count of distinct terms in `Q` found across title,
+categories, features, details, store, and description. Expansion triggers only when:
+
+```text
+|Q| >= 2 AND |B| == 120 AND |F| >= 10 AND C(F[10]) < |Q|
+```
+
+The deep query uses the exact same bound FTS expression, six indexed fields, BM25 field
+weights, and `ORDER BY bm25(...)` as the broad route; only `LIMIT 120` becomes
+`LIMIT 240`. It does not use `OFFSET` or add a secondary tie-break. Before admitting
+anything, `deep_ids[:120]` must equal `B` exactly; a prefix mismatch is an exact C00
+fallback.
+
+The eligible pool is `deep_ids[120:240]` minus every ID already in broad, strict, fused,
+or final. A candidate must match no currently excluded term and must satisfy
+`C(candidate) >= C(F[10]) + 1`. The deterministic winner key is higher coverage, then
+earlier deep rank, then `parent_asin`. R01 returns the unchanged first nine results,
+the single winner at rank 10, then the previous tail; S00 records the same proposal but
+serves F. Equal/lower-coverage products, excluded matches, base-pool members, prefix
+mismatches, empty routes, and exceptions cannot alter output. Diagnostics are target-
+blind and are appended beside existing coverage/question/rerank diagnostics rather than
+changing their semantics.
+
+The frozen runner must first prove that C00 equals the actual served Agent in complete
+evaluator and ordered-response hashes, that S00 is output-identical to C00, and that all
+responses satisfy the strict Top-10/catalog/usage contract. Quality gates compare exact
+integer totals before display rounding: hit count, reciprocal-rank sum scaled by 2520,
+hit-turn sum, and per-scenario hit counts. R01 must be effective, preserve the first nine,
+admit no more than one valid newcomer with the strict coverage margin, have zero prefix,
+exclusion, or contract violations, strictly improve TechnicalScore, not decrease HR/MRR
+or any scenario HR, not increase MTTC, and cause zero hit-to-miss or per-session official-
+contribution regressions.
+
+Candidate-pool recall is audited only from S00's control-identical turns and joined to
+targets after the Agent returns; pre-override turns are excluded. Deep union recall at
+240 must strictly exceed base union recall at 120. Selection evaluation time and response
+P95 must each be at most 1.30x C00. An otherwise eligible active route must reproduce its
+functional and response hashes on a clean repeat and pass independent-process resource
+confirmation (two runs per variant, evaluation and P95 at most 1.30x, peak RSS at most
+1.20x). These are project promotion gates, not organizer-published numeric limits.
+
+Released-public rows are loaded only to prove target exclusion. They may be evaluated
+once for final confirmation only after every P6 selection, repeat, and resource gate
+passes. A tie or any failed gate retains R08, and P6 parameters will not be tuned on the
+same corpus.
+
 ## Frozen 200-session result
 
 The full matrix ran from clean commit `e5d0d4966d01da9932d835cb3a754475b6fa13e2`.

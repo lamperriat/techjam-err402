@@ -468,6 +468,12 @@ QuestionValue diagnostics**, not as the complete IntentGraph target architecture
   This freezes a fresh local selection surface for the next pre-registered experiment;
   it remains catalog-derived stress data and is not evidence about the private 800.
 - The complete suite passes `201/201` tests at this corpus-freeze checkpoint.
+- Pre-registered the sole next mechanism before reading any P6 metric: a saturated
+  broad-120 route may repeat the identical FTS query at depth 240, then a target-blind
+  strict-coverage guard may admit at most one new item at rank 10 while preserving Top 9.
+  The registry, constants, exact-quality comparisons, pool-recall audit, fallback rules,
+  clean repeat, resource confirmation, and public-use boundary are frozen in
+  `docs/algorithm_architecture_research.md`.
 
 ### 2026-08-28 - P5 independent selection corpus and pre-registered guarded PRF
 

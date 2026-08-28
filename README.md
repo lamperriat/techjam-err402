@@ -119,6 +119,22 @@ R01 made 21 guarded turn-level Top-10 tail changes but produced no target-outcom
 and took `1.574x` the control evaluation time, so it failed its pre-registered score and
 runtime gates. It remains experiment-only; the default Agent is still R08 coverage.
 
+P6 is the next isolated experiment. It tests whether the unchanged broad FTS query is
+occasionally truncated at Top 120: only a saturated route may be recomputed at depth 240,
+and at most one catalog-text candidate with strictly higher visible-query coverage may
+challenge rank 10. It generates no feedback terms and does not modify the served Agent
+unless every pre-registered quality, safety, determinism, and resource gate passes. Its
+fresh 200-target selection corpus is disjoint from released-public, P1, and P5 targets.
+After committing the complete experiment configuration, reproduce it with:
+
+```bash
+python3 scripts/evaluate_p6.py
+```
+
+The released-public set is exclusion-only during P6 selection. A public confirmation is
+permitted only if P6 first wins on the frozen triple-disjoint corpus and passes an
+independent resource repeat; a failed or tied candidate leaves R08 unchanged.
+
 Direct `Agent()` construction reads three optional experiment variables:
 `TECHJAM_RETRIEVAL_MODE` (`coverage` or `control`),
 `TECHJAM_RERANK_MODE` (`off`, `shadow`, or experimental `active`) and
