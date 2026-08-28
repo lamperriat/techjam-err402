@@ -417,9 +417,11 @@ IntentGraph target architecture.
 - Added the complete offline official-asset verifier and a rules-first audit. The local
   catalog/public/evaluator assets pass all row, schema, uniqueness, membership, scenario,
   Git-blob, and release-hash checks.
-- An 8-session matrix smoke test exercised the complete runner and 13 non-control designs
-  changed output; it is explicitly not selection evidence. The frozen 200-session matrix
-  is intentionally deferred until this implementation is committed and the tree is clean.
+- The frozen clean-tree 200-session matrix produced 14 effective, contract-clean
+  non-control designs. `R08.coverage_cascade` is the sole eligible selection winner:
+  HR `0.935→0.945`, MRR `0.630183→0.643516`, MTTC `3.185→3.115`, Score
+  `0.812855→0.823255`, zero score regressions, and exact repeated functional output.
+  This is selection-corpus evidence only; public/phrase/resource gates remain pending.
 
 ### 2026-08-28 — P3 auditable slot and clarification shadows
 

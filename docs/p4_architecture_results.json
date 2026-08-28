@@ -1,0 +1,50 @@
+{
+  "schema_version": "p4.architecture-search-summary.v1",
+  "created_at": "2026-08-28T07:41:15+00:00",
+  "selection_only": true,
+  "source_artifact": {
+    "path": "experiments/p4_architecture_search.json",
+    "sha256": "bedf4c8048186a9ca9d64a64fb9a8ee7184c5810ff13e5e69e138f15faa5e177",
+    "complete_artifact_is_gitignored": true
+  },
+  "provenance": {
+    "git_commit": "e5d0d4966d01da9932d835cb3a754475b6fa13e2",
+    "git_dirty": false,
+    "derived_samples_sha256": "38c6a9fedd4a3e02d8f581e2d04d8467203d7275c3ff0eb691a57f5025c010ae",
+    "public_target_overlap": 0,
+    "postflight_snapshot_equal": true
+  },
+  "selection": {
+    "raw_score_winner": "R08.coverage_cascade",
+    "eligible_winner": "R08.coverage_cascade",
+    "effective_non_control_count": 14,
+    "requirement_met": true,
+    "confirmed_complete_functional_sha256": "3e0b1211179748c9b0581c840d8ad23973045d863f3311f70738b9cd28e71ba7"
+  },
+  "control": {
+    "variant_id": "C00.control_rrf",
+    "hit_rate_at_10": 0.935,
+    "mrr": 0.630183,
+    "mttc": 3.185,
+    "recommended_technical_score": 0.812855
+  },
+  "winner": {
+    "variant_id": "R08.coverage_cascade",
+    "hit_rate_at_10": 0.945,
+    "mrr": 0.643516,
+    "mttc": 3.115,
+    "recommended_technical_score": 0.823255,
+    "hit_to_miss_count": 0,
+    "miss_to_hit_count": 2,
+    "official_score_regression_count": 0,
+    "official_score_improvement_count": 5,
+    "scenario_hit_rate": {
+      "boundary": 0.9,
+      "browsing": 0.925,
+      "buying": 0.95,
+      "intent_override": 1.0
+    },
+    "all_pre_public_selection_gates_passed": true
+  },
+  "boundary": "Best eligible local design on a catalog-derived stress corpus; not evidence of private-800 superiority."
+}
