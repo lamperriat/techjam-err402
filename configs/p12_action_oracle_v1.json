@@ -1,0 +1,125 @@
+{
+  "schema_version": "track4.p12-action-oracle.v1",
+  "proxy": {
+    "manifest_path": "experiments/fast_track/proxy_v1/manifest.json",
+    "manifest_sha256": "8058973426bbc76ea856a5c48a61e91ed9e35ae44988a21a6d7b2195e88a7193",
+    "allowed_splits": {
+      "train_explore": {
+        "path": "experiments/fast_track/proxy_v1/proxy_train_explore.jsonl",
+        "rows": 2000,
+        "sha256": "2175696171c0d874fca4b9aa456ff5fd7d570f2184f59ade6781198f6443198e"
+      },
+      "calibration": {
+        "path": "experiments/fast_track/proxy_v1/proxy_calibration.jsonl",
+        "rows": 2000,
+        "sha256": "2ffd23092f0c30d33feef6d99b18262d03d856c6f5b6813e2e4e6e28dfeee8ed"
+      },
+      "selection": {
+        "path": "experiments/fast_track/proxy_v1/proxy_selection.jsonl",
+        "rows": 2000,
+        "sha256": "41ed8938ce3caa95df98155d10bb6cac01d5d279270ea8b6764979ca17a6e322"
+      }
+    },
+    "sealed_confirmation": {
+      "path": "experiments/fast_track/proxy_v1/proxy_confirmation.sealed.jsonl",
+      "rows": 2000,
+      "sha256": "d6ae5a727cb39bda7cb640f3c51f93697b667f55894dc6e22507b06f94c90a74",
+      "generic_runner_access": false
+    }
+  },
+  "catalog": {
+    "path": "data/catalog.jsonl",
+    "rows": 50000,
+    "sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67"
+  },
+  "p11": {
+    "mode": "active",
+    "sidecar_path": "starter/assets/p11_features.sqlite",
+    "sidecar_bytes": 32501760,
+    "sidecar_sha256": "83b6d8c04be6666173806b6e9cb03301eecb8ca58a60272bfa719e6533380473",
+    "require_identity_verified": true,
+    "require_no_fallback": true,
+    "require_top10_membership_preserved": true,
+    "require_tail_preserved": true
+  },
+  "semantic": {
+    "mode": "candidate_only_c50",
+    "full_catalog_search_allowed": false,
+    "spec_path": "configs/p7_bge_small_en_v1_5.json",
+    "lock_path": "configs/p7_semantic_index_lock.json",
+    "model_dir": "experiments/p7_assets/bge-small-en-v1.5",
+    "index_dir": "experiments/p7_index",
+    "sparse_prior_weight": 0.65,
+    "cosine_weight": 0.35
+  },
+  "actions": {
+    "ids": [
+      "KEEP_R08",
+      "KEEP_P11",
+      "CANDIDATE_RERANK",
+      "FROZEN_SEMANTIC_RERANK",
+      "RESULT_AWARE_REWRITE_RETRIEVE",
+      "ASK"
+    ],
+    "oracle_eligible": [
+      "KEEP_R08",
+      "KEEP_P11",
+      "CANDIDATE_RERANK",
+      "FROZEN_SEMANTIC_RERANK",
+      "RESULT_AWARE_REWRITE_RETRIEVE"
+    ],
+    "definitions": {
+      "KEEP_R08": "pre-P11 full R08 ordering captured from the served pipeline",
+      "KEEP_P11": "served P11-active ordering; exact R08 Top10 membership and tail preserved",
+      "CANDIDATE_RERANK": "new frozen P12-v1 diagnostic: full C50 structured rerank using current target-blind scorer plus visible numeric budget",
+      "FROZEN_SEMANTIC_RERANK": "new frozen P12-v1 diagnostic: BGE cosine computed only inside C50 and blended with the sparse rank prior",
+      "RESULT_AWARE_REWRITE_RETRIEVE": "existing P5 R01 guarded PRF action based on R08, not a P11 composition",
+      "ASK": "observed served fast-policy continuation with KEEP_P11 recommendations; not an independent counterfactual"
+    },
+    "ask_semantics": "observed KEEP_P11 recommendations plus the served fast-policy continuation; not an independent counterfactual and cannot unlock CAGE-R10",
+    "structured_existing_score_weight": 0.85,
+    "structured_numeric_budget_weight": 0.15,
+    "structured_budget_match": {
+      "max_or_min": "binary constraint satisfaction",
+      "around": "max(0, 1 - absolute_price_error / max(amount, 1))"
+    },
+    "fixed_weights_status": "preregistered P12-v1 diagnostic weights; not prior production evidence"
+  },
+  "evaluation": {
+    "max_turns": 10,
+    "top_k": 10,
+    "candidate_recall_cutoffs": [10, 20, 50, 100],
+    "trajectory": "complete ten-turn replay driven only by served KEEP_P11 ask_attribute; never target-stopped",
+    "label_join": "only after worker close, clean exit, and trace SHA-256 verification",
+    "views": [
+      "row_uniform_official_compatible",
+      "source_weighted",
+      "target_uniform",
+      "taxonomy_balanced"
+    ],
+    "bootstrap": {
+      "unit": "parent_asin target cluster",
+      "resamples": 1000,
+      "seed": "track4-p12-action-oracle-bootstrap-v1",
+      "confidence": 0.95
+    }
+  },
+  "go_no_go": {
+    "oracle_hr_delta_min": 0.015,
+    "oracle_score_delta_min": 0.0075,
+    "require_positive_score_delta_ci_lower": true,
+    "deployable_net_rescue_min": 1,
+    "deployable_scenario_span_min": 2,
+    "deployable_taxonomy_span_min": 2,
+    "semantic_or_rewrite_failure_count_max": 0,
+    "network_attempt_count_max": 0,
+    "confirmation_on_go_only": true
+  },
+  "runtime": {
+    "worker_path": "scripts/p12_action_worker.py",
+    "output_root": "experiments/fast_track/action_oracle_v1",
+    "request_timeout_seconds": 120,
+    "process_exit_timeout_seconds": 60,
+    "rss_sample_interval_ms": 10
+  }
+}
