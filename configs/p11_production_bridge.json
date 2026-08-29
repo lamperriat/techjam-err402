@@ -1,0 +1,31 @@
+{
+  "schema_version": "p11.production-bridge-config.v1",
+  "default_mode_during_phase_a": "off",
+  "served_default_after_phase_a": "active",
+  "modes": ["off", "control", "shadow", "active"],
+  "fallback_is_runtime_only": true,
+  "frozen_configuration": {
+    "retrieval_mode": "coverage",
+    "rerank_mode": "off",
+    "question_policy": "fast"
+  },
+  "sidecar": {
+    "path": "starter/assets/p11_features.sqlite",
+    "manifest": "starter/assets/p11_features.manifest.json",
+    "bytes": 32501760,
+    "sha256": "83b6d8c04be6666173806b6e9cb03301eecb8ca58a60272bfa719e6533380473",
+    "catalog_rows": 50000,
+    "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+    "read_only_immutable": true,
+    "runtime_download_allowed": false
+  },
+  "frozen_scorer": {
+    "feature_schema_version": "p11.top10-features.v2",
+    "scorer_version": "p11.top10-linear.v3",
+    "feature_registry_sha256": "c2c6b4309e5bbf8e092f625957ae5f0cdeb193adcc48d552e5291837803749b1",
+    "feature_semantics_sha256": "abae7be9ab9073593ca40309177408adf20e460e3153fe95ec942fb53b47a488",
+    "top10_membership_preserved": true,
+    "tail_preserved": true
+  },
+  "one_click_r08_fallback": "TECHJAM_P11_MODE=off under coverage/off/fast served preset"
+}

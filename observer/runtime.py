@@ -23,6 +23,8 @@ from observer.shadow_analysis import (
 )
 from observer.trace import (
     TraceRunner,
+    _agent_p11_mode,
+    _agent_p11_status,
     _agent_retrieval_mode,
     _agent_rerank_mode,
     _create_agent,
@@ -118,6 +120,14 @@ def _metrics(result: dict[str, Any] | None) -> dict[str, Any]:
         "reported_token_usage": result.get("reported_token_usage"),
         "scenario_metrics": result.get("scenario_metrics"),
     }
+
+
+def _close_agent(agent: Any) -> None:
+    close = getattr(agent, "close", None)
+    if callable(close):
+        close()
+        return
+    agent.connection.close()
 
 
 @dataclass
@@ -237,6 +247,7 @@ class WorkbenchRuntime:
         self._git = self._git_state()
         self.rerank_mode = _agent_rerank_mode(self.trace_runner.agent)
         self.retrieval_mode = _agent_retrieval_mode(self.trace_runner.agent)
+        self.p11_mode = _agent_p11_mode(self.trace_runner.agent)
         self.project_id = hashlib.sha256(
             str(self.project_root).casefold().encode("utf-8")
         ).hexdigest()[:16]
@@ -247,6 +258,8 @@ class WorkbenchRuntime:
             "slot_ledger": self.project_root / "starter" / "slot_ledger.py",
             "clarification": self.project_root / "starter" / "clarification.py",
             "coverage": self.project_root / "starter" / "coverage.py",
+            "p11_bridge": self.project_root / "starter" / "p11_bridge.py",
+            "p11_features": self.project_root / "starter" / "p11_features.py",
             "shadow_analysis": self.project_root / "observer" / "shadow_analysis.py",
             "evaluator": self.project_root / "evaluator" / "local_evaluator.py",
             "generalization": self.project_root / "scripts" / "evaluate_generalization.py",
@@ -255,12 +268,16 @@ class WorkbenchRuntime:
             "catalog": self.catalog_path,
             "dataset": self.dataset_path,
         }
+        p11_sidecar_path = _agent_p11_status(self.trace_runner.agent).get(
+            "sidecar_path"
+        )
+        if isinstance(p11_sidecar_path, str) and p11_sidecar_path:
+            self._input_paths["p11_sidecar"] = Path(p11_sidecar_path)
         self._loaded_source_hashes = {
             name: _sha256(path) for name, path in self._source_paths.items()
         }
         self._loaded_input_hashes = {
-            "catalog": self.catalog_sha256,
-            "dataset": self.dataset_sha256,
+            name: _sha256(path) for name, path in self._input_paths.items()
         }
 
     @classmethod
@@ -272,6 +289,7 @@ class WorkbenchRuntime:
         project_root: str | Path | None = None,
         rerank_mode: str | None = None,
         retrieval_mode: str | None = None,
+        p11_mode: str | None = None,
     ) -> WorkbenchRuntime:
         started = time.perf_counter()
         root = Path(project_root or Path.cwd()).resolve()
@@ -289,6 +307,7 @@ class WorkbenchRuntime:
             results,
             rerank_mode=rerank_mode,
             retrieval_mode=retrieval_mode,
+            p11_mode=p11_mode,
         )
         baseline_path = root / "docs" / "baseline_results.json"
         baseline = (
@@ -338,6 +357,8 @@ class WorkbenchRuntime:
             "project_id": self.project_id,
             "rerank_mode": self.rerank_mode,
             "retrieval_mode": self.retrieval_mode,
+            "p11_mode": self.p11_mode,
+            "p11": _agent_p11_status(self.trace_runner.agent),
             "restart_required": source_state["restart_required"],
         }
 
@@ -372,7 +393,7 @@ class WorkbenchRuntime:
         if self._source_state()["restart_required"]:
             raise StaleRuntimeError(
                 "Agent/attributes/reranker/coverage/slot-ledger/clarification/shadow-analysis/"
-                "evaluator/generalization "
+                "p11-bridge/p11-features/evaluator/generalization "
                 "source or loaded catalog/dataset changed after Workbench startup; restart "
                 "Workbench before running it"
             )
@@ -399,7 +420,7 @@ class WorkbenchRuntime:
             if thread is not None and thread is not threading.current_thread():
                 thread.join(timeout=max(0.0, deadline - time.monotonic()))
         with self._agent_lock:
-            self.trace_runner.agent.connection.close()
+            _close_agent(self.trace_runner.agent)
 
     def overview(self) -> dict[str, Any]:
         agent = self.trace_runner.agent
@@ -420,6 +441,8 @@ class WorkbenchRuntime:
                 "project_id": self.project_id,
                 "rerank_mode": self.rerank_mode,
                 "retrieval_mode": self.retrieval_mode,
+                "p11_mode": self.p11_mode,
+                "p11": _agent_p11_status(agent),
             },
             "repository": self._git,
             "source_state": self._source_state(),
@@ -503,6 +526,16 @@ class WorkbenchRuntime:
                     "unchanged, and active is permitted only with control retrieval"
                 ),
                 "source": "starter/attributes.py + starter/reranker.py + starter/agent.py",
+            },
+            {
+                "layer": "P11 frozen Top-10 reranking",
+                "status": "implemented",
+                "mode": self.p11_mode,
+                "detail": (
+                    "The frozen sparse/field/constraint scorer may only permute R08's "
+                    "existing Top 10; identity or scoring failures preserve full R08 order"
+                ),
+                "source": "starter/p11_bridge.py + starter/p11_features.py",
             },
             {"layer": "Clarification policy", "status": "implemented", "mode": "shadow diagnostic", "detail": "The served policy remains fixed-order; shadow QuestionValue ranks attributes by information gain, coverage, answerability, and turn cost", "source": "starter/agent.py + starter/clarification.py"},
             {"layer": "Scoring", "status": "implemented", "detail": "Deterministic local evaluator; scoring behavior cross-checked with official 3407835", "source": "evaluator/local_evaluator.py"},
@@ -667,6 +700,7 @@ class WorkbenchRuntime:
             job.log(
                 "Building a fresh in-memory Agent index "
                 f"(retrieval mode: {self.retrieval_mode}; rerank mode: {self.rerank_mode}; "
+                f"P11 mode: {self.p11_mode}; "
                 "slot ledger: shadow; "
                 f"candidate clarification: {'shadow' if self.rerank_mode != 'off' else 'disabled'})"
             )
@@ -674,6 +708,7 @@ class WorkbenchRuntime:
                 self.catalog_path,
                 rerank_mode=self.rerank_mode,
                 retrieval_mode=self.retrieval_mode,
+                p11_mode=self.p11_mode,
             )
             samples = list(self.trace_runner.samples.values())
             progress_agent = _ProgressAgent(agent, job, samples)
@@ -698,6 +733,7 @@ class WorkbenchRuntime:
             shadow_policy = progress_agent.shadow_policy.artifact()
             self._write_json(experiment_dir / "shadow_policy.json", shadow_policy)
             evaluation_seconds = round(time.perf_counter() - started, 3)
+            p11_status = _agent_p11_status(agent)
             repository = provenance["repository"]
             source_hashes = provenance["source_hashes"]
             input_hashes = provenance["input_hashes"]
@@ -714,12 +750,16 @@ class WorkbenchRuntime:
                     "question_policy": agent.question_policy,
                     "rerank_mode": _agent_rerank_mode(agent),
                     "retrieval_mode": _agent_retrieval_mode(agent),
+                    "p11_mode": _agent_p11_mode(agent),
+                    "p11": p11_status,
                     "agent_source_sha256": source_hashes["agent"],
                     "attributes_source_sha256": source_hashes["attributes"],
                     "reranker_source_sha256": source_hashes["reranker"],
                     "slot_ledger_source_sha256": source_hashes["slot_ledger"],
                     "clarification_source_sha256": source_hashes["clarification"],
                     "coverage_source_sha256": source_hashes["coverage"],
+                    "p11_bridge_source_sha256": source_hashes["p11_bridge"],
+                    "p11_features_source_sha256": source_hashes["p11_features"],
                     "shadow_analysis_source_sha256": source_hashes["shadow_analysis"],
                     "evaluator_source_sha256": source_hashes["evaluator"],
                     "attribute_schema_version": ATTRIBUTE_SCHEMA_VERSION,
@@ -760,6 +800,8 @@ class WorkbenchRuntime:
                     **_metrics(result),
                     "rerank_mode": _agent_rerank_mode(agent),
                     "retrieval_mode": _agent_retrieval_mode(agent),
+                    "p11_mode": _agent_p11_mode(agent),
+                    "p11_effective_mode": p11_status.get("effective_mode"),
                     "shadow_policy": shadow_policy["summary"],
                 }
             job.log("Evaluation completed")
@@ -773,7 +815,12 @@ class WorkbenchRuntime:
             job.log(f"{type(exc).__name__}: {exc}")
         finally:
             if agent is not None:
-                agent.connection.close()
+                try:
+                    _close_agent(agent)
+                except Exception as exc:
+                    with job._lock:
+                        job.status = "failed"
+                    job.log(f"Agent shutdown failed: {type(exc).__name__}: {exc}")
             with job._lock:
                 job.finished_at = _utc_now()
                 job.elapsed_seconds = round(time.perf_counter() - started, 3)
@@ -834,9 +881,11 @@ class WorkbenchRuntime:
             environment = os.environ.copy()
             environment["TECHJAM_RERANK_MODE"] = self.rerank_mode
             environment["TECHJAM_RETRIEVAL_MODE"] = self.retrieval_mode
+            environment["TECHJAM_P11_MODE"] = "off"
             job.log(
                 "Running canonical, phrase-perturbed, and product-disjoint stress suites "
-                f"(retrieval mode: {self.retrieval_mode}; rerank mode: {self.rerank_mode})"
+                f"(retrieval mode: {self.retrieval_mode}; rerank mode: {self.rerank_mode}; "
+                "P11 mode: off for legacy-runner provenance)"
             )
             job.process = subprocess.Popen(
                 command,
@@ -877,6 +926,7 @@ class WorkbenchRuntime:
                 "artifact": str(artifact_path.relative_to(self.project_root)),
                 "rerank_mode": self.rerank_mode,
                 "retrieval_mode": self.retrieval_mode,
+                "p11_mode": "off",
                 "released_public": {
                     "robustness": public.get("robustness"),
                     "canonical": canonical_metrics,
@@ -914,6 +964,7 @@ class WorkbenchRuntime:
                 "implementation": {
                     "rerank_mode": self.rerank_mode,
                     "retrieval_mode": self.retrieval_mode,
+                    "p11_mode": "off",
                     "agent_source_sha256": provenance["source_hashes"]["agent"],
                     "attributes_source_sha256": provenance["source_hashes"][
                         "attributes"
@@ -996,6 +1047,15 @@ class WorkbenchRuntime:
                 executable = executable.with_name("python.exe")
             command = [str(executable), "-m", "unittest", "discover", "-s", "tests", "-v"]
             flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            environment = os.environ.copy()
+            for name in (
+                "TECHJAM_QUESTION_POLICY",
+                "TECHJAM_RERANK_MODE",
+                "TECHJAM_RETRIEVAL_MODE",
+                "TECHJAM_P11_MODE",
+                "TECHJAM_P11_SIDECAR_PATH",
+            ):
+                environment.pop(name, None)
             job.log("Running repository unit tests")
             job.process = subprocess.Popen(
                 command,
@@ -1005,6 +1065,7 @@ class WorkbenchRuntime:
                 text=True,
                 bufsize=1,
                 creationflags=flags,
+                env=environment,
             )
             assert job.process.stdout is not None
             for line in job.process.stdout:
@@ -1081,6 +1142,8 @@ class WorkbenchRuntime:
             "history": [],
             "rerank_mode": self.rerank_mode,
             "retrieval_mode": self.retrieval_mode,
+            "p11_mode": self.p11_mode,
+            "p11": _agent_p11_status(self.trace_runner.agent),
         }
 
     def lab_respond(self, session_id: str, message: str) -> dict[str, Any]:
@@ -1122,6 +1185,8 @@ class WorkbenchRuntime:
             "session_id": session_id,
             "rerank_mode": self.rerank_mode,
             "retrieval_mode": self.retrieval_mode,
+            "p11_mode": self.p11_mode,
+            "p11": _agent_p11_status(self.trace_runner.agent),
             **entry,
         }
 

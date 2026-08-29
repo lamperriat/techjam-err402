@@ -6,7 +6,7 @@ Last updated: 2026-08-29 SGT.
 
 ## Current verified implementation
 
-- Branch: `p4-architecture-search`
+- Branch: `p11-p12-fast-track`
 - P11 preregistration lock: `c6efa5f` (`chore: freeze P11 preregistration lock`)
 - P11 frozen source: `639cf78` (`fix: align P11 protocol hash with corpus builder`),
   including the P11 implementation checkpoint at parent `4f27ee8`
@@ -39,16 +39,35 @@ Last updated: 2026-08-29 SGT.
 - Official public-set Git blob: `121dbec9c1368c81cd887d6959e62507512139c0`; local Git-normalized content is identical
 - Default execution: offline, no LLM object, no API key, no network call, zero reported tokens
 - Direct `Agent()` defaults are `TECHJAM_RETRIEVAL_MODE=coverage`,
-  `TECHJAM_RERANK_MODE=off`, and `TECHJAM_QUESTION_POLICY=fast`; clear inherited values
-  or set them explicitly for a production run. `retrieval_mode=control` preserves the
-  pre-P4 weighted-RRF output for paired experiments.
+  `TECHJAM_RERANK_MODE=off`, `TECHJAM_QUESTION_POLICY=fast`, and
+  `TECHJAM_P11_MODE=active`; clear inherited values or set them explicitly for a
+  production run. `TECHJAM_P11_MODE=off` restores the complete R08 order, while
+  `retrieval_mode=control` preserves the pre-P4 weighted-RRF output for paired experiments.
 
 ## P11 Top-10-preserving reranker: frozen formal promote decision
 
 The sole preregistered P11 formal run completed with decision `promote_p11_r01` and winner
-`P11.R01.top10_linear`. This is an isolated experiment promotion, not yet a production
-route change: the served Agent and complete fallback remain R08 `coverage/off/fast`.
-P9 stayed frozen and was neither modified nor rerun. Released public was not evaluated.
+`P11.R01.top10_linear`. The frozen winner is now connected to the production path through
+`starter/p11_bridge.py`: direct served construction defaults to P11 `active`, while the
+complete fallback remains R08 `coverage/off/fast`. P9 stayed frozen and was neither
+modified nor rerun. Released public was not evaluated during this integration.
+
+- The bridge verifies the frozen catalog, scorer contract, SQLite-internal feature
+  metadata, sidecar byte count and SHA-256 before serving any P11 order. The external
+  manifest is audit/provenance metadata. Its read-only SQLite fetch is capped at the ten
+  existing R08 head members per turn.
+- P11 may only permute those exact ten members; every item from rank 11 onward is unchanged.
+  Equal final scores preserve R08 order. Any initialization, identity, fetch, subtype,
+  scoring, adapter, or boundary failure records a diagnostic and keeps R08 output;
+  shutdown failures propagate instead of producing a false completed state.
+- The tracked sidecar is 32,501,760 bytes with SHA-256
+  `83b6d8c04be6666173806b6e9cb03301eecb8ca58a60272bfa719e6533380473`.
+- Explicit historical retrieval/rerank/question settings retain their prior off semantics
+  unless P11 mode is also explicitly requested. The no-terminal Workbench launcher pins
+  the new served preset instead of inheriting stale shell values.
+- Verification on the isolated fast-track worktree passed 68 focused P11/core tests,
+  all 580 repository tests, all 14 official-asset checks, and `compileall`. No released-
+  public evaluation was run.
 
 - Added an exact future-experiment metric bridge that validates HR, MRR, MTTC,
   Efficiency, TechnicalScore, `best_rank`, and reciprocal-rank consistency in the official
@@ -215,9 +234,10 @@ Initial-run absolute resources were:
   `fe0f8820b22c07136db44fb3739809d22b8edc5d1125707c5b0523dec312b912`.
   Failure slices remained non-gating with `runs_per_slice=0`. Post-result verification
   passes the complete `559/559` suite, official assets `14/14`, and `compileall`.
-- The formal gate therefore promotes R01 for a later reversible production integration.
-  Until that separate change is implemented and verified, direct/default production
-  behavior remains R08 and the published checkpoint remains unchanged.
+- At the time of the formal gate, R01 was promoted only for a later reversible production
+  integration and direct/default behavior still remained R08. That later integration is
+  the served bridge recorded at the start of this section; the released-public checkpoint
+  itself remains unchanged because public was not rerun.
 
 ## P9 compact-negative experiment: frozen retain decision
 
@@ -737,8 +757,9 @@ file. Historical audit reports must still distinguish the earlier type-only wrap
 
 The current served implementation should be described as **versioned stateful sparse
 retrieval with weighted-RRF candidate fusion, promoted visible-query-term coverage
-ordering, and heuristic clarification, plus normalized slot/attribute/rerank/
-QuestionValue diagnostics**, not as the complete IntentGraph target architecture.
+ordering, heuristic clarification, and a frozen Top-10-only P11 linear reranker, plus
+normalized slot/attribute/rerank/QuestionValue diagnostics**, not as the complete
+IntentGraph target architecture.
 
 ## Change history
 

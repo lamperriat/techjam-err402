@@ -39,6 +39,8 @@ TOKEN_RE = re.compile(r"[a-z0-9]+", re.IGNORECASE)
 ATTRIBUTE_CACHE_LIMIT = 10_000
 RANKING_DIAGNOSTIC_LIMIT = 128
 RETRIEVAL_MODES = ("control", "coverage")
+P11_MODES = ("off", "control", "shadow", "active")
+DEFAULT_P11_MODE = "active"
 CATEGORY_PATTERNS = (
     re.compile(
         r"^\s*(?:i(?:'m| am)\s+)?(?:looking|searching|shopping)\s+for\s+"
@@ -490,26 +492,75 @@ class Agent:
         trace_sink: Callable[[dict[str, Any]], None] | None = None,
         rerank_mode: str | None = None,
         retrieval_mode: str | None = None,
+        p11_mode: str | None = None,
+        p11_sidecar_path: str | Path | None = None,
     ) -> None:
         self.catalog_path = Path(catalog_path)
         self.llm_client = llm_client
         self.trace_sink = trace_sink
-        self.question_policy = (
-            question_policy or os.getenv("TECHJAM_QUESTION_POLICY", "fast")
-        ).strip().lower()
+        requested_p11_mode = p11_mode
+        if requested_p11_mode is None:
+            environment_mode = (
+                os.getenv("TECHJAM_P11_MODE") if type(self) is Agent else None
+            )
+            legacy_configuration_requested = any(
+                value is not None
+                for value in (
+                    question_policy
+                    if question_policy is not None
+                    else os.getenv("TECHJAM_QUESTION_POLICY"),
+                    rerank_mode
+                    if rerank_mode is not None
+                    else os.getenv("TECHJAM_RERANK_MODE"),
+                    retrieval_mode
+                    if retrieval_mode is not None
+                    else os.getenv("TECHJAM_RETRIEVAL_MODE"),
+                )
+            )
+            requested_p11_mode = (
+                environment_mode
+                if environment_mode is not None
+                else (
+                    DEFAULT_P11_MODE
+                    if type(self) is Agent and not legacy_configuration_requested
+                    else "off"
+                )
+            )
+        self.p11_mode = str(requested_p11_mode).strip().lower()
+        if self.p11_mode not in P11_MODES:
+            raise ValueError("p11_mode must be one of: " + ", ".join(P11_MODES))
+
+        if self.p11_mode != "off":
+            explicit_values = (
+                ("question_policy", question_policy, "fast"),
+                ("rerank_mode", rerank_mode, "off"),
+                ("retrieval_mode", retrieval_mode, "coverage"),
+            )
+            for name, value, expected in explicit_values:
+                if value is not None and str(value).strip().lower() != expected:
+                    raise ValueError(
+                        f"P11 {self.p11_mode} requires {name}={expected}"
+                    )
+            self.question_policy = "fast"
+            self.rerank_mode = "off"
+            self.retrieval_mode = "coverage"
+        else:
+            self.question_policy = (
+                question_policy or os.getenv("TECHJAM_QUESTION_POLICY", "fast")
+            ).strip().lower()
+            self.rerank_mode = (
+                rerank_mode or os.getenv("TECHJAM_RERANK_MODE", "off")
+            ).strip().lower()
+            self.retrieval_mode = resolve_retrieval_mode(
+                retrieval_mode,
+                self.rerank_mode,
+            )
         if self.question_policy not in {"conservative", "boundary", "fast"}:
             raise ValueError(
                 "question_policy must be one of: conservative, boundary, fast"
             )
-        self.rerank_mode = (
-            rerank_mode or os.getenv("TECHJAM_RERANK_MODE", "off")
-        ).strip().lower()
         if self.rerank_mode not in {"off", "shadow", "active"}:
             raise ValueError("rerank_mode must be one of: off, shadow, active")
-        self.retrieval_mode = resolve_retrieval_mode(
-            retrieval_mode,
-            self.rerank_mode,
-        )
         if self.retrieval_mode not in RETRIEVAL_MODES:
             raise ValueError(
                 "retrieval_mode must be one of: " + ", ".join(RETRIEVAL_MODES)
@@ -520,8 +571,30 @@ class Agent:
         self._lock = threading.RLock()
         self._sessions: dict[str, SessionState] = {}
         self._ranking_diagnostics: OrderedDict[int, dict[str, Any]] = OrderedDict()
+        self._ranking_snapshots: OrderedDict[str, dict[str, list[str]]] = OrderedDict()
         self._attribute_view_cache: OrderedDict[str, ProductAttributeView] = OrderedDict()
+        self._p11_bridge: Any | None = None
+        self._p11_initialization_code = (
+            "disabled" if self.p11_mode == "off" else "control_exact"
+        )
+        self._closed = False
         self._build_index()
+        if self.p11_mode in {"shadow", "active"}:
+            try:
+                from starter.p11_bridge import P11ProductionBridge
+
+                configured_path = p11_sidecar_path
+                if configured_path is None and type(self) is Agent:
+                    configured_path = os.getenv("TECHJAM_P11_SIDECAR_PATH")
+                self._p11_bridge = P11ProductionBridge(
+                    self.p11_mode,
+                    configured_path,
+                    catalog_path=self.catalog_path,
+                )
+                self._p11_initialization_code = "bridge_initialized"
+            except Exception:
+                self._p11_bridge = None
+                self._p11_initialization_code = "bridge_init_failure"
 
     def _trace(
         self,
@@ -597,17 +670,102 @@ class Agent:
         while len(self._ranking_diagnostics) > RANKING_DIAGNOSTIC_LIMIT:
             self._ranking_diagnostics.popitem(last=False)
 
+    def _store_ranking_snapshot(
+        self, session_id: str, rankings: dict[str, list[str]]
+    ) -> None:
+        if self.p11_mode not in {"shadow", "active"}:
+            return
+        self._ranking_snapshots[session_id] = {
+            route: list(identifiers) for route, identifiers in rankings.items()
+        }
+        self._ranking_snapshots.move_to_end(session_id)
+        while len(self._ranking_snapshots) > RANKING_DIAGNOSTIC_LIMIT:
+            self._ranking_snapshots.popitem(last=False)
+
+    def _p11_status(self) -> dict[str, Any]:
+        if self._p11_bridge is not None:
+            return dict(self._p11_bridge.status())
+        effective_mode = self.p11_mode
+        reason_code = self._p11_initialization_code
+        fallback = self.p11_mode in {"shadow", "active"}
+        if fallback:
+            effective_mode = "fallback"
+        return {
+            "schema_version": "p11.production-bridge.v1",
+            "configured_mode": self.p11_mode,
+            "effective_mode": effective_mode,
+            "identity_verified": False,
+            "reason_code": reason_code,
+            "fallback": fallback,
+        }
+
+    def _apply_p11(
+        self,
+        state: SessionState,
+        rankings: dict[str, list[str]],
+        candidate_rowids: dict[str, int],
+        query_terms: list[str],
+    ) -> tuple[list[str], dict[str, Any]]:
+        baseline = list(rankings["final"])
+        if self._p11_bridge is None:
+            status = self._p11_status()
+            head = list(baseline[:10])
+            return baseline, {
+                **status,
+                "baseline_top10": head,
+                "proposed_top10": head,
+                "served_top10": head,
+                "changed_top10_order": False,
+                "output_changed": False,
+                "top10_membership_preserved": True,
+                "tail_preserved": True,
+                "breakdowns": {},
+            }
+        try:
+            outcome = self._p11_bridge.apply(
+                state,
+                rankings,
+                candidate_rowids,
+                query_terms,
+            )
+            return list(outcome.identifiers), dict(outcome.diagnostics)
+        except Exception:
+            try:
+                self._p11_bridge.record_adapter_failure()
+            except Exception:
+                # Response safety never depends on audit bookkeeping. If this
+                # defensive hook also fails, the per-turn diagnostics below
+                # still disclose fallback and the functional gate rejects it.
+                pass
+            head = list(baseline[:10])
+            return baseline, {
+                **self._p11_status(),
+                "effective_mode": "fallback",
+                "reason_code": "bridge_adapter_failure",
+                "fallback": True,
+                "baseline_top10": head,
+                "proposed_top10": head,
+                "served_top10": head,
+                "changed_top10_order": False,
+                "output_changed": False,
+                "top10_membership_preserved": True,
+                "tail_preserved": True,
+                "breakdowns": {},
+            }
+
     def reset(self, session_id: str, user_profile: dict) -> None:
         with self._lock:
             previous = self._sessions.get(session_id)
             if previous is not None:
                 self._ranking_diagnostics.pop(id(previous), None)
+            self._ranking_snapshots.pop(session_id, None)
             self._sessions[session_id] = SessionState(profile=dict(user_profile))
             self._trace(session_id, None, "session", {
                 "memory_mode": "versioned multi-turn state",
                 "question_policy": self.question_policy,
                 "rerank_mode": self.rerank_mode,
                 "retrieval_mode": self.retrieval_mode,
+                "p11": self._p11_status(),
                 "coverage_schema_version": COVERAGE_SCHEMA_VERSION,
                 "rerank_top_n": RERANK_TOP_N,
                 "reranker_version": SCORER_VERSION,
@@ -623,6 +781,7 @@ class Agent:
             state = self._sessions.pop(session_id, None)
             if state is not None:
                 self._ranking_diagnostics.pop(id(state), None)
+            self._ranking_snapshots.pop(session_id, None)
 
     @staticmethod
     def _is_override(message: str) -> bool:
@@ -830,7 +989,13 @@ class Agent:
                 route: []
                 for route in ("broad", "strict", "fused", "reranked", "final")
             }
-            self._store_ranking_diagnostics(state, self._empty_rerank_diagnostics())
+            empty["final"], p11_diagnostics = self._apply_p11(
+                state, empty, {}, query_terms
+            )
+            self._store_ranking_diagnostics(
+                state,
+                {**self._empty_rerank_diagnostics(), "p11": p11_diagnostics},
+            )
             return empty
 
         broad_rows = self.connection.execute(
@@ -926,19 +1091,27 @@ class Agent:
                 _terms,
             )
             coverage_diagnostics = {**coverage_diagnostics, "active": True}
-        diagnostics = {
-            **diagnostics,
-            "retrieval_mode": self.retrieval_mode,
-            "coverage": coverage_diagnostics,
-        }
-        self._store_ranking_diagnostics(state, diagnostics)
-        return {
+        rankings = {
             "broad": broad_ids,
             "strict": strict_ids,
             "fused": fused_ids,
             "reranked": reranked_ids,
             "final": final_ids,
         }
+        rankings["final"], p11_diagnostics = self._apply_p11(
+            state,
+            rankings,
+            candidate_rowids,
+            query_terms,
+        )
+        diagnostics = {
+            **diagnostics,
+            "retrieval_mode": self.retrieval_mode,
+            "coverage": coverage_diagnostics,
+            "p11": p11_diagnostics,
+        }
+        self._store_ranking_diagnostics(state, diagnostics)
+        return rankings
 
     def _load_coverage_fields(
         self,
@@ -978,6 +1151,7 @@ class Agent:
             "attribute_schema_version": ATTRIBUTE_SCHEMA_VERSION,
             "attribute_cache": {"hits": 0, "misses": 0, "size": len(self._attribute_view_cache)},
             "breakdowns": {},
+            "p11": self._p11_status(),
             "question_shadow": empty_question_shadow(
                 "Candidate attributes are computed only when rerank diagnostics are enabled."
             ),
@@ -1044,7 +1218,15 @@ class Agent:
         with self._lock:
             if session_id not in self._sessions:
                 raise KeyError(f"Unknown session_id: {session_id}")
-            return self._rank_candidates(self._sessions[session_id])
+            rankings = self._ranking_snapshots.get(session_id)
+            if rankings is None:
+                rankings = self._rank_candidates(self._sessions[session_id])
+                self._store_ranking_snapshot(session_id, rankings)
+            else:
+                self._ranking_snapshots.move_to_end(session_id)
+            return {
+                route: list(identifiers) for route, identifiers in rankings.items()
+            }
 
     def debug_rerank_diagnostics(self, session_id: str) -> dict[str, Any]:
         """Return target-blind component scores for the current candidate pool."""
@@ -1057,6 +1239,20 @@ class Agent:
                 self._rank_candidates(state)
                 diagnostics = self._ranking_diagnostics[id(state)]
             return json.loads(json.dumps(diagnostics))
+
+    def debug_p11_diagnostics(self, session_id: str) -> dict[str, Any]:
+        """Return target-blind P11 status from the already-computed turn."""
+        with self._lock:
+            if session_id not in self._sessions:
+                raise KeyError(f"Unknown session_id: {session_id}")
+            state = self._sessions[session_id]
+            diagnostics = self._ranking_diagnostics.get(id(state))
+            value = (
+                diagnostics.get("p11")
+                if isinstance(diagnostics, dict)
+                else self._p11_status()
+            )
+            return json.loads(json.dumps(value))
 
     @staticmethod
     def _select_question(state: SessionState, turn: int) -> str | None:
@@ -1101,6 +1297,7 @@ class Agent:
             "question_policy": self.question_policy,
             "rerank_mode": self.rerank_mode,
             "retrieval_mode": self.retrieval_mode,
+            "p11": self._p11_status(),
             "coverage_schema_version": COVERAGE_SCHEMA_VERSION,
             "rerank_top_n": RERANK_TOP_N,
             "reranker_version": SCORER_VERSION,
@@ -1186,7 +1383,9 @@ class Agent:
                 "strict_fts_expression": strict_expression,
             })
 
+            self._ranking_snapshots.pop(session_id, None)
             rankings = self._rank_candidates(state)
+            self._store_ranking_snapshot(session_id, rankings)
             recommendations = [
                 {"parent_asin": asin}
                 for asin in rankings["final"][: min(max(top_k, 1), 10)]
@@ -1211,6 +1410,7 @@ class Agent:
                 coverage_by_parent_asin = rerank_diagnostics.get(
                     "coverage", {}
                 ).get("coverage_by_parent_asin", {})
+                p11_diagnostics = rerank_diagnostics.get("p11", self._p11_status())
 
                 def result_rows(route: str) -> list[dict[str, Any]]:
                     return [
@@ -1247,11 +1447,19 @@ class Agent:
                     "rerank": {
                         key: value
                         for key, value in rerank_diagnostics.items()
-                        if key != "breakdowns"
+                        if key not in {"breakdowns", "p11"}
                     },
-                    "rerank_affects_output": self.rerank_mode == "active",
+                    "rerank_affects_output": (
+                        self.rerank_mode == "active"
+                        or bool(p11_diagnostics.get("output_changed"))
+                    ),
                     "retrieval_mode": self.retrieval_mode,
                     "coverage": rerank_diagnostics["coverage"],
+                    "p11": {
+                        key: value
+                        for key, value in p11_diagnostics.items()
+                        if key != "breakdowns"
+                    },
                     "raw_fused_top_results": raw_fused_top_results,
                     "reranked_top_results": reranked_top_results,
                     "final_top_results": final_top_results,
@@ -1302,3 +1510,17 @@ class Agent:
                 "usage": usage,
             })
             return response
+
+    def close(self) -> None:
+        """Idempotently close both the optional sidecar and base catalog index."""
+        with self._lock:
+            if self._closed:
+                return
+            self._closed = True
+            bridge, self._p11_bridge = self._p11_bridge, None
+            self._p11_initialization_code = "agent_closed"
+            try:
+                if bridge is not None:
+                    bridge.close()
+            finally:
+                self.connection.close()

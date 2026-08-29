@@ -256,7 +256,7 @@ class BenchmarkResourcesTest(unittest.TestCase):
                 )
                 rankings = agent.take_last_rankings()
             finally:
-                agent.connection.close()
+                agent.close()
 
         self.assertEqual(
             [value.__name__ for value in ArchitectureRankCaptureAgent.mro()[:4]],

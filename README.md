@@ -68,6 +68,13 @@ hit-to-miss and one miss-to-hit change. The deterministic product-derived,
 public-target-disjoint corpus is a
 local stress tool, not organizer data or a hidden-score estimate.
 
+The served default now adds the frozen P11 Top-10-only linear reranker after R08.
+It may change order inside the existing Top 10, but it cannot add a product to that set
+and therefore cannot improve Hit Rate@10. Under the served `coverage/off/fast` preset, set
+`TECHJAM_P11_MODE=off` to recover the exact R08 response/ranking without rebuilding any
+asset. Diagnostic traces still label P11 as disabled. This integration did not rerun the released
+200-session set; the table above remains the last released-public R08 checkpoint.
+
 Historical P3 validation showed shadow strictly output-equal to control/off on both the
 public and frozen product-disjoint corpora and exposed five auditable routes:
 `broad`, `strict`, `fused`, `reranked`, and `final`. Experimental active v1 scored HR@10
@@ -220,16 +227,20 @@ formal experiment decision is `promote_p11_r01`; aggregate result SHA-256 is
 Scenario HR was preserved, but scenario MRR was not a frozen gate and regressed on the
 uniform-tail intent-override and confirmation boundary slices; production integration
 must keep that residual risk visible without retuning on the consumed evidence.
-Released public was not run. This promotes the isolated candidate for a separate reversible
-served integration; it has not changed the current default, which remains R08
-`coverage/off/fast` with R08 as the complete fallback.
+Released public was not run. The frozen candidate is now installed as a reversible served
+layer: P11 defaults to `active`, may only permute R08's exact Top 10, and returns the complete
+R08 order on any pre-response identity, feature, scoring, adapter, or boundary failure.
+Shutdown failures are surfaced to the caller instead of being reported as successful.
 
 Direct `Agent()` construction reads three optional experiment variables:
 `TECHJAM_RETRIEVAL_MODE` (`coverage` or `control`),
 `TECHJAM_RERANK_MODE` (`off`, `shadow`, or experimental `active`) and
-`TECHJAM_QUESTION_POLICY` (`fast`, `boundary`, or `conservative`). Production and
+`TECHJAM_QUESTION_POLICY` (`fast`, `boundary`, or `conservative`). It also reads
+`TECHJAM_P11_MODE` (`off`, `control`, `shadow`, or `active`) and the optional
+`TECHJAM_P11_SIDECAR_PATH`. Production and
 official evaluation should clear inherited values or explicitly use `coverage`, `off`,
-and `fast`. With no overrides, `Agent()` serves `coverage` with reranking off.
+`fast`, and P11 `active`. With no overrides, `Agent()` serves R08 coverage with the older
+P2 reranker off and the frozen P11 Top-10 reranker active.
 
 ## LLM Client Configuration
 
@@ -249,8 +260,8 @@ See `docs/development_workflow.md` for the project mental model, debugging funne
 
 On Windows, double-click `Start Observer.vbs` to start the local Workbench without opening
 a terminal. It uses the existing `tiktok` Conda environment, starts through
-`pythonw.exe`, and opens `http://127.0.0.1:8765`. The P4 Workbench alignment uses the
-served `coverage + rerank off` path and labels the weighted-RRF `fused` control separately
+`pythonw.exe`, and opens `http://127.0.0.1:8765`. The Workbench launcher uses the served
+`coverage + rerank off + P11 active` path and labels the weighted-RRF `fused` control separately
 from the coverage-ordered `final` route. `Start Observer.cmd` and
 `python -m observer.launcher` are troubleshooting fallbacks.
 
@@ -340,6 +351,8 @@ starter/slot_ledger.py             auditable normalized conversation shadow
 starter/clarification.py           candidate-aware QuestionValue shadow
 starter/p11_features.py            frozen catalog-only Top-10 feature/scoring contract
 starter/p11_lab.py                 isolated B00/C00/S00/R01 P11 role layer
+starter/p11_bridge.py              fail-closed served P11/R08 integration boundary
+starter/assets/p11_features.sqlite frozen read-only 50k catalog feature sidecar
 evaluator/local_evaluator.py      public-set simulator and scorer
 scripts/compare_results.py        report and strict complete-result comparison
 scripts/evaluate_agent.py         mode-controlled evaluator + provenance manifest

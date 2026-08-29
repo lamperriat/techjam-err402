@@ -132,6 +132,29 @@ class P11Top10ScorerTests(unittest.TestCase):
             ("NEAR", "HIGH", "FAR"),
         )
 
+    def test_exact_final_score_ties_preserve_r08_order(self) -> None:
+        identifiers = [
+            "P-07", "P-02", "P-10", "P-01", "P-09",
+            "P-03", "P-08", "P-04", "P-06", "P-05", "TAIL",
+        ]
+        result = rerank_top10_preserving_membership(
+            identifiers,
+            FeatureBatch(
+                {identifier: evidence(identifier) for identifier in identifiers[:10]},
+                {},
+            ),
+            query_terms=(),
+            broad_ranks=equal_ranks(identifiers),
+            strict_ranks=equal_ranks(identifiers),
+            fused_ranks=equal_ranks(identifiers),
+        )
+
+        self.assertFalse(result.fallback)
+        self.assertEqual(result.reason, "scored")
+        self.assertEqual(len({item.total for item in result.breakdowns.values()}), 1)
+        self.assertFalse(result.changed_top10_order)
+        self.assertEqual(result.identifiers, tuple(identifiers))
+
     def test_idf_rerank_preserves_exact_top10_membership_and_tail(self) -> None:
         identifiers = [f"P-{index:02d}" for index in range(1, 12)]
         features = {identifier: evidence(identifier) for identifier in identifiers[:10]}

@@ -6,7 +6,7 @@ The live Agent boundary in this module is deliberately the same as the competiti
 boundary: reset receives only an opaque session ID and aggregate profile, while
 respond receives only the visible message, turn, and requested top-k.  Route lists
 are captured while the Agent computes them.  Ground-truth IDs are joined only after
-evaluation has finished and the Agent connection has been closed.
+evaluation has finished and the Agent lifecycle has been closed.
 """
 
 import argparse
@@ -100,6 +100,14 @@ def _stable_sha256(value: object) -> str:
         separators=(",", ":"),
     ).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
+
+
+def _close_agent(agent: Any) -> None:
+    close = getattr(agent, "close", None)
+    if callable(close):
+        close()
+        return
+    agent.connection.close()
 
 
 def _round_seconds(value: float) -> float:
@@ -684,7 +692,7 @@ def run_once(
         trace_hashes = target_blind_trace_hashes(probe.sessions)
 
         # Close all retrieval state before labels are joined to captured routes.
-        agent.connection.close()
+        _close_agent(agent)
         agent = None
 
         sampler.begin_stage()
@@ -769,7 +777,7 @@ def run_once(
         }
     finally:
         if agent is not None:
-            agent.connection.close()
+            _close_agent(agent)
         sampler.stop()
 
 

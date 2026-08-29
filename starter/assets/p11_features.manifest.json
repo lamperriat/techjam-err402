@@ -1,0 +1,14 @@
+{
+  "schema_version": "p11.production-sidecar-manifest.v1",
+  "file": "p11_features.sqlite",
+  "bytes": 32501760,
+  "sha256": "83b6d8c04be6666173806b6e9cb03301eecb8ca58a60272bfa719e6533380473",
+  "catalog_rows": 50000,
+  "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+  "feature_schema_version": "p11.top10-features.v2",
+  "scorer_version": "p11.top10-linear.v3",
+  "feature_registry_sha256": "c2c6b4309e5bbf8e092f625957ae5f0cdeb193adcc48d552e5291837803749b1",
+  "feature_semantics_sha256": "abae7be9ab9073593ca40309177408adf20e460e3153fe95ec942fb53b47a488",
+  "open_mode": "sqlite-mode-ro-immutable-query-only",
+  "runtime_download_required": false
+}

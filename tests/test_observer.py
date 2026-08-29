@@ -44,7 +44,7 @@ class ObserverTraceTest(unittest.TestCase):
             self.assertIn(marker, app)
         self.assertIn("slot ledger / 候选感知澄清 shadow", page)
 
-    def test_one_click_launcher_defaults_workbench_to_coverage_off(self) -> None:
+    def test_one_click_launcher_defaults_to_served_p11_preset(self) -> None:
         with (
             patch.dict(
                 os.environ,
@@ -60,6 +60,27 @@ class ObserverTraceTest(unittest.TestCase):
             launcher.main()
             self.assertEqual(os.environ["TECHJAM_RETRIEVAL_MODE"], "coverage")
             self.assertEqual(os.environ["TECHJAM_RERANK_MODE"], "off")
+            self.assertEqual(os.environ["TECHJAM_QUESTION_POLICY"], "fast")
+            self.assertEqual(os.environ["TECHJAM_P11_MODE"], "active")
+            self.assertNotIn("TECHJAM_P11_SIDECAR_PATH", os.environ)
+            serve.assert_called_once_with()
+
+    def test_one_click_launcher_preserves_explicit_p11_off_kill_switch(self) -> None:
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "TECHJAM_P11_MODE": "off",
+                    "TECHJAM_P11_SIDECAR_PATH": "stale.sqlite",
+                },
+                clear=True,
+            ),
+            patch.object(launcher, "_running_project", return_value=None),
+            patch("observer.server.main") as serve,
+        ):
+            launcher.main()
+            self.assertEqual(os.environ["TECHJAM_P11_MODE"], "off")
+            self.assertNotIn("TECHJAM_P11_SIDECAR_PATH", os.environ)
             serve.assert_called_once_with()
 
     def test_windows_launchers_do_not_embed_a_machine_specific_conda_path(self) -> None:
@@ -404,6 +425,8 @@ class ObserverTraceTest(unittest.TestCase):
                 "starter/slot_ledger.py",
                 "starter/clarification.py",
                 "starter/coverage.py",
+                "starter/p11_bridge.py",
+                "starter/p11_features.py",
                 "observer/shadow_analysis.py",
             ):
                 source = root / relative_path
@@ -423,14 +446,18 @@ class ObserverTraceTest(unittest.TestCase):
             self.assertEqual(overview["index"]["rows"], 1)
             self.assertEqual(overview["runtime"]["rerank_mode"], "shadow")
             self.assertEqual(overview["runtime"]["retrieval_mode"], "control")
+            self.assertEqual(overview["runtime"]["p11_mode"], "off")
             health = runtime.health()
             self.assertEqual(health["rerank_mode"], "shadow")
             self.assertEqual(health["retrieval_mode"], "control")
+            self.assertEqual(health["p11_mode"], "off")
             self.assertIn("attributes", overview["source_state"]["files"])
             self.assertIn("reranker", overview["source_state"]["files"])
             self.assertIn("slot_ledger", overview["source_state"]["files"])
             self.assertIn("clarification", overview["source_state"]["files"])
             self.assertIn("coverage", overview["source_state"]["files"])
+            self.assertIn("p11_bridge", overview["source_state"]["files"])
+            self.assertIn("p11_features", overview["source_state"]["files"])
             self.assertIn("shadow_analysis", overview["source_state"]["files"])
             self.assertFalse(overview["source_state"]["files"]["coverage"]["changed"])
             self.assertEqual(
@@ -465,9 +492,11 @@ class ObserverTraceTest(unittest.TestCase):
             lab = runtime.lab_reset()
             self.assertEqual(lab["rerank_mode"], "shadow")
             self.assertEqual(lab["retrieval_mode"], "control")
+            self.assertEqual(lab["p11_mode"], "off")
             reply = runtime.lab_respond(lab["session_id"], "cotton running shoe")
             self.assertEqual(reply["rerank_mode"], "shadow")
             self.assertEqual(reply["retrieval_mode"], "control")
+            self.assertEqual(reply["p11_mode"], "off")
             self.assertEqual(reply["recommendations"][0]["parent_asin"], "A")
             self.assertIn("retrieval", {event["layer"] for event in reply["events"]})
             lab_retrieval = next(
@@ -494,6 +523,8 @@ class ObserverTraceTest(unittest.TestCase):
             self.assertEqual(current["summary"]["sample_count"], 1)
             self.assertEqual(current["summary"]["rerank_mode"], "shadow")
             self.assertEqual(current["summary"]["retrieval_mode"], "control")
+            self.assertEqual(current["summary"]["p11_mode"], "off")
+            self.assertEqual(current["summary"]["p11_effective_mode"], "off")
             manifest_path = next((root / "experiments").glob("*/manifest.json"))
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             self.assertEqual(manifest["run"]["top_k"], 10)
@@ -501,6 +532,16 @@ class ObserverTraceTest(unittest.TestCase):
             self.assertEqual(manifest["implementation"]["question_policy"], "fast")
             self.assertEqual(manifest["implementation"]["rerank_mode"], "shadow")
             self.assertEqual(manifest["implementation"]["retrieval_mode"], "control")
+            self.assertEqual(manifest["implementation"]["p11_mode"], "off")
+            self.assertEqual(
+                manifest["implementation"]["p11"]["effective_mode"], "off"
+            )
+            self.assertIn(
+                "p11_bridge_source_sha256", manifest["implementation"]
+            )
+            self.assertIn(
+                "p11_features_source_sha256", manifest["implementation"]
+            )
             self.assertIn("attributes_source_sha256", manifest["implementation"])
             self.assertIn("reranker_source_sha256", manifest["implementation"])
             self.assertIn("slot_ledger_source_sha256", manifest["implementation"])
@@ -573,6 +614,8 @@ class ObserverTraceTest(unittest.TestCase):
                 "starter/slot_ledger.py",
                 "starter/clarification.py",
                 "starter/coverage.py",
+                "starter/p11_bridge.py",
+                "starter/p11_features.py",
                 "observer/shadow_analysis.py",
             ):
                 source = root / relative_path
@@ -699,6 +742,10 @@ class ObserverTraceTest(unittest.TestCase):
                 "control",
             )
             self.assertEqual(
+                process_options["env"]["TECHJAM_P11_MODE"],  # type: ignore[index]
+                "off",
+            )
+            self.assertEqual(
                 process_command[process_command.index("--rerank-mode") + 1],
                 "shadow",
             )
@@ -708,6 +755,7 @@ class ObserverTraceTest(unittest.TestCase):
             )
             self.assertEqual(current["summary"]["rerank_mode"], "shadow")
             self.assertEqual(current["summary"]["retrieval_mode"], "control")
+            self.assertEqual(current["summary"]["p11_mode"], "off")
             self.assertEqual(
                 current["summary"]["released_public"]["robustness"][
                     "all_suites_robust_hit_rate"
@@ -725,6 +773,7 @@ class ObserverTraceTest(unittest.TestCase):
             )
             self.assertEqual(manifest["implementation"]["rerank_mode"], "shadow")
             self.assertEqual(manifest["implementation"]["retrieval_mode"], "control")
+            self.assertEqual(manifest["implementation"]["p11_mode"], "off")
             self.assertIn("attributes_source_sha256", manifest["implementation"])
             self.assertIn("reranker_source_sha256", manifest["implementation"])
             self.assertIn("slot_ledger_source_sha256", manifest["implementation"])

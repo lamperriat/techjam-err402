@@ -56,6 +56,12 @@ def main() -> None:
         # stale shell variables silently turn it into an invalid or diagnostic run.
         os.environ["TECHJAM_RETRIEVAL_MODE"] = "coverage"
         os.environ["TECHJAM_RERANK_MODE"] = "off"
+        os.environ["TECHJAM_QUESTION_POLICY"] = "fast"
+        requested_p11 = os.getenv("TECHJAM_P11_MODE", "").strip().lower()
+        os.environ["TECHJAM_P11_MODE"] = (
+            "off" if requested_p11 == "off" else "active"
+        )
+        os.environ.pop("TECHJAM_P11_SIDECAR_PATH", None)
         serve()
     except Exception as exc:
         log_path.write_text(traceback.format_exc(), encoding="utf-8")

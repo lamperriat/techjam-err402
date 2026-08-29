@@ -264,6 +264,15 @@ def main() -> None:
             "rerank off or control for shadow/active; fixed for this process."
         ),
     )
+    parser.add_argument(
+        "--p11-mode",
+        choices=("off", "control", "shadow", "active"),
+        default=None,
+        help=(
+            "Frozen P11 bridge mode. Defaults to TECHJAM_P11_MODE, then the served "
+            "Agent default; fixed for this Workbench process."
+        ),
+    )
     args = parser.parse_args()
 
     if args.host not in {"127.0.0.1", "localhost"}:
@@ -278,13 +287,14 @@ def main() -> None:
         project_root=project_root,
         rerank_mode=args.rerank_mode,
         retrieval_mode=args.retrieval_mode,
+        p11_mode=args.p11_mode,
     )
     server = ExclusiveHTTPServer((args.host, args.port), make_handler(runtime))
     url = f"http://{args.host}:{args.port}"
     print(f"IntentGraph Layer Observer: {url}")
     print(
         f"Runtime preset: retrieval={runtime.retrieval_mode}, "
-        f"rerank={runtime.rerank_mode}"
+        f"rerank={runtime.rerank_mode}, p11={runtime.p11_mode}"
     )
     print("Press Ctrl+C to stop.")
     if not args.no_browser:

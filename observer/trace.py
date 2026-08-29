@@ -20,7 +20,7 @@ from evaluator.local_evaluator import (
     normalize_recommendations,
 )
 from observer.events import TraceRecorder
-from starter.agent import RETRIEVAL_MODES, Agent, _terms
+from starter.agent import P11_MODES, RETRIEVAL_MODES, Agent, _terms
 
 
 RERANK_MODES = {"off", "shadow", "active"}
@@ -58,12 +58,37 @@ def _agent_retrieval_mode(agent: Any) -> str:
         return "control"
 
 
+def _agent_p11_mode(agent: Any) -> str:
+    mode = str(getattr(agent, "p11_mode", "off")).strip().lower()
+    return mode if mode in P11_MODES else "off"
+
+
+def _agent_p11_status(agent: Any) -> dict[str, Any]:
+    status = getattr(agent, "_p11_status", None)
+    if callable(status):
+        try:
+            value = status()
+            if isinstance(value, dict):
+                return dict(value)
+        except Exception:
+            pass
+    mode = _agent_p11_mode(agent)
+    return {
+        "configured_mode": mode,
+        "effective_mode": mode,
+        "fallback": False,
+        "identity_verified": False,
+        "reason_code": "status_unavailable",
+    }
+
+
 def _create_agent(
     catalog_path: str | Path,
     *,
     trace_sink: Any | None = None,
     rerank_mode: str | None = None,
     retrieval_mode: str | None = None,
+    p11_mode: str | None = None,
 ) -> Agent:
     """Construct current or pre-reranker Agents without misreporting their mode."""
     parameters = inspect.signature(Agent).parameters
@@ -74,6 +99,8 @@ def _create_agent(
         kwargs["rerank_mode"] = rerank_mode
     if "retrieval_mode" in parameters:
         kwargs["retrieval_mode"] = retrieval_mode
+    if "p11_mode" in parameters and p11_mode is not None:
+        kwargs["p11_mode"] = p11_mode
     return Agent(catalog_path, **kwargs)
 
 
@@ -147,6 +174,7 @@ def _agent_diagnostics(agent: Any, session_id: str, target: str) -> dict[str, An
         "state": snapshot,
         "rerank_mode": _agent_rerank_mode(agent),
         "retrieval_mode": _agent_retrieval_mode(agent),
+        "p11": rerank_diagnostics.get("p11", _agent_p11_status(agent)),
         "route_counts": {
             "broad": len(broad),
             "strict": len(strict),
@@ -253,6 +281,7 @@ class TraceRunner:
         results_path: str | Path = "results.json",
         rerank_mode: str | None = None,
         retrieval_mode: str | None = None,
+        p11_mode: str | None = None,
     ) -> TraceRunner:
         samples = load_jsonl(dataset_path)
         catalog_ids, categories, products = catalog_index(catalog_path)
@@ -267,6 +296,7 @@ class TraceRunner:
                 trace_sink=recorder.emit,
                 rerank_mode=rerank_mode,
                 retrieval_mode=retrieval_mode,
+                p11_mode=p11_mode,
             ),
             samples,
             catalog_ids,
