@@ -138,6 +138,9 @@ CAGE。train/explore 的 source-weighted baseline 被预先分配的高频 outli
 selection；未来只有新 action 通过 train/calibration 阶梯后，才可生成从未打开、
 target/product-family-disjoint 的 fresh selection。Sealed confirmation 未授权、未读取。
 
-`COMPACT_NEGATIVE_C50` 与 `GUARDED_COMPACT_SLOT10` 尚未实现。下一步只把两者加入同一个
-matrix，运行一次相关 targeted tests，再运行一次 train/explore `limit=100`；本轮不运行
-limit 10/200、完整 split、calibration、selection 或 confirmation。
+`COMPACT_NEGATIVE_C50` 与 `GUARDED_COMPACT_SLOT10` 已作为 target-blind P11.C50 action
+在 `3c7f98a` 实现，config identity 修复为 `87f2657`。唯一 targeted batch 通过 `38/38`，
+随后唯一 data-bearing train/explore `limit=100` 在 78.858889 秒完成：KEEP_P11 HR@10
+`0.940000`、C50 recall `0.970000`，两条新 action 都是 0 activation、0 rescue、0 harm、
+0 HR delta。结论为 `ITERATE`，不运行 limit 10/200、完整 split、calibration、selection
+或 confirmation；完整登记见 `docs/fast_algorithm_results.md`。

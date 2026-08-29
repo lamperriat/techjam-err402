@@ -38,12 +38,33 @@ all four workers exited, and no `selection-full` artifact was produced. The open
 not valid formal one-shot evidence; any future formal selection must be newly generated,
 previously unopened, and target/product-family-disjoint. Confirmation remains sealed.
 
-## Next compact-action batch
+## Compact-action batch 1
 
 | Commit / config | Actions added | Split / limit | Wall | HR delta | m→h | h→m | Net rescue | Activation | Decision |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| PENDING | `COMPACT_NEGATIVE_C50`, `GUARDED_COMPACT_SLOT10` | train/explore / 100 | PENDING | PENDING | PENDING | PENDING | PENDING | PENDING | PENDING |
+| `87f2657` / `be4d72c77f94…` | `COMPACT_NEGATIVE_C50` | train/explore / 100 | 78.858889s | 0.000 | 0 | 0 | 0 | 0 turns / 0 sessions | ITERATE |
+| `87f2657` / `be4d72c77f94…` | `GUARDED_COMPACT_SLOT10` | train/explore / 100 | 78.858889s | 0.000 | 0 | 0 | 0 | 0 turns / 0 sessions | ITERATE |
 
-Only one shared `limit=100` run is permitted after both actions are implemented and the
-single targeted test batch passes. Expand to `limit=200` only if an individual new action
-has activation, at least one rescue, positive net rescue, and positive HR delta.
+The shared run used four workers, fixed ten-turn replay, and the new eight-action registry.
+`KEEP_P11` HR@10 was `0.940000`, C50 recall was `0.970000`, and oracle HR@10 remained
+`0.940000`. Both new actions were exact KEEP_P11 no-ops on every observed turn: no Top10
+order change, membership activation, rescue, or harm. The aggregate is
+`experiments/fast_track/action_oracle_v1/train_explore-smoke-100-aggregate.json`; its
+canonical config SHA-256 is
+`be4d72c77f9424716abfa45580bd676140aa29f471eb7c7da0375dbc24d241a4`.
+
+`COMPACT_NEGATIVE_C50` is the P11-based C50 stable
+`compatible -> unknown -> explicit_violation` partition. `GUARDED_COMPACT_SLOT10` permits
+only one rank-10 replacement, requires ranks 1-9 to be non-violating, and admits only the
+first compatible rank-11-to-50 challenger; unknown evidence is never admitted. The sole
+targeted batch passed `38/38`. Network attempts, full-catalog searches, semantic failures,
+rewrite failures, and P11 invariant failures were all zero.
+
+One earlier command attempt failed in config preflight before split loading, worker launch,
+or artifact creation because the runner held a stale canonical-hash constant. Commit
+`87f2657` corrected only that identity constant; the successful replay above is the sole
+data-bearing run for this action matrix.
+
+Neither individual action satisfies the Stage 1 expansion gate, so `limit=200` is forbidden.
+The decision is `ITERATE`: diagnose why the frozen proxy prefix emits no executable compact
+effect, then change the algorithm family or activation path before any further experiment.

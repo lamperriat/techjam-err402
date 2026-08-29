@@ -174,9 +174,12 @@ Source-weighted 视图不能单独用于跨 split 比较：train/explore 按预�
   的 fresh selection。
 - Sealed confirmation 仍未授权、未读取；旧 matrix 不得继续 selection、confirmation 或
   exact repeat。
-- `COMPACT_NEGATIVE_C50` 与 `GUARDED_COMPACT_SLOT10` 在本 checkpoint 仍待实现；它们应
-  共享下一次唯一的 train/explore `limit=100` batch，再按净 rescue gate 决定 STOP、
-  ITERATE 或 EXPAND。
+- `COMPACT_NEGATIVE_C50` 与 `GUARDED_COMPACT_SLOT10` 已在 `3c7f98a` 实现；`87f2657`
+  只修正提交后 config canonical identity 常量。唯一 data-bearing train/explore
+  `limit=100` batch 完成于 78.858889 秒，定向测试此前通过 `38/38`。
+- 该 batch 的 KEEP_P11 HR@10 为 `0.940000`、C50 recall 为 `0.970000`。两条新 action
+  均为 0 activation、0 miss-to-hit、0 hit-to-miss、0 HR delta，因此决策为
+  `ITERATE`；不满足 gate，禁止进入 `limit=200`。
 
 ## P11 Top-10-preserving reranker: frozen formal promote decision
 
