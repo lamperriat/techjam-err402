@@ -255,6 +255,47 @@ class BlindProjectionTests(unittest.TestCase):
                         catalog_ids=self.catalog,
                     )
 
+        with self.assertRaises(runner.OracleRunError):
+            runner.assert_blind_rpc(
+                {
+                    "operation": "respond",
+                    "user_message": f"please find {self.target.lower()}",
+                },
+                current_target=self.target,
+                sample_id="proxy-sample-1",
+                catalog_ids=self.catalog,
+            )
+
+    def test_redacts_only_non_catalog_asin_shaped_visible_tokens(self) -> None:
+        raw = "The metadata-derived size is B0ZZZZZZZZ."
+        runner.assert_blind_rpc(
+            {"operation": "respond", "user_message": raw},
+            current_target=self.target,
+            sample_id="proxy-sample-1",
+            catalog_ids=self.catalog,
+        )
+        sanitized, count = runner.sanitize_worker_visible_message(raw)
+        self.assertEqual(count, 1)
+        self.assertEqual(
+            sanitized,
+            "The metadata-derived size is [identifier omitted].",
+        )
+        self.assertEqual(
+            runner.sanitize_worker_visible_message("ordinary size medium"),
+            ("ordinary size medium", 0),
+        )
+
+        with self.assertRaises(runner.OracleRunError):
+            runner.assert_blind_rpc(
+                {
+                    "operation": "respond",
+                    "user_message": f"target {self.target}",
+                },
+                current_target=self.target,
+                sample_id="proxy-sample-1",
+                catalog_ids=self.catalog,
+            )
+
     def test_safe_rpc_payload_is_accepted(self) -> None:
         runner.assert_blind_rpc(
             {
@@ -566,6 +607,45 @@ class WorkerProtocolHelperTests(unittest.TestCase):
             self._bare_client("diagnostic noise\n")._receive()
         with self.assertRaisesRegex(runner.OracleRunError, "not an object"):
             self._bare_client("[]\n")._receive()
+
+    def test_worker_error_reports_only_validated_exception_class(self) -> None:
+        with self.assertRaisesRegex(
+            runner.OracleRunError,
+            r"worker respond failed closed with P12WorkerError",
+        ):
+            runner._raise_on_worker_error(
+                {
+                    "kind": "error",
+                    "request_id": 7,
+                    "error_class": "P12WorkerError",
+                },
+                7,
+                "respond",
+            )
+        with self.assertRaisesRegex(runner.OracleRunError, "shape mismatch"):
+            runner._raise_on_worker_error(
+                {
+                    "kind": "error",
+                    "request_id": 7,
+                    "error_class": "P12WorkerError",
+                    "detail": "must remain private",
+                },
+                7,
+                "respond",
+            )
+        with self.assertRaisesRegex(
+            runner.OracleRunError,
+            r"rejected request before identity with P12WorkerError",
+        ):
+            runner._raise_on_worker_error(
+                {
+                    "kind": "error",
+                    "request_id": None,
+                    "error_class": "P12WorkerError",
+                },
+                7,
+                "respond",
+            )
 
 
 def _worker_summary(scale: int = 1) -> dict:

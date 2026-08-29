@@ -114,6 +114,10 @@ FORBIDDEN_RPC_KEYS = {
     "behavior",
 }
 ASIN_TOKEN = re.compile(r"(?<![A-Z0-9])[A-Z0-9]{10}(?![A-Z0-9])")
+ASIN_SHAPE_TOKEN = re.compile(
+    r"(?<![A-Z0-9])B0[A-Z0-9]{8}(?![A-Z0-9])", re.IGNORECASE
+)
+VISIBLE_IDENTIFIER_REPLACEMENT = "[identifier omitted]"
 
 
 class OracleRunError(RuntimeError):
@@ -413,13 +417,27 @@ def assert_blind_rpc(
     if forbidden:
         raise OracleRunError(f"label-shaped key in worker request: {sorted(forbidden)}")
     serialized = json.dumps(payload, sort_keys=True, ensure_ascii=False)
-    if current_target and current_target in serialized:
+    serialized_upper = serialized.upper()
+    if current_target and current_target.upper() in serialized_upper:
         raise OracleRunError("current target leaked into worker request")
     if sample_id and sample_id in serialized:
         raise OracleRunError("sample_id leaked into worker request")
-    leaked_ids = set(ASIN_TOKEN.findall(serialized)) & catalog_ids
+    leaked_ids = set(ASIN_TOKEN.findall(serialized_upper)) & catalog_ids
     if leaked_ids:
         raise OracleRunError("catalog identifier leaked into worker request")
+
+
+def sanitize_worker_visible_message(value: str) -> tuple[str, int]:
+    """Redact non-catalog ASIN-shaped metadata artifacts before worker RPC.
+
+    The caller must run ``assert_blind_rpc`` on the unmodified payload first,
+    so this cannot conceal a target or frozen-catalog identifier leak.
+    """
+
+    matches = list(ASIN_SHAPE_TOKEN.finditer(value))
+    if not matches:
+        return value, 0
+    return ASIN_SHAPE_TOKEN.sub(VISIBLE_IDENTIFIER_REPLACEMENT, value), len(matches)
 
 
 def assert_identifier_free_artifact(
@@ -476,6 +494,29 @@ class ShardResult:
     trace_path: Path
     receipt: WorkerReceipt
     ledger: list[dict[str, Any]]
+
+
+def _raise_on_worker_error(
+    response: Mapping[str, Any], request_id: int, operation: str
+) -> None:
+    if response.get("kind") != "error":
+        return
+    if set(response) != {"kind", "request_id", "error_class"}:
+        raise OracleRunError("worker error reply shape mismatch")
+    error_class = response.get("error_class")
+    if not isinstance(error_class, str) or not re.fullmatch(
+        r"[A-Za-z_][A-Za-z0-9_]{0,127}", error_class
+    ):
+        raise OracleRunError("worker error class is invalid")
+    if response.get("request_id") is None:
+        raise OracleRunError(
+            f"worker {operation} rejected request before identity with {error_class}"
+        )
+    if response.get("request_id") != request_id:
+        raise OracleRunError("worker error request identity mismatch")
+    raise OracleRunError(
+        f"worker {operation} failed closed with {error_class}"
+    )
 
 
 class WorkerClient:
@@ -591,7 +632,9 @@ class WorkerClient:
             self._process.stdin.flush()
         except (BrokenPipeError, OSError) as exc:
             raise OracleRunError("worker stdin closed early") from exc
-        return request_id, self._receive()
+        response = self._receive()
+        _raise_on_worker_error(response, request_id, operation)
+        return request_id, response
 
     def reset(self, ordinal: int, user_profile: Mapping[str, Any]) -> None:
         request_id, response = self._send(
@@ -929,6 +972,8 @@ def replay_blind_trajectories(
         message = initial_message(
             effective, coarse_category(categories.get(target, [])), disclosed
         )
+        sanitized_message_count = 0
+        sanitized_token_count = 0
         profile = project_profile(sample.get("user_profile"))
         reset_payload = {
             "operation": "reset",
@@ -945,7 +990,7 @@ def replay_blind_trajectories(
         for turn in range(1, 11):
             if abort_event is not None and abort_event.is_set():
                 raise OracleRunError("parallel shard aborted after a peer failure")
-            respond_payload = {
+            raw_respond_payload = {
                 "operation": "respond",
                 "ordinal": ordinal,
                 "user_message": message,
@@ -953,12 +998,25 @@ def replay_blind_trajectories(
                 "top_k": 10,
             }
             assert_blind_rpc(
+                raw_respond_payload,
+                current_target=target,
+                sample_id=sample_id,
+                catalog_ids=catalog_ids,
+            )
+            visible_message, redacted_tokens = sanitize_worker_visible_message(message)
+            sanitized_message_count += int(redacted_tokens > 0)
+            sanitized_token_count += redacted_tokens
+            respond_payload = {
+                **raw_respond_payload,
+                "user_message": visible_message,
+            }
+            assert_blind_rpc(
                 respond_payload,
                 current_target=target,
                 sample_id=sample_id,
                 catalog_ids=catalog_ids,
             )
-            ask_attribute = worker.respond(ordinal, message, turn)
+            ask_attribute = worker.respond(ordinal, visible_message, turn)
             if turn < 10:
                 override = effective.get("behavior", {}).get("override") or {}
                 if not override_applied and turn + 1 == int(override.get("turn", 3)):
@@ -989,6 +1047,8 @@ def replay_blind_trajectories(
                 "difficulty": str(sample.get("difficulty_bucket")),
                 "popularity": str(strata.get("popularity")),
                 "source_weight": float(strata.get("source_weight")),
+                "sanitized_visible_message_count": sanitized_message_count,
+                "sanitized_visible_token_count": sanitized_token_count,
             }
         )
     return ledger
@@ -1485,6 +1545,21 @@ def run(split: str, *, limit: int | None = None) -> tuple[Path, dict[str, Any]]:
     _require_equal(_sha256(_resolve_regular_file(str(config["proxy"]["manifest_path"]))), config["proxy"]["manifest_sha256"], "post_run_manifest_sha256")
 
     worker_summary = _merge_worker_summaries(shards)
+    sanitized_session_count = sum(
+        int(int(meta.get("sanitized_visible_token_count", 0)) > 0)
+        for shard in shards
+        for meta in shard.ledger
+    )
+    sanitized_message_count = sum(
+        int(meta.get("sanitized_visible_message_count", 0))
+        for shard in shards
+        for meta in shard.ledger
+    )
+    sanitized_token_count = sum(
+        int(meta.get("sanitized_visible_token_count", 0))
+        for shard in shards
+        for meta in shard.ledger
+    )
     joined, candidate_recall, combined_trace_sha256 = _join_closed_shards(
         shards, catalog_ids
     )
@@ -1535,6 +1610,13 @@ def run(split: str, *, limit: int | None = None) -> tuple[Path, dict[str, Any]]:
             "amazon_test_rows_read": 0,
             "released_public_rows_read": 0,
             "ask_is_independent_counterfactual": False,
+            "visible_identifier_sanitization": {
+                "policy": "reject_target_or_catalog_then_redact_non_catalog_asin_shape",
+                "replacement": VISIBLE_IDENTIFIER_REPLACEMENT,
+                "session_count": sanitized_session_count,
+                "message_count": sanitized_message_count,
+                "token_count": sanitized_token_count,
+            },
         },
         "provenance": {
             "config_canonical_sha256": hashlib.sha256(
