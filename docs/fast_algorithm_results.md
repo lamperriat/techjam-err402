@@ -129,9 +129,9 @@ zero. A positive result on only one split is not deployable evidence.
 | `P11_EVIDENCE_NOVEL_SLOT10` | risk-controlled admission | train prefix 100 | 0 | 0/0/0 | 0.676040 | 3.2 | 80.753492s | ADVANCE_FAMILY: guarded no-op |
 | `HARD_CLAUSE_NOVEL_SLOT10` | risk-controlled admission | train prefix 100 | 0 | 0/0/0 | 0.676040 | 3.2 | 80.753492s | ADVANCE_FAMILY: guarded no-op |
 | `TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10` | risk-controlled admission | train prefix 100 | 0 | 0/0/0 | 0.676040 | 3.2 | 80.753492s | ADVANCE_FAMILY: guarded no-op |
-| `VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10` | hand-written C50 router | train prefix 100 | 0 | 0/0/0 | 0.676040 | 3.2 | 59.270069s | CLOSE_ROUTE: zero activation |
-| `DUAL_BOUNDARY_CONSENSUS_SLOT10` | hand-written C50 router | train prefix 100 | 0 | 0/0/0 | 0.676040 | 3.2 | 59.270069s | CLOSE_ROUTE: zero activation |
-| `RECENT_OVERRIDE_RANK_FUSION_SLOT10` | hand-written C50 router | train prefix 100 | 0 | 0/0/0 | 0.676040 | 3.2 | 59.270069s | CLOSE_ROUTE: zero activation |
+| `VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10` | hand-written C50 router | train prefix 100 | 0 | 0/0/0 | 0.676040 | 3.2 | 59.270069s | IMPLEMENTATION_FAILURE: unexecuted |
+| `DUAL_BOUNDARY_CONSENSUS_SLOT10` | hand-written C50 router | train prefix 100 | 0 | 0/0/0 | 0.676040 | 3.2 | 59.270069s | IMPLEMENTATION_FAILURE: unexecuted |
+| `RECENT_OVERRIDE_RANK_FUSION_SLOT10` | hand-written C50 router | train prefix 100 | 0 | 0/0/0 | 0.676040 | 3.2 | 59.270069s | IMPLEMENTATION_FAILURE: unexecuted |
 
 ## Family 1 completion: compact-negative admission
 
@@ -226,9 +226,9 @@ aggregate is
 
 | Action | Route context | HR@10 / delta | m->h | h->m | Net | Activation turns / sessions | Decision |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| `VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10` | >=2 visible non-category preferences or >=4 hard terms | 0.940 / 0 | 0 | 0 | 0 | 0 / 0 | CLOSE_ROUTE |
-| `DUAL_BOUNDARY_CONSENSUS_SLOT10` | novel candidate at both auxiliary ranks 11-15 | 0.940 / 0 | 0 | 0 | 0 | 0 / 0 | CLOSE_ROUTE |
-| `RECENT_OVERRIDE_RANK_FUSION_SLOT10` | goal-version age 0-1 turns after override | 0.940 / 0 | 0 | 0 | 0 | 0 / 0 | CLOSE_ROUTE |
+| `VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10` | >=2 visible non-category preferences or >=4 hard terms | 0.940 / 0 | 0 | 0 | 0 | 0 / 0 | IMPLEMENTATION_FAILURE |
+| `DUAL_BOUNDARY_CONSENSUS_SLOT10` | novel candidate at both auxiliary ranks 11-15 | 0.940 / 0 | 0 | 0 | 0 | 0 / 0 | IMPLEMENTATION_FAILURE |
+| `RECENT_OVERRIDE_RANK_FUSION_SLOT10` | goal-version age 0-1 turns after override | 0.940 / 0 | 0 | 0 | 0 | 0 / 0 | IMPLEMENTATION_FAILURE |
 
 The baseline remained HR@10 `0.940000`, MRR `0.676040`, MTTC `3.2`, and
 TechnicalScore `0.828812`; candidate recall remained C10/C20/C50/C100 =
@@ -240,15 +240,17 @@ failures were all zero.
 
 All three routers returned `invalid_context` on all `1,000` turns, while the shared scorer
 still produced all `50,000/50,000` C50 candidate breakdowns through `5,000` bounded
-sidecar fetches. Therefore the replay establishes zero activation, not a comparison of the
-three rank margins. Source review suggests the exact twelve-decimal
+sidecar fetches. Therefore the replay establishes an implementation failure and zero
+executed action, not an algorithmic No-Go and not a comparison of the three rank margins.
+Source review suggests the exact twelve-decimal
 `total == relevance + tie_bonus` revalidation is a plausible fail-closed bottleneck because
 the three values are rounded separately, but the identifier-free aggregate cannot prove
 which context clause rejected each turn. Per the post-run decision rule, this is not grounds
 for a repaired rerun or another hand-written variant.
 
 `limit=200` is forbidden because every individual action has activation `0`, m->h `0`, and
-HR delta `0`. The hand-written guarded-router route is closed. The next stage is a learned,
+HR delta `0`. This closes those three broken implementations under the frozen run protocol;
+it does not reject the underlying rank-fusion hypothesis. The next stage is a learned,
 target-cluster cross-fitted rescue-vs-harm router: target membership may define training
 labels but can never be a runtime feature. Its objective is `miss_to_hit - lambda *
 hit_to_miss`; evaluation must keep HR@10 membership separate from HR@1/MRR ordering.
@@ -348,13 +350,30 @@ renamed with `invalid_rank-origin` and retained locally for audit. After changin
 rank origin to `spec.rank_start + offset`, an independent static review found no remaining
 C100-band correctness blocker and the corrected OOF replay produced the result above.
 
+## Cached hard-case triage checkpoint
+
+The closed 2,000-session trace was converted once into the gitignored numeric cache
+`experiments/fast_track/p12_counterfactual_cache_v1.npz`: `142,611,522` bytes,
+SHA-256 `bc4985e3c5f84e7512163c00cb7f49fbe9f1e45752dba42dfa71b1394639d3af`.
+Feature construction, label/fold joining, sufficient-statistic aggregation, writing, and
+hashing took `16.166547s`. The tracked manifest is
+`configs/p12_counterfactual_cache_v1.manifest.json`; no product, session, text, or
+reversible target value is serialized in the cache.
+
+Hard-case triage contained all `105` baseline misses plus `5` target-cluster-matched hit
+controls. C50 activated on `46` sessions / `284` turns in `1.309093s`, but produced
+`0` miss-to-hit and `0` hit-to-miss. C100-only completed in `1.393990s` with zero
+activation and the same `0/0` transition. Both iterations met the one-minute target, but
+neither had positive net rescue, so the full 2,000-session cache-only OOF gate remained
+closed. No Agent, calibration, selection, confirmation, or public evaluator was run.
+
 ## Family 1-4 evidence boundary
 
-No individual action qualifies for `limit=200`: the three Family 3 actions had zero
-activation; the learned C50 policy activated but produced no transition; and the learned
-C100-only policy again had zero activation. Calibration was not used for fitting, gating,
-or evaluation in Family 4, and selection/confirmation were not opened. There is therefore
-no model to freeze for calibration and no basis for runtime integration.
+No individual action qualifies for `limit=200`: the three broken Family 3 implementations
+executed no valid action; the learned C50 policy activated but produced no transition; and
+the learned C100-only policy again had zero activation. Calibration was not used for
+fitting, gating, or evaluation in Family 4, and selection/confirmation were not opened.
+There is therefore no model to freeze for calibration and no basis for runtime integration.
 
 The bottleneck is now localized. Sparse recall provides candidates for most misses, but
 the historical target-blind feature contract does not identify which tail member is the
