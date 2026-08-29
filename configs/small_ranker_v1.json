@@ -1,0 +1,59 @@
+{
+  "schema_version": "small-ranker.v1",
+  "split": "train_explore",
+  "seed": 40220260830,
+  "inputs": {
+    "catalog": {
+      "path": "data/catalog.jsonl",
+      "rows": 50000,
+      "sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67"
+    },
+    "proxy": {
+      "path": "experiments/fast_track/proxy_v1/proxy_train_explore.jsonl",
+      "rows": 2000,
+      "sha256": "2175696171c0d874fca4b9aa456ff5fd7d570f2184f59ade6781198f6443198e"
+    },
+    "p11_sidecar": {
+      "path": "starter/assets/p11_features.sqlite",
+      "bytes": 32501760,
+      "sha256": "83b6d8c04be6666173806b6e9cb03301eecb8ca58a60272bfa719e6533380473"
+    },
+    "trace_dir": "experiments/fast_track/action_oracle_v1",
+    "trace_shards": [
+      ["train_explore-full-blind-shard-01-of-04.jsonl", "fac3bc71e6210d1a449de706d335cc5bb945d4d3daf01e8cbecbe15c0600bf1a"],
+      ["train_explore-full-blind-shard-02-of-04.jsonl", "63812776b374fc0041871600a5781fbf1ea6046a3219334e7263338abbab6657"],
+      ["train_explore-full-blind-shard-03-of-04.jsonl", "36a8706a2f8c51635e4feb4cde905a9789c7953ffeab25ae036ef824061f36b3"],
+      ["train_explore-full-blind-shard-04-of-04.jsonl", "1f9968795ab5490968badcf82c39ec11bedd00f22797569dfec8c2ff3fb7ed99"]
+    ]
+  },
+  "cache": {
+    "directory": "experiments/fast_track/small_ranker_v1",
+    "features": "features.npy",
+    "labels": "labels_v2.npz",
+    "manifest": "configs/small_ranker_v1.cache.manifest.json",
+    "candidate_cutoff": 100,
+    "hard_negative_rows": 40,
+    "dtype": "float32"
+  },
+  "family_grouping": {
+    "folds": 5,
+    "rule": "leaf-category + normalized-store + variant-stripped-title-signature",
+    "title_token_limit": 14
+  },
+  "training": {
+    "objective_gate": {
+      "minimum_hr_delta": 0.005,
+      "minimum_net_hits": 10,
+      "maximum_hit_to_miss": 0,
+      "minimum_rescue_folds": 3
+    },
+    "configs": [
+      {"id": "ndcg_d4_lr003", "objective": "rank:ndcg", "lambdarank_pair_method": "topk", "max_depth": 4, "eta": 0.03, "min_child_weight": 8.0, "subsample": 0.85, "colsample_bytree": 0.8, "reg_alpha": 0.05, "reg_lambda": 2.0, "max_rounds": 700},
+      {"id": "ndcg_d4_lr006", "objective": "rank:ndcg", "lambdarank_pair_method": "topk", "max_depth": 4, "eta": 0.06, "min_child_weight": 8.0, "subsample": 0.85, "colsample_bytree": 0.8, "reg_alpha": 0.05, "reg_lambda": 2.0, "max_rounds": 600},
+      {"id": "ndcg_d6_lr003", "objective": "rank:ndcg", "lambdarank_pair_method": "topk", "max_depth": 6, "eta": 0.03, "min_child_weight": 12.0, "subsample": 0.85, "colsample_bytree": 0.75, "reg_alpha": 0.1, "reg_lambda": 3.0, "max_rounds": 700},
+      {"id": "ndcg_d6_lr006", "objective": "rank:ndcg", "lambdarank_pair_method": "topk", "max_depth": 6, "eta": 0.06, "min_child_weight": 12.0, "subsample": 0.85, "colsample_bytree": 0.75, "reg_alpha": 0.1, "reg_lambda": 3.0, "max_rounds": 600},
+      {"id": "ndcg_d4_regularized", "objective": "rank:ndcg", "lambdarank_pair_method": "topk", "max_depth": 4, "eta": 0.03, "min_child_weight": 20.0, "subsample": 0.75, "colsample_bytree": 0.7, "reg_alpha": 0.5, "reg_lambda": 8.0, "max_rounds": 700},
+      {"id": "pairwise_d4_control", "objective": "rank:pairwise", "lambdarank_pair_method": "mean", "max_depth": 4, "eta": 0.03, "min_child_weight": 8.0, "subsample": 0.85, "colsample_bytree": 0.8, "reg_alpha": 0.05, "reg_lambda": 2.0, "max_rounds": 600}
+    ]
+  }
+}
