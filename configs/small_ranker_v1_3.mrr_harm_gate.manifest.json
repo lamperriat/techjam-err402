@@ -34,6 +34,28 @@
       "path": "experiments/fast_track/small_ranker_mrr_harm_gate_v1.json",
       "bytes": 17396,
       "sha256": "5fa44755462a06795513254b06726d3b1cb57365294c2bf2d0008e608356e161"
+    },
+    "ignored_exact_repeat": {
+      "path": "experiments/fast_track/small_ranker_mrr_harm_gate_v1_repeat1.json",
+      "bytes": 17397,
+      "sha256": "8206206ce7ea38947c29442c59cebc106e5b96c9798416cd670779bfb499f2ba"
+    }
+  },
+  "exact_reproduction": {
+    "excluded_field": "timing_seconds",
+    "equal": true,
+    "canonical_sha256_original": "2a9d46cd756a600707481d9187ac03658232202413c4d904d0c02366a275974a",
+    "canonical_sha256_repeat": "2a9d46cd756a600707481d9187ac03658232202413c4d904d0c02366a275974a",
+    "repeat_wall_seconds": 3.402735,
+    "metrics_reproduced": {
+      "miss_to_hit": 34,
+      "hit_to_miss": 0,
+      "net_hits": 34,
+      "fold_net_hits": [0, 12, 7, 6, 9],
+      "hr_delta": 0.017,
+      "mrr_delta": 0.00049,
+      "mttc_delta": -0.0625,
+      "technical_score_delta": 0.009898
     }
   },
   "label_counts": {
@@ -63,10 +85,10 @@
     "result": "2 passed in 0.13s"
   },
   "decision": {
-    "status": "PROMISING_OOF_REPRODUCE_ONLY",
-    "reason": "global nested OOF improved HR, MRR, MTTC, and TechnicalScore with zero hit-to-miss, but one fold still regressed MRR, one fold made no rescue, and only nine harm positives exist",
+    "status": "PROMISING_OOF_REPRODUCED_CALIBRATION_ELIGIBLE",
+    "reason": "the frozen nested-OOF result reproduced exactly except wall time, but one fold still regressed MRR, one fold made no rescue, and only nine harm positives exist",
     "promote": false,
     "served_default": "off",
-    "next_algorithm": "exactly reproduce the frozen comparison, then test one untouched calibration gate only if reproducible; do not start selection, confirmation, or public"
+    "next_algorithm": "freeze the admission policy and run exactly one untouched calibration evaluation; do not start selection, confirmation, public, or runtime integration"
   }
 }

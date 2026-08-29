@@ -32,10 +32,25 @@ line that improves all four aggregate metrics while retaining zero hit-to-miss.
 It is still too fragile to serve: one fold regressed MRR, one fold rescued
 nothing, and nine harm-positive rows are too few for a stable learned head.
 
-The next bounded checkpoint is an exact deterministic reproduction from the
-frozen hashes. Only if that reproduces may one untouched calibration evaluation
-be opened. Selection, confirmation, public evaluation, runtime integration, and
-the served default remain closed/off. P11/R08 fallback behavior is unchanged.
+Before any held-out check, the result required an exact deterministic
+reproduction from the frozen hashes. Selection, confirmation, public evaluation,
+runtime integration, and the served default remained closed/off. P11/R08
+fallback behavior was unchanged.
+
+## Exact reproduction
+
+The frozen experiment was repeated on the same branch without changing code,
+features, labels, scores, seeds, or protocol. Excluding only `timing_seconds`,
+both artifacts have the identical canonical SHA-256
+`2a9d46cd756a600707481d9187ac03658232202413c4d904d0c02366a275974a`.
+All global and fold metrics reproduced exactly: `34` miss-to-hit, `0`
+hit-to-miss, fold net `0/12/7/6/9`, HR delta `+0.0170`, MRR delta
+`+0.000490`, MTTC delta `-0.0625`, and TechnicalScore delta `+0.009898`.
+The repeat took `3.402735` seconds.
+
+The status is now **calibration-eligible, not promoted**. The next iteration may
+run exactly one frozen untouched-calibration evaluation. Selection,
+confirmation, public, and runtime integration remain closed.
 
 The complete ignored artifact is
 `experiments/fast_track/small_ranker_mrr_harm_gate_v1.json`; the tracked evidence
