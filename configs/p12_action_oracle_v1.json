@@ -118,6 +118,7 @@
   "runtime": {
     "worker_path": "scripts/p12_action_worker.py",
     "output_root": "experiments/fast_track/action_oracle_v1",
+    "parallel_workers": 4,
     "request_timeout_seconds": 120,
     "process_exit_timeout_seconds": 60,
     "rss_sample_interval_ms": 10

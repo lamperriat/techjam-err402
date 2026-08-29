@@ -22,6 +22,7 @@ import subprocess
 import sys
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -53,7 +54,7 @@ SCHEMA_VERSION = "track4.p12-action-oracle-result.v1"
 CONFIG_SCHEMA = "track4.p12-action-oracle.v1"
 DEFAULT_CONFIG = Path("configs/p12_action_oracle_v1.json")
 EXPECTED_CONFIG_CANONICAL_SHA256 = (
-    "507946a9d7f799c6f1bb359300ea1fc447b94a0f5bd98fe61e5ff359ebbff2b7"
+    "492b42c19708b0e528755cb00374b368afaf037ce2c8b1f5d33f52685de3638c"
 )
 ALLOWED_SPLITS = {
     "train_explore": {
@@ -86,6 +87,7 @@ EXPECTED_CATALOG = {
 }
 EXPECTED_WORKER = "scripts/p12_action_worker.py"
 EXPECTED_OUTPUT_ROOT = "experiments/fast_track/action_oracle_v1"
+EXPECTED_PARALLEL_WORKERS = 4
 SAFE_PROFILE_KEYS = {
     "purchase_frequency",
     "average_prior_rating",
@@ -282,6 +284,11 @@ def load_frozen_config(config_path: Path = DEFAULT_CONFIG) -> dict[str, Any]:
         EXPECTED_OUTPUT_ROOT,
         "output_root",
     )
+    _require_equal(
+        config.get("runtime", {}).get("parallel_workers"),
+        EXPECTED_PARALLEL_WORKERS,
+        "parallel_workers",
+    )
     return config
 
 
@@ -459,6 +466,16 @@ class WorkerReceipt:
     trace_sha256: str
     record_count: int
     worker_summary: dict[str, Any]
+
+
+@dataclass(slots=True)
+class ShardResult:
+    shard_index: int
+    global_start: int
+    samples: Sequence[Mapping[str, Any]]
+    trace_path: Path
+    receipt: WorkerReceipt
+    ledger: list[dict[str, Any]]
 
 
 class WorkerClient:
@@ -827,7 +844,9 @@ def join_labels_after_close(
     samples: Sequence[Mapping[str, Any]],
     ledger: Sequence[Mapping[str, Any]],
     trace: Mapping[int, Sequence[Mapping[str, Any]]],
-) -> tuple[list[dict[str, Any]], dict[str, float]]:
+    *,
+    include_counts: bool = False,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if len(samples) != len(ledger) or len(trace) != len(samples):
         raise OracleRunError("parent ledger and closed worker trace do not align")
     joined: list[dict[str, Any]] = []
@@ -862,6 +881,17 @@ def join_labels_after_close(
         f"recall_at_{cutoff}": round(count / len(samples), 6)
         for cutoff, count in recall_counts.items()
     }
+    if include_counts:
+        recalls = {
+            "sample_count": len(samples),
+            "cutoffs": {
+                str(cutoff): {
+                    "hit_count": count,
+                    "rate": round(count / len(samples), 6),
+                }
+                for cutoff, count in recall_counts.items()
+            },
+        }
     return joined, recalls
 
 
@@ -881,9 +911,12 @@ def replay_blind_trajectories(
     categories: Mapping[str, list[str]],
     products: Mapping[str, dict[str, Any]],
     catalog_ids: set[str],
+    abort_event: threading.Event | None = None,
 ) -> list[dict[str, Any]]:
     ledger: list[dict[str, Any]] = []
     for ordinal, sample in enumerate(samples, start=1):
+        if abort_event is not None and abort_event.is_set():
+            raise OracleRunError("parallel shard aborted after a peer failure")
         sample_id = str(sample.get("sample_id", ""))
         target = str(sample.get("ground_truth", {}).get("parent_asin", ""))
         if target not in products or not sample_id:
@@ -910,6 +943,8 @@ def replay_blind_trajectories(
         )
         worker.reset(ordinal, profile)
         for turn in range(1, 11):
+            if abort_event is not None and abort_event.is_set():
+                raise OracleRunError("parallel shard aborted after a peer failure")
             respond_payload = {
                 "operation": "respond",
                 "ordinal": ordinal,
@@ -957,6 +992,231 @@ def replay_blind_trajectories(
             }
         )
     return ledger
+
+
+def balanced_contiguous_chunks(
+    samples: Sequence[Mapping[str, Any]], requested_workers: int
+) -> list[tuple[int, int, Sequence[Mapping[str, Any]]]]:
+    """Return (shard index, one-based global start, contiguous rows)."""
+
+    if not samples or requested_workers < 1:
+        raise OracleRunError("parallel shard request is invalid")
+    worker_count = min(requested_workers, len(samples))
+    base, extra = divmod(len(samples), worker_count)
+    chunks = []
+    offset = 0
+    for shard_index in range(worker_count):
+        size = base + int(shard_index < extra)
+        chunks.append((shard_index, offset + 1, samples[offset : offset + size]))
+        offset += size
+    return chunks
+
+
+def _run_blind_shards(
+    config: Mapping[str, Any],
+    samples: Sequence[Mapping[str, Any]],
+    categories: Mapping[str, list[str]],
+    products: Mapping[str, dict[str, Any]],
+    catalog_ids: set[str],
+    trace_paths: Sequence[Path],
+    base_nonce: str,
+) -> list[ShardResult]:
+    chunks = balanced_contiguous_chunks(
+        samples, int(config["runtime"]["parallel_workers"])
+    )
+    if len(trace_paths) != len(chunks):
+        raise OracleRunError("parallel trace registry does not match shard count")
+    stop = threading.Event()
+    lock = threading.Lock()
+    active: dict[int, WorkerClient] = {}
+
+    def execute(
+        shard_index: int,
+        global_start: int,
+        shard_samples: Sequence[Mapping[str, Any]],
+    ) -> ShardResult:
+        nonce = hashlib.sha256(
+            f"{base_nonce}\0shard\0{shard_index}".encode("utf-8")
+        ).hexdigest()[:32]
+        client = WorkerClient(config, trace_paths[shard_index], nonce)
+        with lock:
+            active[shard_index] = client
+        try:
+            ledger = replay_blind_trajectories(
+                client,
+                shard_samples,
+                categories,
+                products,
+                catalog_ids,
+                stop,
+            )
+            if stop.is_set():
+                raise OracleRunError("parallel shard aborted after a peer failure")
+            receipt = client.finalize()  # also waits for a clean process exit
+            return ShardResult(
+                shard_index,
+                global_start,
+                shard_samples,
+                trace_paths[shard_index],
+                receipt,
+                ledger,
+            )
+        finally:
+            client.abort()
+            with lock:
+                active.pop(shard_index, None)
+
+    results: list[ShardResult] = []
+    executor = ThreadPoolExecutor(max_workers=len(chunks))
+    futures = {
+        executor.submit(execute, index, start, chunk): index
+        for index, start, chunk in chunks
+    }
+    try:
+        for future in as_completed(futures):
+            results.append(future.result())
+    except Exception:
+        stop.set()
+        with lock:
+            clients = list(active.values())
+        for client in clients:
+            client.abort()
+        for future in futures:
+            future.cancel()
+        raise
+    finally:
+        executor.shutdown(wait=True, cancel_futures=True)
+    return sorted(results, key=lambda item: item.shard_index)
+
+
+def _merge_worker_summaries(shards: Sequence[ShardResult]) -> dict[str, Any]:
+    gate_keys = (
+        "network_attempt_count",
+        "semantic_failure_count",
+        "rewrite_failure_count",
+        "full_catalog_search_calls",
+        "p11_invariant_failure_count",
+    )
+    summaries = [shard.receipt.worker_summary for shard in shards]
+
+    def part(summary: Mapping[str, Any], key: str) -> Mapping[str, Any]:
+        value = summary.get(key)
+        if not isinstance(value, Mapping):
+            raise OracleRunError(f"worker {key} summary is invalid")
+        return value
+
+    def count(summary: Mapping[str, Any], section: str | None, key: str) -> int:
+        source = summary if section is None else part(summary, section)
+        value = source.get(key)
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            raise OracleRunError(f"worker summary count is invalid: {key}")
+        return value
+
+    first = summaries[0]
+    expected_identity = (
+        part(first, "trajectory").get("fixed_turns"),
+        part(first, "trajectory").get("top_k"),
+        part(first, "actions").get("ids"),
+        part(first, "semantic").get("mode"),
+    )
+    for shard, summary in zip(shards, summaries, strict=True):
+        identity = (
+            part(summary, "trajectory").get("fixed_turns"),
+            part(summary, "trajectory").get("top_k"),
+            part(summary, "actions").get("ids"),
+            part(summary, "semantic").get("mode"),
+        )
+        frozen_identity = (10, 10, list(ACTION_IDS), "candidate_only_c50")
+        if identity != expected_identity or identity != frozen_identity:
+            raise OracleRunError("worker summary identity mismatch across shards")
+        if count(summary, "trajectory", "completed_sessions") != len(shard.samples):
+            raise OracleRunError("worker completed-session count mismatch")
+
+    def total(section: str | None, key: str) -> int:
+        return sum(count(summary, section, key) for summary in summaries)
+
+    worker_peak_rss = [
+        int(summary.get("memory", {}).get("peak_rss_bytes") or 0)
+        for summary in summaries
+    ]
+
+    merged: dict[str, Any] = {
+        "parallel_workers": len(shards),
+        "per_shard": [
+            {
+                "shard_index": shard.shard_index,
+                "sample_count": len(shard.samples),
+                "summary": shard.receipt.worker_summary,
+            }
+            for shard in shards
+        ],
+        "trajectory": {
+            "fixed_turns": 10,
+            "top_k": 10,
+            "completed_sessions": total("trajectory", "completed_sessions"),
+            "respond_count": total("trajectory", "respond_count"),
+        },
+        "actions": {
+            "ids": list(ACTION_IDS),
+            "result_aware_computation_count": total("actions", "result_aware_computation_count"),
+        },
+        "semantic": {
+            "query_count": total("semantic", "query_count"),
+            "candidate_matrix_rows_read": total("semantic", "candidate_matrix_rows_read"),
+            "maximum_candidate_rows_read": max(
+                count(summary, "semantic", "maximum_candidate_rows_read") for summary in summaries
+            ),
+            "full_catalog_search_calls": total("semantic", "full_catalog_search_calls"),
+            "failure_count": total("semantic", "failure_count"),
+        },
+        "memory": {
+            "peak_rss_bytes_max": max(worker_peak_rss),
+            "sum_of_worker_peak_rss_bytes_upper_bound": sum(worker_peak_rss),
+            "parent_process_rss_included": False,
+        },
+    }
+    merged.update({key: total(None, key) for key in gate_keys})
+    return merged
+
+
+def _join_closed_shards(
+    shards: Sequence[ShardResult], catalog_ids: set[str]
+) -> tuple[list[dict[str, Any]], dict[str, Any], str]:
+    joined: list[dict[str, Any]] = []
+    counts = {10: 0, 20: 0, 50: 0, 100: 0}
+    combined_trace = hashlib.sha256()
+    validated = []
+    for shard in shards:
+        raw = _read_trace(
+            shard.trace_path, shard.receipt, len(shard.samples) * 10
+        )
+        trace = validate_trace(raw, len(shard.samples), catalog_ids)
+        validated.append(trace)
+        for raw_row in raw:
+            normalized = dict(raw_row)
+            normalized["ordinal"] = shard.global_start + int(raw_row["ordinal"]) - 1
+            combined_trace.update(_canonical_bytes(normalized))
+    # Validate every closed trace before the first label-bearing join.
+    for shard, trace in zip(shards, validated, strict=True):
+        local, recall = join_labels_after_close(
+            shard.samples, shard.ledger, trace, include_counts=True
+        )
+        for row in local:
+            row["ordinal"] = shard.global_start + int(row["ordinal"]) - 1
+        joined.extend(local)
+        for cutoff in counts:
+            counts[cutoff] += int(recall["cutoffs"][str(cutoff)]["hit_count"])
+    sample_count = len(joined)
+    return joined, {
+        "sample_count": sample_count,
+        "cutoffs": {
+            str(cutoff): {
+                "hit_count": count,
+                "rate": round(count / sample_count, 6),
+            }
+            for cutoff, count in counts.items()
+        },
+    }, combined_trace.hexdigest()
 
 
 def _source_hashes() -> dict[str, str]:
@@ -1152,7 +1412,7 @@ def run(split: str, *, limit: int | None = None) -> tuple[Path, dict[str, Any]]:
     ):
         raise OracleRunError("limit must be between 1 and rows-1; full runs omit it")
 
-    validate_manifest(config)
+    manifest_snapshot = validate_manifest(config)
     samples = _verified_jsonl(
         str(split_spec["path"]), str(split_spec["sha256"]), int(split_spec["rows"])
     )
@@ -1169,25 +1429,35 @@ def run(split: str, *, limit: int | None = None) -> tuple[Path, dict[str, Any]]:
     nonce = hashlib.sha256(
         f"p12-action-oracle-v1\0{split}\0{limit or 'full'}".encode("utf-8")
     ).hexdigest()[:32]
-    trace_path = output_path.with_name(output_path.name.replace("-aggregate.json", "-blind.jsonl"))
-    if trace_path.exists():
-        raise OracleRunError(f"refusing to overwrite existing trace: {trace_path.name}")
+    shard_count = min(int(config["runtime"]["parallel_workers"]), len(samples))
+    trace_paths = [
+        output_path.with_name(
+            output_path.name.replace(
+                "-aggregate.json",
+                f"-blind-shard-{index + 1:02d}-of-{shard_count:02d}.jsonl",
+            )
+        )
+        for index in range(shard_count)
+    ]
+    for trace_path in trace_paths:
+        if trace_path.exists():
+            raise OracleRunError(
+                f"refusing to overwrite existing trace: {trace_path.name}"
+            )
 
     started = time.perf_counter()
-    worker: WorkerClient | None = None
-    try:
-        worker = WorkerClient(config, trace_path, nonce)
-        ledger = replay_blind_trajectories(
-            worker, samples, categories, products, catalog_ids
-        )
-        receipt = worker.finalize()
-        worker = None
-    finally:
-        if worker is not None:
-            worker.abort()
+    shards = _run_blind_shards(
+        config,
+        samples,
+        categories,
+        products,
+        catalog_ids,
+        trace_paths,
+        nonce,
+    )
 
-    # No target join is allowed above this point.  Revalidate everything that
-    # influenced worker behavior before opening its candidate-bearing trace.
+    # Every worker has finalized and cleanly exited above.  No trace may be
+    # opened and no target may be joined until this global revalidation passes.
     _require_equal(load_frozen_config(), config, "post_run_config")
     _require_equal(_source_hashes(), source_snapshot, "post_run_source_snapshot")
     _require_equal(_p11_asset_snapshot(config), p11_snapshot, "post_run_p11_sidecar")
@@ -1196,13 +1466,15 @@ def run(split: str, *, limit: int | None = None) -> tuple[Path, dict[str, Any]]:
         semantic_snapshot,
         "post_run_semantic_assets",
     )
+    _require_equal(validate_manifest(config), manifest_snapshot, "post_run_manifest")
     _require_equal(_sha256(_resolve_regular_file(str(split_spec["path"]))), split_spec["sha256"], "post_run_split_sha256")
     _require_equal(_sha256(_resolve_regular_file(str(config["catalog"]["path"]))), config["catalog"]["sha256"], "post_run_catalog_sha256")
     _require_equal(_sha256(_resolve_regular_file(str(config["proxy"]["manifest_path"]))), config["proxy"]["manifest_sha256"], "post_run_manifest_sha256")
 
-    raw_trace = _read_trace(trace_path, receipt, len(samples) * 10)
-    trace = validate_trace(raw_trace, len(samples), catalog_ids)
-    joined, candidate_recall = join_labels_after_close(samples, ledger, trace)
+    worker_summary = _merge_worker_summaries(shards)
+    joined, candidate_recall, combined_trace_sha256 = _join_closed_shards(
+        shards, catalog_ids
+    )
     aggregate = aggregate_action_oracle(
         joined,
         action_ids=list(ACTION_IDS),
@@ -1224,10 +1496,18 @@ def run(split: str, *, limit: int | None = None) -> tuple[Path, dict[str, Any]]:
     decision_eligible = split == "selection" and limit is None
     decision = build_go_no_go(
         aggregate,
-        receipt.worker_summary,
+        worker_summary,
         config,
         decision_eligible=decision_eligible,
     )
+    trace_registry = [
+        {
+            "shard_index": shard.shard_index,
+            "trace_sha256": shard.receipt.trace_sha256,
+            "record_count": shard.receipt.record_count,
+        }
+        for shard in shards
+    ]
     artifact: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "protocol": {
@@ -1250,7 +1530,11 @@ def run(split: str, *, limit: int | None = None) -> tuple[Path, dict[str, Any]]:
             "manifest_sha256": config["proxy"]["manifest_sha256"],
             "split_sha256": split_spec["sha256"],
             "catalog_sha256": config["catalog"]["sha256"],
-            "blind_trace_sha256": receipt.trace_sha256,
+            "blind_trace_registry": trace_registry,
+            "blind_trace_registry_sha256": hashlib.sha256(
+                _canonical_bytes(trace_registry)
+            ).hexdigest(),
+            "combined_blind_trace_sha256": combined_trace_sha256,
             "p11_sidecar": p11_snapshot,
             "semantic_assets": {
                 "file_count": semantic_snapshot["file_count"],
@@ -1266,7 +1550,7 @@ def run(split: str, *, limit: int | None = None) -> tuple[Path, dict[str, Any]]:
         "candidate_recall": candidate_recall,
         "action_oracle": aggregate,
         "go_no_go": decision,
-        "worker": receipt.worker_summary,
+        "worker": worker_summary,
         "runtime": {"wall_seconds": round(time.perf_counter() - started, 6)},
         "limitations": [
             "The proxy is Amazon validation-derived and is not organizer-private evaluation.",

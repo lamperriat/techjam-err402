@@ -3,6 +3,8 @@ from __future__ import annotations
 import copy
 import json
 import queue
+import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -168,6 +170,9 @@ class FrozenConfigTests(unittest.TestCase):
             ),
             "semantic": lambda value: value["semantic"].__setitem__(
                 "full_catalog_search_allowed", True
+            ),
+            "parallelism": lambda value: value["runtime"].__setitem__(
+                "parallel_workers", 1
             ),
         }
         for label, mutate in mutations.items():
@@ -561,6 +566,225 @@ class WorkerProtocolHelperTests(unittest.TestCase):
             self._bare_client("diagnostic noise\n")._receive()
         with self.assertRaisesRegex(runner.OracleRunError, "not an object"):
             self._bare_client("[]\n")._receive()
+
+
+def _worker_summary(scale: int = 1) -> dict:
+    return {
+        "trajectory": {
+            "fixed_turns": 10,
+            "top_k": 10,
+            "completed_sessions": scale,
+            "respond_count": scale * 10,
+        },
+        "actions": {
+            "ids": list(ACTION_IDS),
+            "result_aware_computation_count": scale * 10,
+        },
+        "semantic": {
+            "mode": "candidate_only_c50",
+            "query_count": scale * 10,
+            "candidate_matrix_rows_read": scale * 500,
+            "maximum_candidate_rows_read": 40 + scale,
+            "full_catalog_search_calls": 0,
+            "failure_count": 0,
+        },
+        "memory": {"peak_rss_bytes": scale * 1000},
+        "network_attempt_count": 0,
+        "semantic_failure_count": 0,
+        "rewrite_failure_count": 0,
+        "full_catalog_search_calls": 0,
+        "p11_invariant_failure_count": 0,
+    }
+
+
+class ParallelShardTests(unittest.TestCase):
+    def test_contiguous_balanced_chunks_use_at_most_four_workers(self) -> None:
+        samples = [{"row": index} for index in range(10)]
+        chunks = runner.balanced_contiguous_chunks(samples, 4)
+        self.assertEqual([start for _, start, _ in chunks], [1, 4, 7, 9])
+        self.assertEqual([len(chunk) for _, _, chunk in chunks], [3, 3, 2, 2])
+        self.assertEqual(
+            [row["row"] for _, _, chunk in chunks for row in chunk], list(range(10))
+        )
+        self.assertEqual(len(runner.balanced_contiguous_chunks(samples[:2], 4)), 2)
+
+    def test_fake_parallel_workers_receive_local_ordinals_and_unique_nonces(self) -> None:
+        instances = []
+
+        class FakeClient:
+            def __init__(self, config, trace_path, nonce):
+                self.trace_path = trace_path
+                self.nonce = nonce
+                self.local_ordinals = []
+                self.aborted = False
+                instances.append(self)
+
+            def finalize(self):
+                count = len(self.local_ordinals)
+                return runner.WorkerReceipt(
+                    "0" * 64, count * 10, _worker_summary(count)
+                )
+
+            def abort(self):
+                self.aborted = True
+
+        def fake_replay(worker, samples, *args):
+            worker.local_ordinals = list(range(1, len(samples) + 1))
+            return [{"local": ordinal} for ordinal in worker.local_ordinals]
+
+        samples = [{"row": index} for index in range(9)]
+        paths = [Path(f"fake-{index}.jsonl") for index in range(4)]
+        config = {"runtime": {"parallel_workers": 4}}
+        with (
+            mock.patch.object(runner, "WorkerClient", FakeClient),
+            mock.patch.object(runner, "replay_blind_trajectories", fake_replay),
+        ):
+            shards = runner._run_blind_shards(
+                config, samples, {}, {}, set(), paths, "base-nonce"
+            )
+
+        self.assertEqual([shard.global_start for shard in shards], [1, 4, 6, 8])
+        self.assertEqual([len(shard.samples) for shard in shards], [3, 2, 2, 2])
+        self.assertEqual(
+            sorted(client.local_ordinals for client in instances),
+            [[1, 2], [1, 2], [1, 2], [1, 2, 3]],
+        )
+        self.assertEqual(len({client.nonce for client in instances}), 4)
+        self.assertTrue(all(client.aborted for client in instances))
+
+    def test_peer_failure_aborts_every_fake_worker(self) -> None:
+        instances = []
+        barrier = threading.Barrier(4)
+
+        class FakeClient:
+            def __init__(self, config, trace_path, nonce):
+                self.aborted = False
+                instances.append(self)
+
+            def abort(self):
+                self.aborted = True
+
+        def failing_replay(worker, samples, *args):
+            abort_event = args[-1]
+            barrier.wait(timeout=2)
+            if samples[0]["fail"]:
+                raise runner.OracleRunError("synthetic shard failure")
+            abort_event.wait(timeout=2)
+            raise runner.OracleRunError("peer stopped")
+
+        samples = [{"fail": index == 0} for index in range(4)]
+        with (
+            mock.patch.object(runner, "WorkerClient", FakeClient),
+            mock.patch.object(runner, "replay_blind_trajectories", failing_replay),
+        ):
+            with self.assertRaises(runner.OracleRunError):
+                runner._run_blind_shards(
+                    {"runtime": {"parallel_workers": 4}},
+                    samples,
+                    {},
+                    {},
+                    set(),
+                    [Path(f"fail-{index}.jsonl") for index in range(4)],
+                    "nonce",
+                )
+        self.assertEqual(len(instances), 4)
+        self.assertTrue(all(client.aborted for client in instances))
+
+    def test_sharded_join_matches_single_worker_metrics_and_combined_digest(self) -> None:
+        ids = set(_catalog_ids())
+        samples = [{"ground_truth": {"parent_asin": _catalog_ids()[0]}} for _ in range(5)]
+        ledger = [
+            {
+                "target_id": _catalog_ids()[0],
+                "eligible_from_turn": 1,
+                "scenario": "buying",
+                "taxonomy": "apparel",
+                "difficulty": "easy",
+                "popularity": "head",
+                "source_weight": 1.0,
+            }
+            for _ in samples
+        ]
+
+        def materialize(path: Path, count: int) -> runner.WorkerReceipt:
+            rows = [
+                _trace_row(turn, ordinal=ordinal)
+                for ordinal in range(1, count + 1)
+                for turn in range(1, 11)
+            ]
+            path.write_bytes(b"".join(runner._canonical_bytes(row) for row in rows))
+            return runner.WorkerReceipt(runner._sha256(path), len(rows), _worker_summary(count))
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            single_path = root / "single.jsonl"
+            single = [
+                runner.ShardResult(
+                    0, 1, samples, single_path, materialize(single_path, 5), ledger
+                )
+            ]
+            first_path, second_path = root / "first.jsonl", root / "second.jsonl"
+            parallel = [
+                runner.ShardResult(
+                    0, 1, samples[:3], first_path, materialize(first_path, 3), ledger[:3]
+                ),
+                runner.ShardResult(
+                    1, 4, samples[3:], second_path, materialize(second_path, 2), ledger[3:]
+                ),
+            ]
+            single_joined, single_recall, single_digest = runner._join_closed_shards(single, ids)
+            parallel_joined, parallel_recall, parallel_digest = (
+                runner._join_closed_shards(parallel, ids)
+            )
+
+        self.assertEqual(parallel_joined, single_joined)
+        self.assertEqual(parallel_recall, single_recall)
+        self.assertEqual(parallel_digest, single_digest)
+        self.assertEqual(parallel_recall["cutoffs"]["10"], {"hit_count": 5, "rate": 1.0})
+        kwargs = {
+            "action_ids": list(ACTION_IDS),
+            "oracle_eligible_actions": [action for action in ACTION_IDS if action != ASK],
+            "baseline_action": KEEP_P11,
+            "bootstrap_resamples": 10,
+            "bootstrap_seed": 5,
+        }
+        self.assertEqual(
+            runner.aggregate_action_oracle(parallel_joined, **kwargs),
+            runner.aggregate_action_oracle(single_joined, **kwargs),
+        )
+
+    def test_worker_summary_sums_gate_counts_and_totals_but_maxes_peaks(self) -> None:
+        shards = [
+            runner.ShardResult(
+                index,
+                index + 1,
+                [{}] * scale,
+                Path("unused"),
+                runner.WorkerReceipt("0" * 64, scale * 10, _worker_summary(scale)),
+                [],
+            )
+            for index, scale in enumerate((1, 2, 3))
+        ]
+        merged = runner._merge_worker_summaries(shards)
+        self.assertEqual(merged["parallel_workers"], 3)
+        self.assertEqual(merged["trajectory"]["completed_sessions"], 6)
+        self.assertEqual(merged["actions"]["result_aware_computation_count"], 60)
+        self.assertEqual(merged["semantic"]["candidate_matrix_rows_read"], 3000)
+        self.assertEqual(merged["semantic"]["maximum_candidate_rows_read"], 43)
+        self.assertEqual(merged["memory"]["peak_rss_bytes_max"], 3000)
+        self.assertEqual(
+            merged["memory"]["sum_of_worker_peak_rss_bytes_upper_bound"], 6000
+        )
+        self.assertFalse(merged["memory"]["parent_process_rss_included"])
+        for key in (
+            "network_attempt_count",
+            "semantic_failure_count",
+            "rewrite_failure_count",
+            "full_catalog_search_calls",
+            "p11_invariant_failure_count",
+        ):
+            self.assertEqual(merged[key], 0)
+        self.assertEqual(len(merged["per_shard"]), 3)
 
 
 if __name__ == "__main__":
