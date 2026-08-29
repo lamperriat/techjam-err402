@@ -301,3 +301,79 @@ model into runtime. Advance to the preregistered C100-only candidate-expansion t
 ranks 51-100 using the same target-cluster risk protocol. This is not a fourth hand-written
 guard. The existing embedding may be used only as a candidate-local feature/fusion source;
 it may not replace or reorder P11 Top10. No new full-split Agent run is authorized.
+
+## Family 4B: guarded learned C100-only expansion
+
+The trainer was generalized without changing the C50 checkpoint semantics so that one
+second preregistered band could be evaluated: exact sparse C100 ranks 51-100. This is the
+`GUARDED_C100_SLOT10` design boundary: P11 ranks 1-9 stay exact, at most one learned-risk
+challenger can occupy slot 10, stable R08 order breaks ties, and every non-activation is an
+exact KEEP_P11 fallback. It is a learned counterfactual route, not a fourth hand-written
+threshold rule.
+
+The historical blind trace contains complete C100 order but does not contain semantic or
+P11 candidate-score rows for ranks 51-100. The experiment therefore used only signals that
+can be reconstructed honestly: C100 rank/depth, previous-turn C100 presence/rank, visible
+turn, incumbent expert support, and expert-set agreement. Missing C100 embedding scores
+were not imputed. The same BGE was not run over the full 50,000-item catalog: frozen P7
+already showed sparse recall `198/200`, Dense@120 `115/200`, sparse-plus-dense still
+`198/200`, wall ratio `1.5521`, and RSS ratio `2.7595`.
+
+| Evidence | Baseline | C100-only cross-fitted policy | Delta / transition |
+| --- | ---: | ---: | ---: |
+| HR@10 | 0.947500 | 0.947500 | 0; 0 m->h, 0 h->m |
+| MRR | 0.674928 | 0.674928 | 0 |
+| MTTC | 3.160500 | 3.160500 | 0 |
+| TechnicalScore | 0.833018 | 0.833018 | 0 |
+| Activation | - | 0 turns / 0 sessions | fail-closed |
+
+The identifier-free C100 feature table contained `1,000,000` proposal rows, only `67`
+atomic rescue-positive rows, and `0` atomic single-turn harm-positive rows. Every outer
+fold and the final inner cross-fit selected objective `0`, rescue `0`, harm `0`, and zero
+activation. Historical session recall bounds explain the scarcity: C50/C100 are only
+`0.991/0.993` on the 2,000-session train split, so ranks 51-100 add four reachable
+sessions beyond C50 before routing error is considered.
+
+The local-only artifact is
+`experiments/fast_track/counterfactual_router_c100_only_v1.json`, SHA-256
+`2969971ae2e4efff33bc44a2c1bb8c06f6fa4d5a5bd7f95f368c8372daf83ea6`, size
+`11,528` bytes. Its feature-table SHA-256 is
+`42fe67a936b806ed15915259b644094890c59fda2693a741e6b1e02aefede500`; trainer
+SHA-256 is `50aa23d45d313cb31a0358119170a4ace7d4f6e5d745522d5faee7d238c96248`.
+It is also marked `OOF_RESEARCH_ONLY_NOT_RUNTIME_DEPLOYABLE`.
+
+One earlier C100 execution was invalidated before evidence closure because the candidate
+slice was ranks 51-100 while its numeric rank feature still began at 11. That artifact was
+renamed with `invalid_rank-origin` and retained locally for audit. After changing only the
+rank origin to `spec.rank_start + offset`, an independent static review found no remaining
+C100-band correctness blocker and the corrected OOF replay produced the result above.
+
+## Family 1-4 evidence boundary
+
+No individual action qualifies for `limit=200`: the three Family 3 actions had zero
+activation; the learned C50 policy activated but produced no transition; and the learned
+C100-only policy again had zero activation. Calibration was not used for fitting, gating,
+or evaluation in Family 4, and selection/confirmation were not opened. There is therefore
+no model to freeze for calibration and no basis for runtime integration.
+
+The bottleneck is now localized. Sparse recall provides candidates for most misses, but
+the historical target-blind feature contract does not identify which tail member is the
+target across held-out product clusters. Increasing candidate depth alone adds very little
+ceiling, and the already-tested full-catalog BGE does not add recall. Continuing to adjust
+rank, utility, margin, ridge, or gate thresholds on these labels would be post-hoc fitting
+and is closed.
+
+A materially new future stage requires new authority and new evidence, not another rule:
+
+1. capture complete target-blind CandidateScore components and candidate-only C100 cosine
+   values before label join, using at most 10 sidecar rows per fetch and exactly 100
+   advanced-index embedding rows per turn;
+2. keep embedding as candidate expansion/risk evidence only, never as a direct Top10
+   reranker;
+3. repeat product-cluster OOF on train/explore, freezing membership independently from any
+   later HR@1/MRR ordering model;
+4. touch calibration only after a frozen OOF policy has positive net rescue, and authorize
+   `limit=200` only when one individual action has activation and m->h > h->m.
+
+Under the current instruction not to add a full split or another rule variant, Family 1-4
+is complete with a reproducible negative boundary rather than a deployable HR action.

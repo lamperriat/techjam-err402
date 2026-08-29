@@ -29,7 +29,6 @@ ROOT = Path(__file__).resolve().parents[1]
 SPLIT = "train_explore"
 SESSION_COUNT = 2_000
 TURN_COUNT = 10
-PROPOSAL_COUNT = 40
 TRACE_ROWS = SESSION_COUNT * TURN_COUNT
 LAMBDA_HARM = 2.0
 SEED = "track4-p12-counterfactual-router-v1"
@@ -80,8 +79,8 @@ FEATURE_NAMES = (
 )
 FEATURE_FORMULAS = (
     "one-based visible turn / 10",
-    "one-based R08 candidate rank / 50",
-    "(one-based R08 candidate rank - 10) / 40",
+    "one-based R08 candidate rank / selected pool cutoff",
+    "one-based depth inside the selected proposal band / proposal-band size",
     "candidate is in structured Top10",
     "candidate structured Top10 rank utility; zero when absent",
     "candidate is in semantic Top10",
@@ -95,8 +94,8 @@ FEATURE_FORMULAS = (
     "P11 and structured Top10 set intersection size / 10",
     "P11 and semantic Top10 set intersection size / 10",
     "structured and semantic Top10 set intersection size / 10",
-    "candidate is in the immediately previous visible turn C50",
-    "candidate previous-turn C50 rank utility; zero when absent",
+    "candidate is in the immediately previous visible turn selected pool",
+    "candidate previous-turn selected-pool rank utility; zero when absent",
     "candidate is in the immediately previous visible turn P11 Top10",
 )
 FORBIDDEN_PATH_WORDS = ("calibration", "selection", "confirmation", "sealed")
@@ -119,12 +118,32 @@ class RouterTrainingError(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True)
+class ProposalSpec:
+    name: str
+    pool_key: str
+    cutoff: int
+    rank_start: int
+    rank_stop: int
+
+    @property
+    def proposal_count(self) -> int:
+        return self.rank_stop - self.rank_start + 1
+
+
+PROPOSAL_SPECS = {
+    "c50_tail": ProposalSpec("c50_tail", "c50", 50, 11, 50),
+    "c100_only": ProposalSpec("c100_only", "c100", 100, 51, 100),
+}
+
+
+@dataclass(frozen=True, slots=True)
 class TargetBlindRows:
     x: np.ndarray
     baseline_rankings: tuple[tuple[tuple[str, ...], ...], ...]
     proposals: tuple[tuple[tuple[str, ...], ...], ...]
     incumbents: tuple[tuple[str, ...], ...]
     feature_table_sha256: str
+    spec: ProposalSpec
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,6 +157,7 @@ class Dataset:
     baseline_rankings: tuple[tuple[tuple[str, ...], ...], ...]
     proposals: tuple[tuple[tuple[str, ...], ...], ...]
     incumbents: tuple[tuple[str, ...], ...]
+    proposal_count: int
 
 
 def _sha256(path: Path) -> str:
@@ -434,18 +454,19 @@ def _features(
     structured: Sequence[str],
     semantic: Sequence[str],
     previous: Mapping[str, Any] | None,
+    spec: ProposalSpec,
 ) -> tuple[float, ...]:
     s_set, e_set, p_set = set(structured), set(semantic), set(p11)
     s_support = float(candidate in s_set)
     e_support = float(candidate in e_set)
     i_s = float(incumbent in s_set)
     i_e = float(incumbent in e_set)
-    previous_pool = previous["c50"] if previous is not None else ()
+    previous_pool = previous[spec.pool_key] if previous is not None else ()
     previous_p11 = previous["actions"]["KEEP_P11"] if previous is not None else ()
     return (
         (turn_index + 1) / TURN_COUNT,
-        candidate_rank / 50.0,
-        (candidate_rank - 10) / 40.0,
+        candidate_rank / spec.cutoff,
+        (candidate_rank - spec.rank_start + 1) / spec.proposal_count,
         s_support,
         _rank_utility(structured, candidate),
         e_support,
@@ -467,10 +488,11 @@ def _features(
 
 def _build_target_blind_rows(
     trace: tuple[tuple[dict[str, Any], ...], ...],
+    spec: ProposalSpec,
 ) -> TargetBlindRows:
     if len(FEATURE_NAMES) != len(FEATURE_FORMULAS):
         raise RouterTrainingError("feature name/formula contract mismatch")
-    row_count = SESSION_COUNT * TURN_COUNT * PROPOSAL_COUNT
+    row_count = SESSION_COUNT * TURN_COUNT * spec.proposal_count
     x = np.empty((row_count, len(FEATURE_NAMES)), dtype=np.float32)
     baseline_rankings: list[tuple[tuple[str, ...], ...]] = []
     proposals: list[tuple[tuple[str, ...], ...]] = []
@@ -481,11 +503,17 @@ def _build_target_blind_rows(
         session_proposals: list[tuple[str, ...]] = []
         for turn_index, turn in enumerate(turns):
             p11 = turn["actions"]["KEEP_P11"]
-            c50 = turn["c50"]
-            if len(p11) != 10 or len(c50) != 50 or set(p11) != set(c50[:10]):
+            pool = turn[spec.pool_key]
+            if (
+                len(p11) != 10
+                or len(pool) != spec.cutoff
+                or set(p11) != set(pool[:10])
+            ):
                 raise RouterTrainingError("proposal reconstruction invariant failed")
             incumbent = p11[9]
-            candidates = tuple(c50[10:50])
+            candidates = tuple(pool[spec.rank_start - 1 : spec.rank_stop])
+            if len(candidates) != spec.proposal_count:
+                raise RouterTrainingError("proposal band is incomplete")
             session_proposals.append(candidates)
             structured = turn["actions"]["CANDIDATE_RERANK"]
             semantic = turn["actions"]["FROZEN_SEMANTIC_RERANK"]
@@ -493,13 +521,14 @@ def _build_target_blind_rows(
             for offset, candidate in enumerate(candidates):
                 x[cursor] = _features(
                     turn_index,
-                    11 + offset,
+                    spec.rank_start + offset,
                     candidate,
                     incumbent,
                     p11,
                     structured,
                     semantic,
                     previous,
+                    spec,
                 )
                 cursor += 1
         baseline_rankings.append(baseline)
@@ -516,6 +545,7 @@ def _build_target_blind_rows(
                     "formulas": FEATURE_FORMULAS,
                     "names": FEATURE_NAMES,
                     "shape": list(x.shape),
+                    "proposal_band": spec.name,
                 },
                 sort_keys=True,
                 separators=(",", ":"),
@@ -531,6 +561,7 @@ def _build_target_blind_rows(
         proposals=tuple(proposals),
         incumbents=tuple(incumbents),
         feature_table_sha256=feature_digest.hexdigest(),
+        spec=spec,
     )
 
 
@@ -581,6 +612,7 @@ def _join_labels(
         baseline_rankings=rows.baseline_rankings,
         proposals=rows.proposals,
         incumbents=rows.incumbents,
+        proposal_count=rows.spec.proposal_count,
     )
 
 
@@ -595,8 +627,8 @@ def _folds(targets: Sequence[str], count: int, salt: str) -> np.ndarray:
     return result
 
 
-def _row_mask(session_mask: np.ndarray) -> np.ndarray:
-    return np.repeat(session_mask, TURN_COUNT * PROPOSAL_COUNT)
+def _row_mask(session_mask: np.ndarray, proposal_count: int) -> np.ndarray:
+    return np.repeat(session_mask, TURN_COUNT * proposal_count)
 
 
 def _fit_head(
@@ -636,8 +668,10 @@ def _predict_head(model: Mapping[str, np.ndarray], x: np.ndarray) -> np.ndarray:
 
 
 def _fit_pair(dataset: Dataset, session_mask: np.ndarray, alpha: float) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
-    mask = _row_mask(session_mask)
-    row_weights = np.repeat(dataset.session_weights, TURN_COUNT * PROPOSAL_COUNT)
+    mask = _row_mask(session_mask, dataset.proposal_count)
+    row_weights = np.repeat(
+        dataset.session_weights, TURN_COUNT * dataset.proposal_count
+    )
     return (
         _fit_head(dataset.x, dataset.rescue, mask, row_weights, alpha),
         _fit_head(dataset.x, dataset.harm, mask, row_weights, alpha),
@@ -676,7 +710,7 @@ def _evaluate_policy(
     threshold: float,
     runner_gap: float,
 ) -> dict[str, Any]:
-    cube = gains.reshape(SESSION_COUNT, TURN_COUNT, PROPOSAL_COUNT)
+    cube = gains.reshape(SESSION_COUNT, TURN_COUNT, dataset.proposal_count)
     miss_to_hit = hit_to_miss = activation_turns = activation_sessions = hits = baseline_hits = 0
     baseline_rr_sum = policy_rr_sum = 0.0
     baseline_turn_sum = policy_turn_sum = 0
@@ -768,9 +802,11 @@ def _select(
             valid_sessions = session_mask & (inner_folds == fold)
             train_sessions = session_mask & (inner_folds != fold)
             models = _fit_pair(dataset, train_sessions, alpha)
-            row_valid = _row_mask(valid_sessions)
+            row_valid = _row_mask(valid_sessions, dataset.proposal_count)
             gains[row_valid] = _predict_pair(models, dataset.x[row_valid])
-        best_per_turn = gains.reshape(SESSION_COUNT, TURN_COUNT, PROPOSAL_COUNT).max(axis=2)
+        best_per_turn = gains.reshape(
+            SESSION_COUNT, TURN_COUNT, dataset.proposal_count
+        ).max(axis=2)
         finite = best_per_turn[np.repeat(session_mask[:, None], TURN_COUNT, axis=1)]
         thresholds = sorted(set(float(np.quantile(finite, q)) for q in (0.50, 0.75, 0.90, 0.95, 0.975, 0.99)))
         for threshold in thresholds:
@@ -836,10 +872,10 @@ def _write_exclusive(path: Path, value: Mapping[str, Any]) -> None:
         os.fsync(handle.fileno())
 
 
-def train(output: Path) -> dict[str, Any]:
+def train(output: Path, spec: ProposalSpec) -> dict[str, Any]:
     aggregate = _validate_aggregate()
     trace, trace_identifiers = _load_traces()
-    target_blind_rows = _build_target_blind_rows(trace)
+    target_blind_rows = _build_target_blind_rows(trace, spec)
     targets, eligible = _load_proxy()
     all_identifiers = trace_identifiers | frozenset(targets)
     dataset = _join_labels(target_blind_rows, targets, eligible)
@@ -853,7 +889,7 @@ def train(output: Path) -> dict[str, Any]:
         inner = _folds(targets, 4, f"outer-{fold}-inner")
         alpha, threshold, gap, inner_metrics = _select(dataset, train_sessions, inner)
         models = _fit_pair(dataset, train_sessions, alpha)
-        held_rows = _row_mask(held)
+        held_rows = _row_mask(held, dataset.proposal_count)
         oof_gains[held_rows] = _predict_pair(models, dataset.x[held_rows])
         outer_choices.append({
             "fold": fold,
@@ -923,6 +959,7 @@ def train(output: Path) -> dict[str, Any]:
     artifact = {
         "schema_version": "p12.counterfactual-router.v1",
         "training_split": SPLIT,
+        "proposal_band": spec.name,
         "promotion_status": "OOF_RESEARCH_ONLY_NOT_RUNTIME_DEPLOYABLE",
         "feature_contract": {
             "names": list(FEATURE_NAMES),
@@ -932,7 +969,10 @@ def train(output: Path) -> dict[str, Any]:
                 "product identity", "sample identity", "group labels", "scenario labels",
                 "taxonomy labels", "difficulty labels", "future turns",
             ],
-            "proposal": "exact R08 C50 ranks 11-to-50; exact P11 rank-10 membership swap",
+            "proposal": (
+                f"exact R08 {spec.pool_key.upper()} ranks {spec.rank_start}-to-"
+                f"{spec.rank_stop}; exact P11 rank-10 membership swap"
+            ),
             "membership_only": "P11 ranks 1-to-9 remain exact; HR@1/MRR ordering is not optimized",
             "missing_rank": "zero utility plus a separate support flag",
             "rank_utility": "(ranking length - one-based rank) / (ranking length - 1)",
@@ -968,6 +1008,7 @@ def train(output: Path) -> dict[str, Any]:
             "atomic_rescue_positive_rows": int(dataset.rescue.sum()),
             "atomic_harm_positive_rows": int(dataset.harm.sum()),
             "labels_joined_only_after_feature_table_hashed": True,
+            "proposal_rows": len(dataset.x),
         },
         "source_provenance": {
             "aggregate_sha256": AGGREGATE_SHA256,
@@ -999,6 +1040,9 @@ def train(output: Path) -> dict[str, Any]:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--split", default=SPLIT)
+    parser.add_argument(
+        "--proposal-band", choices=tuple(PROPOSAL_SPECS), default="c50_tail"
+    )
     parser.add_argument("--output", type=Path, required=True)
     return parser
 
@@ -1009,7 +1053,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise RouterTrainingError("only train_explore is permitted")
     output = args.output if args.output.is_absolute() else (Path.cwd() / args.output)
     _reject_forbidden_path(output)
-    artifact = train(output)
+    artifact = train(output, PROPOSAL_SPECS[args.proposal_band])
     summary = artifact["cross_fit"]["oof_membership"]
     print(json.dumps({"output": str(output.resolve()), "oof_membership": summary}, sort_keys=True))
     return 0
