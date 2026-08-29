@@ -48,8 +48,8 @@ previously unopened, and target/product-family-disjoint. Confirmation remains se
 The shared run used four workers, fixed ten-turn replay, and the new eight-action registry.
 `KEEP_P11` HR@10 was `0.940000`, C50 recall was `0.970000`, and oracle HR@10 remained
 `0.940000`. Both new actions were exact KEEP_P11 no-ops on every observed turn: no Top10
-order change, membership activation, rescue, or harm. The aggregate is
-`experiments/fast_track/action_oracle_v1/train_explore-smoke-100-aggregate.json`; its
+order change, membership activation, rescue, or harm. The aggregate was archived as
+`experiments/fast_track/action_oracle_v1/train_explore-smoke-100-compact-batch1-87f2657-aggregate.json`; its
 canonical config SHA-256 is
 `be4d72c77f9424716abfa45580bd676140aa29f471eb7c7da0375dbc24d241a4`.
 
@@ -111,3 +111,49 @@ individual action alone must have activation > 0, miss-to-hit > hit-to-miss, and
 Candidate-only variants whose outsiders must already be in the old structured or semantic
 Top 10 are intentionally deprioritized: those two actions rescued zero misses on this same
 100-session prefix, so that restriction cannot rescue the observed C50-only misses.
+
+## Deployable individual-action leaderboard
+
+Rows are ordered by the strongest available evidence stage, then net rescue, then lower
+hit-to-miss. `NE` means the artifact schema did not emit the field; it is never inferred as
+zero. A positive result on only one split is not deployable evidence.
+
+| Action | Family | Evidence | HR@10 delta | m->h / h->m / net | MRR | MTTC | Shared wall | Decision |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `CANDIDATE_RERANK` | old structured | train full / calibration full | -0.0035 / +0.0015 | 14/21/-7; 16/13/+3 | 0.619831 / 0.609205 | 3.187 / 3.207 | 947.950242s / 1076.397994s | REJECT: split-inconsistent |
+| `RESULT_AWARE_REWRITE_RETRIEVE` | old rewrite | train full / calibration full | 0 / 0 | 0/0/0; 0/0/0 | 0.626667 / 0.619330 | 3.1625 / 3.245 | 947.950242s / 1076.397994s | REJECT: no HR signal |
+| `FROZEN_SEMANTIC_RERANK` | old semantic | train full / calibration full | -0.0215 / -0.0070 | 5/48/-43; 22/36/-14 | 0.518078 / 0.509279 | 3.3035 / 3.2795 | 947.950242s / 1076.397994s | REJECT: harmful |
+| `COMPACT_NEGATIVE_C50` | compact negative | train prefix 100 | 0 | 0/0/0 | 0.676040 | 3.2 | 77.508421s | ADVANCE_FAMILY: unsupported signal |
+| `GUARDED_COMPACT_SLOT10` | compact negative | train prefix 100 | 0 | 0/0/0 | 0.676040 | 3.2 | 77.508421s | ADVANCE_FAMILY: unsupported signal |
+| `GUARDED_COMPACT_SLOT10_STRICT` | compact negative | train prefix 100 | 0 | 0/0/0 | 0.676040 | 3.2 | 77.508421s | ADVANCE_FAMILY: unsupported signal |
+
+## Family 1 completion: compact-negative admission
+
+Falsifiable hypothesis: an explicit negative compatibility improvement at the Top-10
+boundary can rescue a C50 miss while preserving P11 ranks 1-9. Commit `232d686`, config
+SHA-256 `661c69b70b385ef0f3591b38f844ad23ea0387e20bd6d9c071030b8a443cefb2`,
+and one shared `train_explore --limit 100` replay tested all three family variants.
+The aggregate is `experiments/fast_track/action_oracle_v1/train_explore-smoke-100-aggregate.json`.
+
+| Action | Definition | HR@10 / delta | m->h | h->m | Net | Activation turns / sessions | Scenario / taxonomy span | Decision |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| `COMPACT_NEGATIVE_C50` | stable C50 compatible -> unknown -> violation partition | 0.940 / 0 | 0 | 0 | 0 | 0 / 0 | 0 / 0 | ADVANCE_FAMILY |
+| `GUARDED_COMPACT_SLOT10` | first rank11-50 challenger in a strictly better compact class | 0.940 / 0 | 0 | 0 | 0 | 0 / 0 | 0 / 0 | ADVANCE_FAMILY |
+| `GUARDED_COMPACT_SLOT10_STRICT` | rank10 violation <-> adjacent compatible rank11 only | 0.940 / 0 | 0 | 0 | 0 | 0 / 0 | 0 / 0 | ADVANCE_FAMILY |
+
+The baseline was HR@10 `0.940000`, MRR `0.676040`, MTTC `3.2`, and TechnicalScore
+`0.828812`. Candidate recall was C10/C20/C50/C100 = `0.940/0.950/0.970/0.980`.
+The hindsight oracle retained HR@10 `0.940000`; its MRR gain does not authorize expansion.
+Wall time was `77.508421s`; maximum single-worker lifetime RSS was `480,882,688` bytes
+with parent RSS excluded. Network attempts, full-catalog searches, semantic/rewrite
+failures, P11 invariant failures, and diagnostic fail-closed turns were all zero. The
+targeted batch passed `39/39` exactly once.
+
+The aggregate-only funnel examined `13,968` ledger records across `1,000` turns but
+compiled `0` executable negative constraints. Rejections were `10,353 not_negative`,
+`2,827 not_active`, `698 stale_goal_version`, and `90 slot_not_allowed`. Consequently there
+were zero C50 violations, better-class outsiders, adjacent compatible outsiders, partition
+changes, or action activations. This confirms a proxy-signal boundary rather than a wiring
+failure. Family 1 is closed after three materially distinct variants; `limit=200` is
+forbidden. Next action: implement one shared Family 2 risk-controlled admission matrix
+over C50 using visible positive/hard-clause/budget evidence.
