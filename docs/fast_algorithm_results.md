@@ -126,6 +126,9 @@ zero. A positive result on only one split is not deployable evidence.
 | `COMPACT_NEGATIVE_C50` | compact negative | train prefix 100 | 0 | 0/0/0 | 0.676040 | 3.2 | 77.508421s | ADVANCE_FAMILY: unsupported signal |
 | `GUARDED_COMPACT_SLOT10` | compact negative | train prefix 100 | 0 | 0/0/0 | 0.676040 | 3.2 | 77.508421s | ADVANCE_FAMILY: unsupported signal |
 | `GUARDED_COMPACT_SLOT10_STRICT` | compact negative | train prefix 100 | 0 | 0/0/0 | 0.676040 | 3.2 | 77.508421s | ADVANCE_FAMILY: unsupported signal |
+| `P11_EVIDENCE_NOVEL_SLOT10` | risk-controlled admission | train prefix 100 | 0 | 0/0/0 | 0.676040 | 3.2 | 80.753492s | ADVANCE_FAMILY: guarded no-op |
+| `HARD_CLAUSE_NOVEL_SLOT10` | risk-controlled admission | train prefix 100 | 0 | 0/0/0 | 0.676040 | 3.2 | 80.753492s | ADVANCE_FAMILY: guarded no-op |
+| `TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10` | risk-controlled admission | train prefix 100 | 0 | 0/0/0 | 0.676040 | 3.2 | 80.753492s | ADVANCE_FAMILY: guarded no-op |
 
 ## Family 1 completion: compact-negative admission
 
@@ -133,7 +136,7 @@ Falsifiable hypothesis: an explicit negative compatibility improvement at the To
 boundary can rescue a C50 miss while preserving P11 ranks 1-9. Commit `232d686`, config
 SHA-256 `661c69b70b385ef0f3591b38f844ad23ea0387e20bd6d9c071030b8a443cefb2`,
 and one shared `train_explore --limit 100` replay tested all three family variants.
-The aggregate is `experiments/fast_track/action_oracle_v1/train_explore-smoke-100-aggregate.json`.
+The aggregate is `experiments/fast_track/action_oracle_v1/train_explore-smoke-100-family1-232d686-aggregate.json`.
 
 | Action | Definition | HR@10 / delta | m->h | h->m | Net | Activation turns / sessions | Scenario / taxonomy span | Decision |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
@@ -157,3 +160,51 @@ changes, or action activations. This confirms a proxy-signal boundary rather tha
 failure. Family 1 is closed after three materially distinct variants; `limit=200` is
 forbidden. Next action: implement one shared Family 2 risk-controlled admission matrix
 over C50 using visible positive/hard-clause/budget evidence.
+
+## Family 2 completion: risk-controlled Top-10 admission
+
+Falsifiable hypothesis: a target-blind challenger unique to P11 ranks 11-50, and absent
+from the existing structured and semantic Top10, can safely replace P11 rank 10 when
+independent frozen catalog signals provide a material margin. Commit `03ed674`, config
+SHA-256 `69da9c40aa6ec32448490e8c454508c3f1d1aa4fa45139d47f49b22e4d327bda`,
+and one shared `train_explore --limit 100` replay tested the three preregistered variants.
+The aggregate is
+`experiments/fast_track/action_oracle_v1/train_explore-smoke-100-family2-03ed674-aggregate.json`.
+
+| Action | Admission evidence | HR@10 / delta | m->h | h->m | Net | Activation turns / sessions | Scenario / taxonomy span | Decision |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| `P11_EVIDENCE_NOVEL_SLOT10` | weighted P11 evidence + two support groups | 0.940 / 0 | 0 | 0 | 0 | 0 / 0 | 0 / 0 | ADVANCE_FAMILY |
+| `HARD_CLAUSE_NOVEL_SLOT10` | unique long hard-clause field match | 0.940 / 0 | 0 | 0 | 0 | 0 / 0 | 0 / 0 | ADVANCE_FAMILY |
+| `TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10` | same unique lexical and constraint argmax | 0.940 / 0 | 0 | 0 | 0 | 0 / 0 | 0 / 0 | ADVANCE_FAMILY |
+
+The baseline was HR@10 `0.940000`, MRR `0.676040`, MTTC `3.2`, and TechnicalScore
+`0.828812`. Candidate recall remained C10/C20/C50/C100 =
+`0.940/0.950/0.970/0.980`. Wall time was `80.753492s`; maximum single-worker lifetime
+RSS was `484,474,880` bytes with parent RSS excluded. Network attempts, full-catalog
+searches, semantic/rewrite failures, P11 invariant failures, and Family 2 score
+fail-closed turns were all zero.
+
+The aggregate-only scoring funnel covered all `1,000` turns and computed `50,000`
+candidate breakdowns through `5,000` sidecar fetches, with at most `10` rows per fetch.
+It observed a non-category visible preference on `939` turns and a four-or-more-term hard
+clause on `68` turns. Despite complete inputs, all three admission guards returned exact
+KEEP_P11 on every turn. The artifact does not emit per-guard rejection counts, so it
+supports the bounded statement that the jointly preregistered novelty, safety, uniqueness,
+and margin requirements never completed; it does not identify one threshold as the sole
+bottleneck.
+
+The source-only budget variant was rejected before execution: only `3/50,000` catalog
+rows contain a price field, so it could not form a meaningful admission experiment. It
+was replaced before the shared replay by the two-signal consensus action. No label, target,
+blind trace row, network call, or full-catalog semantic search was used for this decision.
+
+The one allowed targeted invocation ran `81` tests: `80` passed and one runner negative
+test failed only because the correct earlier C50 guard emitted a different error string
+than the assertion expected. The assertion was corrected without a second test invocation,
+preserving the one-test-per-batch rule. This is recorded as a verification limitation,
+not represented as an all-green run.
+
+No individual action satisfies activation > 0 or any HR gate, so `limit=200` is forbidden.
+Family 2 is closed after three materially distinct variants. Decision: `ADVANCE_FAMILY`;
+next implement a lightweight target-blind router over already-computed safe actions without
+opening selection or changing the frozen evaluator protocol.
