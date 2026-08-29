@@ -68,3 +68,46 @@ data-bearing run for this action matrix.
 Neither individual action satisfies the Stage 1 expansion gate, so `limit=200` is forbidden.
 The decision is `ITERATE`: diagnose why the frozen proxy prefix emits no executable compact
 effect, then change the algorithm family or activation path before any further experiment.
+
+## Next iteration plan: guarded positive admission
+
+Source-only review explains the zero activation without opening blind traces. The frozen
+proxy dialogue templates express positive requirements, overrides, browsing intent, and
+generic rejection, but do not normally emit an explicit product-attribute exclusion that
+survives the conservative negative compiler. The result therefore means that this proxy
+prefix provides no usable signal for the compact-negative family; it does **not** establish
+that compact ordering is generally ineffective. Keep both actions as diagnostic controls,
+but do not spend another data run loosening the negative parser or tuning their weights.
+
+The next matrix will test one protected rank-10 replacement family with three target-blind
+variants:
+
+1. `GUARDED_POSITIVE_SLOT10`: require a current, active, full-confidence hard positive
+   constraint; replace an explicitly mismatching P11 rank 10 only with a catalog-observed
+   matching challenger from ranks 11-50.
+2. `HARD_CLAUSE_SLOT10_STRICT`: use normalized field-local phrase/n-gram coverage of the
+   latest visible hard clause; admit a unique rank-11-to-50 challenger only when its fixed
+   coverage margin over rank 10 clears the preregistered threshold.
+3. `BUDGET_AROUND_SLOT10_STRICT`: for a currently active visible `around` budget, admit a
+   unique challenger only when its catalog price has a preregistered material alignment
+   advantage and the remaining structured evidence does not materially regress.
+
+All variants must consume only the already fetched P11 C50 and visible dialogue/catalog
+fields. They preserve Top 1-9 byte-for-byte, may perform exactly one membership swap, keep
+the rest of the order stable, and fail closed on missing, ambiguous, stale, or unknown
+evidence. They may not add an asset, LLM, network call, full-catalog search, target/label
+input, trace field, evaluator change, or runner-protocol change.
+
+Before the next replay, add aggregate-only worker counters for the eligibility funnel
+(usable constraint, catalog support, rank-10 mismatch, eligible outsider, guard rejection,
+and final membership change). Counters must contain no message text, attribute value,
+product identifier, target, or row ordinal. This distinguishes “no executable evidence”
+from “evidence exists but the guard rejects it” while preserving the blind boundary.
+
+The three variants are to share one action/config commit, one targeted test batch, and one
+fresh `train_explore --limit 100` replay. Exact-repeat identity must be checked first. An
+individual action alone must have activation > 0, miss-to-hit > hit-to-miss, and HR delta >
+0 before `limit=200` is allowed. Otherwise record `ITERATE` or `STOP` and change family.
+Candidate-only variants whose outsiders must already be in the old structured or semantic
+Top 10 are intentionally deprioritized: those two actions rescued zero misses on this same
+100-session prefix, so that restriction cannot rescue the observed C50-only misses.
