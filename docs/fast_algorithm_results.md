@@ -129,6 +129,9 @@ zero. A positive result on only one split is not deployable evidence.
 | `P11_EVIDENCE_NOVEL_SLOT10` | risk-controlled admission | train prefix 100 | 0 | 0/0/0 | 0.676040 | 3.2 | 80.753492s | ADVANCE_FAMILY: guarded no-op |
 | `HARD_CLAUSE_NOVEL_SLOT10` | risk-controlled admission | train prefix 100 | 0 | 0/0/0 | 0.676040 | 3.2 | 80.753492s | ADVANCE_FAMILY: guarded no-op |
 | `TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10` | risk-controlled admission | train prefix 100 | 0 | 0/0/0 | 0.676040 | 3.2 | 80.753492s | ADVANCE_FAMILY: guarded no-op |
+| `VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10` | hand-written C50 router | train prefix 100 | 0 | 0/0/0 | 0.676040 | 3.2 | 59.270069s | CLOSE_ROUTE: zero activation |
+| `DUAL_BOUNDARY_CONSENSUS_SLOT10` | hand-written C50 router | train prefix 100 | 0 | 0/0/0 | 0.676040 | 3.2 | 59.270069s | CLOSE_ROUTE: zero activation |
+| `RECENT_OVERRIDE_RANK_FUSION_SLOT10` | hand-written C50 router | train prefix 100 | 0 | 0/0/0 | 0.676040 | 3.2 | 59.270069s | CLOSE_ROUTE: zero activation |
 
 ## Family 1 completion: compact-negative admission
 
@@ -208,3 +211,46 @@ No individual action satisfies activation > 0 or any HR gate, so `limit=200` is 
 Family 2 is closed after three materially distinct variants. Decision: `ADVANCE_FAMILY`;
 next implement a lightweight target-blind router over already-computed safe actions without
 opening selection or changing the frozen evaluator protocol.
+
+## Family 3 completion: lightweight target-blind C50 router
+
+Falsifiable hypothesis: visible constraint state, dual auxiliary boundary agreement, or a
+recent override can route one candidate from the complete P11/structured/semantic C50
+rankings into slot 10 without inheriting the known harms of a full rerank. All challengers
+were required to be absent from both auxiliary Top10 lists, preserve P11 ranks 1-9, and
+perform exactly one safe membership swap. Commit `842fa3b`, config SHA-256
+`e58eb99d558ccb57352be05fd1a933d8d0b7fc7de30586f75ee1e6af285f14b9`, and
+the sole shared `train_explore --limit 100` replay tested all three frozen actions. The
+aggregate is
+`experiments/fast_track/action_oracle_v1/train_explore-smoke-100-family3-842fa3b-aggregate.json`.
+
+| Action | Route context | HR@10 / delta | m->h | h->m | Net | Activation turns / sessions | Decision |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10` | >=2 visible non-category preferences or >=4 hard terms | 0.940 / 0 | 0 | 0 | 0 | 0 / 0 | CLOSE_ROUTE |
+| `DUAL_BOUNDARY_CONSENSUS_SLOT10` | novel candidate at both auxiliary ranks 11-15 | 0.940 / 0 | 0 | 0 | 0 | 0 / 0 | CLOSE_ROUTE |
+| `RECENT_OVERRIDE_RANK_FUSION_SLOT10` | goal-version age 0-1 turns after override | 0.940 / 0 | 0 | 0 | 0 | 0 / 0 | CLOSE_ROUTE |
+
+The baseline remained HR@10 `0.940000`, MRR `0.676040`, MTTC `3.2`, and
+TechnicalScore `0.828812`; candidate recall remained C10/C20/C50/C100 =
+`0.940/0.950/0.970/0.980`. Wall time was `59.270069s`, and maximum single-worker
+lifetime RSS was `485,851,136` bytes with parent RSS excluded. The one allowed targeted
+test invocation passed `94/94`. Network attempts, full-catalog searches, semantic/rewrite
+failures, P11 invariant failures, Family 2 score failures, and Family 3 unexpected compute
+failures were all zero.
+
+All three routers returned `invalid_context` on all `1,000` turns, while the shared scorer
+still produced all `50,000/50,000` C50 candidate breakdowns through `5,000` bounded
+sidecar fetches. Therefore the replay establishes zero activation, not a comparison of the
+three rank margins. Source review suggests the exact twelve-decimal
+`total == relevance + tie_bonus` revalidation is a plausible fail-closed bottleneck because
+the three values are rounded separately, but the identifier-free aggregate cannot prove
+which context clause rejected each turn. Per the post-run decision rule, this is not grounds
+for a repaired rerun or another hand-written variant.
+
+`limit=200` is forbidden because every individual action has activation `0`, m->h `0`, and
+HR delta `0`. The hand-written guarded-router route is closed. The next stage is a learned,
+target-cluster cross-fitted rescue-vs-harm router: target membership may define training
+labels but can never be a runtime feature. Its objective is `miss_to_hit - lambda *
+hit_to_miss`; evaluation must keep HR@10 membership separate from HR@1/MRR ordering.
+After that, prioritize `GUARDED_C100_SLOT10`; embedding may expand/fuse the candidate pool
+but must not directly rerank Top10. No full split is authorized at this stage.
