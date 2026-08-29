@@ -254,3 +254,50 @@ labels but can never be a runtime feature. Its objective is `miss_to_hit - lambd
 hit_to_miss`; evaluation must keep HR@10 membership separate from HR@1/MRR ordering.
 After that, prioritize `GUARDED_C100_SLOT10`; embedding may expand/fuse the candidate pool
 but must not directly rerank Top10. No full split is authorized at this stage.
+
+## Family 4A: target-cluster cross-fitted C50 risk router
+
+The first learned-router stage consumed only the already-closed historical
+`train_explore-full` aggregate and its four verified blind traces. It did not launch an
+Agent worker or open calibration, selection, or confirmation. The target-blind feature
+table was built and hashed before the proxy label file was loaded. Product identity was
+used only after that boundary to create atomic rescue/harm labels and deterministic
+five-fold product-cluster groups; no identity, scenario, taxonomy, difficulty, ordinal,
+or future-turn value enters the 19 runtime features.
+
+The proposal universe was the complete R08/P11-preserved C50 tail, ranks 11-50. A
+two-head cluster-weighted ridge model estimated rescue and harm scores for a single slot-10
+swap. Nested group cross-fitting selected its regularization and gate using the integer
+objective `miss_to_hit - 2 * hit_to_miss`. The membership policy always preserved P11
+ranks 1-9; MRR was not an optimization feature and was rebuilt separately with the frozen
+official formulas.
+
+| Evidence | Baseline | Cross-fitted policy | Delta / transition |
+| --- | ---: | ---: | ---: |
+| HR@10 | 0.947500 | 0.947500 | 0; 0 m->h, 0 h->m |
+| MRR | 0.674928 | 0.674928 | 0 |
+| MTTC | 3.160500 | 3.160500 | 0 |
+| TechnicalScore | 0.833018 | 0.833018 | 0 |
+| Activation | - | 137 turns / 49 sessions | neutral swaps only |
+
+The closed feature table contained `649` atomic rescue-positive rows and `0` atomic
+single-turn harm-positive rows. Four outer folds selected a zero-rescue conservative gate;
+one outer-training partition observed five inner rescues, but none transferred to its
+held-out product clusters. The deployable conclusion is therefore not "the model never
+ran": it activated, but its candidate choice did not generalize to a missed target.
+
+The successful identifier-free research artifact is local-only at
+`experiments/fast_track/counterfactual_router_v1.json`, SHA-256
+`c46ec1cf81fd08d02f70ce2e8be8a2b6abdb560841c707313452d11e5de8b23d`, size
+`11,788` bytes. Its feature-table SHA-256 is
+`a9c83ea2252f1860eb7ad3610ab3810e07e0aef8e4de0f89325378fb91c18fde` and it is
+explicitly marked `OOF_RESEARCH_ONLY_NOT_RUNTIME_DEPLOYABLE`. One preceding execution
+completed fitting but failed before artifact creation because the output privacy audit
+correctly rejected a provenance key containing the word `identifier`; renaming only that
+key produced the successful deterministic replay.
+
+Decision: do not tune rank, score, or margin thresholds and do not integrate this C50
+model into runtime. Advance to the preregistered C100-only candidate-expansion test over
+ranks 51-100 using the same target-cluster risk protocol. This is not a fourth hand-written
+guard. The existing embedding may be used only as a candidate-local feature/fusion source;
+it may not replace or reorder P11 Top10. No new full-split Agent run is authorized.
