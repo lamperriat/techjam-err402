@@ -1,0 +1,91 @@
+{
+  "schema_version": "small-ranker-runtime-fix-manifest.v1",
+  "recorded_on": "2026-08-30",
+  "branch": "small-ranker-v1.1-runtime-fix",
+  "parent_checkpoint": {
+    "commit": "d4109d4",
+    "tag": "checkpoint/small-ranker-calibration-nogo-20260830"
+  },
+  "code_checkpoint": "95b50cc",
+  "candidate_id": "ndcg_d4_lr003",
+  "change_scope": {
+    "runtime_cache_fix": true,
+    "smoke_resource_instrumentation": true,
+    "model_changed": false,
+    "features_changed": false,
+    "gate_model_changed": false,
+    "gate_threshold_changed": false,
+    "agent_integration_changed": false,
+    "served_default_changed": false
+  },
+  "sources": {
+    "runtime": {
+      "path": "starter/small_ranker.py",
+      "bytes": 55254,
+      "sha256": "3324a1037b9b2f6d842ae5b80f3aeebf121c68b338601a76493fe6cbdd2d887f"
+    },
+    "smoke_runner": {
+      "path": "scripts/evaluate_small_ranker_smoke.py",
+      "bytes": 13318,
+      "sha256": "34a714dc329d71b1ad3d7d4661e9fbc212cf48a878f4b63d7775e95a07428b7a"
+    },
+    "runtime_tests": {
+      "path": "tests/test_small_ranker_runtime.py",
+      "bytes": 8161,
+      "sha256": "bdd219b8b4503a7209f502249f10a0c60a612a7179693e063a3e93410c5dae84"
+    },
+    "unchanged_agent": {
+      "path": "starter/agent.py",
+      "bytes": 72326,
+      "sha256": "ace7d2c7a89976b740252cc6b52dc41b9cabbbaa515698e557b03bd2249da9da"
+    },
+    "unchanged_research_artifact": {
+      "path": "experiments/fast_track/small_ranker_v1/oof_batch_v1/research_runtime_v1.json",
+      "bytes": 257380,
+      "sha256": "090f1dfe5a07b922f4b4663dc1bd093892530cc717b45cb31658adb800c5c96e",
+      "gitignored": true
+    }
+  },
+  "cache_fix": {
+    "previous_failure": "A current C100 row could be evicted after the missing-key set was computed, causing the final lookup to raise KeyError.",
+    "correction": "Touch all cached current candidates before inserts so unrelated historical rows are evicted first.",
+    "capacity": 16384,
+    "maximum_current_candidate_count": 100,
+    "new_fail_closed_guards": [
+      "candidate count must not exceed cache capacity",
+      "candidate identifiers must be unique"
+    ],
+    "model_decision_semantics_changed": false
+  },
+  "resource_instrumentation": {
+    "turn_latency_p95": "deterministic nearest-rank percentile",
+    "peak_rss": "OS process-lifetime high-water RSS",
+    "dependencies": "Python standard library only",
+    "fail_closed_if_incomplete": true
+  },
+  "targeted_test_evidence": {
+    "initial_command": "C:\\Users\\danie\\anaconda3\\python.exe -m pytest tests/test_small_ranker_runtime.py -q",
+    "initial_result": "7 passed, 1 failed in 0.20s",
+    "initial_failure_classification": "test fixture error: fake SQLite execute returned a list instead of a fetchall cursor",
+    "runtime_failure_observed": false,
+    "corrected_command": "C:\\Users\\danie\\anaconda3\\python.exe -m pytest tests/test_small_ranker_runtime.py::test_evidence_cache_protects_current_candidates_during_eviction tests/test_small_ranker_runtime.py::test_smoke_resource_measurements_are_stdlib_and_deterministic -q",
+    "corrected_result": "2 passed in 0.07s",
+    "agent_or_evaluator_started": false
+  },
+  "evidence_boundary": {
+    "runtime_smoke_run": false,
+    "calibration_rerun": false,
+    "selection_opened": false,
+    "confirmation_opened": false,
+    "public_opened": false,
+    "v1_calibration_used_for_parameter_selection": false,
+    "v1_1_has_untouched_calibration_evidence": false
+  },
+  "decision": {
+    "promote_runtime_artifact": false,
+    "served_default": "off",
+    "copy_artifact_to_starter_assets": false,
+    "status": "implementation fix verified locally but uncalibrated",
+    "required_next_evidence": "one newly authorized untouched split for the frozen v1.1 runtime"
+  }
+}

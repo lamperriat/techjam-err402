@@ -16,6 +16,7 @@ confirmation, public, and the official full-Agent evaluator remain unopened.
 | Research runtime export | `d281807` | `92795134`, semantic route absent | 273-tree `ndcg_d4_lr003` | +0.0280 OOF | 56 | 0 | exact C100 order on 1,000 parity rows | 1.645 s export | smoke allowed; artifact remains ignored |
 | Runtime smoke | `d281807` | frozen runtime | active, limit 100 | n/a | n/a | n/a | 271 turns, 129 changes, 0 fallback | 56.840 s | authorize one calibration |
 | Untouched calibration | `d281807` | frozen runtime | active, run 1/1 | +0.0330 | 66 | 0 | 4/4 scenarios positive | 897.433 s | **do not promote** |
+| v1.1 runtime fix | `95b50cc` | unchanged | same frozen model/gate | not evaluated | n/a | n/a | synthetic cache eviction plus P95/RSS helpers | no Agent run | research only; needs new untouched evidence |
 
 ## Frozen training evidence
 
@@ -70,3 +71,25 @@ The immutable aggregate result is gitignored at
 The tracked audit record is
 `configs/small_ranker_v1.calibration.manifest.json`. The served default remains
 `off`; post-calibration tuning and promotion are forbidden for this candidate.
+
+## v1.1 implementation-only checkpoint
+
+Branch `small-ranker-v1.1-runtime-fix` corrects the diagnosed cache failure
+without changing the 133 features, ranker, gate, threshold, Agent integration,
+or ignored artifact. Cached members of the current C100 are now touched before
+missing rows are inserted, so the 16,384-row LRU evicts unrelated historical
+rows instead of a candidate needed by the same turn. New guards reject an
+oversized or duplicate candidate set rather than serving a partial result.
+
+The future smoke runner now records deterministic nearest-rank P95 latency and
+the OS process-lifetime peak RSS using only the Python standard library. Missing
+either measurement makes the smoke fail closed. A focused synthetic regression
+test forces eviction at a three-row cache boundary and verifies the current row
+remains available; the resource helper test verifies P95 and a positive RSS.
+
+No Agent, evaluator, smoke, calibration, selection, confirmation, or public run
+was started for v1.1. The previous calibration cannot be reused as untouched
+evidence for modified runtime code. Consequently v1.1 is not promoted, the
+artifact remains ignored, and the served default remains `off`. Its source
+hashes and exact test evidence are recorded in
+`configs/small_ranker_v1_1.runtime_fix.manifest.json`.
