@@ -39,9 +39,11 @@ from starter.p11_bridge import (  # noqa: E402
     EXPECTED_SIDECAR_BYTES,
     EXPECTED_SIDECAR_SHA256,
 )
+from starter.p8_negative import compile_negative_constraints  # noqa: E402
 from starter.p9_evidence import (  # noqa: E402
     OFFICIAL_CATALOG_ROWS,
     OFFICIAL_CATALOG_SHA256,
+    masks_from_view,
 )
 from starter.semantic import (  # noqa: E402
     OfflineSemanticEncoder,
@@ -728,6 +730,33 @@ class P12CaptureAgent(Agent):
         semantic_started = time.perf_counter()
         semantic = self._p12_semantic.rank(query_terms, c50)
         self._p12_semantic_seconds.append(time.perf_counter() - semantic_started)
+        p11_c50 = p11_full[: len(c50)]
+        if len(p11_c50) != len(c50) or set(p11_c50) != set(c50):
+            raise P12WorkerError("P11 C50 is not an exact R08 C50 permutation")
+        compilation = compile_negative_constraints(
+            state.slot_ledger.records,
+            current_version=state.version,
+        )
+        compact_evidence = {
+            identifier: masks_from_view(product_views[identifier])
+            for identifier in p11_c50
+        }
+        compact_negative = p12_actions.rank_compact_negative_c50(
+            p11_c50,
+            compact_evidence,
+            compilation.constraints,
+        )
+        guarded_compact = p12_actions.rank_guarded_compact_slot10(
+            p11_c50,
+            compact_evidence,
+            compilation.constraints,
+        )
+        for name, ranked in (
+            (p12_actions.COMPACT_NEGATIVE_C50, compact_negative),
+            (p12_actions.GUARDED_COMPACT_SLOT10, guarded_compact),
+        ):
+            if len(ranked) != len(c50) or set(ranked) != set(c50):
+                raise P12WorkerError(f"{name} changed C50 membership")
         self._p12_last_capture = {
             "state_identity": id(state),
             "r08_full": r08_full,
@@ -735,6 +764,8 @@ class P12CaptureAgent(Agent):
             "candidate_pools": {"c20": c20, "c50": c50, "c100": c100},
             "structured_full": structured,
             "semantic_full": semantic,
+            "compact_negative_full": compact_negative,
+            "guarded_compact_slot10_full": guarded_compact,
             "p11_invariants": invariant,
         }
         return list(p11_full), diagnostics
@@ -885,10 +916,28 @@ def _compose_trace_record(
     semantic = _validate_identifier_sequence(
         p11_capture.get("semantic_full"), "semantic C50"
     )
+    compact_negative = _validate_identifier_sequence(
+        p11_capture.get("compact_negative_full"), "compact-negative C50"
+    )
+    guarded_compact = _validate_identifier_sequence(
+        p11_capture.get("guarded_compact_slot10_full"), "guarded compact C50"
+    )
     if len(structured) != len(c50) or set(structured) != set(c50):
         raise P12WorkerError("structured capture is not a C50 permutation")
     if len(semantic) != len(c50) or set(semantic) != set(c50):
         raise P12WorkerError("semantic capture is not a C50 permutation")
+    if len(compact_negative) != len(c50) or set(compact_negative) != set(c50):
+        raise P12WorkerError("compact-negative capture is not a C50 permutation")
+    if len(guarded_compact) != len(c50) or set(guarded_compact) != set(c50):
+        raise P12WorkerError("guarded compact capture is not a C50 permutation")
+    guarded_top10 = guarded_compact[:TOP_K]
+    p11_top10 = p11[:TOP_K]
+    if guarded_top10 != p11_top10 and (
+        len(p11_top10) != TOP_K
+        or guarded_top10[: TOP_K - 1] != p11_top10[: TOP_K - 1]
+        or len(set(guarded_top10) ^ set(p11_top10)) != 2
+    ):
+        raise P12WorkerError("guarded compact capture violates its single-slot guard")
     if (
         not isinstance(p5_capture, Mapping)
         or p5_capture.get("variant_id") != P5_R01
@@ -904,6 +953,8 @@ def _compose_trace_record(
         p12_actions.CANDIDATE_RERANK: list(structured[:TOP_K]),
         p12_actions.FROZEN_SEMANTIC_RERANK: list(semantic[:TOP_K]),
         p12_actions.RESULT_AWARE_REWRITE_RETRIEVE: list(result_aware[:TOP_K]),
+        p12_actions.COMPACT_NEGATIVE_C50: list(compact_negative[:TOP_K]),
+        p12_actions.GUARDED_COMPACT_SLOT10: list(guarded_compact[:TOP_K]),
         p12_actions.ASK: list(p11[:TOP_K]),
     }
     if set(actions) != set(p12_actions.ACTION_IDS):
@@ -966,6 +1017,15 @@ class P12ActionRuntime:
         self._finalized = False
         self.failure_counts: Counter[str] = Counter()
         self.result_aware_computation_count = 0
+        self._membership_activation_turns: Counter[str] = Counter()
+        self._membership_activation_sessions: dict[str, set[int]] = {
+            action: set()
+            for action in (
+                p12_actions.COMPACT_NEGATIVE_C50,
+                p12_actions.GUARDED_COMPACT_SLOT10,
+            )
+        }
+        self._output_change_turns: Counter[str] = Counter()
         _validate_p11_status(self.p11_agent._p11_status())
 
     def _accept_request_id(self, request: Mapping[str, Any]) -> None:
@@ -1012,6 +1072,14 @@ class P12ActionRuntime:
         _validate_served_response(p5_response, p5_capture.get("full"), "P5 R01")
         self.result_aware_computation_count += 1
         record = _compose_trace_record(ordinal, turn, p11_capture, p5_capture)
+        baseline = tuple(record["actions"][p12_actions.KEEP_P11])
+        for action in self._membership_activation_sessions:
+            ranked = tuple(record["actions"][action])
+            if ranked != baseline:
+                self._output_change_turns[action] += 1
+            if set(ranked) != set(baseline):
+                self._membership_activation_turns[action] += 1
+                self._membership_activation_sessions[action].add(ordinal)
         line = _canonical_bytes(record) + b"\n"
         if self._trace_bytes + len(line) > MAX_TRACE_BYTES:
             raise P12WorkerError("blind action trace exceeds its byte limit")
@@ -1092,7 +1160,24 @@ class P12ActionRuntime:
                 "structured_base": "R08.C50",
                 "semantic_base": "R08.C50",
                 "result_aware_base": "R08+P5.R01",
+                "compact_negative_base": "P11.C50",
+                "guarded_compact_base": "P11.C50",
                 "result_aware_computation_count": self.result_aware_computation_count,
+                "activation_definition": (
+                    "per-turn Top10 member set differs from KEEP_P11"
+                ),
+                "membership_activation_turn_counts": {
+                    action: int(self._membership_activation_turns[action])
+                    for action in self._membership_activation_sessions
+                },
+                "membership_activation_session_counts": {
+                    action: len(ordinals)
+                    for action, ordinals in self._membership_activation_sessions.items()
+                },
+                "output_change_turn_counts": {
+                    action: int(self._output_change_turns[action])
+                    for action in self._membership_activation_sessions
+                },
             },
             "p11": {
                 "mode": "active",

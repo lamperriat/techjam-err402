@@ -59,6 +59,8 @@
       "CANDIDATE_RERANK",
       "FROZEN_SEMANTIC_RERANK",
       "RESULT_AWARE_REWRITE_RETRIEVE",
+      "COMPACT_NEGATIVE_C50",
+      "GUARDED_COMPACT_SLOT10",
       "ASK"
     ],
     "oracle_eligible": [
@@ -66,7 +68,9 @@
       "KEEP_P11",
       "CANDIDATE_RERANK",
       "FROZEN_SEMANTIC_RERANK",
-      "RESULT_AWARE_REWRITE_RETRIEVE"
+      "RESULT_AWARE_REWRITE_RETRIEVE",
+      "COMPACT_NEGATIVE_C50",
+      "GUARDED_COMPACT_SLOT10"
     ],
     "definitions": {
       "KEEP_R08": "pre-P11 full R08 ordering captured from the served pipeline",
@@ -74,6 +78,8 @@
       "CANDIDATE_RERANK": "new frozen P12-v1 diagnostic: full C50 structured rerank using current target-blind scorer plus visible numeric budget",
       "FROZEN_SEMANTIC_RERANK": "new frozen P12-v1 diagnostic: BGE cosine computed only inside C50 and blended with the sparse rank prior",
       "RESULT_AWARE_REWRITE_RETRIEVE": "existing P5 R01 guarded PRF action based on R08, not a P11 composition",
+      "COMPACT_NEGATIVE_C50": "P11-based C50 stable compatible-unknown-explicit-violation partition using only current-version hard excluded-term negatives and catalog-only compact masks",
+      "GUARDED_COMPACT_SLOT10": "single P11 rank-10 admission: replace an explicit violation only with the first compatible rank-11-to-50 challenger while preserving ranks 1-to-9",
       "ASK": "observed served fast-policy continuation with KEEP_P11 recommendations; not an independent counterfactual"
     },
     "ask_semantics": "observed KEEP_P11 recommendations plus the served fast-policy continuation; not an independent counterfactual and cannot unlock CAGE-R10",

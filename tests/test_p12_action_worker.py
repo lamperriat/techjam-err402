@@ -122,6 +122,13 @@ class _FakeP11Agent:
         self.messages.append((session_id, message, turn, top_k))
         r08 = _ids()
         p11 = (r08[1], r08[0], *r08[2:])
+        p11_c50 = p11[:50]
+        compact_negative = (*p11_c50[10:20], *p11_c50[:10], *p11_c50[20:])
+        guarded_compact = list(p11_c50)
+        guarded_compact[9], guarded_compact[10] = (
+            guarded_compact[10],
+            guarded_compact[9],
+        )
         self.capture = {
             "r08_full": r08,
             "p11_full": p11,
@@ -132,6 +139,8 @@ class _FakeP11Agent:
             },
             "structured_full": tuple(reversed(r08[:50])),
             "semantic_full": (*r08[1:50], r08[0]),
+            "compact_negative_full": compact_negative,
+            "guarded_compact_slot10_full": tuple(guarded_compact),
             "p11_invariants": worker._validate_p11_invariants(
                 r08, p11, _valid_diagnostics()
             ),
@@ -581,12 +590,41 @@ class RuntimeTraceTests(unittest.TestCase):
                     record["actions"][p12_actions.RESULT_AWARE_REWRITE_RETRIEVE],
                     record["actions"][p12_actions.KEEP_R08],
                 )
+                self.assertNotEqual(
+                    set(record["actions"][p12_actions.COMPACT_NEGATIVE_C50]),
+                    set(record["actions"][p12_actions.KEEP_P11]),
+                )
+                self.assertEqual(
+                    len(
+                        set(record["actions"][p12_actions.GUARDED_COMPACT_SLOT10])
+                        ^ set(record["actions"][p12_actions.KEEP_P11])
+                    ),
+                    2,
+                )
 
             summary = receipt["worker_summary"]
             self.assertEqual(summary["trajectory"]["fixed_turns"], 10)
             self.assertEqual(summary["trajectory"]["respond_count"], 10)
             self.assertEqual(summary["actions"]["result_aware_base"], "R08+P5.R01")
             self.assertEqual(summary["actions"]["result_aware_computation_count"], 10)
+            self.assertEqual(
+                summary["actions"]["activation_definition"],
+                "per-turn Top10 member set differs from KEEP_P11",
+            )
+            self.assertEqual(
+                summary["actions"]["membership_activation_turn_counts"],
+                {
+                    p12_actions.COMPACT_NEGATIVE_C50: 10,
+                    p12_actions.GUARDED_COMPACT_SLOT10: 10,
+                },
+            )
+            self.assertEqual(
+                summary["actions"]["membership_activation_session_counts"],
+                {
+                    p12_actions.COMPACT_NEGATIVE_C50: 1,
+                    p12_actions.GUARDED_COMPACT_SLOT10: 1,
+                },
+            )
             self.assertEqual(summary["p11"]["per_turn_invariants_verified"], 10)
             self.assertEqual(summary["full_catalog_search_calls"], 0)
             self.assertEqual(summary["semantic_failure_count"], 0)

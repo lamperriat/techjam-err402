@@ -16,6 +16,13 @@ from dataclasses import dataclass
 from typing import Literal, Mapping, Sequence
 
 from starter.attributes import ConversationConstraintView, ProductAttributeView
+from starter.p8_negative import ExecutableNegative
+from starter.p9_evidence import (
+    CompactPartition,
+    SLOT_ORDER,
+    VALUE_BITS,
+    stable_compact_partition,
+)
 from starter.reranker import score_candidate
 
 
@@ -27,6 +34,8 @@ KEEP_P11 = "KEEP_P11"
 CANDIDATE_RERANK = "CANDIDATE_RERANK"
 FROZEN_SEMANTIC_RERANK = "FROZEN_SEMANTIC_RERANK"
 RESULT_AWARE_REWRITE_RETRIEVE = "RESULT_AWARE_REWRITE_RETRIEVE"
+COMPACT_NEGATIVE_C50 = "COMPACT_NEGATIVE_C50"
+GUARDED_COMPACT_SLOT10 = "GUARDED_COMPACT_SLOT10"
 ASK = "ASK"
 ACTION_IDS = (
     KEEP_R08,
@@ -34,6 +43,8 @@ ACTION_IDS = (
     CANDIDATE_RERANK,
     FROZEN_SEMANTIC_RERANK,
     RESULT_AWARE_REWRITE_RETRIEVE,
+    COMPACT_NEGATIVE_C50,
+    GUARDED_COMPACT_SLOT10,
     ASK,
 )
 
@@ -337,12 +348,126 @@ def rank_frozen_semantic_c50(
     return ranked if set(ranked) == set(original) and len(ranked) == len(original) else original
 
 
+def _compact_partition(
+    candidate_ids: Sequence[str],
+    compact_evidence: Mapping[str, Sequence[int]],
+    negative_constraints: Sequence[ExecutableNegative],
+) -> tuple[tuple[str, ...], CompactPartition | None]:
+    original = _original(candidate_ids)
+    if not _valid_pool(original) or not isinstance(compact_evidence, Mapping):
+        return original, None
+    try:
+        constraints = tuple(negative_constraints)
+    except TypeError:
+        return original, None
+    if not constraints:
+        return original, None
+    if any(
+        not isinstance(constraint, ExecutableNegative)
+        or not VALUE_BITS.get(constraint.slot, {}).get(constraint.value, 0)
+        for constraint in constraints
+    ):
+        return original, None
+    try:
+        if set(compact_evidence) != set(original):
+            return original, None
+        for identifier in original:
+            masks = compact_evidence[identifier]
+            if (
+                isinstance(masks, (str, bytes, bytearray))
+                or len(masks) != len(SLOT_ORDER)
+            ):
+                return original, None
+            for slot, mask in zip(SLOT_ORDER, masks, strict=True):
+                valid_bits = sum(VALUE_BITS[slot].values())
+                if (
+                    not isinstance(mask, int)
+                    or isinstance(mask, bool)
+                    or mask < 0
+                    or mask & ~valid_bits
+                ):
+                    return original, None
+        partition = stable_compact_partition(
+            original,
+            compact_evidence,
+            constraints,
+            top_k=10,
+            candidate_pool=MAX_CANDIDATES,
+        )
+    except (KeyError, TypeError, ValueError):
+        return original, None
+    if (
+        len(partition.identifiers) != len(original)
+        or set(partition.identifiers) != set(original)
+    ):
+        return original, None
+    return original, partition
+
+
+def rank_compact_negative_c50(
+    candidate_ids: Sequence[str],
+    compact_evidence: Mapping[str, Sequence[int]],
+    negative_constraints: Sequence[ExecutableNegative],
+) -> tuple[str, ...]:
+    """Stable compatible/unknown/violation partition over one P11-based C50."""
+
+    original, partition = _compact_partition(
+        candidate_ids, compact_evidence, negative_constraints
+    )
+    return original if partition is None else partition.identifiers
+
+
+def rank_guarded_compact_slot10(
+    candidate_ids: Sequence[str],
+    compact_evidence: Mapping[str, Sequence[int]],
+    negative_constraints: Sequence[ExecutableNegative],
+) -> tuple[str, ...]:
+    """Swap only a violating P11 rank-10 item for a compatible C50 challenger."""
+
+    original, partition = _compact_partition(
+        candidate_ids, compact_evidence, negative_constraints
+    )
+    if partition is None or len(original) <= 10:
+        return original
+    compatible_end = partition.compatible_count
+    violation_start = compatible_end + partition.unknown_count
+    compatible = frozenset(partition.identifiers[:compatible_end])
+    violations = frozenset(partition.identifiers[violation_start:])
+    if any(identifier in violations for identifier in original[:9]):
+        return original
+    if original[9] not in violations:
+        return original
+    challenger_index = next(
+        (
+            index
+            for index, identifier in enumerate(original[10:], start=10)
+            if identifier in compatible
+        ),
+        None,
+    )
+    if challenger_index is None:
+        return original
+    ranked = list(original)
+    ranked[9], ranked[challenger_index] = ranked[challenger_index], ranked[9]
+    result = tuple(ranked)
+    if (
+        result[:9] != original[:9]
+        or len(result) != len(original)
+        or set(result) != set(original)
+        or len(set(result[:10]) ^ set(original[:10])) != 2
+    ):
+        return original
+    return result
+
+
 __all__ = [
     "ACTION_IDS",
     "ASK",
     "BudgetConstraint",
     "CANDIDATE_RERANK",
+    "COMPACT_NEGATIVE_C50",
     "FROZEN_SEMANTIC_RERANK",
+    "GUARDED_COMPACT_SLOT10",
     "KEEP_P11",
     "KEEP_R08",
     "MAX_CANDIDATES",
@@ -350,6 +475,8 @@ __all__ = [
     "SCHEMA_VERSION",
     "latest_budget_constraint",
     "numeric_budget_match",
+    "rank_compact_negative_c50",
     "rank_frozen_semantic_c50",
+    "rank_guarded_compact_slot10",
     "rank_structured_c50",
 ]

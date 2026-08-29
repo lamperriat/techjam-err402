@@ -10,13 +10,17 @@ from scripts.p12_actions import (
     ASK,
     BudgetConstraint,
     CANDIDATE_RERANK,
+    COMPACT_NEGATIVE_C50,
     FROZEN_SEMANTIC_RERANK,
+    GUARDED_COMPACT_SLOT10,
     KEEP_P11,
     KEEP_R08,
     RESULT_AWARE_REWRITE_RETRIEVE,
     latest_budget_constraint,
     numeric_budget_match,
+    rank_compact_negative_c50,
     rank_frozen_semantic_c50,
+    rank_guarded_compact_slot10,
     rank_structured_c50,
 )
 from starter.attributes import (
@@ -24,6 +28,8 @@ from starter.attributes import (
     build_conversation_constraint_view,
     build_product_attribute_view,
 )
+from starter.p8_negative import ExecutableNegative
+from starter.p9_evidence import SLOT_ORDER, VALUE_BITS
 
 
 def _view(
@@ -40,6 +46,17 @@ def _view(
     if color is not None:
         product["features"] = [f"color: {color}"]
     return build_product_attribute_view(product)
+
+
+def _negative(slot: str = "color", value: str = "red") -> ExecutableNegative:
+    return ExecutableNegative(slot, value, 1, 1, 1)
+
+
+def _masks(**values: str) -> tuple[int, ...]:
+    return tuple(
+        VALUE_BITS[slot].get(values.get(slot, ""), 0)
+        for slot in SLOT_ORDER
+    )
 
 
 class BudgetParsingTests(unittest.TestCase):
@@ -316,6 +333,86 @@ class FrozenSemanticC50Tests(unittest.TestCase):
         )
 
 
+class CompactNegativeActionTests(unittest.TestCase):
+    def test_no_executable_negative_is_exact_p11_noop(self) -> None:
+        pool = tuple(f"item-{index:02d}" for index in range(12))
+        evidence = {identifier: _masks(color="blue") for identifier in pool}
+
+        self.assertEqual(rank_compact_negative_c50(pool, evidence, ()), pool)
+        self.assertEqual(rank_guarded_compact_slot10(pool, evidence, ()), pool)
+
+    def test_full_partition_is_stable_and_uses_unknown_before_violation(self) -> None:
+        pool = tuple(f"item-{index:02d}" for index in range(12))
+        evidence = {identifier: _masks() for identifier in pool}
+        evidence[pool[0]] = _masks(color="red")
+        evidence[pool[10]] = _masks(color="blue")
+        evidence[pool[11]] = _masks(color="red")
+
+        ranked = rank_compact_negative_c50(pool, evidence, (_negative(),))
+
+        self.assertEqual(ranked, (pool[10], *pool[1:10], pool[0], pool[11]))
+        self.assertEqual(set(ranked), set(pool))
+
+    def test_guarded_action_swaps_only_rank10_for_compatible_challenger(self) -> None:
+        pool = tuple(f"item-{index:02d}" for index in range(12))
+        evidence = {identifier: _masks(color="blue") for identifier in pool}
+        evidence[pool[9]] = _masks(color="red")
+        evidence[pool[10]] = _masks()
+
+        ranked = rank_guarded_compact_slot10(pool, evidence, (_negative(),))
+
+        expected = list(pool)
+        expected[9], expected[11] = expected[11], expected[9]
+        self.assertEqual(ranked, tuple(expected))
+        self.assertEqual(ranked[:9], pool[:9])
+        self.assertEqual(set(ranked[:10]) ^ set(pool[:10]), {pool[9], pool[11]})
+
+    def test_guarded_action_rejects_unknown_or_earlier_violation(self) -> None:
+        pool = tuple(f"item-{index:02d}" for index in range(12))
+        unknown_tail = {identifier: _masks(color="blue") for identifier in pool}
+        unknown_tail[pool[9]] = _masks(color="red")
+        unknown_tail[pool[10]] = _masks()
+        unknown_tail[pool[11]] = _masks()
+        self.assertEqual(
+            rank_guarded_compact_slot10(pool, unknown_tail, (_negative(),)),
+            pool,
+        )
+
+        earlier_violation = {identifier: _masks(color="blue") for identifier in pool}
+        earlier_violation[pool[0]] = _masks(color="red")
+        earlier_violation[pool[9]] = _masks(color="red")
+        self.assertEqual(
+            rank_guarded_compact_slot10(pool, earlier_violation, (_negative(),)),
+            pool,
+        )
+
+    def test_invalid_compact_inputs_fail_closed(self) -> None:
+        pool = tuple(f"item-{index:02d}" for index in range(12))
+        incomplete = {identifier: _masks(color="blue") for identifier in pool[:-1]}
+        self.assertEqual(
+            rank_compact_negative_c50(pool, incomplete, (_negative(),)),
+            pool,
+        )
+        self.assertEqual(
+            rank_compact_negative_c50(
+                pool,
+                {identifier: _masks(color="blue") for identifier in pool},
+                (_negative(value="outside-registry"),),
+            ),
+            pool,
+        )
+
+        oversized = tuple(f"item-{index:02d}" for index in range(51))
+        self.assertEqual(
+            rank_compact_negative_c50(
+                oversized,
+                {identifier: _masks(color="blue") for identifier in oversized},
+                (_negative(),),
+            ),
+            oversized,
+        )
+
+
 class ActionIdTests(unittest.TestCase):
     def test_goal_action_ids_are_frozen_and_unique(self) -> None:
         self.assertEqual(
@@ -326,6 +423,8 @@ class ActionIdTests(unittest.TestCase):
                 CANDIDATE_RERANK,
                 FROZEN_SEMANTIC_RERANK,
                 RESULT_AWARE_REWRITE_RETRIEVE,
+                COMPACT_NEGATIVE_C50,
+                GUARDED_COMPACT_SLOT10,
                 ASK,
             ),
         )

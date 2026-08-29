@@ -42,7 +42,9 @@ from scripts.p12_actions import (  # noqa: E402
     ACTION_IDS,
     ASK,
     CANDIDATE_RERANK,
+    COMPACT_NEGATIVE_C50,
     FROZEN_SEMANTIC_RERANK,
+    GUARDED_COMPACT_SLOT10,
     KEEP_P11,
     KEEP_R08,
     RESULT_AWARE_REWRITE_RETRIEVE,
@@ -54,7 +56,7 @@ SCHEMA_VERSION = "track4.p12-action-oracle-result.v1"
 CONFIG_SCHEMA = "track4.p12-action-oracle.v1"
 DEFAULT_CONFIG = Path("configs/p12_action_oracle_v1.json")
 EXPECTED_CONFIG_CANONICAL_SHA256 = (
-    "492b42c19708b0e528755cb00374b368afaf037ce2c8b1f5d33f52685de3638c"
+    "31910896ce89dd632bd59a8418b3cda0288f56a1381284423eee5e4fe40222e0"
 )
 ALLOWED_SPLITS = {
     "train_explore": {
@@ -821,12 +823,24 @@ def validate_trace(
             raise OracleRunError("C50 is not a prefix of C100")
         if len(r08) != len(p11) or set(r08[:10]) != set(p11[:10]):
             raise OracleRunError("P11 changed frozen R08 Top10 membership")
-        for action in ("CANDIDATE_RERANK", "FROZEN_SEMANTIC_RERANK"):
+        for action in (
+            CANDIDATE_RERANK,
+            FROZEN_SEMANTIC_RERANK,
+            COMPACT_NEGATIVE_C50,
+            GUARDED_COMPACT_SLOT10,
+        ):
             if (
                 len(clean_actions[action]) != min(10, len(clean_pools["c50"]))
                 or not set(clean_actions[action]).issubset(set(clean_pools["c50"]))
             ):
                 raise OracleRunError(f"{action} Top10 is not drawn from exact C50")
+        guarded = clean_actions[GUARDED_COMPACT_SLOT10]
+        if guarded != p11 and (
+            len(p11) != 10
+            or guarded[:9] != p11[:9]
+            or len(set(guarded) ^ set(p11)) != 2
+        ):
+            raise OracleRunError("guarded compact action violates its single-slot guard")
         row = {
             "ordinal": ordinal,
             "turn": turn,
@@ -1400,6 +1414,8 @@ def build_go_no_go(
         CANDIDATE_RERANK,
         FROZEN_SEMANTIC_RERANK,
         RESULT_AWARE_REWRITE_RETRIEVE,
+        COMPACT_NEGATIVE_C50,
+        GUARDED_COMPACT_SLOT10,
     )
     stable_actions: list[str] = []
     for action in deployable_actions:
@@ -1652,6 +1668,7 @@ def run(split: str, *, limit: int | None = None) -> tuple[Path, dict[str, Any]]:
             "ASK follows the observed KEEP_P11 trajectory and is not an independent counterfactual.",
             "RESULT_AWARE_REWRITE_RETRIEVE is an R08-based diagnostic action, not a P11 composition.",
             "CANDIDATE_RERANK and FROZEN_SEMANTIC_RERANK are fixed P12-v1 diagnostic policies, not promoted production routes.",
+            "COMPACT_NEGATIVE_C50 and GUARDED_COMPACT_SLOT10 are target-blind compact-negative diagnostics, not promoted production routes.",
         ],
     }
     assert_identifier_free_artifact(artifact, catalog_ids)
