@@ -7,6 +7,12 @@ Last updated: 2026-08-29 SGT.
 ## Current verified implementation
 
 - Branch: `p11-p12-fast-track`
+- P11 served integration: `7d79e31`
+- P12 proxy source/evidence: `d8f6805` / `6d0d28b`
+- P12 action-oracle source/network audit: `64c26e2` / `d1013b3`
+- P12 four-worker parallel v5: `761b9a3`; old-matrix train/explore and calibration
+  completed, while selection was stopped before completion and is no longer valid as
+  formal one-shot evidence
 - P11 preregistration lock: `c6efa5f` (`chore: freeze P11 preregistration lock`)
 - P11 frozen source: `639cf78` (`fix: align P11 protocol hash with corpus builder`),
   including the P11 implementation checkpoint at parent `4f27ee8`
@@ -76,6 +82,101 @@ Last updated: 2026-08-29 SGT.
   `8058973426bbc76ea856a5c48a61e91ed9e35ae44988a21a6d7b2195e88a7193` and audit SHA-256
   is `1e6b084bf16fbd0000ec0bceca8057265390f3fde03c1936aced39f6f50537e8`.
   Derived rows remain ignored and are never eligible for tracking.
+
+## P12 target-blind action oracle（实现与 train/calibration 已验证；旧 matrix STOP）
+
+`configs/p12_action_oracle_v1.json` 与 `scripts/p12_action_*.py`、
+`scripts/evaluate_p12_action_oracle.py` 实现了固定的 Top50 action-oracle matrix。source
+首次冻结于 `64c26e2`，网络审计修正版为 `d1013b3`，四 worker 并行与 ASIN-shape
+安全修复后的 v5 commit 为 `761b9a3`。
+
+- 固定 action 为 `KEEP_R08`、`KEEP_P11`、P2 C50 structured rerank、仅在现有 C50
+  矩阵行内做 dot-product 的 frozen semantic rerank、真实 P5 R01 result-aware
+  rewrite，以及 observed `ASK`。structured action 使用真实 normalized weighted-RRF
+  prior；semantic action 禁止 50k full search；`ASK` 因非独立反事实而不进入 gate。
+- parent 独占 target、label 与 customer-reply 生成；JSONL RPC worker 只接收投影
+  profile、可见 message、局部 ordinal、turn 与 top-k。response 必须与实际 served
+  capture 绑定。所有 worker 完成 `finalize`、receipt/clean-exit 校验后，parent 才读取
+  trace、映射全局 ordinal 并 join label。confirmation 在 `run()` 首个内存分支即拒绝。
+- runner 冻结完整配置 canonical hash，校验 manifest/split/catalog、Agent/P12 source
+  closure、P11 sidecar、semantic model/index 的前后身份；输出目录拒绝 reparse point。
+  网络 guard 只把 `socket.gethostname` 记为本机 metadata，其他 `socket.*` 均拒绝并
+  计为 network attempt。
+- v5 把 split 连续均衡切为四个独立 shard，各有 nonce、局部 ordinal 与 trace；等待
+  所有 shard finalize/clean-exit 后才做一次全局复验与 label join。任何 shard 失败即
+  整体 fail-closed。candidate recall 从整数命中数合并，不能平均已舍入 rate；combined
+  trace digest 对 worker 数量做全局 ordinal 归一化。
+- 聚合层按官方舍入顺序计算 HR/MRR/MTTC/Efficiency/TechnicalScore，并同时报告
+  source-weighted、target-uniform、taxonomy-balanced 视图与 target-cluster bootstrap。
+  输出仅含 aggregate counts，不包含 sample ID、target ID、ASIN 或 session details。
+
+### 并行等价、RSS 与 fail-closed 验证
+
+- 10-session single v2、parallel v3 与 RSS-fix v4 分别用时 `24.466635s`、
+  `12.661261s`、`15.867314s`。action oracle 与 normalized combined-trace digest 完全
+  等价（摘要 `54543902…ef23`），C10/C20/C50/C100 recall 均为 `1.0`。这是执行路径
+  smoke，不是 selection 证据。
+- v4 最大单 worker lifetime peak RSS 为 `462,536,704` bytes；四 worker lifetime
+  peak 的求和上界为 `1,847,644,160` bytes。该和仅是保守上界，不代表同一时刻的
+  实测并发峰值，且不包含 parent process。
+- 第一次 2,000-session full attempt 约 `2.5 min` 后因
+  `worker respond reply shape mismatch` fail-closed；加强异常分类后，第二次在同一
+  shard 附近约 `2.5 min` 后因 `worker error reply identity is invalid` fail-closed。
+  两次均未发布 aggregate 或 blind trace。
+- 静态审计 train/explore 全部可能的 initial/override/attribute reply 后，确认根因是
+  8 个非 catalog、非 target 的 ASIN-shaped token（2 initial、6 size），共影响 6 个
+  session；calibration/selection 各为 0。v5 对 raw payload 先拒绝真实
+  target/catalog/sample identifier，再将剩余 shape-only token 改为
+  `[identifier omitted]` 并二次校验，worker strict guard 不放宽。
+- v5 200-prefix smoke 用时 `103.241977s`，sanitization session/message/token 为
+  `1/1/1`；integrity 为 true，worker failure、network attempt、full-catalog semantic
+  search 均为 0。最大单 worker lifetime peak RSS 为 `494,694,400` bytes，四 worker
+  peak 求和上界为 `1,972,527,104` bytes，parent 仍未计入。非决策 oracle HR/Score
+  delta 为 `+0.005/+0.023338`，不能视为完整 split 或 private-800 结论。
+- 最新定向测试通过 `71/71`；并行与 RSS 回归后的两次完整仓库测试通过
+  `660/660` 与 `662/662`。独立 source review 未发现 blocker/high 问题。
+
+### Public-integrity 读取审计例外
+
+Phase 3 早期误运行过一次 `verify_official_assets.py`；之后两次 full suite 也包含既有
+public-integrity 测试，因此实际读取过 released-public 的 hash/schema/row integrity。
+这必须作为对“Phase 3 不读 public”字面纪律的例外记录。没有运行 public evaluator、
+没有基于 public 做模型评分或调参；P12 runner 的 `public_rows_read=0` 仍成立，且 public
+target 已包含在 proxy exclusion union 中。
+
+### 旧 action matrix 的完整结果与停止决定
+
+结果身份为 commit `761b9a3`、config canonical SHA-256
+`492b42c19708b0e528755cb00374b368afaf037ce2c8b1f5d33f52685de3638c`。旧 action IDs
+为 `KEEP_R08`、`KEEP_P11`、`CANDIDATE_RERANK`、`FROZEN_SEMANTIC_RERANK`、
+`RESULT_AWARE_REWRITE_RETRIEVE` 与 observed `ASK`；`ASK` 不进入 oracle gate。
+
+| Split | KEEP_P11 HR@10 | C50 recall | Oracle HR@10（delta） | Oracle Score delta | Cluster-CI lower | Candidate m→h / h→m / net | Semantic m→h / h→m / net | Rewrite m→h / h→m / net | Wall |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| train/explore 2,000 | 0.947500 | 0.991000 | 0.956000 (+0.008500) | +0.025785 | 0.019859270169 | 14 / 21 / -7 | 5 / 48 / -43 | 0 / 0 / 0 | 947.950242s |
+| calibration 2,000 | 0.932000 | 0.987000 | 0.950000 (+0.018000) | +0.032477 | 0.023202301436 | 16 / 13 / +3 | 22 / 36 / -14 | 0 / 0 / 0 | 1076.397994s |
+
+Calibration 的 `CANDIDATE_RERANK` 净 +3，且 positive-net span 为 2 个 scenario / 2 个
+taxonomy strata，但它与 train/explore 的净 -7 方向不一致。Oracle 提升是 hindsight upper
+bound，不是可部署策略；旧 matrix 因此判定 **STOP**，不得据此实现或放行 CAGE。
+
+Source-weighted 视图不能单独用于跨 split 比较：train/explore 按预先规则容纳高频 outlier，
+其 baseline source-weighted HR/weight sum 为 `0.209173/21,585`，而 calibration 为
+`0.930249/4,301`。结论必须同时参考 row-uniform、target-uniform 与 taxonomy-balanced
+视图，且不能外推为 organizer-private 800 的表现。
+
+### Selection 中止与后续边界
+
+- 被停止的全量任务是 `selection`。运行约 8 分钟后按用户指令正常 Ctrl+C；parent 与四个
+  worker 均退出，没有生成 `selection-full` artifact。
+- 该 selection 已被提前打开，不能恢复、重跑或作为正式 one-shot evidence。若新 action
+  日后通过 train/calibration 阶梯，必须重新生成从未打开、target/product-family-disjoint
+  的 fresh selection。
+- Sealed confirmation 仍未授权、未读取；旧 matrix 不得继续 selection、confirmation 或
+  exact repeat。
+- `COMPACT_NEGATIVE_C50` 与 `GUARDED_COMPACT_SLOT10` 在本 checkpoint 仍待实现；它们应
+  共享下一次唯一的 train/explore `limit=100` batch，再按净 rescue gate 决定 STOP、
+  ITERATE 或 EXPAND。
 
 ## P11 Top-10-preserving reranker: frozen formal promote decision
 

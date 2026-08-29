@@ -60,9 +60,84 @@
   `1e6b084bf16fbd0000ec0bceca8057265390f3fde03c1936aced39f6f50537e8`。
 - confirmation 只物化为 sealed 文件；本阶段没有运行 evaluator 或读取其结果。
 
-## Phase 3 — action oracle next
+## Phase 3 — P12 action oracle（旧 matrix train/calibration 已完成并停止）
 
-只在未封存的 explore/calibration/selection 上复用一个通用 runner，比较 KEEP_R08、
-KEEP_P11、C50 structured rerank、candidate-only semantic、result-aware rewrite 与 ASK。
-Oracle HR 至少 `+1.5pp`（或等价明确 Score 上界）且跨 scenario/taxonomy 有净 rescue
-后，才实现最小 guarded Top50→Top10 admission；否则保留 P11/R08 并记录 No-Go。
+- **代码身份：** action-oracle source 先后冻结于 `64c26e2` 与网络审计修正版
+  `d1013b3`；四 worker 并行、RSS 口径与 ASIN-shape 安全修复后的 v5 commit 为
+  `761b9a3`。P11 served integration commit 为 `7d79e31`；P12 proxy source/evidence
+  commits 分别为 `d8f6805` / `6d0d28b`。
+- **固定 action matrix：** 同一盲态 turn 比较 `KEEP_R08`、`KEEP_P11`、C50
+  structured rerank、只在 C50 内打分的 frozen semantic rerank、真实 P5 R01
+  result-aware rewrite，以及 observed `ASK`。`ASK` 不是独立反事实，排除在 oracle
+  admission gate 之外；semantic action 不允许做 50k 全库向量搜索。
+- **盲态边界：** parent 持有 target、label 与确定性 customer reply；worker 只接收
+  投影后的 profile、当前可见 message、局部 ordinal、turn 与 top-k。所有 worker
+  `finalize`、receipt 校验和干净退出后，parent 才可读取 trace 并 join label。
+  confirmation 在 runner 首行即被拒绝，当前仍 sealed；source、split、catalog、P11
+  sidecar 与 semantic assets 均做前后身份检查。
+- **并行语义：** v5 将 split 连续均衡切为四个 shard，分别使用 nonce、局部 ordinal
+  与 trace；全部 shard 成功后才做全局验证与 ordinal 映射，任一 worker 失败即整次
+  fail-closed。合并统计使用整数计数，不能平均已四舍五入的 recall rate。
+
+### 非决策 smoke 与安全修复
+
+- 10-session single v2 为 `24.466635s`；parallel v3 为 `12.661261s`；RSS 修正后的
+  v4 为 `15.867314s`。三者的 action oracle 与 normalized combined-trace digest
+  完全等价（摘要 `54543902…ef23`），C10/C20/C50/C100 candidate recall 均为 `1.0`。
+  这些仅验证并行等价与执行路径，不是质量选择证据。
+- v4 的 10-session run 最大单 worker lifetime peak RSS 为 `462,536,704` bytes；四个
+  worker peak 的保守求和上界为 `1,847,644,160` bytes。该上界不是并发时刻的实测
+  总峰值，且不含 parent RSS。
+- 第一次 2,000-session full attempt 约 `2.5 min` 后因
+  `worker respond reply shape mismatch` 停止；增强安全异常分类后，第二次在同一
+  shard 附近约 `2.5 min` 后因 `worker error reply identity is invalid` 停止。两次均
+  未留下 aggregate 或 trace artifact，证明错误路径没有发布半成品。
+- 根因不是 catalog/target 泄漏，而是确定性 customer reply 中出现 8 个“长得像
+  ASIN”的非 catalog、非 target token：2 个来自 initial reply、6 个来自 size reply，
+  共影响 train/explore 的 6 个 session；calibration 与 selection 均为 0。v5 先对 raw
+  payload 严格拒绝任何真实 target/catalog/sample identifier，再把剩余纯 shape 命中
+  redact 为 `[identifier omitted]`，之后二次校验；worker 端 strict guard 保留。
+- v5 的 200-prefix smoke 用时 `103.241977s`，sanitization 计数为 session/message/token
+  `1/1/1`；integrity 为 true，worker failure、network attempt 与 full-catalog semantic
+  search 均为 0。最大单 worker lifetime peak RSS 为 `494,694,400` bytes，worker
+  peak 保守求和上界为 `1,972,527,104` bytes，同样不含 parent。该非决策 prefix 的
+  oracle HR delta 为 `+0.005`、Score delta 为 `+0.023338`，不得外推为完整 split
+  或 private-800 效果。
+- 最新 P12 定向测试为 `71/71`；并行与 RSS 回归后的完整仓库测试分别为
+  `660/660`、`662/662`。独立 source review 未发现 blocker/high 问题。
+
+### 公开集审计例外
+
+Phase 3 早期曾误运行一次 `verify_official_assets.py`；此后为并行与 RSS 回归运行的
+两次 full suite 也包含既有 public-integrity 测试，因此读取了 released-public 的
+hash/schema/row integrity。这违反了“Phase 3 完全不读 public 文件”的字面纪律，必须
+如实保留。没有运行 public evaluator、没有用 public 做模型评分或调参；P12 runner
+记录的 `public_rows_read=0` 仍然成立，public target 也早已从 proxy union 中排除。
+
+### 完整结果与暂停状态
+
+统一身份：commit `761b9a3`；config canonical SHA-256
+`492b42c19708b0e528755cb00374b368afaf037ce2c8b1f5d33f52685de3638c`；旧 action IDs 为
+`KEEP_R08`、`KEEP_P11`、`CANDIDATE_RERANK`、`FROZEN_SEMANTIC_RERANK`、
+`RESULT_AWARE_REWRITE_RETRIEVE`、`ASK`（observed，gate-excluded）。
+
+| Split | Baseline HR@10 | C50 recall | Oracle HR@10（delta） | Oracle Score delta | Cluster-CI lower | Candidate m→h / h→m / net | Semantic m→h / h→m / net | Rewrite m→h / h→m / net | Wall |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| train/explore 2,000 | 0.947500 | 0.991000 | 0.956000 (+0.008500) | +0.025785 | 0.019859270169 | 14 / 21 / -7 | 5 / 48 / -43 | 0 / 0 / 0 | 947.950242s |
+| calibration 2,000 | 0.932000 | 0.987000 | 0.950000 (+0.018000) | +0.032477 | 0.023202301436 | 16 / 13 / +3 | 22 / 36 / -14 | 0 / 0 / 0 | 1076.397994s |
+
+Calibration candidate 虽为净 +3（positive-net span 2 scenario / 2 taxonomy），但与 train
+的净 -7 不一致；semantic 两个 split 均净退化，rewrite 均无 HR rescue。Oracle 是
+hindsight upper bound，不是 deployable policy，因此旧 matrix 决策为 **STOP**，不授权
+CAGE。train/explore 的 source-weighted baseline 被预先分配的高频 outlier 强烈影响
+（HR `0.209173`、weight sum `21,585`；calibration 为 `0.930249/4,301`），不能单独拿来
+跨 split 或外推 private 800；必须同时看 row/target/taxonomy 三个视图。
+
+被中止的任务确认为 `selection`：运行约 8 分钟后按用户指令 Ctrl+C，parent 与四个 worker
+均退出，未生成 `selection-full` artifact。由于 split 已被打开，它不能再作为正式 one-shot
+selection；未来只有新 action 通过 train/calibration 阶梯后，才可生成从未打开、
+target/product-family-disjoint 的 fresh selection。Sealed confirmation 未授权、未读取。
+
+`COMPACT_NEGATIVE_C50` 与 `GUARDED_COMPACT_SLOT10` 尚未实现。下一步只把两者加入同一个
+matrix，运行一次相关 targeted tests，再运行一次 train/explore `limit=100`；本轮不运行
+limit 10/200、完整 split、calibration、selection 或 confirmation。
