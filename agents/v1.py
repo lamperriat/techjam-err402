@@ -36,18 +36,41 @@ QUESTION_ATTRIBUTES = (
 MIN_ATTRIBUTE_PRODUCTS = 5
 QUESTION_CANDIDATE_LIMIT = 100
 
-# These configurable priors are normalized public-development-set frequencies,
-# not values loaded from labels at runtime. They are initial heuristics to be
-# validated against unrelated conversational data in a later experiment.
-ATTRIBUTE_PRIORS = {
-    "feature": 1.000,
-    "material": 0.797,
-    "color": 0.266,
-    "style": 0.094,
-    "size": 0.047,
-    "use_case": 0.021,
-    "brand": 0.000,
-    "budget": 0.000,
+# These question weights account for both customer importance and catalog
+# coverage. Brand uses a negative calibration offset because store-derived
+# brand values already receive a strong information-gain score from their
+# near-total, high-cardinality data.
+CATEGORY_ATTRIBUTE_WEIGHTS = {
+    "clothing": {
+        "material": 0.72,
+        "color": 0.40,
+        "style": 0.80,
+        "size": 1.00,
+        "brand": -0.25,
+        "budget": 0.10,
+        "feature": 0.93,
+        "use_case": 0.25,
+    },
+    "shoes": {
+        "material": 0.55,
+        "color": 0.55,
+        "style": 0.50,
+        "size": 0.96,
+        "brand": -0.25,
+        "budget": 0.10,
+        "feature": 1.00,
+        "use_case": 0.65,
+    },
+    "jewelry": {
+        "material": 0.74,
+        "color": 0.60,
+        "style": 0.85,
+        "size": 0.30,
+        "brand": -0.25,
+        "budget": 0.10,
+        "feature": 1.00,
+        "use_case": 0.75,
+    },
 }
 QUESTION_TEMPLATES = {
     "material": "Do you have a material preference?",
@@ -248,6 +271,9 @@ class AgentV1:
     ) -> str | None:
         excluded = state.asked_attributes | state.no_preference_attributes
         profile_attributes = self._profile_attributes(state.user_profile)
+        attribute_weights = CATEGORY_ATTRIBUTE_WEIGHTS[
+            self.catalog.question_category(state.category)
+        ]
         scores: dict[str, float] = {}
 
         for attribute in QUESTION_ATTRIBUTES:
@@ -264,7 +290,7 @@ class AgentV1:
             profile_relevance = float(attribute in profile_attributes)
             scores[attribute] = (
                 0.65 * information_gain
-                + 0.30 * ATTRIBUTE_PRIORS[attribute]
+                + 0.30 * attribute_weights[attribute]
                 + 0.05 * profile_relevance
             )
 

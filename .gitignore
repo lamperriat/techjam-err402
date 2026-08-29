@@ -18,3 +18,5 @@ tests/test_organizer_pipeline.py
 *.log
 techjam-env
 .vscode
+local-data/
+results/

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from agents.registry import agent_names, get_agent_spec
 from agents.v1 import AgentV1
-from retrieval.catalog import CandidatePool, CatalogIndex, normalize_price
+from retrieval.catalog import CandidatePool, CatalogIndex, category_group, normalize_price
 from retrieval.scoring import ProductScorer, QueryContext
 
 
@@ -41,6 +41,41 @@ class AgentV1Test(unittest.TestCase):
         self.assertEqual(normalize_price(19.99), (19.99, False))
         self.assertEqual(normalize_price("from 12.99"), (12.99, True))
         self.assertEqual(normalize_price("—"), (None, False))
+
+    def test_full_catalog_path_selects_question_prior_category(self) -> None:
+        self.assertEqual(
+            category_group(["Clothing, Shoes & Jewelry", "Women", "Shoes", "Athletic"]),
+            "shoes",
+        )
+        self.assertEqual(
+            category_group(["Clothing, Shoes & Jewelry", "Women", "Jewelry", "Rings"]),
+            "jewelry",
+        )
+        self.assertEqual(
+            category_group(["Clothing, Shoes & Jewelry", "Women", "Accessories"]),
+            "clothing",
+        )
+
+    def test_question_category_uses_catalog_mapping_then_default_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "catalog.jsonl"
+            rows = [product_row(0, "Athletic Walking"), product_row(1, "Athletic Walking")]
+            rows[0]["categories"] = [
+                "Clothing, Shoes & Jewelry", "Shoes", "Athletic", "Walking",
+            ]
+            rows[1]["categories"] = [
+                "Clothing, Shoes & Jewelry", "Shoes", "Athletic", "Walking",
+            ]
+            path.write_text(
+                "".join(json.dumps(row) + "\n" for row in rows),
+                encoding="utf-8",
+            )
+            catalog = CatalogIndex(path)
+            self.addCleanup(catalog.close)
+
+            self.assertEqual(catalog.question_category("Athletic Walking"), "shoes")
+            self.assertEqual(catalog.question_category("running shoes"), "shoes")
+            self.assertEqual(catalog.question_category("general wearable"), "clothing")
 
     def test_buying_category_weight_can_overcome_one_lexical_rank(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -30,6 +30,24 @@ Result:
 | v1              | 0.98  | 0.67896  | 2.465 | 0.864388 | 0 |
 
 
+## Generate an Expanded Development Set
+
+With `local-data/valid_records.csv` available, generate 1,000 additional
+samples using purchase-frequency-weighted unique product sampling:
+
+```bash
+python3 generate_evaluation_set.py
+```
+
+The generator excludes public target products, uses the official scenario
+quotas, and writes `local-data/generated_set_1000.jsonl`. Its profile tags are
+sampled from the public profile distribution because metadata for most history
+ASINs is not present in the frozen catalog. Rating summaries use the selected
+purchase record's rating, matching the relationship observed in the public
+set; they are not verified averages of historical ratings. Change `--seed`,
+`--samples`, or the input/output paths through the documented CLI options.
+
+
 ## LLM Client Configuration
 
 Install the OpenAI-compatible client dependencies:

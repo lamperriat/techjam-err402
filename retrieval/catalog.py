@@ -5,7 +5,7 @@ import math
 import re
 import sqlite3
 import statistics
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -30,6 +30,15 @@ USE_CASE_KEYS = ("Sport", "Sport Type", "Occasion", "Theme")
 GENERIC_CATEGORIES = {
     "clothing",
     "clothing shoes jewelry",
+}
+SHOE_CATEGORY_TERMS = {
+    "boot", "boots", "cleat", "cleats", "footwear", "sandal", "sandals",
+    "shoe", "shoes", "slipper", "slippers", "sneaker", "sneakers",
+}
+JEWELRY_CATEGORY_TERMS = {
+    "anklet", "anklets", "bracelet", "bracelets", "brooch", "brooches",
+    "charm", "charms", "earring", "earrings", "jewelry", "necklace",
+    "necklaces", "pendant", "pendants", "ring", "rings",
 }
 
 
@@ -73,6 +82,16 @@ def specific_categories(values: list[str]) -> list[str]:
         for value in values
         if " ".join(terms(value)) not in GENERIC_CATEGORIES
     ]
+
+
+def category_group(values: list[str]) -> str:
+    """Map a full catalog category path to a question-prior group."""
+    nodes = [normalized_text(value) for value in values[1:]]
+    if "shoes" in nodes or "boot shop" in nodes:
+        return "shoes"
+    if "jewelry" in nodes or any("jewelry" in node for node in nodes):
+        return "jewelry"
+    return "clothing"
 
 
 def normalize_price(value: object) -> tuple[float | None, bool]:
@@ -201,6 +220,7 @@ class CatalogIndex:
         self.connection = sqlite3.connect(":memory:")
         self.products: dict[str, ProductRecord] = {}
         self._coarse_category_index: dict[str, list[str]] = defaultdict(list)
+        self._coarse_category_groups: dict[str, Counter[str]] = defaultdict(Counter)
         ratings: list[float] = []
         rating_numbers: list[int] = []
         self._build_index(ratings, rating_numbers)
@@ -269,7 +289,11 @@ class CatalogIndex:
                     has_features=bool(product.get("features")),
                 )
                 self.products[parent_asin] = record
-                self._coarse_category_index[normalized_text(category)].append(parent_asin)
+                normalized_category = normalized_text(category)
+                self._coarse_category_index[normalized_category].append(parent_asin)
+                self._coarse_category_groups[normalized_category][
+                    category_group(categories)
+                ] += 1
                 ratings.append(average_rating)
                 rating_numbers.append(rating_number)
                 batch.append(
@@ -305,6 +329,17 @@ class CatalogIndex:
         category_matches = self._coarse_category_index.get(normalized_text(category), [])
         combined = list(dict.fromkeys([*category_matches, *lexical_ranks]))
         return CandidatePool(tuple(combined), lexical_ranks)
+
+    def question_category(self, category: str) -> str:
+        catalog_groups = self._coarse_category_groups.get(normalized_text(category))
+        if catalog_groups:
+            return catalog_groups.most_common(1)[0][0]
+        category_terms = set(terms(category))
+        if category_terms & SHOE_CATEGORY_TERMS:
+            return "shoes"
+        if category_terms & JEWELRY_CATEGORY_TERMS:
+            return "jewelry"
+        return "clothing"
 
     def close(self) -> None:
         self.connection.close()
