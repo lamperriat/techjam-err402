@@ -8,6 +8,7 @@ from itertools import combinations
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts import build_p11_corpora as corpus_builder
 from scripts import build_p11_prereg_lock as lock_builder
 
 
@@ -215,7 +216,9 @@ class Fixture:
         metadata = {
             "schema_version": lock_builder.CORPUS_METADATA_SCHEMA_VERSION,
             "protocol_file_sha256": lock_builder._sha256_file(self.protocol),
-            "protocol_sha256": lock_builder._stable_sha256(protocol),
+            "protocol_sha256": corpus_builder._sha256_bytes(
+                corpus_builder._canonical_json_bytes(protocol)
+            ),
             "builder_source": {
                 "sha256": lock_builder._sha256_file(
                     self.root / lock_builder.SOURCE_PATHS["corpus_builder"]
@@ -312,6 +315,31 @@ class Fixture:
 
 
 class BuildP11PreregLockTests(unittest.TestCase):
+    def test_protocol_hash_matches_corpus_builder_json_line_contract(self) -> None:
+        protocol = {"schema_version": "fixture", "unicode": "≤"}
+        expected = corpus_builder._sha256_bytes(
+            corpus_builder._canonical_json_bytes(protocol)
+        )
+        self.assertEqual(
+            lock_builder._canonical_json_line_sha256(protocol), expected
+        )
+        self.assertNotEqual(lock_builder._stable_sha256(protocol), expected)
+
+    def test_protocol_hash_without_builder_newline_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = Fixture(Path(directory))
+            protocol = json.loads(fixture.protocol.read_text(encoding="utf-8"))
+            metadata = json.loads(
+                fixture.corpus_metadata.read_text(encoding="utf-8")
+            )
+            metadata["protocol_sha256"] = lock_builder._stable_sha256(protocol)
+            _write_json(fixture.corpus_metadata, metadata)
+            with self.assertRaisesRegex(
+                lock_builder.PreregLockError,
+                "corpus metadata canonical protocol differs",
+            ):
+                fixture.build()
+
     def test_lock_builder_does_not_import_candidate_runtime(self) -> None:
         source = Path(lock_builder.__file__).read_text(encoding="utf-8")
         self.assertNotIn("from starter.p11_features import", source)

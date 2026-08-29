@@ -121,6 +121,11 @@ hash/schema/disjointness diagnostics only and have `runs_per_slice=0`. Confirmat
 are identity-hashed before selection but are not semantically parsed unless primary
 initial, primary exact repeat, and uniform-tail gates all pass.
 
+The corpus metadata binds the tracked protocol using the corpus builder's exact canonical
+JSONL rule: compact sorted UTF-8 JSON plus one terminating LF. A real lock preflight exposed
+that the initial validator omitted the LF; the validator and independent fixture were fixed,
+the old LF-free value now has an explicit rejection test, and no data was regenerated.
+
 The future metric bridge exactly follows the official evaluator: round aggregate HR,
 MRR, and MTTC to six decimals, compute efficiency from rounded MTTC, then compute and
 round TechnicalScore. Tests reproduce the frozen P9 one-millionth boundary without
@@ -141,7 +146,7 @@ public `Connection` constructor. Raw/static source scans reconstruct bounded con
 concatenations before lock construction, and exact target scans run after each split is
 loaded but before that split's workers. This is a documented trusted-Python boundary, not
 an OS sandbox for hostile native or arbitrary reflective code. The focused suite is
-`99/99`, the complete regression is `557/557`, official assets are `14/14`, and a real
+`101/101`, the complete regression is `559/559`, official assets are `14/14`, and a real
 four-role zero-session smoke has valid post-`atexit` peak RSS with zero network, denial,
 or generic-exception events. No P11 lock, formal marker, confirmation result, or promotion
 decision exists; source/lock commit-and-push plus dry preflight remain required.

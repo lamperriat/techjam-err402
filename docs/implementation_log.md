@@ -97,6 +97,13 @@ evaluator, released-public evaluation, or production promotion has occurred.
   hash/schema/disjointness-validated: `runs_per_slice=0`, so they are not effect estimates
   or promotion evidence. Released public is used only for identity and target exclusion,
   never weight search.
+- The first real-asset lock attempt correctly stopped on a validator canonicalization bug:
+  the corpus builder hashes one compact JSON record with its terminating LF, while the lock
+  validator had omitted that byte. The validator now reproduces the builder's exact JSONL
+  contract, a cross-module test binds both implementations, and a negative test rejects the
+  former LF-free hash. Existing corpus metadata, protocol-file identity, corpus-builder
+  source identity, and every corpus hash were already correct, so no corpus was rebuilt and
+  confirmation semantics were not parsed.
 - Added a fail-closed preregistration builder and parent/worker runner. Formal lock
   generation requires a completely clean, pushed HEAD, exact official origin/upstream
   proof, official catalog/public/evaluator/config identities, the complete source closure,
@@ -144,7 +151,7 @@ evaluator, released-public evaluation, or production promotion has occurred.
 - Runner hardening has independent GO reviews for the parent audit stream and all three
   target-source scans; a final independent readiness re-review of the later SQLite/RSS
   hardening also returned GO for source freeze.
-  The P11 focused suite passes `99/99`, the full project suite passes `557/557`, and the
+  The P11 focused suite passes `101/101`, the full project suite passes `559/559`, and the
   official asset verifier passes `14/14`. A real four-role zero-session smoke reports zero
   network, denied-audit, and generic exception events and records valid post-`atexit`
   Windows peak RSS for all roles. Formal readiness still requires the source commit/push,

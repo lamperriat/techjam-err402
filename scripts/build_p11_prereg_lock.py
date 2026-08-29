@@ -372,6 +372,21 @@ def _stable_sha256(value: Any) -> str:
     return hashlib.sha256(_canonical_bytes(value)).hexdigest()
 
 
+def _canonical_json_line_sha256(value: Any) -> str:
+    """Match the corpus builder's canonical one-record JSONL protocol hash."""
+
+    payload = (
+        json.dumps(
+            value,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n"
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
 def _sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -734,7 +749,7 @@ def _validate_corpus_metadata(
         raise PreregLockError("P11 corpus metadata schema is invalid")
     if metadata.get("protocol_file_sha256") != _sha256_file(protocol_path):
         raise PreregLockError("P11 corpus metadata protocol identity differs")
-    if metadata.get("protocol_sha256") != _stable_sha256(protocol):
+    if metadata.get("protocol_sha256") != _canonical_json_line_sha256(protocol):
         raise PreregLockError("P11 corpus metadata canonical protocol differs")
     builder = metadata.get("builder_source")
     catalog = metadata.get("catalog")
