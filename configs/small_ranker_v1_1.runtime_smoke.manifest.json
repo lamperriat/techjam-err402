@@ -1,0 +1,67 @@
+{
+  "schema_version": "small-ranker-runtime-smoke-manifest.v1.1",
+  "recorded_on": "2026-08-30",
+  "branch": "small-ranker-v1.1-runtime-fix",
+  "source_checkpoint": "be7aaa2",
+  "candidate_id": "ndcg_d4_lr003",
+  "scope": {
+    "split": "train_explore",
+    "limit": 100,
+    "purpose": "bounded functional and resource smoke only",
+    "calibration_opened": false,
+    "selection_opened": false,
+    "confirmation_opened": false,
+    "public_opened": false
+  },
+  "sources": {
+    "runtime": {
+      "path": "starter/small_ranker.py",
+      "sha256": "3324a1037b9b2f6d842ae5b80f3aeebf121c68b338601a76493fe6cbdd2d887f"
+    },
+    "agent": {
+      "path": "starter/agent.py",
+      "sha256": "ace7d2c7a89976b740252cc6b52dc41b9cabbbaa515698e557b03bd2249da9da"
+    },
+    "runner": {
+      "path": "scripts/evaluate_small_ranker_smoke.py",
+      "sha256": "34a714dc329d71b1ad3d7d4661e9fbc212cf48a878f4b63d7775e95a07428b7a"
+    },
+    "ignored_result": {
+      "path": "experiments/fast_track/small_ranker_v1/oof_batch_v1/runtime_smoke_limit100_v1_1_heartbeat.json",
+      "bytes": 3364,
+      "sha256": "de3fe36bb04e487ad9478bd302b4956668009eb30bdc0081c8c41653c9e14344"
+    }
+  },
+  "unchanged_oof_evidence": {
+    "miss_to_hit": 56,
+    "hit_to_miss": 0,
+    "net_hits": 56,
+    "fold_net_rescues": [7, 15, 14, 7, 13]
+  },
+  "smoke_result": {
+    "sample_count": 100,
+    "turn_count": 271,
+    "hit_rate_at_10": 0.97,
+    "mrr": 0.568706,
+    "mttc": 2.74,
+    "activations": 129,
+    "fallbacks": 0,
+    "invariant_failures": 0,
+    "loaded_forbidden_training_libraries": 0,
+    "turn_latency_ms": {
+      "mean": 213.195889,
+      "p95_nearest_rank": 449.816,
+      "maximum": 633.682
+    },
+    "peak_rss_bytes": 778313728,
+    "wall_seconds": 60.369013,
+    "functional_smoke_passed": true,
+    "resource_measurement_complete": true
+  },
+  "decision": {
+    "runtime_fix_smoke_passed": true,
+    "promote_runtime_artifact": false,
+    "served_default": "off",
+    "next_required_evidence": "one newly authorized untouched split for the frozen v1.1 runtime"
+  }
+}

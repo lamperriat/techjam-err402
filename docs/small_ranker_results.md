@@ -17,6 +17,7 @@ confirmation, public, and the official full-Agent evaluator remain unopened.
 | Runtime smoke | `d281807` | frozen runtime | active, limit 100 | n/a | n/a | n/a | 271 turns, 129 changes, 0 fallback | 56.840 s | authorize one calibration |
 | Untouched calibration | `d281807` | frozen runtime | active, run 1/1 | +0.0330 | 66 | 0 | 4/4 scenarios positive | 897.433 s | **do not promote** |
 | v1.1 runtime fix | `95b50cc` | unchanged | same frozen model/gate | not evaluated | n/a | n/a | synthetic cache eviction plus P95/RSS helpers | no Agent run | research only; needs new untouched evidence |
+| v1.1 bounded runtime smoke | `be7aaa2` | unchanged | fixed runtime, limit 100 | n/a | n/a | n/a | 271 turns, 129 changes, 0 fallback | 60.369 s | pass functional/resource smoke; default remains off |
 
 ## Frozen training evidence
 
@@ -93,3 +94,20 @@ evidence for modified runtime code. Consequently v1.1 is not promoted, the
 artifact remains ignored, and the served default remains `off`. Its source
 hashes and exact test evidence are recorded in
 `configs/small_ranker_v1_1.runtime_fix.manifest.json`.
+
+## v1.1 bounded runtime smoke
+
+After the v1.1 implementation checkpoint had remained idle for more than 20
+minutes, one bounded `train_explore --limit 100` smoke was run. It reproduced
+HR@10 `0.97` across 271 turns with 129 slot-10 changes, zero runtime fallback,
+zero invariant failure, and no loaded training library. The cache-eviction
+failure seen in the previous full calibration did not recur.
+
+The new resource gate completed: nearest-rank P95 turn latency was `449.816 ms`,
+peak process RSS was `778,313,728` bytes, and wall time was `60.369 s`. This
+smoke changes no model, gate, feature, or OOF evidence; the unchanged OOF record
+remains 56 miss-to-hit, 0 hit-to-miss, with fold net rescues `7/15/14/7/13`.
+It does not authorize promotion or reuse of the old calibration. Selection,
+confirmation, and public remain unopened; the served default remains `off`.
+The tracked evidence record is
+`configs/small_ranker_v1_1.runtime_smoke.manifest.json`.
