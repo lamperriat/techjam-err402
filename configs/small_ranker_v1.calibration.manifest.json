@@ -1,0 +1,136 @@
+{
+  "schema_version": "small-ranker-calibration-manifest.v1",
+  "recorded_on": "2026-08-30",
+  "code_checkpoint": "d281807",
+  "candidate_id": "ndcg_d4_lr003",
+  "frozen_inputs": {
+    "freeze_manifest": {
+      "path": "configs/small_ranker_v1.runtime_freeze.json",
+      "bytes": 4896,
+      "sha256": "6655bcd23ccba1c58af633c51a62051117d89307ef5fc414c2474ab2393dfee8"
+    },
+    "calibration_runner": {
+      "path": "scripts/evaluate_small_ranker_calibration.py",
+      "bytes": 16610,
+      "sha256": "727c1ac85b6fd98875dd6f55e7e39c4aadf9d21ec039c2f644d5586d2199a4bd"
+    },
+    "runtime_source": {
+      "path": "starter/small_ranker.py",
+      "bytes": 54340,
+      "sha256": "a796f36e8bbd7fecc3da80fcece3470be2c3b8d4f9b4cd5496b984ed182d4605"
+    },
+    "agent_source": {
+      "path": "starter/agent.py",
+      "bytes": 72326,
+      "sha256": "ace7d2c7a89976b740252cc6b52dc41b9cabbbaa515698e557b03bd2249da9da"
+    },
+    "research_artifact": {
+      "path": "experiments/fast_track/small_ranker_v1/oof_batch_v1/research_runtime_v1.json",
+      "bytes": 257380,
+      "sha256": "090f1dfe5a07b922f4b4663dc1bd093892530cc717b45cb31658adb800c5c96e",
+      "gitignored": true,
+      "promoted": false
+    },
+    "calibration_dataset": {
+      "path": "experiments/fast_track/proxy_v1/proxy_calibration.jsonl",
+      "rows": 2000,
+      "bytes": 1315038,
+      "sha256": "2ffd23092f0c30d33feef6d99b18262d03d856c6f5b6813e2e4e6e28dfeee8ed"
+    }
+  },
+  "result": {
+    "path": "experiments/fast_track/small_ranker_v1/oof_batch_v1/untouched_calibration.json",
+    "bytes": 3743,
+    "sha256": "ff6cbd59889ca2533088c4c94f58836846a0a68038884d5f3313474e3b062ffd",
+    "split": "calibration",
+    "run_ordinal": 1,
+    "sample_count": 2000,
+    "complete_split": true
+  },
+  "metrics": {
+    "baseline_keep_p11": {
+      "hit_rate_at_10": 0.932,
+      "mrr": 0.664834,
+      "mttc": 3.247,
+      "efficiency": 0.7753,
+      "recommended_technical_score": 0.82051
+    },
+    "active_small_ranker": {
+      "hit_rate_at_10": 0.965,
+      "mrr": 0.603249,
+      "mttc": 2.834,
+      "efficiency": 0.8166,
+      "recommended_technical_score": 0.826795
+    },
+    "delta": {
+      "hit_rate_at_10": 0.033,
+      "mrr": -0.061585,
+      "mttc": -0.413,
+      "recommended_technical_score": 0.006285
+    },
+    "transitions": {
+      "miss_to_hit": 66,
+      "hit_to_miss": 0,
+      "net_hits": 66,
+      "positive_rescue_scenario_span": 4,
+      "by_scenario": {
+        "boundary": {"miss_to_hit": 2, "hit_to_miss": 0, "net_hits": 2},
+        "browsing": {"miss_to_hit": 18, "hit_to_miss": 0, "net_hits": 18},
+        "buying": {"miss_to_hit": 35, "hit_to_miss": 0, "net_hits": 35},
+        "intent_override": {"miss_to_hit": 11, "hit_to_miss": 0, "net_hits": 11}
+      }
+    }
+  },
+  "runtime": {
+    "wall_seconds": 897.432852,
+    "turns": 5598,
+    "activations": 2988,
+    "output_changes": 2988,
+    "fallbacks": 111,
+    "fallback_reason": "runtime_error:KeyError",
+    "boundary_invariant_failures": 0,
+    "evidence_rows_read": 132244,
+    "turn_latency_ms": {
+      "mean": 159.769325,
+      "maximum": 964.895,
+      "p95": null
+    },
+    "peak_rss_bytes": null,
+    "loaded_forbidden_training_libraries": [],
+    "reported_token_usage": 0
+  },
+  "promotion_gate": {
+    "metric_passed": true,
+    "functional_passed": false,
+    "resource_measurement_complete": false,
+    "passed": false
+  },
+  "implementation_failure": {
+    "component": "SmallRankerRuntime._fetch_evidence cache eviction",
+    "classification": "frozen runtime implementation failure, not an algorithm no-go",
+    "cause": "The missing-key set is computed before inserts. Once the 16384-row cache is full, an insert can evict a current C100 row that was initially present, causing the final lookup to raise KeyError.",
+    "why_smoke_did_not_expose_it": "The limit-100 smoke read 11428 evidence rows and never reached cache capacity.",
+    "post_calibration_fix_applied": false,
+    "calibration_rerun": false
+  },
+  "decision": {
+    "promote_runtime_artifact": false,
+    "served_default": "off",
+    "copy_artifact_to_starter_assets": false,
+    "allow_post_calibration_tuning": false,
+    "reason_codes": [
+      "111 runtime KeyError fallbacks violate the zero-fallback gate",
+      "MRR regressed by 0.061585",
+      "runtime P95 and peak RSS were not captured"
+    ]
+  },
+  "privacy_and_evidence_boundary": {
+    "runtime_received_target": false,
+    "target_join_location": "released evaluator and aggregate transition audit only",
+    "session_rows_serialized": false,
+    "selection_opened": false,
+    "confirmation_opened": false,
+    "public_opened": false,
+    "calibration_must_not_be_rerun_for_this_candidate": true
+  }
+}
