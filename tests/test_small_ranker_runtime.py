@@ -2,10 +2,15 @@ from __future__ import annotations
 
 import ast
 import json
+from collections import Counter, OrderedDict
 from pathlib import Path
 
 import pytest
 
+from scripts.evaluate_small_ranker_smoke import (
+    _nearest_rank_percentile,
+    _peak_process_rss_bytes,
+)
 from starter import small_ranker as runtime_module
 from starter.agent import Agent, DEFAULT_SMALL_RANKER_MODE, SMALL_RANKER_MODES
 from starter.small_ranker import (
@@ -134,6 +139,68 @@ def test_slot10_swap_preserves_protected_ranks_and_full_membership() -> None:
     assert set(changed) == set(baseline)
     with pytest.raises(SmallRankerRuntimeError):
         swap_slot10(baseline, "ITEM-4", "ITEM-9")
+
+
+def test_evidence_cache_protects_current_candidates_during_eviction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mask_count = len(runtime_module.NEGATIVE_SLOT_ORDER)
+    rows = {
+        rowid: tuple(
+            [rowid, identifier, b"fixture"]
+            + [0] * mask_count
+            + [0.1, 0.2]
+        )
+        for rowid, identifier in enumerate(("A", "B", "C", "D", "E"), 1)
+    }
+
+    class FixtureCursor:
+        def __init__(self, values: list[tuple[object, ...]]) -> None:
+            self._values = values
+
+        def fetchall(self) -> list[tuple[object, ...]]:
+            return list(self._values)
+
+    class FixtureConnection:
+        def execute(self, _query: str, rowids: list[int]) -> FixtureCursor:
+            return FixtureCursor([rows[int(rowid)] for rowid in rowids])
+
+    monkeypatch.setattr(runtime_module, "EVIDENCE_CACHE_LIMIT", 3)
+    monkeypatch.setattr(
+        runtime_module.P11FeatureStore,
+        "_decode_feature_blob",
+        staticmethod(
+            lambda _blob: (
+                (("title token",), ("category token",), ("detail token",)),
+                frozenset(),
+                frozenset(),
+                (),
+                (),
+            )
+        ),
+    )
+    runtime = object.__new__(SmallRankerRuntime)
+    runtime.connection = FixtureConnection()
+    runtime._evidence_cache = OrderedDict()
+    runtime._stats = Counter()
+    rowids = {identifier: rowid for rowid, identifier in enumerate(("A", "B", "C", "D", "E"), 1)}
+
+    runtime._fetch_evidence(("A", "B", "C"), rowids)
+    result = runtime._fetch_evidence(("A", "D", "E"), rowids)
+
+    assert list(result) == ["A", "D", "E"]
+    assert [result[identifier].catalog_rowid for identifier in result] == [1, 4, 5]
+    assert list(runtime._evidence_cache) == ["A", "D", "E"]
+    assert runtime._stats["evidence_rows_read"] == 5
+
+
+def test_smoke_resource_measurements_are_stdlib_and_deterministic() -> None:
+    values = [float(value) for value in range(1, 101)]
+    assert _nearest_rank_percentile(values, 0.95) == 95.0
+    assert _nearest_rank_percentile([], 0.95) is None
+    with pytest.raises(ValueError):
+        _nearest_rank_percentile(values, 0.0)
+    assert _peak_process_rss_bytes() > 0
 
 
 def test_agent_default_off_and_incompatible_active_mode_fail_closed(tmp_path: Path) -> None:

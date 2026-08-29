@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import sys
 import time
 from collections import Counter
@@ -25,7 +26,7 @@ from evaluator.local_evaluator import catalog_index, evaluate, load_jsonl  # noq
 from starter.agent import Agent  # noqa: E402
 
 
-SCHEMA_VERSION = "small-ranker-runtime-smoke.v1"
+SCHEMA_VERSION = "small-ranker-runtime-smoke.v1.1"
 AUTHORIZED_LIMIT = 100
 DEFAULT_DATASET = ROOT / "experiments/fast_track/proxy_v1/proxy_train_explore.jsonl"
 DEFAULT_ARTIFACT = (
@@ -49,6 +50,67 @@ def _sha256(path: Path) -> str:
         while chunk := handle.read(1024 * 1024):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _nearest_rank_percentile(
+    values: list[float], percentile: float
+) -> float | None:
+    """Return a deterministic nearest-rank percentile without NumPy."""
+
+    if not 0.0 < percentile <= 1.0:
+        raise ValueError("percentile must be in (0, 1]")
+    if not values:
+        return None
+    ordered = sorted(float(value) for value in values)
+    rank = max(1, math.ceil(percentile * len(ordered)))
+    return ordered[rank - 1]
+
+
+def _peak_process_rss_bytes() -> int:
+    """Read the OS process high-water RSS using only the Python stdlib."""
+
+    if sys.platform == "win32":
+        import ctypes
+        from ctypes import wintypes
+
+        class ProcessMemoryCounters(ctypes.Structure):
+            _fields_ = (
+                ("cb", wintypes.DWORD),
+                ("PageFaultCount", wintypes.DWORD),
+                ("PeakWorkingSetSize", ctypes.c_size_t),
+                ("WorkingSetSize", ctypes.c_size_t),
+                ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                ("PagefileUsage", ctypes.c_size_t),
+                ("PeakPagefileUsage", ctypes.c_size_t),
+            )
+
+        counters = ProcessMemoryCounters()
+        counters.cb = ctypes.sizeof(counters)
+        get_current_process = ctypes.windll.kernel32.GetCurrentProcess
+        get_current_process.restype = wintypes.HANDLE
+        get_process_memory_info = ctypes.windll.psapi.GetProcessMemoryInfo
+        get_process_memory_info.argtypes = (
+            wintypes.HANDLE,
+            ctypes.POINTER(ProcessMemoryCounters),
+            wintypes.DWORD,
+        )
+        get_process_memory_info.restype = wintypes.BOOL
+        if not get_process_memory_info(
+            get_current_process(), ctypes.byref(counters), counters.cb
+        ):
+            raise OSError(ctypes.get_last_error(), "GetProcessMemoryInfo failed")
+        peak = int(counters.PeakWorkingSetSize)
+    else:
+        import resource
+
+        raw_peak = int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+        peak = raw_peak if sys.platform == "darwin" else raw_peak * 1024
+    if peak <= 0:
+        raise RuntimeSmokeError("OS returned a non-positive peak RSS")
+    return peak
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -160,6 +222,18 @@ def run(
     finally:
         agent.close()
     wall_seconds = time.perf_counter() - started
+    resource_error: str | None = None
+    try:
+        peak_rss_bytes = _peak_process_rss_bytes()
+    except Exception as error:
+        peak_rss_bytes = None
+        resource_error = type(error).__name__
+    p95_latency_ms = _nearest_rank_percentile(elapsed_ms, 0.95)
+    resource_measurement_complete = bool(
+        p95_latency_ms is not None
+        and peak_rss_bytes is not None
+        and peak_rss_bytes > 0
+    )
     loaded_forbidden = sorted(
         root
         for root in FORBIDDEN_RUNTIME_ROOTS
@@ -176,6 +250,7 @@ def run(
         and events["runtime_output_changed"] == events["runtime_activated"]
         and not any(invariant_failures.values())
         and not loaded_forbidden
+        and resource_measurement_complete
     )
     aggregate_metrics = {
         key: value
@@ -217,8 +292,15 @@ def run(
             "turn_latency_ms": {
                 "count": len(elapsed_ms),
                 "mean": round(sum(elapsed_ms) / len(elapsed_ms), 6) if elapsed_ms else None,
+                "p95_nearest_rank": round(p95_latency_ms, 6) if p95_latency_ms is not None else None,
                 "maximum": round(max(elapsed_ms), 6) if elapsed_ms else None,
             },
+            "process_memory": {
+                "peak_rss_bytes": peak_rss_bytes,
+                "scope": "OS process-lifetime high-water mark",
+                "error_code": resource_error,
+            },
+            "resource_measurement_complete": resource_measurement_complete,
         },
         "privacy": {
             "runtime_received_target": False,
@@ -228,6 +310,7 @@ def run(
         "oof_gate_preserved": oof_gate_preserved,
         "decision": {
             "functional_smoke_passed": functional_passed,
+            "resource_measurement_complete": resource_measurement_complete,
             "calibration_authorized": bool(functional_passed and oof_gate_preserved),
         },
         "timing_seconds": {"wall": round(wall_seconds, 6)},

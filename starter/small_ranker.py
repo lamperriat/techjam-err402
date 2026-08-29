@@ -886,7 +886,26 @@ class SmallRankerRuntime:
     def _fetch_evidence(
         self, candidates: Sequence[str], candidate_rowids: Mapping[str, int]
     ) -> dict[str, StaticEvidence]:
-        missing = [identifier for identifier in candidates if identifier not in self._evidence_cache]
+        candidate_ids = tuple(candidates)
+        if len(candidate_ids) > EVIDENCE_CACHE_LIMIT:
+            raise SmallRankerRuntimeError("C100 candidate set exceeds evidence cache")
+        if len(set(candidate_ids)) != len(candidate_ids):
+            raise SmallRankerRuntimeError("C100 candidate identifiers are not unique")
+
+        # Protect every cached member of the current C100 before inserting new
+        # evidence.  Without this touch, an old-but-current row can be the LRU
+        # victim while a missing row is inserted, and the final lookup fails.
+        # The cache is much larger than C100, so all current rows remain
+        # resident while unrelated historical rows are evicted first.
+        for identifier in candidate_ids:
+            if identifier in self._evidence_cache:
+                self._evidence_cache.move_to_end(identifier)
+
+        missing = [
+            identifier
+            for identifier in candidate_ids
+            if identifier not in self._evidence_cache
+        ]
         if missing:
             rowids = [candidate_rowids.get(identifier) for identifier in missing]
             if any(not isinstance(rowid, int) or isinstance(rowid, bool) or rowid <= 0 for rowid in rowids):
@@ -939,7 +958,7 @@ class SmallRankerRuntime:
                     self._evidence_cache.popitem(last=False)
             self._stats["evidence_rows_read"] += len(missing)
         result: dict[str, StaticEvidence] = {}
-        for identifier in candidates:
+        for identifier in candidate_ids:
             evidence = self._evidence_cache[identifier]
             if evidence.catalog_rowid != candidate_rowids.get(identifier):
                 raise SmallRankerRuntimeError("cached C100 evidence binding mismatch")
