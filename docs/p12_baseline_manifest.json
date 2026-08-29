@@ -1,0 +1,263 @@
+{
+  "schema_version": "track4.p12-baseline-manifest.v1",
+  "captured_at_sgt": "2026-08-29T15:39:13.8239267+08:00",
+  "purpose": "Immutable pre-implementation identity and evidence boundary for P11 served integration and P12 guarded candidate admission.",
+  "git": {
+    "source_worktree": "D:/tiktok/techjam-err402",
+    "isolated_worktree": "D:/tiktok/techjam-err402-p12",
+    "source_branch": "p4-architecture-search",
+    "task_branch": "p11-served-p12-admission",
+    "head": "dfad9481799557b40e187d342325192f597f0938",
+    "dirty": false,
+    "source_branch_remote_head": "dfad9481799557b40e187d342325192f597f0938",
+    "task_branch_remote_head_at_creation": "dfad9481799557b40e187d342325192f597f0938",
+    "upstream_main": "34078351e1c3615e5505a2e829600b56a542e462",
+    "upstream_main_is_ancestor": true,
+    "dfad948_is_ancestor": true,
+    "p11_formal_decision_commit_present": true,
+    "remotes": {
+      "origin": "https://github.com/lamperriat/techjam-err402.git",
+      "upstream": "https://github.com/TechJam2026/techjam-conversational-search.git"
+    },
+    "official_advertised_refs": {
+      "head_ref": "refs/heads/main",
+      "head": "34078351e1c3615e5505a2e829600b56a542e462",
+      "participant_kit_tag": "2a6cc8e776da66ce69b1cbd237838fbc43f32587"
+    },
+    "checkpoint": {
+      "name": "checkpoint/pre-p11-integration-20260829-153752",
+      "annotated_tag_object": "a0598f21145fc71f9b94a0ce8cb524b81a5c7082",
+      "peeled_commit": "dfad9481799557b40e187d342325192f597f0938",
+      "pushed": true,
+      "must_not_move": true
+    }
+  },
+  "official_assets": {
+    "verification": "14/14 passed",
+    "catalog": {
+      "path": "data/catalog.jsonl",
+      "bytes": 60546327,
+      "rows": 50000,
+      "unique_parent_asins": 50000,
+      "sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67"
+    },
+    "released_public": {
+      "path": "data/public_set.jsonl",
+      "bytes": 88440,
+      "rows": 200,
+      "unique_targets": 200,
+      "sha256": "571359a8a69014c43fc30d39c996c4a28e875dccc249dffc707358757beb16c0",
+      "git_blob_sha1_lf": "121dbec9c1368c81cd887d6959e62507512139c0",
+      "scenario_counts": {
+        "buying": 80,
+        "browsing": 80,
+        "intent_override": 30,
+        "boundary": 10
+      }
+    },
+    "evaluator": {
+      "path": "evaluator/local_evaluator.py",
+      "bytes": 13831,
+      "sha256": "7121a6324d77eb7ebb9794555713fd0b89c658e7883d818c3537c4bae1cf0fa1",
+      "git_blob_sha1_lf": "7c808347b31ef3121a9cbc4810ac3eb325f950ba"
+    },
+    "evaluation_config_sha256": "bbf22ef47c4837c268031d0b0a7dacb0bcab2c157f3ce01eee37612a7511097d",
+    "agent_contract_sha256": "347ac1361dee2b48c0554f4e43d1e2d131ec32a9219574b114c980b9d2f7c9a7",
+    "mutation_allowed": false
+  },
+  "runtime": {
+    "python_executable": "D:/450/conda/envs/tiktok/python.exe",
+    "python": "3.11.16 | conda-forge | MSC v.1944 64 bit (AMD64)",
+    "sqlite": "3.53.4",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "core_runtime_dependencies": "Python standard library only"
+  },
+  "served_baseline": {
+    "name": "R08 coverage cascade",
+    "configuration": {
+      "retrieval_mode": "coverage",
+      "rerank_mode": "off",
+      "question_policy": "fast",
+      "llm_client": null
+    },
+    "production_served": true,
+    "agent_source": {
+      "path": "starter/agent.py",
+      "bytes": 52954,
+      "sha256": "6ef8cb4b4002fde9cd491843f50a04377f9424b6d2bdc90bf1d70dd7bc25ff14"
+    },
+    "coverage_source": {
+      "path": "starter/coverage.py",
+      "sha256": "eece5435ca82c755de00c8d1e031efbc92b57cfedd463349a661f3db51d98dcc"
+    },
+    "public_artifacts": {
+      "metrics_path": "experiments/p4_promoted_public.json",
+      "metrics_file_sha256": "d49be6b166a3ffbc29b21682ffc26e5a33458d557b7183de1f6af2658759e507",
+      "resource_path": "experiments/p4_promoted_resources.json",
+      "resource_file_sha256": "8a37ddcd6bf2c65f87760b915470a38d55ce902f94f43cea46e2f58aa1a2cdfd",
+      "functional_result_sha256": "8eaa2dea99bb0dc916ad5a1f7608e1cedf740d14126514219681a0ebacb84ccf"
+    },
+    "public_metrics": {
+      "sample_count": 200,
+      "hit_rate_at_10": 0.945,
+      "mrr": 0.606175,
+      "mttc": 3.335,
+      "efficiency": 0.7665,
+      "technical_score": 0.807652,
+      "prompt_tokens": 0,
+      "completion_tokens": 0
+    },
+    "scenario_metrics": {
+      "buying": {"hit_rate_at_10": 0.925, "mrr": 0.586057, "mttc": 3.1625},
+      "browsing": {"hit_rate_at_10": 0.9875, "mrr": 0.603224, "mttc": 2.925},
+      "intent_override": {"hit_rate_at_10": 0.9, "mrr": 0.655265, "mttc": 4.666667},
+      "boundary": {"hit_rate_at_10": 0.9, "mrr": 0.643452, "mttc": 4.0}
+    },
+    "best_eligible_turn_route_recall": {
+      "definition": "Target-blind route capture joined to labels only after evaluation; pre-override ineligible turns are excluded.",
+      "broad": {"r10": 0.805, "r20": 0.88, "r50": 0.945, "r80": 0.97, "r120": 0.99},
+      "strict": {"r10": 0.895, "r20": 0.94, "r50": 0.97, "r80": 0.97, "r120": 0.97},
+      "fused": {"r10": 0.935, "r20": 0.965, "r50": 0.995, "r80": 0.995, "r120": 0.995},
+      "final": {"r10": 0.945, "r20": 0.97, "r50": 0.995, "r80": 0.995, "r120": 0.995},
+      "official_misses": 11,
+      "misses_recalled_in_final_top50": 10,
+      "misses_outside_final_top50": 1
+    }
+  },
+  "p11_frozen_candidate": {
+    "decision": "promote_p11_r01",
+    "production_served_at_baseline": false,
+    "released_public_evaluation_run": false,
+    "source_commit": "639cf783a6f0da9b6b1f70b60574f90cbf503d92",
+    "lock_commit": "c6efa5f6250c013e4a6618661ef947623e709cc5",
+    "documentation_commit": "dfad9481799557b40e187d342325192f597f0938",
+    "identities": {
+      "features_source_sha256": "636168a599f8fd872a0bc8dc369691af6cd03eaa446aaaf136f809eb5627588c",
+      "lab_source_sha256": "8ccc1007f0c20965c10b37727d459fc80c9ce06e8bf5245a75aa4a44ba8205b9",
+      "experiment_config_sha256": "d4f89df83c1e9e6a96a1c3c342f000cf3b4dbf6cd28dd0a232005a07229b18b8",
+      "prereg_lock_sha256": "1fbcd9b52062cd342b2f29b0a1c66b4eb1d892ffdbe2cd9b1fd35894eb412325",
+      "sidecar_sha256": "83b6d8c04be6666173806b6e9cb03301eecb8ca58a60272bfa719e6533380473",
+      "sidecar_bytes": 32501760,
+      "result_sha256": "fe0f8820b22c07136db44fb3739809d22b8edc5d1125707c5b0523dec312b912",
+      "feature_registry_sha256": "c2c6b4309e5bbf8e092f625957ae5f0cdeb193adcc48d552e5291837803749b1",
+      "feature_semantics_sha256": "abae7be9ab9073593ca40309177408adf20e460e3153fe95ec942fb53b47a488",
+      "scorer_version": "p11.top10-linear.v3"
+    },
+    "formal_metrics": {
+      "primary": {
+        "control": {"hit_rate_at_10": 0.93, "mrr": 0.583204, "mttc": 3.37, "technical_score": 0.792561},
+        "candidate": {"hit_rate_at_10": 0.93, "mrr": 0.625488, "mttc": 3.37, "technical_score": 0.805246},
+        "technical_score_delta": 0.012685,
+        "paired_bootstrap_95_ci": [0.004354166667, 0.021275]
+      },
+      "uniform_tail": {
+        "control": {"hit_rate_at_10": 0.9, "mrr": 0.607732, "mttc": 3.54, "technical_score": 0.78152},
+        "candidate": {"hit_rate_at_10": 0.9, "mrr": 0.618764, "mttc": 3.54, "technical_score": 0.784829},
+        "technical_score_delta": 0.003309
+      },
+      "confirmation": {
+        "control": {"hit_rate_at_10": 0.955, "mrr": 0.581927, "mttc": 3.14, "technical_score": 0.809278},
+        "candidate": {"hit_rate_at_10": 0.955, "mrr": 0.629524, "mttc": 3.14, "technical_score": 0.823557},
+        "technical_score_delta": 0.014279,
+        "paired_bootstrap_95_ci": [0.004538690476, 0.024201190476]
+      }
+    },
+    "formal_gate": {
+      "checks_passed": 95,
+      "checks_failed": 0,
+      "top10_membership_violations": 0,
+      "tail_changes": 0,
+      "hit_to_miss": 0,
+      "network_attempts": 0,
+      "reported_tokens": 0,
+      "fallbacks_in_formal_candidate_runs": 0,
+      "exact_repeat": true,
+      "risk_not_used_as_gate": [
+        "uniform-tail intent_override MRR decreased from 0.712037 to 0.685370",
+        "confirmation boundary MRR decreased from 0.428571 to 0.420952"
+      ]
+    }
+  },
+  "test_baseline": {
+    "command": "D:/450/conda/envs/tiktok/python.exe -m unittest discover -s tests -v",
+    "tests_run": 559,
+    "failures": 0,
+    "errors": 0,
+    "elapsed_seconds": 36.513,
+    "official_asset_checks": 14,
+    "official_asset_failures": 0,
+    "git_diff_check": "passed"
+  },
+  "consumed_target_registry": {
+    "prior_opened_union": {
+      "target_count": 1800,
+      "pairwise_disjoint": true,
+      "corpora": {
+        "released_public": {"rows": 200, "canonical_samples_sha256": "6c726257fec25575716ee65b095f94c48402b6e14e83341518610f45fbfbec6d"},
+        "p1": {"rows": 200, "canonical_samples_sha256": "38c6a9fedd4a3e02d8f581e2d04d8467203d7275c3ff0eb691a57f5025c010ae"},
+        "p5": {"rows": 200, "canonical_samples_sha256": "0d58a32f65b67c9408558a59df461c340691928a791117099a56049e177efa0c"},
+        "p6": {"rows": 200, "canonical_samples_sha256": "27544cdb6ed9495808c35bbab09b4dbadcb88a1d75d162f17bb4fba6ee8841c7"},
+        "p7": {"rows": 200, "canonical_samples_sha256": "bad13262ca5cccd3585a80c255918a91c894c8d44d538435006064c3596f9546"},
+        "p8_selection": {"rows": 200, "canonical_samples_sha256": "1c11d73d7c8ced617ce874e15a563f240731ca9654ed42bcc4f773b7b4da81ee"},
+        "p8_confirmation": {"rows": 200, "canonical_samples_sha256": "3ae6f8ff7ab0362399b348c3443daa5b7138aab9cf72e944b7e11dd71d7d3dde"},
+        "p9_selection": {"rows": 200, "canonical_samples_sha256": "6298cbd6d7507f4b163ab4979a86ff109e0dffa90557e3b28e5d20d129e5be9f"},
+        "p9_confirmation": {"rows": 200, "canonical_samples_sha256": "4bbd9d53f32e3773de18bab881ba6e5ef0887ca86701897798ee086430ed08d9"}
+      }
+    },
+    "p11_new_union": {
+      "target_count": 920,
+      "pairwise_disjoint": true,
+      "overlap_with_prior_opened_union": 0,
+      "corpus_metadata_sha256": "40995692dda99dbca7d94382568e656f45aa1575874f37625d07feb1d8866b8e",
+      "corpora": {
+        "primary": {"rows": 200, "sha256": "1d578694c3226d1b008d2c9f2f252ed63d114a544c82c218c06116b13c00cf84", "formal_runs": 2},
+        "uniform_tail": {"rows": 200, "sha256": "87d2334dd28dded92df2d8c8897f7f9552efb655bc74488d49dafe2f6efc1dfd", "formal_runs": 1},
+        "confirmation": {"rows": 200, "sha256": "6dfdcdaf8cd6a091a9b82c192b076ad4e48a89b4023d5ef65394a6d6daf737ba", "formal_runs": 2},
+        "failure_negative": {"rows": 80, "sha256": "c0c593dc90af45ec9f3dcdfaaace286f9b0a53c52d0a833c8d292a4488126290", "formal_runs": 0},
+        "failure_budget": {"rows": 80, "sha256": "a522134897f7ab8348c327a9a53d30075033dc379bcec610777201abfbb6ee91", "formal_runs": 0},
+        "failure_override": {"rows": 80, "sha256": "1eeb7e552f2ef0ce8aae413adb7a6393891f1e265c774728ed6ba3b35685df95", "formal_runs": 0},
+        "failure_missing_evidence": {"rows": 80, "sha256": "2aca6b723b592b84caf173fb55c231e8572d0844da9f57cd0c89b9e0489f4ef9", "formal_runs": 0}
+      }
+    },
+    "future_exclusion_union_target_count": 2720,
+    "policy": "All 2,720 targets are excluded from P12 selection and confirmation. No P5-P11 consumed corpus may be rerun or used for result-driven tuning."
+  },
+  "phase_boundary": {
+    "completed": [
+      "Official participant-kit and remote identity verification",
+      "R08 production promotion and reproducible released-public checkpoint",
+      "P11 source/config/sidecar/preregistration freeze",
+      "P11 one-shot formal selection, uniform-tail, confirmation, repeat, audit, and promote decision"
+    ],
+    "promoted_but_not_served": [
+      "P11 p11.top10-linear.v3"
+    ],
+    "not_completed": [
+      "P11 production bridge and served default switch",
+      "P11 production resource/fallback/Observer integration report",
+      "P12 Typed QueryPlan and guarded Top50-to-Top10 admission",
+      "Fresh P12 selection and unopened confirmation protocol",
+      "Optional Phase C clarification",
+      "One final released-public comparison event",
+      "Submission/default-branch/report/demo closure"
+    ],
+    "may_continue": [
+      "Reversible P11 production integration without changing frozen scorer semantics",
+      "New P12 mechanism on new product-disjoint targets",
+      "Target-free unit, contract, leakage, fallback, and resource tests"
+    ],
+    "must_not_rerun_or_tune": [
+      "P5, P6, P7, P8, P9, or P11 consumed formal corpora",
+      "Released public as an iterative tuning loop",
+      "Frozen P11 weights, thresholds, feature registry, or semantics based on consumed outcomes"
+    ],
+    "competition_requirements": [
+      "Exact Agent API contract and catalog-valid Top-10 output",
+      "Maximum ten turns with organizer-private 800-session final evaluation",
+      "Official assets remain byte-identical",
+      "Offline/no-key fallback with model, token, cost, latency, network, and license disclosure",
+      "Source, setup/reproduction instructions, report, team contributions, and multi-turn demonstration",
+      "A significant product implementation commit during the competition window"
+    ]
+  }
+}
