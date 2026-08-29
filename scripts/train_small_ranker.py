@@ -114,7 +114,11 @@ def _canonical_sha256(value: object) -> str:
 
 
 def _identity_shape_scan(path: Path) -> int:
-    pattern = re.compile(rb"B0[A-Z0-9]{8}", re.IGNORECASE)
+    # Match a complete ASIN-shaped token, not a ten-character substring inside
+    # a SHA-256 digest or serialized floating-point payload.
+    pattern = re.compile(
+        rb"(?<![A-Z0-9])B0[A-Z0-9]{8}(?![A-Z0-9])", re.IGNORECASE
+    )
     matches = 0
     overlap = b""
     with path.open("rb") as handle:
@@ -716,6 +720,447 @@ def _predict_session_batches(model: Any, features: np.ndarray, sessions: np.ndar
     return output, time.perf_counter() - started
 
 
+def project_semantic_route_off(feature_block: np.ndarray) -> np.ndarray:
+    """Return the exact feature projection for a runtime with no BGE route."""
+
+    projected = np.asarray(feature_block, dtype=np.float32).copy()
+    if projected.shape[-2:] != (CANDIDATE_COUNT, FEATURE_COUNT):
+        raise SmallRankerTrainingError("semantic-off projection shape mismatch")
+    leading = projected.shape[:-2]
+    flat = projected.reshape(-1, CANDIDATE_COUNT, FEATURE_COUNT)
+    route_membership: list[np.ndarray] = []
+    normalized_ranks: list[np.ndarray] = []
+    for route in ("coverage", "p11", "broad", "strict", "fused", "structured"):
+        presence = flat[:, :, FEATURE_INDEX[f"{route}_presence"]] > 0.5
+        rank_fraction = flat[:, :, FEATURE_INDEX[f"{route}_rank_fraction"]]
+        top10_limit = 10.0 / {
+            "coverage": 100,
+            "p11": 10,
+            "broad": 120,
+            "strict": 80,
+            "fused": 200,
+            "structured": 10,
+        }[route]
+        route_membership.append(presence & (rank_fraction <= top10_limit + 1e-7))
+        normalized_ranks.append(np.where(presence, rank_fraction, np.nan))
+    route_membership.append(np.zeros_like(route_membership[0]))
+    stack = np.stack(normalized_ranks, axis=2)
+    valid = np.isfinite(stack)
+    count = valid.sum(axis=2)
+    safe = np.where(valid, stack, 0.0)
+    mean = safe.sum(axis=2) / np.maximum(count, 1)
+    minimum = np.min(np.where(valid, stack, np.inf), axis=2)
+    maximum = np.max(np.where(valid, stack, -np.inf), axis=2)
+    minimum[count == 0] = 1.25
+    maximum[count == 0] = 1.25
+    variance = np.sum(np.where(valid, (stack - mean[:, :, None]) ** 2, 0.0), axis=2) / np.maximum(count, 1)
+    flat[:, :, FEATURE_INDEX["route_rank_mean"]] = mean
+    flat[:, :, FEATURE_INDEX["route_rank_min"]] = minimum
+    flat[:, :, FEATURE_INDEX["route_rank_max"]] = maximum
+    flat[:, :, FEATURE_INDEX["route_rank_dispersion"]] = np.sqrt(variance)
+    vote_count = np.sum(np.stack(route_membership, axis=2), axis=2)
+    flat[:, :, FEATURE_INDEX["top10_route_agreement_fraction"]] = vote_count / 7.0
+    pairwise: list[np.ndarray] = []
+    for left in range(len(route_membership)):
+        for right in range(left + 1, len(route_membership)):
+            intersection = np.sum(route_membership[left] & route_membership[right], axis=1)
+            union = np.sum(route_membership[left] | route_membership[right], axis=1)
+            pairwise.append(np.divide(intersection, union, out=np.zeros_like(intersection, dtype=np.float32), where=union > 0))
+    group_mean_jaccard = np.mean(np.stack(pairwise, axis=1), axis=1)
+    flat[:, :, FEATURE_INDEX["mean_top10_route_jaccard"]] = group_mean_jaccard[:, None]
+    total_votes = vote_count.sum(axis=1)
+    nonzero_count = np.sum(vote_count > 0, axis=1)
+    probabilities = np.divide(
+        vote_count,
+        total_votes[:, None],
+        out=np.zeros_like(vote_count, dtype=np.float32),
+        where=total_votes[:, None] > 0,
+    )
+    entropy_numerator = -np.sum(np.where(probabilities > 0, probabilities * np.log(np.maximum(probabilities, 1e-30)), 0.0), axis=1)
+    entropy = np.divide(
+        entropy_numerator,
+        np.log(np.maximum(nonzero_count, 2)),
+        out=np.zeros_like(entropy_numerator),
+        where=nonzero_count > 1,
+    )
+    flat[:, :, FEATURE_INDEX["top10_vote_entropy"]] = entropy[:, None]
+    flat[:, :, FEATURE_INDEX["p11_semantic_top10_jaccard"]] = 0.0
+    flat[:, :, FEATURE_INDEX["semantic_presence"]] = 0.0
+    flat[:, :, FEATURE_INDEX["semantic_rank_fraction"]] = 1.25
+    flat[:, :, FEATURE_INDEX["semantic_reciprocal_rank"]] = 0.0
+    flat[:, :, FEATURE_INDEX["semantic_incumbent_rr_margin"]] = 0.0
+    if not np.isfinite(flat).all():
+        raise SmallRankerTrainingError("semantic-off projection produced non-finite features")
+    return flat.reshape((*leading, CANDIDATE_COUNT, FEATURE_COUNT))
+
+
+def evaluate_runtime_projection(config_path: Path) -> dict[str, Any]:
+    import xgboost as xgb
+
+    inputs = load_cache(config_path)
+    result_path = inputs.output_dir / "oof_results.json"
+    if not result_path.is_file():
+        raise SmallRankerTrainingError("base OOF result is required before runtime projection")
+    base_result = _load_json(result_path)
+    candidate_id = base_result.get("decision", {}).get("runtime_candidate")
+    if not candidate_id:
+        raise SmallRankerTrainingError("base OOF did not authorize a runtime candidate")
+    output_path = inputs.output_dir / "runtime_projection_no_semantic.json"
+    score_path = inputs.output_dir / "oof_scores_runtime_projection_no_semantic.npy"
+    if output_path.exists() or score_path.exists():
+        raise FileExistsError("runtime projection was already evaluated")
+    scores = np.lib.format.open_memmap(
+        score_path,
+        mode="w+",
+        dtype=np.float32,
+        shape=(SESSION_COUNT, TURN_COUNT, CANDIDATE_COUNT),
+    )
+    started = time.perf_counter()
+    prediction_seconds = 0.0
+    for fold in range(OUTER_FOLDS):
+        model_path = inputs.output_dir / "models" / str(candidate_id) / f"fold_{fold}.json"
+        booster = xgb.Booster()
+        booster.load_model(model_path)
+        best_limit = int(booster.attributes().get("best_ntree_limit", "0")) or None
+        held_sessions = np.flatnonzero(np.asarray(inputs.labels["outer_fold"]) == fold)
+        tick = time.perf_counter()
+        for offset in range(0, len(held_sessions), 50):
+            selected_sessions = held_sessions[offset : offset + 50]
+            block = project_semantic_route_off(np.asarray(inputs.features[selected_sessions]))
+            matrix = xgb.DMatrix(block.reshape(-1, FEATURE_COUNT))
+            prediction = booster.predict(matrix, ntree_limit=best_limit or 0)
+            scores[selected_sessions] = np.asarray(prediction, dtype=np.float32).reshape(
+                len(selected_sessions), TURN_COUNT, CANDIDATE_COUNT
+            )
+        fold_seconds = time.perf_counter() - tick
+        prediction_seconds += fold_seconds
+        print(json.dumps({"runtime_projection": "no_semantic", "fold": fold, "seconds": round(fold_seconds, 6)}), flush=True)
+    scores.flush()
+    projected_features = np.lib.format.open_memmap(
+        inputs.output_dir / "projected_features_scratch.npy",
+        mode="w+",
+        dtype=np.float32,
+        shape=inputs.features.shape,
+    )
+    # Gate evaluation needs the same projected runtime features.  Build this
+    # ignored scratch memmap in bounded session chunks and remove it after use.
+    for offset in range(0, SESSION_COUNT, 50):
+        projected_features[offset : offset + 50] = project_semantic_route_off(
+            np.asarray(inputs.features[offset : offset + 50])
+        )
+    projected_features.flush()
+    evaluation = evaluate_ranker(
+        np.asarray(scores),
+        projected_features,
+        inputs.labels,
+        inputs.manifest,
+        int(inputs.config["seed"]) + 900_000,
+    )
+    scratch_path = Path(projected_features.filename)
+    del projected_features
+    scratch_path.unlink()
+    result = {
+        "schema_version": "small-ranker-runtime-projection.v1",
+        "split": "train_explore",
+        "base_result_sha256": _sha256(result_path),
+        "candidate_id": candidate_id,
+        "projection": {
+            "semantic_route": "missing",
+            "reason": "closed BGE route requires 211,493,793 bytes and is outside the lightweight runtime budget",
+            "model_retrained": False,
+            "other_features_changed": "only deterministic route aggregates downstream of semantic presence/rank",
+        },
+        "prediction_seconds": round(prediction_seconds, 6),
+        "score_file": {"path": score_path.relative_to(ROOT).as_posix(), "bytes": score_path.stat().st_size, "sha256": _sha256(score_path)},
+        **evaluation,
+        "decision": {
+            "runtime_projection_passed": bool(evaluation["passes_oof_runtime_gate"]),
+            "run_runtime_smoke": bool(evaluation["passes_oof_runtime_gate"]),
+        },
+        "timing_seconds": {"total": round(time.perf_counter() - started, 6)},
+    }
+    _write_json_exclusive(output_path, result)
+    return result
+
+
+def _export_tree_model(model_path: Path) -> tuple[dict[str, Any], float]:
+    value = _load_json(model_path)
+    learner = value["learner"]
+    base_score = float(learner["learner_model_param"]["base_score"])
+    trees = []
+    for tree in learner["gradient_booster"]["model"]["trees"]:
+        left = [int(item) for item in tree["left_children"]]
+        right = [int(item) for item in tree["right_children"]]
+        features = [int(item) for item in tree["split_indices"]]
+        # XGBoost reloads JSON thresholds/leaves into float32.  Preserve that
+        # quantization; comparing a float32 feature against the longer decimal
+        # text as Python float changes equality branches (e.g. 2/3).
+        values = [float(np.float32(item)) for item in tree["split_conditions"]]
+        default_left = [int(item) for item in tree["default_left"]]
+        if not (len(left) == len(right) == len(features) == len(values) == len(default_left)):
+            raise SmallRankerTrainingError("XGBoost tree array lengths differ")
+        if any(int(item) != 0 for item in tree.get("split_type", ())):
+            raise SmallRankerTrainingError("categorical split is unsupported by lightweight runtime")
+        trees.append({"l": left, "r": right, "f": features, "v": values, "d": default_left})
+    return {"base_score": base_score, "trees": trees}, base_score
+
+
+def lightweight_tree_score(model: Mapping[str, Any], row: Sequence[float]) -> float:
+    score = float(model["base_score"])
+    for tree in model["trees"]:
+        node = 0
+        left = tree["l"]
+        right = tree["r"]
+        features = tree["f"]
+        values = tree["v"]
+        defaults = tree["d"]
+        while int(left[node]) >= 0:
+            feature_value = float(row[int(features[node])])
+            if math.isnan(feature_value):
+                node = int(left[node]) if int(defaults[node]) else int(right[node])
+            elif feature_value < float(values[node]):
+                node = int(left[node])
+            else:
+                node = int(right[node])
+        score += float(values[node])
+    return score
+
+
+def export_research_runtime(config_path: Path) -> dict[str, Any]:
+    import xgboost as xgb
+
+    inputs = load_cache(config_path)
+    base_result_path = inputs.output_dir / "oof_results.json"
+    projection_path = inputs.output_dir / "runtime_projection_no_semantic.json"
+    if not base_result_path.is_file() or not projection_path.is_file():
+        raise SmallRankerTrainingError("OOF result and passing runtime projection are required")
+    base_result = _load_json(base_result_path)
+    projection_result = _load_json(projection_path)
+    if not projection_result.get("decision", {}).get("runtime_projection_passed"):
+        raise SmallRankerTrainingError("runtime projection did not pass OOF gates")
+    candidate_id = str(base_result["decision"]["runtime_candidate"])
+    artifact_path = inputs.output_dir / "research_runtime_v1.json"
+    final_xgb_path = inputs.output_dir / "research_runtime_v1.xgb.json"
+    export_result_path = inputs.output_dir / "research_runtime_export.json"
+    for path in (artifact_path, export_result_path):
+        if path.exists() or path.is_symlink():
+            raise FileExistsError(path)
+    started = time.perf_counter()
+    projected_scores = np.load(
+        ROOT / str(projection_result["score_file"]["path"]), mmap_mode="r"
+    )
+    scratch_path = inputs.output_dir / "projected_features_export_scratch.npy"
+    if final_xgb_path.is_symlink() or scratch_path.is_symlink():
+        raise SmallRankerTrainingError("runtime export resume files must not be symlinks")
+    reference_exists = final_xgb_path.is_file()
+    scratch_exists = scratch_path.is_file()
+    if reference_exists != scratch_exists:
+        raise SmallRankerTrainingError(
+            "runtime export has an incomplete resume pair; keep or remove both reference and scratch"
+        )
+    resumed_after_training = reference_exists
+    if resumed_after_training:
+        projected_features = np.load(scratch_path, mmap_mode="r")
+        if projected_features.shape != inputs.features.shape or projected_features.dtype != np.float32:
+            raise SmallRankerTrainingError("runtime export resume scratch has the wrong schema")
+        audit_sessions = np.asarray(
+            [0, 1, 97, 399, 400, 799, 1200, 1599, 1998, 1999], dtype=np.int64
+        )
+        expected_audit = project_semantic_route_off(np.asarray(inputs.features[audit_sessions]))
+        if not np.array_equal(np.asarray(projected_features[audit_sessions]), expected_audit):
+            raise SmallRankerTrainingError("runtime export resume scratch failed projection audit")
+    else:
+        projected_features = np.lib.format.open_memmap(
+            scratch_path,
+            mode="w+",
+            dtype=np.float32,
+            shape=inputs.features.shape,
+        )
+        for offset in range(0, SESSION_COUNT, 50):
+            projected_features[offset : offset + 50] = project_semantic_route_off(
+                np.asarray(inputs.features[offset : offset + 50])
+            )
+        projected_features.flush()
+    incumbent = _incumbent_indices(projected_features)
+    chosen, margin, top_gap = choose_slot10(np.asarray(projected_scores), incumbent)
+    gate_features = gate_feature_matrix(
+        projected_features, np.asarray(projected_scores), chosen, incumbent, margin, top_gap
+    )
+    gate_probabilities, _fold_activation, gate_folds, gate_audit = cross_fit_safe_gate(
+        gate_features,
+        chosen,
+        incumbent,
+        inputs.labels,
+        int(inputs.config["seed"]) + 900_000,
+    )
+    action = chosen != incumbent
+    all_sessions = np.ones(SESSION_COUNT, dtype=bool)
+    threshold_record = select_zero_harm_threshold(
+        gate_probabilities, action, chosen, inputs.labels, all_sessions
+    )
+    threshold = float(threshold_record["threshold"])
+    activation = action & (gate_probabilities >= threshold)
+    policy_hit = policy_session_hits(
+        np.asarray(inputs.labels["baseline_rank"]),
+        np.asarray(inputs.labels["positive_index"]),
+        np.asarray(inputs.labels["eligible_from"]),
+        chosen,
+        activation,
+    )
+    global_metrics = transition_metrics(
+        np.asarray(inputs.labels["baseline_session_hit"]), policy_hit, activation
+    )
+    outer = np.asarray(inputs.labels["outer_fold"])
+    fold_rescues = [
+        int(np.sum((outer == fold) & (np.asarray(inputs.labels["baseline_session_hit"]) == 0) & (policy_hit == 1)))
+        for fold in range(OUTER_FOLDS)
+    ]
+    if global_metrics["net_hits"] < 10 or global_metrics["hit_to_miss"] != 0 or sum(value > 0 for value in fold_rescues) < 3:
+        raise SmallRankerTrainingError("one global runtime threshold does not preserve the OOF gate")
+    rescue, _direct_risk, gate_weights = action_training_labels(inputs.labels, chosen, incumbent)
+    flat_gate = gate_features.reshape(-1, len(GATE_FEATURE_NAMES))
+    flat_action = action.reshape(-1)
+    gate_model, gate_mean, gate_scale = _fit_gate_model(
+        flat_gate[flat_action],
+        rescue.reshape(-1)[flat_action],
+        gate_weights.reshape(-1)[flat_action],
+        int(inputs.config["seed"]) + 990_000,
+    )
+    if not hasattr(gate_model, "coef_"):
+        raise SmallRankerTrainingError("final safe gate unexpectedly collapsed to a constant")
+
+    candidate_result = next(item for item in base_result["configs"] if item["id"] == candidate_id)
+    best_iterations = [int(item["best_iteration"]) for item in candidate_result["fold_models"]]
+    final_rounds = int(np.median(np.asarray(best_iterations))) + 1
+    spec = dict(candidate_result["spec"])
+    spec["max_rounds"] = final_rounds
+    if resumed_after_training:
+        booster = xgb.Booster()
+        booster.load_model(final_xgb_path)
+        final_training_seconds = None
+    else:
+        selected = build_selected_training_rows(inputs.features, inputs.labels)
+        params = _model_params(
+            spec,
+            int(inputs.config["seed"]) + 1_000_000,
+            str(xgb.__version__),
+        )
+        model = xgb.XGBRanker(**params)
+        train_started = time.perf_counter()
+        model.fit(selected.x, selected.y, qid=selected.qid, verbose=False)
+        final_training_seconds = time.perf_counter() - train_started
+        booster = model.get_booster()
+        booster.save_model(final_xgb_path)
+    if _identity_shape_scan(final_xgb_path):
+        raise SmallRankerTrainingError("final research model contains an identity-shaped token")
+    tree_model, _base_score = _export_tree_model(final_xgb_path)
+    if len(tree_model["trees"]) != final_rounds:
+        raise SmallRankerTrainingError("final research model tree count does not match frozen rounds")
+
+    rng = np.random.default_rng(_library_seed(int(inputs.config["seed"]) + 1_100_000))
+    sample_groups = rng.choice(SESSION_COUNT * TURN_COUNT, size=10, replace=False)
+    sample_rows = projected_features.reshape(-1, CANDIDATE_COUNT, FEATURE_COUNT)[sample_groups]
+    sample_matrix = sample_rows.reshape(-1, FEATURE_COUNT)
+    reference_scores = np.asarray(
+        booster.predict(xgb.DMatrix(sample_matrix), output_margin=True),
+        dtype=np.float64,
+    )
+    lightweight_scores = np.asarray(
+        [lightweight_tree_score(tree_model, row) for row in sample_matrix],
+        dtype=np.float64,
+    )
+    max_abs_error = float(np.max(np.abs(reference_scores - lightweight_scores)))
+    reference_order = np.argsort(-reference_scores.reshape(10, CANDIDATE_COUNT), axis=1, kind="stable")
+    lightweight_order = np.argsort(-lightweight_scores.reshape(10, CANDIDATE_COUNT), axis=1, kind="stable")
+    rank_parity = bool(np.array_equal(reference_order, lightweight_order))
+    if max_abs_error > 2e-5 or not rank_parity:
+        raise SmallRankerTrainingError("lightweight tree export failed reference parity")
+
+    activated_count = max(1, global_metrics["activation_sessions"])
+    zero_harm_one_sided_95 = 1.0 - 0.05 ** (1.0 / activated_count)
+    artifact: dict[str, Any] = {
+        "schema_version": "small-ranker-runtime-artifact.v1",
+        "mode_default": "off",
+        "feature_names": list(FEATURE_NAMES),
+        "feature_schema_sha256": inputs.manifest["feature_cache"]["feature_schema_sha256"],
+        "runtime_projection": {"semantic_route": "missing"},
+        "ranker": {
+            "config_id": candidate_id,
+            "rounds": final_rounds,
+            "objective": spec["objective"],
+            "model": tree_model,
+        },
+        "gate": {
+            "feature_names": list(GATE_FEATURE_NAMES),
+            "mean": [float(value) for value in gate_mean],
+            "scale": [float(value) for value in gate_scale],
+            "coef": [float(value) for value in gate_model.coef_[0]],
+            "intercept": float(gate_model.intercept_[0]),
+            "threshold": threshold,
+            "zero_observed_harm_one_sided_95_upper": zero_harm_one_sided_95,
+        },
+        "oof_freeze": {
+            "base_result_sha256": _sha256(base_result_path),
+            "projection_result_sha256": _sha256(projection_path),
+            "global_threshold_metrics": global_metrics,
+            "fold_rescues": fold_rescues,
+            "nested_gate": gate_audit,
+            "outer_threshold_records": gate_folds,
+        },
+        "training": {
+            "cache_feature_sha256": inputs.manifest["feature_cache"]["sha256"],
+            "cache_label_sha256": inputs.manifest["label_cache"]["sha256"],
+            "trainer_sha256": _sha256(Path(__file__).resolve()),
+            "xgboost_version": str(xgb.__version__),
+            "final_training_seconds": (
+                None if final_training_seconds is None else round(final_training_seconds, 6)
+            ),
+            "reused_completed_pre_parity_model": resumed_after_training,
+            "final_xgboost_sha256": _sha256(final_xgb_path),
+        },
+        "parity": {
+            "rows": len(sample_matrix),
+            "maximum_absolute_score_error": max_abs_error,
+            "full_c100_rank_order_exact": rank_parity,
+        },
+        "privacy": {
+            "identity_features": False,
+            "asin_shape_matches": 0,
+            "target_keys": 0,
+        },
+    }
+    _write_json_exclusive(artifact_path, artifact)
+    if _identity_shape_scan(artifact_path):
+        raise SmallRankerTrainingError("research runtime artifact contains an identity-shaped token")
+    export_result = {
+        "schema_version": "small-ranker-runtime-export-result.v1",
+        "artifact": {
+            "path": artifact_path.relative_to(ROOT).as_posix(),
+            "bytes": artifact_path.stat().st_size,
+            "sha256": _sha256(artifact_path),
+        },
+        "xgboost_reference": {
+            "path": final_xgb_path.relative_to(ROOT).as_posix(),
+            "bytes": final_xgb_path.stat().st_size,
+            "sha256": _sha256(final_xgb_path),
+        },
+        "global_oof_policy": global_metrics,
+        "fold_rescues": fold_rescues,
+        "final_rounds": final_rounds,
+        "final_training_seconds": (
+            None if final_training_seconds is None else round(final_training_seconds, 6)
+        ),
+        "reused_completed_pre_parity_model": resumed_after_training,
+        "parity": artifact["parity"],
+        "decision": {"runtime_smoke_authorized": True, "calibration_authorized": False},
+        "timing_seconds": {"total": round(time.perf_counter() - started, 6)},
+    }
+    _write_json_exclusive(export_result_path, export_result)
+    del projected_features
+    scratch_path.unlink()
+    return export_result
+
+
 def _write_json_exclusive(path: Path, value: Mapping[str, Any]) -> None:
     if path.exists() or path.is_symlink():
         raise FileExistsError(path)
@@ -989,11 +1434,40 @@ def train_batch(config_path: Path) -> dict[str, Any]:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
+    parser.add_argument(
+        "--runtime-projection",
+        choices=("no-semantic",),
+        help="Evaluate the single deployment projection without retraining.",
+    )
+    parser.add_argument(
+        "--export-research-runtime",
+        action="store_true",
+        help="Freeze the passing model/gate under ignored experiments only.",
+    )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    if args.runtime_projection and args.export_research_runtime:
+        raise SmallRankerTrainingError("choose one post-OOF operation")
+    if args.export_research_runtime:
+        result = export_research_runtime(args.config)
+        print(json.dumps(result, sort_keys=True))
+        return 0
+    if args.runtime_projection:
+        result = evaluate_runtime_projection(args.config)
+        print(
+            json.dumps(
+                {
+                    "projection": result["projection"]["semantic_route"],
+                    "gated_policy": result["gated_policy"],
+                    "decision": result["decision"],
+                },
+                sort_keys=True,
+            )
+        )
+        return 0
     result = train_batch(args.config)
     print(
         json.dumps(

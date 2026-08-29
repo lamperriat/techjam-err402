@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import sqlite3
@@ -41,6 +42,8 @@ RANKING_DIAGNOSTIC_LIMIT = 128
 RETRIEVAL_MODES = ("control", "coverage")
 P11_MODES = ("off", "control", "shadow", "active")
 DEFAULT_P11_MODE = "active"
+SMALL_RANKER_MODES = ("off", "shadow", "active")
+DEFAULT_SMALL_RANKER_MODE = "off"
 CATEGORY_PATTERNS = (
     re.compile(
         r"^\s*(?:i(?:'m| am)\s+)?(?:looking|searching|shopping)\s+for\s+"
@@ -494,6 +497,8 @@ class Agent:
         retrieval_mode: str | None = None,
         p11_mode: str | None = None,
         p11_sidecar_path: str | Path | None = None,
+        small_ranker_mode: str | None = None,
+        small_ranker_artifact_path: str | Path | None = None,
     ) -> None:
         self.catalog_path = Path(catalog_path)
         self.llm_client = llm_client
@@ -567,6 +572,29 @@ class Agent:
             )
         if self.retrieval_mode == "coverage" and self.rerank_mode != "off":
             raise ValueError("coverage retrieval requires rerank_mode=off")
+        requested_small_ranker_mode = small_ranker_mode
+        if requested_small_ranker_mode is None:
+            requested_small_ranker_mode = (
+                os.getenv("TECHJAM_SMALL_RANKER_MODE")
+                if type(self) is Agent
+                else None
+            )
+        self.small_ranker_mode = str(
+            requested_small_ranker_mode or DEFAULT_SMALL_RANKER_MODE
+        ).strip().lower()
+        if self.small_ranker_mode not in SMALL_RANKER_MODES:
+            raise ValueError(
+                "small_ranker_mode must be one of: "
+                + ", ".join(SMALL_RANKER_MODES)
+            )
+        configured_artifact = small_ranker_artifact_path
+        if configured_artifact is None and type(self) is Agent:
+            configured_artifact = os.getenv("TECHJAM_SMALL_RANKER_ARTIFACT_PATH")
+        self._small_ranker_artifact_path = (
+            Path(configured_artifact)
+            if configured_artifact is not None
+            else Path(__file__).resolve().parent / "assets" / "small_ranker_v1.json"
+        )
         self.connection = sqlite3.connect(":memory:", check_same_thread=False)
         self._lock = threading.RLock()
         self._sessions: dict[str, SessionState] = {}
@@ -574,27 +602,53 @@ class Agent:
         self._ranking_snapshots: OrderedDict[str, dict[str, list[str]]] = OrderedDict()
         self._attribute_view_cache: OrderedDict[str, ProductAttributeView] = OrderedDict()
         self._p11_bridge: Any | None = None
+        self._small_ranker: Any | None = None
         self._p11_initialization_code = (
             "disabled" if self.p11_mode == "off" else "control_exact"
         )
+        self._small_ranker_initialization_code = (
+            "disabled" if self.small_ranker_mode == "off" else "not_initialized"
+        )
         self._closed = False
         self._build_index()
+        configured_p11_path = p11_sidecar_path
+        if configured_p11_path is None and type(self) is Agent:
+            configured_p11_path = os.getenv("TECHJAM_P11_SIDECAR_PATH")
         if self.p11_mode in {"shadow", "active"}:
             try:
                 from starter.p11_bridge import P11ProductionBridge
 
-                configured_path = p11_sidecar_path
-                if configured_path is None and type(self) is Agent:
-                    configured_path = os.getenv("TECHJAM_P11_SIDECAR_PATH")
                 self._p11_bridge = P11ProductionBridge(
                     self.p11_mode,
-                    configured_path,
+                    configured_p11_path,
                     catalog_path=self.catalog_path,
                 )
                 self._p11_initialization_code = "bridge_initialized"
             except Exception:
                 self._p11_bridge = None
                 self._p11_initialization_code = "bridge_init_failure"
+        if self.small_ranker_mode in {"shadow", "active"}:
+            if (
+                self.p11_mode != "active"
+                or self.question_policy != "fast"
+                or self.rerank_mode != "off"
+                or self.retrieval_mode != "coverage"
+            ):
+                self._small_ranker_initialization_code = "incompatible_agent_configuration"
+            else:
+                try:
+                    from starter.p11_bridge import DEFAULT_SIDECAR
+                    from starter.small_ranker import SmallRankerRuntime
+
+                    self._small_ranker = SmallRankerRuntime(
+                        self.small_ranker_mode,
+                        self._small_ranker_artifact_path,
+                        configured_p11_path or DEFAULT_SIDECAR,
+                    )
+                    self._small_ranker_initialization_code = "runtime_initialized"
+                except Exception:
+                    self._small_ranker = None
+                    self._small_ranker_initialization_code = "runtime_init_failure"
 
     def _trace(
         self,
@@ -618,7 +672,9 @@ class Agent:
             "parent_asin UNINDEXED, title, categories, features, details, store, description, "
             "tokenize='unicode61 remove_diacritics 2')"
         )
-        metadata_enabled = self.rerank_mode != "off"
+        metadata_enabled = (
+            self.rerank_mode != "off" or self.small_ranker_mode in {"shadow", "active"}
+        )
         if metadata_enabled:
             cursor.execute(
                 "CREATE TABLE product_metadata("
@@ -699,6 +755,38 @@ class Agent:
             "fallback": fallback,
         }
 
+    def _small_ranker_status(self) -> dict[str, Any]:
+        if self._small_ranker is not None:
+            try:
+                return dict(self._small_ranker.status())
+            except Exception:
+                pass
+        fallback = self.small_ranker_mode in {"shadow", "active"}
+        return {
+            "schema_version": "small-ranker-runtime.v1",
+            "configured_mode": self.small_ranker_mode,
+            "effective_mode": "fallback" if fallback else "off",
+            "reason_code": self._small_ranker_initialization_code,
+            "fallback": fallback,
+        }
+
+    def _small_ranker_fallback(
+        self, baseline: list[str], reason_code: str
+    ) -> tuple[list[str], dict[str, Any]]:
+        head = list(baseline[:10])
+        return baseline, {
+            **self._small_ranker_status(),
+            "effective_mode": "fallback",
+            "reason_code": reason_code,
+            "fallback": True,
+            "baseline_top10": head,
+            "proposed_top10": head,
+            "served_top10": head,
+            "activated": False,
+            "output_changed": False,
+            "p11_ranks_1_9_preserved": True,
+        }
+
     def _apply_p11(
         self,
         state: SessionState,
@@ -753,11 +841,109 @@ class Agent:
                 "breakdowns": {},
             }
 
+    def _apply_small_ranker(
+        self,
+        state: SessionState,
+        coverage_ids: list[str],
+        rankings: dict[str, list[str]],
+        candidate_rowids: dict[str, int],
+        query_terms: list[str],
+        p11_diagnostics: dict[str, Any],
+    ) -> tuple[list[str], dict[str, Any]]:
+        baseline = list(rankings["final"])
+        if self._small_ranker is None:
+            return self._small_ranker_fallback(
+                baseline,
+                self._small_ranker_initialization_code,
+            ) if self.small_ranker_mode != "off" else (
+                baseline,
+                {
+                    **self._small_ranker_status(),
+                    "baseline_top10": list(baseline[:10]),
+                    "proposed_top10": list(baseline[:10]),
+                    "served_top10": list(baseline[:10]),
+                    "activated": False,
+                    "output_changed": False,
+                    "p11_ranks_1_9_preserved": True,
+                },
+            )
+        c100 = list(coverage_ids[:100])
+        p11_ready = (
+            p11_diagnostics.get("effective_mode") == "active"
+            and p11_diagnostics.get("identity_verified") is True
+            and not bool(p11_diagnostics.get("fallback"))
+            and p11_diagnostics.get("top10_membership_preserved") is True
+            and p11_diagnostics.get("tail_preserved") is True
+        )
+        if not p11_ready:
+            try:
+                self._small_ranker.observe_coverage(state, c100)
+            except Exception:
+                pass
+            return self._small_ranker_fallback(baseline, "p11_invariant_failure")
+        try:
+            product_views, cache_stats = self._load_product_attribute_views(
+                c100[:50], candidate_rowids
+            )
+            placeholders = ",".join("?" for _ in c100)
+            price_rows = self.connection.execute(
+                "SELECT parent_asin, price FROM product_metadata WHERE parent_asin IN ("
+                + placeholders
+                + ")",
+                c100,
+            ).fetchall()
+            prices: dict[str, float | None] = {}
+            for identifier, raw_price in price_rows:
+                match = re.search(r"\d+(?:\.\d+)?", str(raw_price or ""))
+                value = float(match.group()) if match else None
+                prices[str(identifier)] = (
+                    value if value is not None and value >= 0 and math.isfinite(value) else None
+                )
+            from starter.p11_bridge import _latest_hard_clause_terms
+
+            goal_messages = state.messages[max(0, state.version_anchor_turn - 1) :]
+            outcome = self._small_ranker.apply(
+                state=state,
+                coverage_ids=c100,
+                p11_ids=baseline,
+                rankings=rankings,
+                candidate_rowids=candidate_rowids,
+                product_views=product_views,
+                prices=prices,
+                intent=build_conversation_constraint_view(
+                    state.category_text,
+                    state.active_terms,
+                    state.excluded_terms,
+                ),
+                turn_terms=_terms(state.messages[-1]),
+                goal_terms=_terms(" ".join(goal_messages)),
+                query_terms=query_terms,
+                current_turn_override=self._is_override(state.messages[-1]),
+                hard_clause_terms=_latest_hard_clause_terms(state),
+            )
+            return list(outcome.identifiers), {
+                **dict(outcome.diagnostics),
+                "attribute_cache": cache_stats,
+            }
+        except Exception as error:
+            try:
+                self._small_ranker.observe_coverage(state, c100)
+            except Exception:
+                pass
+            return self._small_ranker_fallback(
+                baseline, f"adapter_failure:{type(error).__name__}"
+            )
+
     def reset(self, session_id: str, user_profile: dict) -> None:
         with self._lock:
             previous = self._sessions.get(session_id)
             if previous is not None:
                 self._ranking_diagnostics.pop(id(previous), None)
+                if self._small_ranker is not None:
+                    try:
+                        self._small_ranker.reset_state(previous)
+                    except Exception:
+                        pass
             self._ranking_snapshots.pop(session_id, None)
             self._sessions[session_id] = SessionState(profile=dict(user_profile))
             self._trace(session_id, None, "session", {
@@ -766,6 +952,7 @@ class Agent:
                 "rerank_mode": self.rerank_mode,
                 "retrieval_mode": self.retrieval_mode,
                 "p11": self._p11_status(),
+                "small_ranker": self._small_ranker_status(),
                 "coverage_schema_version": COVERAGE_SCHEMA_VERSION,
                 "rerank_top_n": RERANK_TOP_N,
                 "reranker_version": SCORER_VERSION,
@@ -781,6 +968,11 @@ class Agent:
             state = self._sessions.pop(session_id, None)
             if state is not None:
                 self._ranking_diagnostics.pop(id(state), None)
+                if self._small_ranker is not None:
+                    try:
+                        self._small_ranker.reset_state(state)
+                    except Exception:
+                        pass
             self._ranking_snapshots.pop(session_id, None)
 
     @staticmethod
@@ -1091,6 +1283,7 @@ class Agent:
                 _terms,
             )
             coverage_diagnostics = {**coverage_diagnostics, "active": True}
+        coverage_ids = list(final_ids)
         rankings = {
             "broad": broad_ids,
             "strict": strict_ids,
@@ -1104,11 +1297,20 @@ class Agent:
             candidate_rowids,
             query_terms,
         )
+        rankings["final"], small_ranker_diagnostics = self._apply_small_ranker(
+            state,
+            coverage_ids,
+            rankings,
+            candidate_rowids,
+            query_terms,
+            p11_diagnostics,
+        )
         diagnostics = {
             **diagnostics,
             "retrieval_mode": self.retrieval_mode,
             "coverage": coverage_diagnostics,
             "p11": p11_diagnostics,
+            "small_ranker": small_ranker_diagnostics,
         }
         self._store_ranking_diagnostics(state, diagnostics)
         return rankings
@@ -1152,6 +1354,7 @@ class Agent:
             "attribute_cache": {"hits": 0, "misses": 0, "size": len(self._attribute_view_cache)},
             "breakdowns": {},
             "p11": self._p11_status(),
+            "small_ranker": self._small_ranker_status(),
             "question_shadow": empty_question_shadow(
                 "Candidate attributes are computed only when rerank diagnostics are enabled."
             ),
@@ -1411,6 +1614,9 @@ class Agent:
                     "coverage", {}
                 ).get("coverage_by_parent_asin", {})
                 p11_diagnostics = rerank_diagnostics.get("p11", self._p11_status())
+                small_ranker_diagnostics = rerank_diagnostics.get(
+                    "small_ranker", self._small_ranker_status()
+                )
 
                 def result_rows(route: str) -> list[dict[str, Any]]:
                     return [
@@ -1447,11 +1653,12 @@ class Agent:
                     "rerank": {
                         key: value
                         for key, value in rerank_diagnostics.items()
-                        if key not in {"breakdowns", "p11"}
+                        if key not in {"breakdowns", "p11", "small_ranker"}
                     },
                     "rerank_affects_output": (
                         self.rerank_mode == "active"
                         or bool(p11_diagnostics.get("output_changed"))
+                        or bool(small_ranker_diagnostics.get("output_changed"))
                     ),
                     "retrieval_mode": self.retrieval_mode,
                     "coverage": rerank_diagnostics["coverage"],
@@ -1460,6 +1667,7 @@ class Agent:
                         for key, value in p11_diagnostics.items()
                         if key != "breakdowns"
                     },
+                    "small_ranker": dict(small_ranker_diagnostics),
                     "raw_fused_top_results": raw_fused_top_results,
                     "reranked_top_results": reranked_top_results,
                     "final_top_results": final_top_results,
@@ -1518,9 +1726,15 @@ class Agent:
                 return
             self._closed = True
             bridge, self._p11_bridge = self._p11_bridge, None
+            small_ranker, self._small_ranker = self._small_ranker, None
             self._p11_initialization_code = "agent_closed"
+            self._small_ranker_initialization_code = "agent_closed"
             try:
-                if bridge is not None:
-                    bridge.close()
+                try:
+                    if small_ranker is not None:
+                        small_ranker.close()
+                finally:
+                    if bridge is not None:
+                        bridge.close()
             finally:
                 self.connection.close()

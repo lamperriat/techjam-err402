@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -114,3 +116,12 @@ def test_gate_schema_contains_no_identity_feature() -> None:
         for name in trainer.GATE_FEATURE_NAMES
         for forbidden in ("asin", "target", "sample_id", "user_id")
     )
+
+
+def test_identity_scan_does_not_treat_a_hash_substring_as_an_asin(tmp_path: Path) -> None:
+    digest_like = tmp_path / "digest.txt"
+    digest_like.write_text("aaB0ABCDEFGHff", encoding="ascii")
+    actual_token = tmp_path / "token.txt"
+    actual_token.write_text("prefix B0ABCDEFGH suffix", encoding="ascii")
+    assert trainer._identity_shape_scan(digest_like) == 0
+    assert trainer._identity_shape_scan(actual_token) == 1

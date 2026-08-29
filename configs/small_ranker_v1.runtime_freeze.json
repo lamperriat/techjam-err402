@@ -1,0 +1,124 @@
+{
+  "schema_version": "small-ranker-runtime-freeze.v1",
+  "frozen_on": "2026-08-30",
+  "candidate_id": "ndcg_d4_lr003",
+  "served_policy": {
+    "mode": "active",
+    "default_before_promotion": "off",
+    "semantic_route": "missing",
+    "protected_output": "P11 ranks 1-9",
+    "only_mutable_output": "slot 10",
+    "gate_threshold": 0.09825292974710464,
+    "runtime_target_features": false
+  },
+  "frozen_inputs": {
+    "research_artifact": {
+      "path": "experiments/fast_track/small_ranker_v1/oof_batch_v1/research_runtime_v1.json",
+      "bytes": 257380,
+      "sha256": "090f1dfe5a07b922f4b4663dc1bd093892530cc717b45cb31658adb800c5c96e"
+    },
+    "xgboost_reference": {
+      "path": "experiments/fast_track/small_ranker_v1/oof_batch_v1/research_runtime_v1.xgb.json",
+      "bytes": 584275,
+      "sha256": "6730ad952c5a0fa8e4bdb33864ec84690cb3ac342a8c899edaae16c8481eff40",
+      "served": false
+    },
+    "runtime_source": {
+      "path": "starter/small_ranker.py",
+      "bytes": 54340,
+      "sha256": "a796f36e8bbd7fecc3da80fcece3470be2c3b8d4f9b4cd5496b984ed182d4605"
+    },
+    "agent_source": {
+      "path": "starter/agent.py",
+      "bytes": 72326,
+      "sha256": "ace7d2c7a89976b740252cc6b52dc41b9cabbbaa515698e557b03bd2249da9da"
+    },
+    "trainer_source": {
+      "path": "scripts/train_small_ranker.py",
+      "bytes": 66926,
+      "sha256": "c67b25b92715cf7668079ee03bf1c716664f4e69b2fc76bf5ffd19073aabbad1"
+    },
+    "training_config": {
+      "path": "configs/small_ranker_v1.json",
+      "bytes": 3386,
+      "sha256": "43776984f259c1b27d0f508abd708dba2b673923fcd5ad9caa1e2f4e1526a3f0"
+    },
+    "cache_manifest": {
+      "path": "configs/small_ranker_v1.cache.manifest.json",
+      "bytes": 7238,
+      "sha256": "b301d9536efb472b7a00f08835657f424816cd04e0ce48420524572c850e5d21"
+    },
+    "oof_result": {
+      "path": "experiments/fast_track/small_ranker_v1/oof_batch_v1/oof_results.json",
+      "bytes": 40001,
+      "sha256": "00d7b67d2fe47361894d826d7908416469ddbd5d2c1efc08cc136f98e2f2b08f"
+    },
+    "runtime_projection": {
+      "path": "experiments/fast_track/small_ranker_v1/oof_batch_v1/runtime_projection_no_semantic.json",
+      "bytes": 4753,
+      "sha256": "3c56e9457542298e74fd5819c0c12450b0a4f8c2d07bcde519c985ba1ca84aa4"
+    },
+    "runtime_export": {
+      "path": "experiments/fast_track/small_ranker_v1/oof_batch_v1/research_runtime_export.json",
+      "bytes": 1023,
+      "sha256": "783b3681e28cb1d2e70ffe6c100aa3ef677b29c0e2a0c6c7f6619620b6b304ca"
+    },
+    "limit100_smoke": {
+      "path": "experiments/fast_track/small_ranker_v1/oof_batch_v1/runtime_smoke_limit100.json",
+      "bytes": 3150,
+      "sha256": "d574620bac5fbf85b3daa0b9f73fb88fb324b5eed7c297ec6261929739fb0053"
+    }
+  },
+  "oof_evidence": {
+    "baseline_hr_at_10": 0.9475,
+    "policy_hr_at_10": 0.9755,
+    "hr_delta": 0.028,
+    "miss_to_hit": 56,
+    "hit_to_miss": 0,
+    "net_hits": 56,
+    "fold_rescues": [7, 15, 14, 7, 13],
+    "parity_rows": 1000,
+    "full_c100_rank_order_exact": true
+  },
+  "runtime_smoke": {
+    "sample_count": 100,
+    "turn_count": 271,
+    "hit_rate_at_10": 0.97,
+    "activations": 129,
+    "fallbacks": 0,
+    "invariant_failures": 0,
+    "forbidden_training_libraries_loaded": []
+  },
+  "untouched_calibration": {
+    "dataset": {
+      "path": "experiments/fast_track/proxy_v1/proxy_calibration.jsonl",
+      "rows": 2000,
+      "bytes": 1315038,
+      "sha256": "2ffd23092f0c30d33feef6d99b18262d03d856c6f5b6813e2e4e6e28dfeee8ed"
+    },
+    "baseline_aggregate": {
+      "path": "experiments/fast_track/action_oracle_v1/calibration-full-aggregate.json",
+      "bytes": 23373,
+      "sha256": "0d0d067c5e709409488bb254901b4505aec342ed7307f5f696fd2bdf17d04bd6",
+      "keep_p11_hr_at_10": 0.932,
+      "keep_p11_mrr": 0.664834,
+      "keep_p11_mttc": 3.247
+    },
+    "baseline_blind_shards": [
+      ["experiments/fast_track/action_oracle_v1/calibration-full-blind-shard-01-of-04.jsonl", 15939420, "e5b8928598bb828b043016a1eb593456e0dddf01e11ab44e4325d596f257295a"],
+      ["experiments/fast_track/action_oracle_v1/calibration-full-blind-shard-02-of-04.jsonl", 15939420, "881117077d11bc406eebe7737f7165659adbd001732bc548af51a261453ca7bf"],
+      ["experiments/fast_track/action_oracle_v1/calibration-full-blind-shard-03-of-04.jsonl", 15939420, "6cd9998f4d110b190ae47771305e390d0b1022313c970d285f66433f07f4b2d3"],
+      ["experiments/fast_track/action_oracle_v1/calibration-full-blind-shard-04-of-04.jsonl", 15939420, "e8f8a31bf178980826e72beb3a04e21820d26cf8c0c70d44912dcad69f697895"]
+    ],
+    "promotion_gate": {
+      "minimum_hr_delta": 0.005,
+      "minimum_net_hits": 10,
+      "maximum_hit_to_miss": 0,
+      "minimum_positive_rescue_scenarios": 2,
+      "require_zero_runtime_fallbacks": true,
+      "require_zero_boundary_failures": true
+    },
+    "run_count_allowed": 1,
+    "tuning_after_observation": false
+  }
+}
