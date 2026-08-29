@@ -1,0 +1,72 @@
+{
+  "schema_version": "small-ranker-mrr-harm-gate-manifest.v1",
+  "recorded_on": "2026-08-30",
+  "branch": "small-ranker-v1.3-mrr-harm",
+  "parent_checkpoint": "a3c387b",
+  "scope": {
+    "split": "train_explore",
+    "ranker_retrained": false,
+    "agent_or_runtime_started": false,
+    "calibration_opened": false,
+    "selection_opened": false,
+    "confirmation_opened": false,
+    "public_opened": false
+  },
+  "protocol": {
+    "ranker": "frozen ndcg_d4_lr003 outer-OOF scores",
+    "gate_model": "nested target-blind logistic rescue head minus lambda times first-hit-harm head",
+    "harm_label": "slot-10 replacement removes the earliest eligible baseline rank-10 hit without selecting the target",
+    "harm_multipliers": [0.5, 1.0, 2.0, 5.0],
+    "challenger_threshold_rule": "inner-OOF zero hit-to-miss, nonnegative MRR delta, nonpositive MTTC delta, then maximum TechnicalScore",
+    "outer_folds": 5,
+    "inner_folds": 5,
+    "target_blind_runtime_features": true
+  },
+  "sources": {
+    "feature_cache_sha256": "2b19835a1bced7f21322610296c712e3d06d915274719e11c268d31f7f596089",
+    "label_cache_sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+    "oof_score_sha256": "ef9f53ec46e6b18626329d612abbab342b0714dd0ad83c7e6b06040028fe75aa",
+    "analyzer": {
+      "path": "scripts/analyze_small_ranker_mrr_harm_gate.py",
+      "sha256": "2cfaf1e501ef7929726b0da105654147e232f508f8f01518e7fcc3cf913c089a"
+    },
+    "ignored_result": {
+      "path": "experiments/fast_track/small_ranker_mrr_harm_gate_v1.json",
+      "bytes": 17396,
+      "sha256": "5fa44755462a06795513254b06726d3b1cb57365294c2bf2d0008e608356e161"
+    }
+  },
+  "label_counts": {
+    "rescue": 409,
+    "first_hit_harm": 9,
+    "direct_risk": 40,
+    "activated_first_hit_harm": 0
+  },
+  "outer_oof": {
+    "baseline_hr_at_10": 0.9475,
+    "challenger_hr_at_10": 0.9645,
+    "miss_to_hit": 34,
+    "hit_to_miss": 0,
+    "net_hits": 34,
+    "fold_net_hits": [0, 12, 7, 6, 9],
+    "fold_mrr_delta": [0.0, 0.002786, 0.00175, -0.003, 0.000917],
+    "hr_delta": 0.017,
+    "mrr_delta": 0.00049,
+    "mttc_delta": -0.0625,
+    "technical_score_delta": 0.009898,
+    "activation_sessions": 188,
+    "activation_turns": 508,
+    "wall_seconds": 3.34332
+  },
+  "test_evidence": {
+    "command": "C:\\Users\\danie\\anaconda3\\python.exe -m pytest tests/test_small_ranker_mrr_harm_gate.py -q",
+    "result": "2 passed in 0.13s"
+  },
+  "decision": {
+    "status": "PROMISING_OOF_REPRODUCE_ONLY",
+    "reason": "global nested OOF improved HR, MRR, MTTC, and TechnicalScore with zero hit-to-miss, but one fold still regressed MRR, one fold made no rescue, and only nine harm positives exist",
+    "promote": false,
+    "served_default": "off",
+    "next_algorithm": "exactly reproduce the frozen comparison, then test one untouched calibration gate only if reproducible; do not start selection, confirmation, or public"
+  }
+}

@@ -1,0 +1,42 @@
+# Small-ranker v1.3 first-hit-harm gate
+
+This bounded experiment reused the frozen `train_explore` feature, label, and
+`ndcg_d4_lr003` outer-OOF score caches. It did not retrain the ranker, start the
+Agent/runtime, or open calibration, selection, confirmation, or public data.
+
+## Question
+
+The v1 ranker recovered 56 misses but lost `0.059318` MRR. A threshold-only
+metric gate then preserved only seven rescues and still lost MRR. This experiment
+therefore learned a second target-blind logistic head for a narrower failure:
+replacing slot 10 exactly when it contains the session's earliest eligible hit.
+The admission utility was `P(rescue) - lambda * P(first-hit harm)`. Both `lambda`
+and the threshold were selected inside each outer fold using inner OOF only.
+
+## Result
+
+| Policy | miss->hit | hit->miss | net | Fold net | HR@10 | HR delta | MRR delta | MTTC delta | TechnicalScore delta |
+|---|---:|---:|---:|---|---:|---:|---:|---:|---:|
+| P11 baseline | 0 | 0 | 0 | 0/0/0/0/0 | 0.9475 | 0 | 0 | 0 | 0 |
+| v1.3 nested OOF | 34 | 0 | 34 | 0/12/7/6/9 | 0.9645 | +0.0170 | +0.000490 | -0.0625 | +0.009898 |
+
+The fold MRR deltas were `0`, `+0.002786`, `+0.001750`, `-0.003000`, and
+`+0.000917`. The policy activated 508 turns in 188 sessions and activated none
+of the nine labeled first-hit-harm rows. Total offline wall time was `3.343320`
+seconds.
+
+## Decision
+
+**Promising OOF; not promoted.** This is the first cached challenger in this
+line that improves all four aggregate metrics while retaining zero hit-to-miss.
+It is still too fragile to serve: one fold regressed MRR, one fold rescued
+nothing, and nine harm-positive rows are too few for a stable learned head.
+
+The next bounded checkpoint is an exact deterministic reproduction from the
+frozen hashes. Only if that reproduces may one untouched calibration evaluation
+be opened. Selection, confirmation, public evaluation, runtime integration, and
+the served default remain closed/off. P11/R08 fallback behavior is unchanged.
+
+The complete ignored artifact is
+`experiments/fast_track/small_ranker_mrr_harm_gate_v1.json`; the tracked evidence
+record is `configs/small_ranker_v1_3.mrr_harm_gate.manifest.json`.
