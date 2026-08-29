@@ -38,6 +38,13 @@ from starter.p5_lab import P5Agent, R01 as P5_R01  # noqa: E402
 from starter.p11_bridge import (  # noqa: E402
     EXPECTED_SIDECAR_BYTES,
     EXPECTED_SIDECAR_SHA256,
+    _latest_hard_clause_terms,
+    _positive_constraints,
+)
+from starter.p11_features import (  # noqa: E402
+    CandidateScore,
+    P11FeatureStore,
+    rerank_top10_preserving_membership,
 )
 from starter.p8_negative import compile_negative_constraints  # noqa: E402
 from starter.p9_evidence import (  # noqa: E402
@@ -621,6 +628,7 @@ class P12CaptureAgent(Agent):
     ) -> None:
         self._p12_semantic = semantic
         self._p12_prices = _load_catalog_prices(catalog_path)
+        self._p12_family2_store: P11FeatureStore | None = None
         self._p12_last_capture: dict[str, Any] | None = None
         self._p12_structured_seconds: list[float] = []
         self._p12_semantic_seconds: list[float] = []
@@ -639,6 +647,20 @@ class P12CaptureAgent(Agent):
             }
         )
         self._p12_compiler_rejections: Counter[str] = Counter()
+        self._p12_family2_counts: Counter[str] = Counter(
+            {
+                "total_turns": 0,
+                "visible_preference_turns": 0,
+                "hard_clause_turns": 0,
+                "turns_with_complete_c50_scores": 0,
+                "sidecar_rows_read": 0,
+                "feature_fetch_calls": 0,
+                "candidate_breakdowns_computed": 0,
+                "subtype_lookup_calls": 0,
+                "maximum_rows_per_fetch": 0,
+                "score_fail_closed_turns": 0,
+            }
+        )
         super().__init__(
             catalog_path,
             llm_client=None,
@@ -649,6 +671,18 @@ class P12CaptureAgent(Agent):
             p11_sidecar_path=sidecar_path,
         )
         _validate_p11_status(self._p11_status())
+        try:
+            self._p12_family2_store = P11FeatureStore(
+                sidecar_path,
+                expected_catalog_sha256=OFFICIAL_CATALOG_SHA256,
+                expected_catalog_rows=OFFICIAL_CATALOG_ROWS,
+            )
+        except Exception:
+            try:
+                super().close()
+            except Exception:
+                pass
+            raise
 
     def _p12_product_views(
         self, candidates: Sequence[str], candidate_rowids: Mapping[str, int]
@@ -707,6 +741,108 @@ class P12CaptureAgent(Agent):
         if maximum <= 0.0 or any(value <= 0.0 for value in raw.values()):
             raise P12WorkerError("C50 cannot be bound to real weighted-RRF priors")
         return {identifier: value / maximum for identifier, value in raw.items()}
+
+    def _p12_c50_scores(
+        self,
+        state: SessionState,
+        candidate_ids: Sequence[str],
+        candidate_rowids: Mapping[str, int],
+        rankings: Mapping[str, Sequence[str]],
+        query_terms: Sequence[str],
+        negative_constraints: Sequence[Any],
+    ) -> tuple[dict[str, CandidateScore], tuple[str, ...], int]:
+        """Score one C50 through the frozen P11 sidecar in bounded chunks."""
+
+        self._p12_family2_counts["total_turns"] += 1
+        hard_clause_terms: tuple[str, ...] = ()
+        visible_preference_count = 0
+        try:
+            positive_constraints = _positive_constraints(state)
+            hard_clause_terms = _latest_hard_clause_terms(state)
+            visible_preference_count = sum(
+                int(constraint.slot != "category")
+                for constraint in positive_constraints
+            )
+            self._p12_family2_counts["visible_preference_turns"] += int(
+                visible_preference_count > 0
+            )
+            self._p12_family2_counts["hard_clause_turns"] += int(
+                len(hard_clause_terms) >= 4
+            )
+            store = self._p12_family2_store
+            if store is None:
+                raise ValueError("P11 feature store is unavailable")
+            query_subtypes = store.resolve_query_subtypes(state.category_text)
+            self._p12_family2_counts["subtype_lookup_calls"] += 1
+            rank_maps = {
+                name: {
+                    identifier: rank
+                    for rank, identifier in enumerate(rankings.get(name, ()), start=1)
+                }
+                for name in ("broad", "strict", "fused")
+            }
+            scores: dict[str, CandidateScore] = {}
+            idf_by_term: dict[str, float] | None = None
+            for offset in range(0, len(candidate_ids), TOP_K):
+                chunk = tuple(candidate_ids[offset : offset + TOP_K])
+                requested: list[tuple[int, str]] = []
+                for identifier in chunk:
+                    rowid = candidate_rowids.get(identifier)
+                    if (
+                        not isinstance(rowid, int)
+                        or isinstance(rowid, bool)
+                        or rowid <= 0
+                    ):
+                        raise ValueError("C50 sidecar row binding is invalid")
+                    requested.append((rowid, identifier))
+                batch = store.fetch_top10(requested, query_terms)
+                self._p12_family2_counts["feature_fetch_calls"] += 1
+                self._p12_family2_counts["sidecar_rows_read"] += len(requested)
+                self._p12_family2_counts["maximum_rows_per_fetch"] = max(
+                    self._p12_family2_counts["maximum_rows_per_fetch"],
+                    len(requested),
+                )
+                observed_idf = {
+                    str(term): float(value) for term, value in batch.idf_by_term.items()
+                }
+                if idf_by_term is None:
+                    idf_by_term = observed_idf
+                elif observed_idf != idf_by_term:
+                    raise ValueError("P11 C50 chunk IDF registry drifted")
+                result = rerank_top10_preserving_membership(
+                    chunk,
+                    batch,
+                    query_terms=query_terms,
+                    broad_ranks=rank_maps["broad"],
+                    strict_ranks=rank_maps["strict"],
+                    fused_ranks=rank_maps["fused"],
+                    positive_constraints=positive_constraints,
+                    negative_constraints=negative_constraints,
+                    query_subtypes=query_subtypes,
+                    hard_clause_terms=hard_clause_terms,
+                    current_turn=max(1, len(state.messages)),
+                    current_version=state.version,
+                )
+                if (
+                    result.fallback
+                    or set(result.breakdowns) != set(chunk)
+                    or any(
+                        not isinstance(score, CandidateScore)
+                        for score in result.breakdowns.values()
+                    )
+                ):
+                    raise ValueError("P11 C50 scorer failed closed")
+                scores.update(result.breakdowns)
+                self._p12_family2_counts["candidate_breakdowns_computed"] += len(
+                    result.breakdowns
+                )
+            if set(scores) != set(candidate_ids):
+                raise ValueError("P11 C50 score registry is incomplete")
+            self._p12_family2_counts["turns_with_complete_c50_scores"] += 1
+            return scores, hard_clause_terms, visible_preference_count
+        except Exception:
+            self._p12_family2_counts["score_fail_closed_turns"] += 1
+            return {}, hard_clause_terms, visible_preference_count
 
     def _apply_p11(
         self,
@@ -771,6 +907,41 @@ class P12CaptureAgent(Agent):
             p11_c50,
             compact_evidence,
             compilation.constraints,
+        )
+        candidate_scores, hard_clause_terms, visible_preference_count = (
+            self._p12_c50_scores(
+                state,
+                p11_c50,
+                candidate_rowids,
+                rankings,
+                query_terms,
+                compilation.constraints,
+            )
+        )
+        p11_evidence_novel = p12_actions.rank_p11_evidence_novel_slot10(
+            p11_c50,
+            structured,
+            semantic,
+            candidate_scores,
+            has_non_category_signal=(
+                visible_preference_count > 0 or bool(hard_clause_terms)
+            ),
+        )
+        hard_clause_novel = p12_actions.rank_hard_clause_novel_slot10(
+            p11_c50,
+            structured,
+            semantic,
+            candidate_scores,
+            hard_clause_term_count=len(hard_clause_terms),
+        )
+        two_signal_consensus = p12_actions.rank_two_signal_consensus_novel_slot10(
+            p11_c50,
+            structured,
+            semantic,
+            candidate_scores,
+            has_non_category_signal=(
+                visible_preference_count > 0 or bool(hard_clause_terms)
+            ),
         )
         self._p12_compact_counts["total_turns"] += 1
         self._p12_compact_counts["ledger_records_examined"] += int(
@@ -840,9 +1011,40 @@ class P12CaptureAgent(Agent):
                 p12_actions.GUARDED_COMPACT_SLOT10_STRICT,
                 guarded_compact_strict,
             ),
+            (p12_actions.P11_EVIDENCE_NOVEL_SLOT10, p11_evidence_novel),
+            (p12_actions.HARD_CLAUSE_NOVEL_SLOT10, hard_clause_novel),
+            (
+                p12_actions.TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10,
+                two_signal_consensus,
+            ),
         ):
             if len(ranked) != len(c50) or set(ranked) != set(c50):
                 raise P12WorkerError(f"{name} changed C50 membership")
+            if name in {
+                p12_actions.P11_EVIDENCE_NOVEL_SLOT10,
+                p12_actions.HARD_CLAUSE_NOVEL_SLOT10,
+                p12_actions.TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10,
+            } and ranked != p11_c50:
+                base_top10 = p11_c50[:TOP_K]
+                ranked_top10 = ranked[:TOP_K]
+                added = set(ranked_top10) - set(base_top10)
+                blocked = set(structured[:TOP_K]) | set(semantic[:TOP_K])
+                if (
+                    ranked_top10[: TOP_K - 1] != base_top10[: TOP_K - 1]
+                    or len(set(ranked_top10) ^ set(base_top10)) != 2
+                    or len(added) != 1
+                    or not added.isdisjoint(blocked)
+                ):
+                    raise P12WorkerError(f"{name} violated its novel single-slot guard")
+                challenger = next(iter(added))
+                expected = list(p11_c50)
+                challenger_index = expected.index(challenger)
+                expected[TOP_K - 1], expected[challenger_index] = (
+                    expected[challenger_index],
+                    expected[TOP_K - 1],
+                )
+                if tuple(expected) != tuple(ranked):
+                    raise P12WorkerError(f"{name} changed more than one C50 slot")
         self._p12_last_capture = {
             "state_identity": id(state),
             "r08_full": r08_full,
@@ -853,6 +1055,9 @@ class P12CaptureAgent(Agent):
             "compact_negative_full": compact_negative,
             "guarded_compact_slot10_full": guarded_compact,
             "guarded_compact_slot10_strict_full": guarded_compact_strict,
+            "p11_evidence_novel_slot10_full": p11_evidence_novel,
+            "hard_clause_novel_slot10_full": hard_clause_novel,
+            "two_signal_consensus_novel_slot10_full": two_signal_consensus,
             "p11_invariants": invariant,
         }
         return list(p11_full), diagnostics
@@ -882,6 +1087,27 @@ class P12CaptureAgent(Agent):
             ),
             "privacy": "aggregate counts only; no text, values, identifiers, ordinals, or labels",
         }
+
+    def p12_family2_summary(self) -> dict[str, Any]:
+        return {
+            "counts": dict(sorted(self._p12_family2_counts.items())),
+            "privacy": "aggregate counts only; no text, values, identifiers, ordinals, or labels",
+        }
+
+    def close(self) -> None:
+        errors: list[BaseException] = []
+        store, self._p12_family2_store = self._p12_family2_store, None
+        if store is not None:
+            try:
+                store.close()
+            except BaseException as exc:
+                errors.append(exc)
+        try:
+            super().close()
+        except BaseException as exc:
+            errors.append(exc)
+        if errors:
+            raise P12WorkerError("P12 Family2/P11 resource close failed") from errors[0]
 
 
 class P12P5CaptureAgent(P5Agent):
@@ -1022,6 +1248,20 @@ def _compose_trace_record(
         p11_capture.get("guarded_compact_slot10_strict_full"),
         "strict guarded compact C50",
     )
+    family2_full = {
+        p12_actions.P11_EVIDENCE_NOVEL_SLOT10: _validate_identifier_sequence(
+            p11_capture.get("p11_evidence_novel_slot10_full"),
+            "P11 evidence novel C50",
+        ),
+        p12_actions.HARD_CLAUSE_NOVEL_SLOT10: _validate_identifier_sequence(
+            p11_capture.get("hard_clause_novel_slot10_full"),
+            "hard-clause novel C50",
+        ),
+        p12_actions.TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10: _validate_identifier_sequence(
+            p11_capture.get("two_signal_consensus_novel_slot10_full"),
+            "two-signal consensus novel C50",
+        ),
+    }
     if len(structured) != len(c50) or set(structured) != set(c50):
         raise P12WorkerError("structured capture is not a C50 permutation")
     if len(semantic) != len(c50) or set(semantic) != set(c50):
@@ -1035,6 +1275,11 @@ def _compose_trace_record(
         or set(guarded_compact_strict) != set(c50)
     ):
         raise P12WorkerError("strict guarded compact capture is not a C50 permutation")
+    if any(
+        len(ranked) != len(c50) or set(ranked) != set(c50)
+        for ranked in family2_full.values()
+    ):
+        raise P12WorkerError("Family2 capture is not an exact C50 permutation")
     guarded_top10 = guarded_compact[:TOP_K]
     p11_top10 = p11[:TOP_K]
     if guarded_top10 != p11_top10 and (
@@ -1056,6 +1301,31 @@ def _compose_trace_record(
         raise P12WorkerError(
             "strict guarded compact capture violates its adjacent single-slot guard"
         )
+    blocked_family2 = set(structured[:TOP_K]) | set(semantic[:TOP_K])
+    p11_c50 = p11[: len(c50)]
+    for name, ranked in family2_full.items():
+        ranked_top10 = ranked[:TOP_K]
+        if ranked_top10 == p11_top10:
+            if ranked != p11_c50:
+                raise P12WorkerError(f"{name} changed only the hidden C50 tail")
+            continue
+        added = set(ranked_top10) - set(p11_top10)
+        if (
+            ranked_top10[: TOP_K - 1] != p11_top10[: TOP_K - 1]
+            or len(set(ranked_top10) ^ set(p11_top10)) != 2
+            or len(added) != 1
+            or not added.isdisjoint(blocked_family2)
+        ):
+            raise P12WorkerError(f"{name} violates its novel single-slot guard")
+        challenger = next(iter(added))
+        expected = list(p11_c50)
+        challenger_index = expected.index(challenger)
+        expected[TOP_K - 1], expected[challenger_index] = (
+            expected[challenger_index],
+            expected[TOP_K - 1],
+        )
+        if tuple(expected) != ranked:
+            raise P12WorkerError(f"{name} changed more than one C50 slot")
     if (
         not isinstance(p5_capture, Mapping)
         or p5_capture.get("variant_id") != P5_R01
@@ -1075,6 +1345,15 @@ def _compose_trace_record(
         p12_actions.GUARDED_COMPACT_SLOT10: list(guarded_compact[:TOP_K]),
         p12_actions.GUARDED_COMPACT_SLOT10_STRICT: list(
             guarded_compact_strict[:TOP_K]
+        ),
+        p12_actions.P11_EVIDENCE_NOVEL_SLOT10: list(
+            family2_full[p12_actions.P11_EVIDENCE_NOVEL_SLOT10][:TOP_K]
+        ),
+        p12_actions.HARD_CLAUSE_NOVEL_SLOT10: list(
+            family2_full[p12_actions.HARD_CLAUSE_NOVEL_SLOT10][:TOP_K]
+        ),
+        p12_actions.TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10: list(
+            family2_full[p12_actions.TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10][:TOP_K]
         ),
         p12_actions.ASK: list(p11[:TOP_K]),
     }
@@ -1145,6 +1424,9 @@ class P12ActionRuntime:
                 p12_actions.COMPACT_NEGATIVE_C50,
                 p12_actions.GUARDED_COMPACT_SLOT10,
                 p12_actions.GUARDED_COMPACT_SLOT10_STRICT,
+                p12_actions.P11_EVIDENCE_NOVEL_SLOT10,
+                p12_actions.HARD_CLAUSE_NOVEL_SLOT10,
+                p12_actions.TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10,
             )
         }
         self._output_change_turns: Counter[str] = Counter()
@@ -1264,6 +1546,11 @@ class P12ActionRuntime:
                 "privacy": "unavailable",
             }
         )
+        family2_funnel = (
+            self.p11_agent.p12_family2_summary()
+            if callable(getattr(self.p11_agent, "p12_family2_summary", None))
+            else {"counts": {}, "privacy": "unavailable"}
+        )
         self._close_components()
         if self._closed_components != ["p11_agent", "p5_agent", "semantic"]:
             raise P12WorkerError("P12 component close order is invalid")
@@ -1294,6 +1581,7 @@ class P12ActionRuntime:
                 "compact_negative_base": "P11.C50",
                 "guarded_compact_base": "P11.C50",
                 "guarded_compact_strict_base": "P11.C50 adjacent rank-11 only",
+                "family2_base": "P11.C50 excluding structured/semantic Top10 challengers",
                 "result_aware_computation_count": self.result_aware_computation_count,
                 "activation_definition": (
                     "per-turn Top10 member set differs from KEEP_P11"
@@ -1311,6 +1599,7 @@ class P12ActionRuntime:
                     for action in self._membership_activation_sessions
                 },
                 "compact_funnel": compact_funnel,
+                "family2_funnel": family2_funnel,
             },
             "p11": {
                 "mode": "active",
@@ -1332,6 +1621,11 @@ class P12ActionRuntime:
             "rewrite_failure_count": int(self.failure_counts["rewrite"]),
             "p11_invariant_failure_count": int(
                 self.failure_counts["p11_invariant"]
+            ),
+            "family2_score_failure_count": int(
+                family2_funnel.get("counts", {}).get(
+                    "score_fail_closed_turns", 0
+                )
             ),
             "network_attempt_count": self.network_guard.attempt_count,
             "local_socket_metadata_count": self.network_guard.local_metadata_count,

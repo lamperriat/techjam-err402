@@ -14,16 +14,22 @@ from scripts.p12_actions import (
     FROZEN_SEMANTIC_RERANK,
     GUARDED_COMPACT_SLOT10,
     GUARDED_COMPACT_SLOT10_STRICT,
+    HARD_CLAUSE_NOVEL_SLOT10,
     KEEP_P11,
     KEEP_R08,
+    P11_EVIDENCE_NOVEL_SLOT10,
     RESULT_AWARE_REWRITE_RETRIEVE,
+    TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10,
     latest_budget_constraint,
     numeric_budget_match,
     rank_compact_negative_c50,
     rank_frozen_semantic_c50,
     rank_guarded_compact_slot10,
     rank_guarded_compact_slot10_strict,
+    rank_hard_clause_novel_slot10,
+    rank_p11_evidence_novel_slot10,
     rank_structured_c50,
+    rank_two_signal_consensus_novel_slot10,
 )
 from starter.attributes import (
     ProductAttributeView,
@@ -31,6 +37,7 @@ from starter.attributes import (
     build_product_attribute_view,
 )
 from starter.p8_negative import ExecutableNegative
+from starter.p11_features import CandidateScore
 from starter.p9_evidence import SLOT_ORDER, VALUE_BITS
 
 
@@ -59,6 +66,49 @@ def _masks(**values: str) -> tuple[int, ...]:
         VALUE_BITS[slot].get(values.get(slot, ""), 0)
         for slot in SLOT_ORDER
     )
+
+
+def _p11_score(
+    *,
+    relevance: float = 0.20,
+    conflict_state: str = "not_applicable",
+    idf: float = 0.10,
+    title: float = 0.10,
+    features: float = 0.10,
+    description: float = 0.10,
+    hard: float = 0.10,
+    subtype: float = 0.10,
+    positive: float = 0.10,
+) -> CandidateScore:
+    return CandidateScore(
+        total=relevance,
+        relevance=relevance,
+        tie_bonus=0.0,
+        conflict_state=conflict_state,
+        broad_rank_prior=0.0,
+        strict_rank_prior=0.0,
+        rrf_rank_prior=0.0,
+        idf_any_field_coverage=idf,
+        title_category_coverage=title,
+        features_details_coverage=features,
+        description_store_coverage=description,
+        latest_hard_clause_coverage=hard,
+        subtype_consistency=subtype,
+        positive_constraint_evidence=positive,
+    )
+
+
+def _novel_inputs() -> tuple[
+    tuple[str, ...],
+    tuple[str, ...],
+    tuple[str, ...],
+    dict[str, CandidateScore],
+]:
+    pool = tuple(f"item-{index:02d}" for index in range(15))
+    structured = (*pool[:9], pool[10], pool[9], *pool[11:])
+    semantic = (*pool[:9], pool[11], pool[9], pool[10], *pool[12:])
+    scores = {identifier: _p11_score() for identifier in pool}
+    return pool, structured, semantic, scores
 
 
 class BudgetParsingTests(unittest.TestCase):
@@ -447,6 +497,288 @@ class CompactNegativeActionTests(unittest.TestCase):
         )
 
 
+class NovelSlot10ActionTests(unittest.TestCase):
+    def test_evidence_action_uses_only_novel_tail_and_swaps_rank10_once(self) -> None:
+        pool, structured, semantic, scores = _novel_inputs()
+        scores[pool[10]] = _p11_score(
+            relevance=1.0,
+            idf=1.0,
+            title=1.0,
+            features=1.0,
+            description=1.0,
+            hard=1.0,
+            subtype=1.0,
+            positive=1.0,
+        )
+        scores[pool[13]] = _p11_score(
+            relevance=0.30,
+            idf=0.40,
+            title=0.40,
+            hard=0.70,
+        )
+
+        ranked = rank_p11_evidence_novel_slot10(
+            pool,
+            structured,
+            semantic,
+            scores,
+            has_non_category_signal=True,
+        )
+
+        expected = list(pool)
+        expected[9], expected[13] = expected[13], expected[9]
+        self.assertEqual(ranked, tuple(expected))
+        self.assertEqual(ranked[:9], pool[:9])
+        self.assertEqual(set(ranked[:10]) ^ set(pool[:10]), {pool[9], pool[13]})
+        self.assertEqual(ranked.index(pool[10]), 10)
+
+    def test_evidence_action_fails_closed_without_signal_or_unique_margin(self) -> None:
+        pool, structured, semantic, scores = _novel_inputs()
+        challenger = _p11_score(
+            relevance=0.30,
+            idf=0.40,
+            title=0.40,
+            hard=0.70,
+        )
+        scores[pool[12]] = challenger
+        scores[pool[13]] = challenger
+
+        self.assertEqual(
+            rank_p11_evidence_novel_slot10(
+                pool,
+                structured,
+                semantic,
+                scores,
+                has_non_category_signal=False,
+            ),
+            pool,
+        )
+        self.assertEqual(
+            rank_p11_evidence_novel_slot10(
+                pool,
+                structured,
+                semantic,
+                scores,
+                has_non_category_signal=True,
+            ),
+            pool,
+        )
+
+    def test_hard_clause_action_requires_long_unique_field_local_match(self) -> None:
+        pool, structured, semantic, scores = _novel_inputs()
+        scores[pool[9]] = _p11_score(
+            relevance=0.40,
+            idf=0.20,
+            hard=0.30,
+            subtype=0.20,
+            positive=0.20,
+        )
+        scores[pool[12]] = _p11_score(
+            relevance=0.20,
+            idf=0.20,
+            hard=0.60,
+            subtype=0.20,
+            positive=0.20,
+        )
+        scores[pool[13]] = _p11_score(
+            relevance=0.39,
+            idf=0.20,
+            hard=0.90,
+            subtype=0.20,
+            positive=0.20,
+        )
+
+        ranked = rank_hard_clause_novel_slot10(
+            pool,
+            structured,
+            semantic,
+            scores,
+            hard_clause_term_count=4,
+        )
+        expected = list(pool)
+        expected[9], expected[13] = expected[13], expected[9]
+        self.assertEqual(ranked, tuple(expected))
+
+        self.assertEqual(
+            rank_hard_clause_novel_slot10(
+                pool,
+                structured,
+                semantic,
+                scores,
+                hard_clause_term_count=3,
+            ),
+            pool,
+        )
+        close_runner = dict(scores)
+        close_runner[pool[12]] = _p11_score(
+            relevance=0.20,
+            idf=0.20,
+            hard=0.66,
+            subtype=0.20,
+            positive=0.20,
+        )
+        self.assertEqual(
+            rank_hard_clause_novel_slot10(
+                pool,
+                structured,
+                semantic,
+                close_runner,
+                hard_clause_term_count=4,
+            ),
+            pool,
+        )
+
+    def test_two_signal_consensus_activates_at_inclusive_boundaries(self) -> None:
+        pool, structured, semantic, scores = _novel_inputs()
+        scores[pool[10]] = _p11_score(
+            relevance=1.0,
+            idf=1.0,
+            title=1.0,
+            features=1.0,
+            hard=1.0,
+            subtype=1.0,
+            positive=1.0,
+        )
+        scores[pool[12]] = _p11_score(
+            relevance=0.20,
+            idf=0.20,
+            title=0.20,
+            features=0.20,
+            hard=0.20,
+            subtype=0.20,
+            positive=0.20,
+        )
+        scores[pool[13]] = _p11_score(
+            relevance=0.22,
+            idf=0.25,
+            title=0.25,
+            features=0.25,
+            hard=0.30,
+            subtype=0.30,
+            positive=0.30,
+        )
+
+        ranked = rank_two_signal_consensus_novel_slot10(
+            pool,
+            structured,
+            semantic,
+            scores,
+            has_non_category_signal=True,
+        )
+        expected = list(pool)
+        expected[9], expected[13] = expected[13], expected[9]
+        self.assertEqual(ranked, tuple(expected))
+        self.assertEqual(ranked[:9], pool[:9])
+        self.assertEqual(set(ranked[:10]) ^ set(pool[:10]), {pool[9], pool[13]})
+
+        below_relevance = dict(scores)
+        below_relevance[pool[13]] = _p11_score(
+            relevance=0.219999999999,
+            idf=0.25,
+            title=0.25,
+            features=0.25,
+            hard=0.30,
+            subtype=0.30,
+            positive=0.30,
+        )
+        self.assertEqual(
+            rank_two_signal_consensus_novel_slot10(
+                pool,
+                structured,
+                semantic,
+                below_relevance,
+                has_non_category_signal=True,
+            ),
+            pool,
+        )
+
+    def test_two_signal_consensus_requires_same_argmax_and_visible_signal(self) -> None:
+        pool, structured, semantic, scores = _novel_inputs()
+        scores[pool[12]] = _p11_score(
+            relevance=0.40,
+            idf=0.25,
+            title=0.25,
+            features=0.25,
+            hard=0.60,
+            subtype=0.60,
+            positive=0.60,
+        )
+        scores[pool[13]] = _p11_score(
+            relevance=0.40,
+            idf=0.50,
+            title=0.50,
+            features=0.50,
+            hard=0.25,
+            subtype=0.25,
+            positive=0.25,
+        )
+
+        self.assertEqual(
+            rank_two_signal_consensus_novel_slot10(
+                pool,
+                structured,
+                semantic,
+                scores,
+                has_non_category_signal=True,
+            ),
+            pool,
+        )
+        self.assertEqual(
+            rank_two_signal_consensus_novel_slot10(
+                pool,
+                structured,
+                semantic,
+                scores,
+                has_non_category_signal=False,
+            ),
+            pool,
+        )
+
+    def test_invalid_family2_inputs_are_exact_noops(self) -> None:
+        pool, structured, semantic, scores = _novel_inputs()
+        scores[pool[13]] = _p11_score(
+            relevance=0.30,
+            idf=0.40,
+            title=0.40,
+            hard=0.70,
+        )
+        incomplete_scores = dict(scores)
+        incomplete_scores.pop(pool[-1])
+        self.assertEqual(
+            rank_p11_evidence_novel_slot10(
+                pool,
+                structured,
+                semantic,
+                incomplete_scores,
+                has_non_category_signal=True,
+            ),
+            pool,
+        )
+
+        non_finite_scores = dict(scores)
+        non_finite_scores[pool[-1]] = _p11_score(idf=math.nan)
+        self.assertEqual(
+            rank_p11_evidence_novel_slot10(
+                pool,
+                structured,
+                semantic,
+                non_finite_scores,
+                has_non_category_signal=True,
+            ),
+            pool,
+        )
+        self.assertEqual(
+            rank_p11_evidence_novel_slot10(
+                pool,
+                structured,
+                semantic[:-1],
+                scores,
+                has_non_category_signal=True,
+            ),
+            pool,
+        )
+
+
 class ActionIdTests(unittest.TestCase):
     def test_goal_action_ids_are_frozen_and_unique(self) -> None:
         self.assertEqual(
@@ -460,6 +792,9 @@ class ActionIdTests(unittest.TestCase):
                 COMPACT_NEGATIVE_C50,
                 GUARDED_COMPACT_SLOT10,
                 GUARDED_COMPACT_SLOT10_STRICT,
+                P11_EVIDENCE_NOVEL_SLOT10,
+                HARD_CLAUSE_NOVEL_SLOT10,
+                TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10,
                 ASK,
             ),
         )

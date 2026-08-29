@@ -18,9 +18,12 @@ from scripts.p12_actions import (
     FROZEN_SEMANTIC_RERANK,
     GUARDED_COMPACT_SLOT10,
     GUARDED_COMPACT_SLOT10_STRICT,
+    HARD_CLAUSE_NOVEL_SLOT10,
     KEEP_P11,
     KEEP_R08,
+    P11_EVIDENCE_NOVEL_SLOT10,
     RESULT_AWARE_REWRITE_RETRIEVE,
+    TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10,
 )
 
 
@@ -53,6 +56,9 @@ def _trace_row(
             COMPACT_NEGATIVE_C50: c50_reverse[:10],
             GUARDED_COMPACT_SLOT10: list(p11[:10]),
             GUARDED_COMPACT_SLOT10_STRICT: list(p11[:10]),
+            P11_EVIDENCE_NOVEL_SLOT10: list(p11[:10]),
+            HARD_CLAUSE_NOVEL_SLOT10: list(p11[:10]),
+            TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10: list(p11[:10]),
             ASK: list(p11[:10]),
         },
         "candidate_pools": {
@@ -168,6 +174,9 @@ class FrozenConfigTests(unittest.TestCase):
             "gate": lambda value: value["go_no_go"].__setitem__(
                 "oracle_hr_delta_min", -1.0
             ),
+            "family2 thresholds": lambda value: value["actions"][
+                "family2_novel_slot10"
+            ]["p11_evidence"].__setitem__("evidence_delta_min", -1.0),
             "bootstrap": lambda value: value["evaluation"]["bootstrap"].__setitem__(
                 "resamples", 1
             ),
@@ -330,6 +339,61 @@ class TraceValidationTests(unittest.TestCase):
         self.assertEqual(list(grouped), [1])
         self.assertEqual([row["turn"] for row in grouped[1]], list(range(1, 11)))
 
+    def test_accepts_each_family2_novel_tail_single_slot_swap(self) -> None:
+        for action in runner.FAMILY2_NOVEL_SLOT10_ACTIONS:
+            with self.subTest(action=action):
+                rows = _valid_trace()
+                p11 = rows[0]["actions"][KEEP_P11]
+                challenger = rows[0]["candidate_pools"]["c50"][20]
+                rows[0]["actions"][action] = [*p11[:9], challenger]
+
+                grouped = runner.validate_trace(rows, 1, self.ids)
+
+                self.assertEqual(
+                    grouped[1][0]["actions"][action], [*p11[:9], challenger]
+                )
+
+    def test_family2_novel_slot_rejects_prefix_mutation_and_non_tail_candidate(self) -> None:
+        prefix_mutation = _valid_trace()
+        p11 = prefix_mutation[0]["actions"][KEEP_P11]
+        prefix_mutation[0]["actions"][P11_EVIDENCE_NOVEL_SLOT10] = [
+            *p11[:8],
+            prefix_mutation[0]["candidate_pools"]["c50"][20],
+            p11[9],
+        ]
+        self.assert_invalid(prefix_mutation, "Top1-9-preserving single-slot")
+
+        non_tail = _valid_trace()
+        p11 = non_tail[0]["actions"][KEEP_P11]
+        non_tail[0]["actions"][P11_EVIDENCE_NOVEL_SLOT10] = [
+            *p11[:9],
+            non_tail[0]["candidate_pools"]["c100"][60],
+        ]
+        self.assert_invalid(non_tail, "Top10 is not drawn from exact C50")
+
+    def test_family2_novel_slot_rejects_structured_or_semantic_top10_candidate(self) -> None:
+        structured = _valid_trace()
+        p11 = structured[0]["actions"][KEEP_P11]
+        structured_challenger = structured[0]["actions"][CANDIDATE_RERANK][0]
+        structured[0]["actions"][HARD_CLAUSE_NOVEL_SLOT10] = [
+            *p11[:9],
+            structured_challenger,
+        ]
+        self.assert_invalid(structured, "not novel to structured and semantic Top10")
+
+        semantic = _valid_trace()
+        p11 = semantic[0]["actions"][KEEP_P11]
+        semantic_challenger = semantic[0]["candidate_pools"]["c50"][10]
+        self.assertIn(
+            semantic_challenger,
+            semantic[0]["actions"][FROZEN_SEMANTIC_RERANK],
+        )
+        semantic[0]["actions"][TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10] = [
+            *p11[:9],
+            semantic_challenger,
+        ]
+        self.assert_invalid(semantic, "not novel to structured and semantic Top10")
+
     def test_accepts_valid_short_candidate_pools(self) -> None:
         ranking = _catalog_ids()[:7]
         p11 = [ranking[1], ranking[0], *ranking[2:]]
@@ -346,6 +410,9 @@ class TraceValidationTests(unittest.TestCase):
                     COMPACT_NEGATIVE_C50: list(reversed(ranking)),
                     GUARDED_COMPACT_SLOT10: list(p11),
                     GUARDED_COMPACT_SLOT10_STRICT: list(p11),
+                    P11_EVIDENCE_NOVEL_SLOT10: list(p11),
+                    HARD_CLAUSE_NOVEL_SLOT10: list(p11),
+                    TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10: list(p11),
                     ASK: list(p11),
                 },
                 "candidate_pools": {
@@ -548,6 +615,15 @@ class GoNoGoTests(unittest.TestCase):
                 GUARDED_COMPACT_SLOT10_STRICT: {
                     "relative_to_baseline": dict(candidate_relative)
                 },
+                P11_EVIDENCE_NOVEL_SLOT10: {
+                    "relative_to_baseline": dict(candidate_relative)
+                },
+                HARD_CLAUSE_NOVEL_SLOT10: {
+                    "relative_to_baseline": dict(candidate_relative)
+                },
+                TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10: {
+                    "relative_to_baseline": dict(candidate_relative)
+                },
             },
             "oracle": {
                 "metrics": {
@@ -561,6 +637,7 @@ class GoNoGoTests(unittest.TestCase):
             "network_attempt_count": 0,
             "semantic_failure_count": 0,
             "rewrite_failure_count": 0,
+            "family2_score_failure_count": 0,
             "full_catalog_search_calls": 0,
             "p11_invariant_failure_count": 0,
         }
@@ -581,11 +658,14 @@ class GoNoGoTests(unittest.TestCase):
                 COMPACT_NEGATIVE_C50,
                 GUARDED_COMPACT_SLOT10,
                 GUARDED_COMPACT_SLOT10_STRICT,
+                P11_EVIDENCE_NOVEL_SLOT10,
+                HARD_CLAUSE_NOVEL_SLOT10,
+                TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10,
             ],
         )
 
     def test_integrity_failure_is_no_go_and_nonselection_never_authorizes(self) -> None:
-        failed_worker = {**self.worker, "network_attempt_count": 1}
+        failed_worker = {**self.worker, "family2_score_failure_count": 1}
         failed = runner.build_go_no_go(
             self.aggregate, failed_worker, self.config, decision_eligible=True
         )
@@ -597,6 +677,18 @@ class GoNoGoTests(unittest.TestCase):
         self.assertFalse(failed["worker_integrity_passed"])
         self.assertEqual(exploratory["status"], "NON_DECISION_SIGNAL_ONLY")
         self.assertFalse(exploratory["cage_r10_implementation_authorized"])
+
+        missing_family2_count = dict(self.worker)
+        del missing_family2_count["family2_score_failure_count"]
+        with self.assertRaisesRegex(
+            runner.OracleRunError, "family2_score_failure_count"
+        ):
+            runner.build_go_no_go(
+                self.aggregate,
+                missing_family2_count,
+                self.config,
+                decision_eligible=True,
+            )
 
     def test_artifact_guard_rejects_nested_identifier_keys_and_asin_values(self) -> None:
         target = "B999999999"
@@ -693,6 +785,7 @@ def _worker_summary(scale: int = 1) -> dict:
         "network_attempt_count": 0,
         "semantic_failure_count": 0,
         "rewrite_failure_count": 0,
+        "family2_score_failure_count": 0,
         "full_catalog_search_calls": 0,
         "p11_invariant_failure_count": 0,
     }
@@ -866,6 +959,8 @@ class ParallelShardTests(unittest.TestCase):
             )
             for index, scale in enumerate((1, 2, 3))
         ]
+        shards[0].receipt.worker_summary["family2_score_failure_count"] = 1
+        shards[2].receipt.worker_summary["family2_score_failure_count"] = 2
         merged = runner._merge_worker_summaries(shards)
         self.assertEqual(merged["parallel_workers"], 3)
         self.assertEqual(merged["trajectory"]["completed_sessions"], 6)
@@ -886,6 +981,7 @@ class ParallelShardTests(unittest.TestCase):
             "p11_invariant_failure_count",
         ):
             self.assertEqual(merged[key], 0)
+        self.assertEqual(merged["family2_score_failure_count"], 3)
         self.assertEqual(len(merged["per_shard"]), 3)
 
     def test_worker_summary_reports_unavailable_rss_without_zero_substitution(self) -> None:

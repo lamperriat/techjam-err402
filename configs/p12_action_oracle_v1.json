@@ -62,6 +62,9 @@
       "COMPACT_NEGATIVE_C50",
       "GUARDED_COMPACT_SLOT10",
       "GUARDED_COMPACT_SLOT10_STRICT",
+      "P11_EVIDENCE_NOVEL_SLOT10",
+      "HARD_CLAUSE_NOVEL_SLOT10",
+      "TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10",
       "ASK"
     ],
     "oracle_eligible": [
@@ -72,7 +75,10 @@
       "RESULT_AWARE_REWRITE_RETRIEVE",
       "COMPACT_NEGATIVE_C50",
       "GUARDED_COMPACT_SLOT10",
-      "GUARDED_COMPACT_SLOT10_STRICT"
+      "GUARDED_COMPACT_SLOT10_STRICT",
+      "P11_EVIDENCE_NOVEL_SLOT10",
+      "HARD_CLAUSE_NOVEL_SLOT10",
+      "TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10"
     ],
     "definitions": {
       "KEEP_R08": "pre-P11 full R08 ordering captured from the served pipeline",
@@ -83,6 +89,9 @@
       "COMPACT_NEGATIVE_C50": "P11-based C50 stable compatible-unknown-explicit-violation partition using only current-version hard excluded-term negatives and catalog-only compact masks",
       "GUARDED_COMPACT_SLOT10": "single P11 rank-10 admission: replace a compact unknown or explicit violation only with the first rank-11-to-50 challenger in a strictly better compatibility class while preserving ranks 1-to-9",
       "GUARDED_COMPACT_SLOT10_STRICT": "adjacent P11 rank-10 admission: only swap an explicit-violation rank 10 with a compatible rank 11 while preserving ranks 1-to-9 and ranks 12-to-50",
+      "P11_EVIDENCE_NOVEL_SLOT10": "single P11 rank-10 admission from P11 ranks 11-to-50, excluding structured and semantic Top10 candidates; require evidence delta at least 0.12, relevance delta at least 0.04, runner-up evidence gap at least 0.03, and at least two frozen signal groups",
+      "HARD_CLAUSE_NOVEL_SLOT10": "single P11 rank-10 admission from P11 ranks 11-to-50, excluding structured and semantic Top10 candidates; require at least four hard-clause terms, challenger coverage at least 0.85, incumbent coverage at most 0.40, and runner-up gap at least 0.25",
+      "TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10": "single P11 rank-10 admission from P11 ranks 11-to-50, excluding structured and semantic Top10 candidates; require the unique lexical and constraint argmax to be the same challenger with frozen incumbent and runner-up margins",
       "ASK": "observed served fast-policy continuation with KEEP_P11 recommendations; not an independent counterfactual"
     },
     "ask_semantics": "observed KEEP_P11 recommendations plus the served fast-policy continuation; not an independent counterfactual and cannot unlock CAGE-R10",
@@ -91,6 +100,103 @@
     "structured_budget_match": {
       "max_or_min": "binary constraint satisfaction",
       "around": "max(0, 1 - absolute_price_error / max(amount, 1))"
+    },
+    "family2_novel_slot10": {
+      "base": "P11.C50",
+      "challenger_rank_min": 11,
+      "challenger_rank_max": 50,
+      "preserve_prefix_ranks": 9,
+      "maximum_membership_swaps": 1,
+      "novelty_excludes_top10_actions": [
+        "CANDIDATE_RERANK",
+        "FROZEN_SEMANTIC_RERANK"
+      ],
+      "safe_novel_candidate_minimum": 2,
+      "input_requirements": {
+        "rankings_are_unique_same_set_permutations": true,
+        "candidate_scores_are_complete_finite_and_id_bound": true
+      },
+      "selection_order": "primary score descending with original P11 rank as the stable secondary order",
+      "selection_policy": "select the leading safe-novel challenger and runner-up before guards; never scan down after a failed guard",
+      "delta_round_digits": 12,
+      "output_policy": "swap P11 indices 9 and challenger_original_index in the full C50; Top1-to-9 remain exact and Top10 symmetric difference is exactly two",
+      "common_guards": {
+        "challenger_explicit_violation_allowed": false,
+        "conflict_bucket_may_worsen": false,
+        "missing_nonfinite_tied_or_invalid_input": "exact KEEP_P11 fallback"
+      },
+      "p11_evidence": {
+        "evidence_delta_min": 0.12,
+        "relevance_delta_min": 0.04,
+        "runner_up_evidence_gap_min": 0.03,
+        "signal_group_count_min": 2,
+        "signal_groups": {
+          "lexical": {
+            "idf_delta_min": 0.15,
+            "field_delta_min": 0.20,
+            "field_delta_sources": [
+              "title_category_delta",
+              "features_details_delta"
+            ]
+          },
+          "hard_clause": {
+            "delta_min": 0.50
+          },
+          "subtype": {
+            "delta_min": 0.50
+          },
+          "positive": {
+            "delta_min": 0.45
+          }
+        },
+        "non_regression_features": [
+          "hard_clause",
+          "subtype",
+          "positive"
+        ],
+        "require_non_category_positive_or_hard_clause": true,
+        "evidence_weights": {
+          "idf": 0.24,
+          "title_category": 0.11,
+          "features_details": 0.08,
+          "description_store": 0.03,
+          "hard_clause": 0.10,
+          "subtype": 0.10,
+          "positive": 0.09
+        }
+      },
+      "hard_clause": {
+        "term_count_min": 4,
+        "challenger_coverage_min": 0.85,
+        "incumbent_coverage_max": 0.40,
+        "runner_up_gap_min": 0.25,
+        "relevance_regression_max": 0.02,
+        "non_regression_features": [
+          "idf",
+          "positive",
+          "subtype"
+        ]
+      },
+      "two_signal_consensus": {
+        "require_non_category_positive_or_hard_clause": true,
+        "unique_argmax_required_per_signal": true,
+        "argmax_candidate_must_match": true,
+        "lexical_weights": {
+          "idf": 0.60,
+          "title_category": 0.25,
+          "features_details": 0.15
+        },
+        "constraint_weights": {
+          "hard_clause": 0.50,
+          "positive": 0.30,
+          "subtype": 0.20
+        },
+        "lexical_delta_min": 0.15,
+        "lexical_runner_up_gap_min": 0.05,
+        "constraint_delta_min": 0.20,
+        "constraint_runner_up_gap_min": 0.10,
+        "relevance_delta_min": 0.02
+      }
     },
     "fixed_weights_status": "preregistered P12-v1 diagnostic weights; not prior production evidence"
   },
@@ -121,6 +227,7 @@
     "deployable_scenario_span_min": 2,
     "deployable_taxonomy_span_min": 2,
     "semantic_or_rewrite_failure_count_max": 0,
+    "family2_score_failure_count_max": 0,
     "network_attempt_count_max": 0,
     "confirmation_on_go_only": true
   },

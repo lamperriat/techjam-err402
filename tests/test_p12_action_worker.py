@@ -4,7 +4,9 @@ import hashlib
 import json
 import tempfile
 import unittest
+from collections import Counter
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from scripts import p12_action_worker as worker
@@ -134,6 +136,18 @@ class _FakeP11Agent:
             guarded_compact_strict[10],
             guarded_compact_strict[9],
         )
+        family2_rankings: dict[str, tuple[str, ...]] = {}
+        for name, challenger_index in (
+            ("p11_evidence_novel_slot10_full", 11),
+            ("hard_clause_novel_slot10_full", 12),
+            ("two_signal_consensus_novel_slot10_full", 13),
+        ):
+            ranked = list(p11_c50)
+            ranked[9], ranked[challenger_index] = (
+                ranked[challenger_index],
+                ranked[9],
+            )
+            family2_rankings[name] = tuple(ranked)
         self.capture = {
             "r08_full": r08,
             "p11_full": p11,
@@ -149,6 +163,7 @@ class _FakeP11Agent:
             "guarded_compact_slot10_strict_full": tuple(
                 guarded_compact_strict
             ),
+            **family2_rankings,
             "p11_invariants": worker._validate_p11_invariants(
                 r08, p11, _valid_diagnostics()
             ),
@@ -179,6 +194,15 @@ class _FakeP11Agent:
                 "turns_with_executable_constraints": 10,
             },
             "compiler_rejection_counts": {},
+            "privacy": "aggregate counts only; no text, values, identifiers, ordinals, or labels",
+        }
+
+    def p12_family2_summary(self) -> dict[str, object]:
+        return {
+            "counts": {
+                "total_turns": 10,
+                "turns_with_complete_c50_scores": 10,
+            },
             "privacy": "aggregate counts only; no text, values, identifiers, ordinals, or labels",
         }
 
@@ -498,6 +522,170 @@ class CandidateSemanticTests(unittest.TestCase):
         self.assertEqual(runtime.summary()["failure_count"], 1)
 
 
+class _FakeFamily2Store:
+    def __init__(self) -> None:
+        self.fetches: list[tuple[tuple[int, str], ...]] = []
+        self.subtype_calls: list[str] = []
+
+    def resolve_query_subtypes(self, category_text: str) -> tuple[str, ...]:
+        self.subtype_calls.append(category_text)
+        return ("dress",)
+
+    def fetch_top10(
+        self, requested: list[tuple[int, str]], query_terms: list[str]
+    ) -> object:
+        self.assert_query = tuple(query_terms)
+        self.fetches.append(tuple(requested))
+        return SimpleNamespace(idf_by_term={"blue": 1.0})
+
+
+def _family2_score() -> worker.CandidateScore:
+    return worker.CandidateScore(
+        total=0.5,
+        relevance=0.5,
+        tie_bonus=0.0,
+        conflict_state="not_applicable",
+        broad_rank_prior=0.5,
+        strict_rank_prior=0.5,
+        rrf_rank_prior=0.5,
+        idf_any_field_coverage=0.5,
+        title_category_coverage=0.5,
+        features_details_coverage=0.5,
+        description_store_coverage=0.5,
+        latest_hard_clause_coverage=0.5,
+        subtype_consistency=0.5,
+        positive_constraint_evidence=0.5,
+    )
+
+
+class Family2C50ScoringTests(unittest.TestCase):
+    def test_scores_c50_in_bounded_chunks_with_one_frozen_context(self) -> None:
+        identifiers = _ids(23)
+        store = _FakeFamily2Store()
+        agent = object.__new__(worker.P12CaptureAgent)
+        agent._p12_family2_store = store
+        agent._p12_family2_counts = Counter()
+        state = SimpleNamespace(
+            category_text="dress",
+            messages=["A key requirement is blue."],
+            version=1,
+        )
+
+        def scored(chunk: tuple[str, ...], _batch: object, **kwargs: object) -> object:
+            self.assertEqual(len(kwargs["broad_ranks"]), len(identifiers))
+            self.assertEqual(kwargs["hard_clause_terms"], ("blue", "formal", "event", "dress"))
+            return SimpleNamespace(
+                fallback=False,
+                breakdowns={identifier: _family2_score() for identifier in chunk},
+            )
+
+        with (
+            patch.object(
+                worker,
+                "_positive_constraints",
+                return_value=(SimpleNamespace(slot="color"),),
+            ),
+            patch.object(
+                worker,
+                "_latest_hard_clause_terms",
+                return_value=("blue", "formal", "event", "dress"),
+            ),
+            patch.object(
+                worker,
+                "rerank_top10_preserving_membership",
+                side_effect=scored,
+            ),
+        ):
+            scores, hard_terms, preference_count = agent._p12_c50_scores(
+                state,
+                identifiers,
+                {identifier: index for index, identifier in enumerate(identifiers, 1)},
+                {name: list(identifiers) for name in ("broad", "strict", "fused")},
+                ["blue"],
+                (),
+            )
+
+        self.assertEqual(set(scores), set(identifiers))
+        self.assertEqual(hard_terms, ("blue", "formal", "event", "dress"))
+        self.assertEqual(preference_count, 1)
+        self.assertEqual([len(chunk) for chunk in store.fetches], [10, 10, 3])
+        self.assertEqual(agent._p12_family2_counts["feature_fetch_calls"], 3)
+        self.assertEqual(agent._p12_family2_counts["sidecar_rows_read"], 23)
+        self.assertEqual(agent._p12_family2_counts["maximum_rows_per_fetch"], 10)
+        self.assertEqual(
+            agent._p12_family2_counts["turns_with_complete_c50_scores"], 1
+        )
+
+    def test_one_chunk_failure_discards_all_partial_scores(self) -> None:
+        identifiers = _ids(11)
+        store = _FakeFamily2Store()
+        agent = object.__new__(worker.P12CaptureAgent)
+        agent._p12_family2_store = store
+        agent._p12_family2_counts = Counter()
+        state = SimpleNamespace(category_text="shoes", messages=["visible"], version=1)
+        calls = 0
+
+        def scored(chunk: tuple[str, ...], _batch: object, **_kwargs: object) -> object:
+            nonlocal calls
+            calls += 1
+            return SimpleNamespace(
+                fallback=calls == 2,
+                breakdowns={identifier: _family2_score() for identifier in chunk},
+            )
+
+        with (
+            patch.object(worker, "_positive_constraints", return_value=()),
+            patch.object(worker, "_latest_hard_clause_terms", return_value=()),
+            patch.object(
+                worker,
+                "rerank_top10_preserving_membership",
+                side_effect=scored,
+            ),
+        ):
+            scores, _, _ = agent._p12_c50_scores(
+                state,
+                identifiers,
+                {identifier: index for index, identifier in enumerate(identifiers, 1)},
+                {name: list(identifiers) for name in ("broad", "strict", "fused")},
+                ["shoe"],
+                (),
+            )
+
+        self.assertEqual(scores, {})
+        self.assertEqual(agent._p12_family2_counts["score_fail_closed_turns"], 1)
+        self.assertEqual(agent._p12_family2_counts["feature_fetch_calls"], 2)
+        self.assertEqual(agent._p12_family2_counts["sidecar_rows_read"], 11)
+        self.assertEqual(agent._p12_family2_counts["maximum_rows_per_fetch"], 10)
+        self.assertEqual(
+            agent._p12_family2_counts["turns_with_complete_c50_scores"], 0
+        )
+
+    def test_visible_state_helper_failure_is_an_exact_family2_fallback(self) -> None:
+        identifiers = _ids(11)
+        agent = object.__new__(worker.P12CaptureAgent)
+        agent._p12_family2_store = _FakeFamily2Store()
+        agent._p12_family2_counts = Counter()
+        state = SimpleNamespace(category_text="shoes", messages=["visible"], version=1)
+
+        with patch.object(
+            worker, "_positive_constraints", side_effect=ValueError("bad state")
+        ):
+            scores, hard_terms, preference_count = agent._p12_c50_scores(
+                state,
+                identifiers,
+                {identifier: index for index, identifier in enumerate(identifiers, 1)},
+                {name: list(identifiers) for name in ("broad", "strict", "fused")},
+                ["shoe"],
+                (),
+            )
+
+        self.assertEqual(scores, {})
+        self.assertEqual(hard_terms, ())
+        self.assertEqual(preference_count, 0)
+        self.assertEqual(agent._p12_family2_counts["score_fail_closed_turns"], 1)
+        self.assertEqual(agent._p12_family2_counts["feature_fetch_calls"], 0)
+
+
 class ResourceMeasurementTests(unittest.TestCase):
     def test_peak_rss_backend_returns_a_positive_measurement(self) -> None:
         peak_rss, backend = worker._peak_rss_bytes()
@@ -625,6 +813,31 @@ class RuntimeTraceTests(unittest.TestCase):
                     ][9],
                     record["candidate_pools"]["c50"][10],
                 )
+                for action in (
+                    p12_actions.P11_EVIDENCE_NOVEL_SLOT10,
+                    p12_actions.HARD_CLAUSE_NOVEL_SLOT10,
+                    p12_actions.TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10,
+                ):
+                    self.assertEqual(
+                        len(
+                            set(record["actions"][action])
+                            ^ set(record["actions"][p12_actions.KEEP_P11])
+                        ),
+                        2,
+                    )
+                    added = set(record["actions"][action]) - set(
+                        record["actions"][p12_actions.KEEP_P11]
+                    )
+                    self.assertTrue(
+                        added.isdisjoint(
+                            set(record["actions"][p12_actions.CANDIDATE_RERANK])
+                            | set(
+                                record["actions"][
+                                    p12_actions.FROZEN_SEMANTIC_RERANK
+                                ]
+                            )
+                        )
+                    )
 
             summary = receipt["worker_summary"]
             self.assertEqual(summary["trajectory"]["fixed_turns"], 10)
@@ -641,6 +854,9 @@ class RuntimeTraceTests(unittest.TestCase):
                     p12_actions.COMPACT_NEGATIVE_C50: 10,
                     p12_actions.GUARDED_COMPACT_SLOT10: 10,
                     p12_actions.GUARDED_COMPACT_SLOT10_STRICT: 10,
+                    p12_actions.P11_EVIDENCE_NOVEL_SLOT10: 10,
+                    p12_actions.HARD_CLAUSE_NOVEL_SLOT10: 10,
+                    p12_actions.TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10: 10,
                 },
             )
             self.assertEqual(
@@ -649,6 +865,9 @@ class RuntimeTraceTests(unittest.TestCase):
                     p12_actions.COMPACT_NEGATIVE_C50: 1,
                     p12_actions.GUARDED_COMPACT_SLOT10: 1,
                     p12_actions.GUARDED_COMPACT_SLOT10_STRICT: 1,
+                    p12_actions.P11_EVIDENCE_NOVEL_SLOT10: 1,
+                    p12_actions.HARD_CLAUSE_NOVEL_SLOT10: 1,
+                    p12_actions.TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10: 1,
                 },
             )
             self.assertEqual(
@@ -658,11 +877,19 @@ class RuntimeTraceTests(unittest.TestCase):
                     "turns_with_executable_constraints": 10,
                 },
             )
+            self.assertEqual(
+                summary["actions"]["family2_funnel"]["counts"],
+                {
+                    "total_turns": 10,
+                    "turns_with_complete_c50_scores": 10,
+                },
+            )
             self.assertEqual(summary["p11"]["per_turn_invariants_verified"], 10)
             self.assertEqual(summary["full_catalog_search_calls"], 0)
             self.assertEqual(summary["semantic_failure_count"], 0)
             self.assertEqual(summary["rewrite_failure_count"], 0)
             self.assertEqual(summary["p11_invariant_failure_count"], 0)
+            self.assertEqual(summary["family2_score_failure_count"], 0)
             self.assertTrue(summary["trace_written_after_components_closed"])
 
     def test_drop_and_finalize_before_ten_turns_publish_nothing(self) -> None:

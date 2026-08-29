@@ -46,9 +46,12 @@ from scripts.p12_actions import (  # noqa: E402
     FROZEN_SEMANTIC_RERANK,
     GUARDED_COMPACT_SLOT10,
     GUARDED_COMPACT_SLOT10_STRICT,
+    HARD_CLAUSE_NOVEL_SLOT10,
     KEEP_P11,
     KEEP_R08,
+    P11_EVIDENCE_NOVEL_SLOT10,
     RESULT_AWARE_REWRITE_RETRIEVE,
+    TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10,
 )
 from scripts.p12_oracle_metrics import aggregate_action_oracle  # noqa: E402
 
@@ -57,7 +60,7 @@ SCHEMA_VERSION = "track4.p12-action-oracle-result.v1"
 CONFIG_SCHEMA = "track4.p12-action-oracle.v1"
 DEFAULT_CONFIG = Path("configs/p12_action_oracle_v1.json")
 EXPECTED_CONFIG_CANONICAL_SHA256 = (
-    "661c69b70b385ef0f3591b38f844ad23ea0387e20bd6d9c071030b8a443cefb2"
+    "69da9c40aa6ec32448490e8c454508c3f1d1aa4fa45139d47f49b22e4d327bda"
 )
 ALLOWED_SPLITS = {
     "train_explore": {
@@ -91,6 +94,11 @@ EXPECTED_CATALOG = {
 EXPECTED_WORKER = "scripts/p12_action_worker.py"
 EXPECTED_OUTPUT_ROOT = "experiments/fast_track/action_oracle_v1"
 EXPECTED_PARALLEL_WORKERS = 4
+FAMILY2_NOVEL_SLOT10_ACTIONS = (
+    P11_EVIDENCE_NOVEL_SLOT10,
+    HARD_CLAUSE_NOVEL_SLOT10,
+    TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10,
+)
 SAFE_PROFILE_KEYS = {
     "purchase_frequency",
     "average_prior_rating",
@@ -830,6 +838,7 @@ def validate_trace(
             COMPACT_NEGATIVE_C50,
             GUARDED_COMPACT_SLOT10,
             GUARDED_COMPACT_SLOT10_STRICT,
+            *FAMILY2_NOVEL_SLOT10_ACTIONS,
         ):
             if (
                 len(clean_actions[action]) != min(10, len(clean_pools["c50"]))
@@ -854,6 +863,35 @@ def validate_trace(
             raise OracleRunError(
                 "strict guarded compact action violates its adjacent single-slot guard"
             )
+        structured_top10 = frozenset(clean_actions[CANDIDATE_RERANK])
+        semantic_top10 = frozenset(clean_actions[FROZEN_SEMANTIC_RERANK])
+        p11_tail_c50 = frozenset(clean_pools["c50"][10:])
+        for action in FAMILY2_NOVEL_SLOT10_ACTIONS:
+            novel = clean_actions[action]
+            if novel == p11:
+                continue
+            added = set(novel) - set(p11)
+            if (
+                len(p11) != 10
+                or novel[:9] != p11[:9]
+                or len(set(novel) ^ set(p11)) != 2
+                or len(added) != 1
+            ):
+                raise OracleRunError(
+                    f"{action} violates its Top1-9-preserving single-slot guard"
+                )
+            added_identifier = next(iter(added))
+            if added_identifier not in p11_tail_c50:
+                raise OracleRunError(
+                    f"{action} challenger is not drawn from P11 ranks 11-to-50"
+                )
+            if (
+                added_identifier in structured_top10
+                or added_identifier in semantic_top10
+            ):
+                raise OracleRunError(
+                    f"{action} challenger is not novel to structured and semantic Top10"
+                )
         row = {
             "ordinal": ordinal,
             "turn": turn,
@@ -1181,6 +1219,7 @@ def _merge_worker_summaries(shards: Sequence[ShardResult]) -> dict[str, Any]:
         "network_attempt_count",
         "semantic_failure_count",
         "rewrite_failure_count",
+        "family2_score_failure_count",
         "full_catalog_search_calls",
         "p11_invariant_failure_count",
     )
@@ -1430,6 +1469,7 @@ def build_go_no_go(
         COMPACT_NEGATIVE_C50,
         GUARDED_COMPACT_SLOT10,
         GUARDED_COMPACT_SLOT10_STRICT,
+        *FAMILY2_NOVEL_SLOT10_ACTIONS,
     )
     stable_actions: list[str] = []
     for action in deployable_actions:
@@ -1447,6 +1487,7 @@ def build_go_no_go(
         "network_attempt_count",
         "semantic_failure_count",
         "rewrite_failure_count",
+        "family2_score_failure_count",
         "full_catalog_search_calls",
         "p11_invariant_failure_count",
     )
@@ -1460,6 +1501,8 @@ def build_go_no_go(
     worker_passed = (
         counts["network_attempt_count"] <= int(gate["network_attempt_count_max"])
         and action_failures <= int(gate["semantic_or_rewrite_failure_count_max"])
+        and counts["family2_score_failure_count"]
+        <= int(gate["family2_score_failure_count_max"])
         and counts["full_catalog_search_calls"] == 0
         and counts["p11_invariant_failure_count"] == 0
     )
@@ -1683,6 +1726,8 @@ def run(split: str, *, limit: int | None = None) -> tuple[Path, dict[str, Any]]:
             "RESULT_AWARE_REWRITE_RETRIEVE is an R08-based diagnostic action, not a P11 composition.",
             "CANDIDATE_RERANK and FROZEN_SEMANTIC_RERANK are fixed P12-v1 diagnostic policies, not promoted production routes.",
             "The three compact-negative actions are target-blind diagnostics, not promoted production routes.",
+            "The three Family2 novel-slot actions are target-blind C50 diagnostics, not promoted production routes.",
+            "BUDGET_AROUND_NOVEL_SLOT10 was rejected before execution because source-only catalog inspection found price coverage in only 3 of 50,000 rows.",
         ],
     }
     assert_identifier_free_artifact(artifact, catalog_ids)
