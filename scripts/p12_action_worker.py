@@ -822,10 +822,20 @@ def _peak_rss_bytes() -> tuple[int | None, str]:
                     ("PeakPagefileUsage", ctypes.c_size_t),
                 ]
 
+            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            psapi = ctypes.WinDLL("psapi", use_last_error=True)
+            kernel32.GetCurrentProcess.argtypes = []
+            kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+            psapi.GetProcessMemoryInfo.argtypes = [
+                wintypes.HANDLE,
+                ctypes.POINTER(Counters),
+                wintypes.DWORD,
+            ]
+            psapi.GetProcessMemoryInfo.restype = wintypes.BOOL
             counters = Counters()
             counters.cb = ctypes.sizeof(counters)
-            process = ctypes.windll.kernel32.GetCurrentProcess()
-            success = ctypes.windll.psapi.GetProcessMemoryInfo(
+            process = kernel32.GetCurrentProcess()
+            success = psapi.GetProcessMemoryInfo(
                 process, ctypes.byref(counters), counters.cb
             )
             if success:

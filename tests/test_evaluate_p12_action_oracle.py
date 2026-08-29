@@ -771,6 +771,7 @@ class ParallelShardTests(unittest.TestCase):
         self.assertEqual(merged["actions"]["result_aware_computation_count"], 60)
         self.assertEqual(merged["semantic"]["candidate_matrix_rows_read"], 3000)
         self.assertEqual(merged["semantic"]["maximum_candidate_rows_read"], 43)
+        self.assertTrue(merged["memory"]["all_worker_peak_rss_available"])
         self.assertEqual(merged["memory"]["peak_rss_bytes_max"], 3000)
         self.assertEqual(
             merged["memory"]["sum_of_worker_peak_rss_bytes_upper_bound"], 6000
@@ -785,6 +786,24 @@ class ParallelShardTests(unittest.TestCase):
         ):
             self.assertEqual(merged[key], 0)
         self.assertEqual(len(merged["per_shard"]), 3)
+
+    def test_worker_summary_reports_unavailable_rss_without_zero_substitution(self) -> None:
+        summary = _worker_summary()
+        summary["memory"] = {"peak_rss_bytes": None, "backend": "unavailable"}
+        shard = runner.ShardResult(
+            0,
+            1,
+            [{}],
+            Path("unused"),
+            runner.WorkerReceipt("0" * 64, 10, summary),
+            [],
+        )
+        merged = runner._merge_worker_summaries([shard])
+        self.assertFalse(merged["memory"]["all_worker_peak_rss_available"])
+        self.assertIsNone(merged["memory"]["peak_rss_bytes_max"])
+        self.assertIsNone(
+            merged["memory"]["sum_of_worker_peak_rss_bytes_upper_bound"]
+        )
 
 
 if __name__ == "__main__":

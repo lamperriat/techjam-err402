@@ -471,6 +471,14 @@ class CandidateSemanticTests(unittest.TestCase):
         self.assertEqual(runtime.summary()["failure_count"], 1)
 
 
+class ResourceMeasurementTests(unittest.TestCase):
+    def test_peak_rss_backend_returns_a_positive_measurement(self) -> None:
+        peak_rss, backend = worker._peak_rss_bytes()
+        self.assertIsInstance(peak_rss, int)
+        self.assertGreater(peak_rss, 0)
+        self.assertNotEqual(backend, "unavailable")
+
+
 class RuntimeTraceTests(unittest.TestCase):
     @staticmethod
     def _runtime(path: Path, close_log: list[str]) -> worker.P12ActionRuntime:

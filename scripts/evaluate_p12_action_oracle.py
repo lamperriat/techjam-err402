@@ -1135,10 +1135,18 @@ def _merge_worker_summaries(shards: Sequence[ShardResult]) -> dict[str, Any]:
     def total(section: str | None, key: str) -> int:
         return sum(count(summary, section, key) for summary in summaries)
 
-    worker_peak_rss = [
-        int(summary.get("memory", {}).get("peak_rss_bytes") or 0)
-        for summary in summaries
+    worker_peak_rss_raw = [
+        summary.get("memory", {}).get("peak_rss_bytes") for summary in summaries
     ]
+    worker_peak_rss_available = all(
+        isinstance(value, int) and not isinstance(value, bool) and value > 0
+        for value in worker_peak_rss_raw
+    )
+    worker_peak_rss = (
+        [int(value) for value in worker_peak_rss_raw]
+        if worker_peak_rss_available
+        else []
+    )
 
     merged: dict[str, Any] = {
         "parallel_workers": len(shards),
@@ -1170,8 +1178,13 @@ def _merge_worker_summaries(shards: Sequence[ShardResult]) -> dict[str, Any]:
             "failure_count": total("semantic", "failure_count"),
         },
         "memory": {
-            "peak_rss_bytes_max": max(worker_peak_rss),
-            "sum_of_worker_peak_rss_bytes_upper_bound": sum(worker_peak_rss),
+            "all_worker_peak_rss_available": worker_peak_rss_available,
+            "peak_rss_bytes_max": (
+                max(worker_peak_rss) if worker_peak_rss_available else None
+            ),
+            "sum_of_worker_peak_rss_bytes_upper_bound": (
+                sum(worker_peak_rss) if worker_peak_rss_available else None
+            ),
             "parent_process_rss_included": False,
         },
     }
