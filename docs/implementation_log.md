@@ -46,6 +46,7 @@ Last updated: 2026-08-29 SGT.
 
 ## P12 validation-only proxy builder
 
+- Source-freeze commit: `d8f6805c3edf42bb8d21d81bcdf0b3527e928e87`
 - Added a fixed-source, standard-library streaming builder for the pinned Amazon Reviews
   2023 Clothing_Shoes_and_Jewelry 5-core validation CSV; filename, byte count, SHA-256,
   five-column schema, official catalog identity, 16 consumed corpora, and the empty manual
@@ -66,9 +67,15 @@ Last updated: 2026-08-29 SGT.
   verifies identical pre-tracked aggregate evidence, and rolls back ordinary exceptions;
   it is explicitly not crash-atomic as a six-file set.
 - Thirteen fixture/security tests pass, including config/source drift, fresh-checkout
-  aggregate evidence, production-marker forgery, and injected publish failure. Final
-  commit-bound aggregate hashes are generated only after this implementation checkpoint;
-  derived rows remain ignored and are never eligible for tracking.
+  aggregate evidence, production-marker forgery, and injected publish failure. The full
+  suite passes 593/593, official assets pass 14/14, and `compileall` passes.
+- Two complete builds from the source-freeze commit are byte-identical across all four
+  local JSONL splits plus tracked aggregate manifest/audit. A real fresh-checkout
+  simulation retaining only those two aggregate files regenerated all four split files
+  byte-identically. Manifest SHA-256 is
+  `8058973426bbc76ea856a5c48a61e91ed9e35ae44988a21a6d7b2195e88a7193` and audit SHA-256
+  is `1e6b084bf16fbd0000ec0bceca8057265390f3fde03c1936aced39f6f50537e8`.
+  Derived rows remain ignored and are never eligible for tracking.
 
 ## P11 Top-10-preserving reranker: frozen formal promote decision
 

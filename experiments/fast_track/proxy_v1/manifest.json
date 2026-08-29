@@ -1,0 +1,447 @@
+{
+  "audit": {
+    "filename": "audit.json",
+    "sha256": "1e6b084bf16fbd0000ec0bceca8057265390f3fde03c1936aced39f6f50537e8"
+  },
+  "build": {
+    "allocation_algorithm": "taxonomy/popularity-stratified SHA-256 target groups; breadth-first source-occurrence quotas",
+    "builder_source_hash_mode": "SHA-256 over source bytes after CRLF/CR to LF normalization",
+    "builder_source_sha256": "c557479f1db3194a2083dcae778585930aca18b8d068aa7d7a1429c28c3b9c70",
+    "code_provenance": {
+      "builder_blob_sha256_lf": "c557479f1db3194a2083dcae778585930aca18b8d068aa7d7a1429c28c3b9c70",
+      "commit": "d8f6805c3edf42bb8d21d81bcdf0b3527e928e87",
+      "config_blob_canonical_sha256": "64792d2636ceb8993375b2ec74b231bdc182da55ea43b7fea59dc26676abdcc1",
+      "paths": [
+        "scripts/build_amazon_validation_proxy.py",
+        "configs/amazon_validation_proxy_v1.json"
+      ],
+      "working_sources_match_commit": true
+    },
+    "config_canonical_sha256": "64792d2636ceb8993375b2ec74b231bdc182da55ea43b7fea59dc26676abdcc1",
+    "config_hash_mode": "SHA-256 over canonical UTF-8 JSON with sorted keys, compact separators, and an LF terminator",
+    "expected_split_counts": {
+      "calibration": 2000,
+      "confirmation": 2000,
+      "selection": 2000,
+      "train_explore": 2000
+    },
+    "inputs_reverified_after_parse": true,
+    "representative_algorithm": "safe-profile histogram per target; deterministic occurrence ordering without raw source fields",
+    "seed": "track4-amazon-validation-proxy-v1",
+    "source_frequency_outlier_policy": {
+      "destination": "train_explore",
+      "observed_target_count": 1,
+      "threshold_share": 0.1
+    }
+  },
+  "catalog": {
+    "bytes": 60546327,
+    "product_count": 50000,
+    "sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67"
+  },
+  "evaluation_views": {
+    "primary": "source-weighted micro metrics using source_weight",
+    "secondary": "target-uniform metrics to expose source-frequency concentration",
+    "stress": "equal-weight macro mean across the four taxonomy buckets on the same rows"
+  },
+  "exclusions": {
+    "consumed": {
+      "p11_confirmation": {
+        "bytes_lf": 81250,
+        "rows": 200,
+        "sha256_lf": "6dfdcdaf8cd6a091a9b82c192b076ad4e48a89b4023d5ef65394a6d6daf737ba",
+        "unique_targets": 200
+      },
+      "p11_failure_budget": {
+        "bytes_lf": 58628,
+        "rows": 80,
+        "sha256_lf": "a522134897f7ab8348c327a9a53d30075033dc379bcec610777201abfbb6ee91",
+        "unique_targets": 80
+      },
+      "p11_failure_missing_evidence": {
+        "bytes_lf": 59796,
+        "rows": 80,
+        "sha256_lf": "2aca6b723b592b84caf173fb55c231e8572d0844da9f57cd0c89b9e0489f4ef9",
+        "unique_targets": 80
+      },
+      "p11_failure_negative": {
+        "bytes_lf": 79096,
+        "rows": 80,
+        "sha256_lf": "c0c593dc90af45ec9f3dcdfaaace286f9b0a53c52d0a833c8d292a4488126290",
+        "unique_targets": 80
+      },
+      "p11_failure_override": {
+        "bytes_lf": 73937,
+        "rows": 80,
+        "sha256_lf": "1eeb7e552f2ef0ce8aae413adb7a6393891f1e265c774728ed6ba3b35685df95",
+        "unique_targets": 80
+      },
+      "p11_primary": {
+        "bytes_lf": 77650,
+        "rows": 200,
+        "sha256_lf": "1d578694c3226d1b008d2c9f2f252ed63d114a544c82c218c06116b13c00cf84",
+        "unique_targets": 200
+      },
+      "p11_uniform_tail": {
+        "bytes_lf": 78250,
+        "rows": 200,
+        "sha256_lf": "87d2334dd28dded92df2d8c8897f7f9552efb655bc74488d49dafe2f6efc1dfd",
+        "unique_targets": 200
+      },
+      "p1_derived": {
+        "bytes_lf": 78250,
+        "rows": 200,
+        "sha256_lf": "69c413e1cdc032d437af2dcda4a33dc4104860454402ced72001952582cfe687",
+        "unique_targets": 200
+      },
+      "p5_selection": {
+        "bytes_lf": 74050,
+        "rows": 200,
+        "sha256_lf": "0d58a32f65b67c9408558a59df461c340691928a791117099a56049e177efa0c",
+        "unique_targets": 200
+      },
+      "p6_selection": {
+        "bytes_lf": 74050,
+        "rows": 200,
+        "sha256_lf": "27544cdb6ed9495808c35bbab09b4dbadcb88a1d75d162f17bb4fba6ee8841c7",
+        "unique_targets": 200
+      },
+      "p7_selection": {
+        "bytes_lf": 74050,
+        "rows": 200,
+        "sha256_lf": "bad13262ca5cccd3585a80c255918a91c894c8d44d538435006064c3596f9546",
+        "unique_targets": 200
+      },
+      "p8_confirmation": {
+        "bytes_lf": 197710,
+        "rows": 200,
+        "sha256_lf": "3ae6f8ff7ab0362399b348c3443daa5b7138aab9cf72e944b7e11dd71d7d3dde",
+        "unique_targets": 200
+      },
+      "p8_selection": {
+        "bytes_lf": 197055,
+        "rows": 200,
+        "sha256_lf": "1c11d73d7c8ced617ce874e15a563f240731ca9654ed42bcc4f773b7b4da81ee",
+        "unique_targets": 200
+      },
+      "p9_confirmation": {
+        "bytes_lf": 197175,
+        "rows": 200,
+        "sha256_lf": "4bbd9d53f32e3773de18bab881ba6e5ef0887ca86701897798ee086430ed08d9",
+        "unique_targets": 200
+      },
+      "p9_selection": {
+        "bytes_lf": 196620,
+        "rows": 200,
+        "sha256_lf": "6298cbd6d7507f4b163ab4979a86ff109e0dffa90557e3b28e5d20d129e5be9f",
+        "unique_targets": 200
+      },
+      "released_public": {
+        "bytes_lf": 88240,
+        "rows": 200,
+        "sha256_lf": "857259f7a438e6188ac63e18995b6ff4489bfcfc4a716a798b9a2aa0ee8f7579",
+        "unique_targets": 200
+      }
+    },
+    "consumed_pairwise_overlap_nonzero": {},
+    "consumed_target_count": 2520,
+    "consumed_target_union_count": 2720,
+    "consumed_target_union_sha256": "9a0d15ebd6ce38abd8d010e5265046b8834874dfb4e12dec6a602129fe04e7cb",
+    "file_hash_mode": "SHA-256 over UTF-8 bytes after CRLF/CR to LF normalization",
+    "manual": {
+      "bytes_lf": 75,
+      "overlap_with_consumed": 0,
+      "sha256_lf": "355f4a25d65f24ed5d39f929d8309aa5ee527ae74dab157913f712b186de2235",
+      "target_count": 0
+    },
+    "manual_target_count": 0,
+    "output_overlap_count": 0,
+    "public_target_count": 200,
+    "total_excluded_target_count": 2720,
+    "total_excluded_target_sha256": "9a0d15ebd6ce38abd8d010e5265046b8834874dfb4e12dec6a602129fe04e7cb",
+    "union_target_count": 2720
+  },
+  "limitations": [
+    "Validation-derived proxy only; it is not a byte-identical or distribution-identical reconstruction of organizer-private evaluation.",
+    "Raw and derived Amazon rows remain local because redistribution rights are unclear.",
+    "The frozen-catalog intersection has fewer than 8,000 unique eligible targets, so a target may repeat only within its assigned split; target groups remain pairwise disjoint.",
+    "Targets representing at least the configured share of eligible source rows are assigned to train/explore before hash splitting; held-out source-weighted metrics therefore describe the non-extreme population.",
+    "The confirmation split is materialized but sealed from generic runners unless explicitly authorized.",
+    "Six-file publication uses exclusive creation and exception rollback but is not crash-atomic; an interrupted partial build requires integrity review before rebuilding."
+  ],
+  "pairwise_split_target_overlaps": {
+    "calibration__confirmation": 0,
+    "calibration__selection": 0,
+    "selection__confirmation": 0,
+    "train_explore__calibration": 0,
+    "train_explore__confirmation": 0,
+    "train_explore__selection": 0
+  },
+  "privacy": {
+    "average_prior_rating": null,
+    "raw_amazon_user_ids_retained": false,
+    "raw_prior_item_sequences_retained": false,
+    "target_validation_rating_used": false,
+    "target_validation_timestamp_used": false
+  },
+  "profile_derivation": {
+    "fields": [
+      "purchase_frequency",
+      "average_prior_rating",
+      "rating_style",
+      "preference_tags",
+      "summary"
+    ],
+    "preference_tags": "up to three catalog-only coarse tags supported by at least two prior items",
+    "purchase_frequency": "binned from pre-validation history length without persisting prior identifiers",
+    "ratings": "not used"
+  },
+  "schema_version": "track4.amazon-validation-proxy.v1",
+  "source": {
+    "bytes": 345027412,
+    "category": "Clothing_Shoes_and_Jewelry",
+    "dataset": "Amazon Reviews 2023 5-core leave-last-out",
+    "header": [
+      "user_id",
+      "parent_asin",
+      "rating",
+      "timestamp",
+      "history"
+    ],
+    "license_note": "No clear redistribution license for the review data; keep raw and derived rows local.",
+    "redistributable": false,
+    "revision": "2aa726ef444e72c6a1364c4baa0bcdfb1de55db6",
+    "role": "validation",
+    "sha256": "94b00815eb883ee41ceea08229139c5a0711ee2b6b212a64ecff1450044a21ba",
+    "split": "validation_only",
+    "stats": {
+      "eligible_source_rows": 35717,
+      "eligible_unique_targets": 2986,
+      "excluded_target_rows": 44069,
+      "prior_items_joined": 6250,
+      "prior_items_total": 252671,
+      "source_rows": 2524981,
+      "target_not_in_catalog": 2445195
+    },
+    "test_rows_read": 0,
+    "url": "https://huggingface.co/datasets/McAuley-Lab/Amazon-Reviews-2023/resolve/2aa726ef444e72c6a1364c4baa0bcdfb1de55db6/benchmark/5core/last_out_w_his/Clothing_Shoes_and_Jewelry.valid.csv"
+  },
+  "splits": {
+    "calibration": {
+      "bytes": 1315038,
+      "difficulty_counts": {
+        "easy": 1742,
+        "hard": 10,
+        "medium": 248
+      },
+      "file_sha256": "2ffd23092f0c30d33feef6d99b18262d03d856c6f5b6813e2e4e6e28dfeee8ed",
+      "filename": "proxy_calibration.jsonl",
+      "popularity_counts": {
+        "head": 1885,
+        "mid": 102,
+        "tail": 13
+      },
+      "row_count": 2000,
+      "rows": 2000,
+      "scenario_counts": {
+        "boundary": 100,
+        "browsing": 800,
+        "buying": 800,
+        "intent_override": 300
+      },
+      "sealed": false,
+      "sha256": "2ffd23092f0c30d33feef6d99b18262d03d856c6f5b6813e2e4e6e28dfeee8ed",
+      "source_weight_effective_target_count": 66.898119,
+      "source_weight_max_target_share": 0.076029,
+      "source_weight_sum": 4301.0,
+      "source_weighted_popularity_shares": {
+        "head": 0.970239,
+        "mid": 0.026738,
+        "tail": 0.003023
+      },
+      "source_weighted_scenario_shares": {
+        "boundary": 0.034018,
+        "browsing": 0.424879,
+        "buying": 0.398302,
+        "intent_override": 0.142802
+      },
+      "source_weighted_taxonomy_shares": {
+        "accessories-other": 0.17089,
+        "clothing": 0.548012,
+        "jewelry": 0.088352,
+        "shoes": 0.192746
+      },
+      "target_set_sha256": "e5375de7704125fc3b57bdb58120bc94bda98ff24ed72f95cd7e89c978e734bc",
+      "taxonomy_counts": {
+        "accessories-other": 420,
+        "clothing": 935,
+        "jewelry": 283,
+        "shoes": 362
+      },
+      "unique_target_count": 746,
+      "unique_targets": 746
+    },
+    "confirmation": {
+      "bytes": 1313045,
+      "difficulty_counts": {
+        "easy": 1750,
+        "hard": 6,
+        "medium": 244
+      },
+      "file_sha256": "d6ae5a727cb39bda7cb640f3c51f93697b667f55894dc6e22507b06f94c90a74",
+      "filename": "proxy_confirmation.sealed.jsonl",
+      "popularity_counts": {
+        "head": 1882,
+        "mid": 106,
+        "tail": 12
+      },
+      "row_count": 2000,
+      "rows": 2000,
+      "scenario_counts": {
+        "boundary": 100,
+        "browsing": 800,
+        "buying": 800,
+        "intent_override": 300
+      },
+      "sealed": true,
+      "sha256": "d6ae5a727cb39bda7cb640f3c51f93697b667f55894dc6e22507b06f94c90a74",
+      "source_weight_effective_target_count": 51.817407,
+      "source_weight_max_target_share": 0.092763,
+      "source_weight_sum": 4560.0,
+      "source_weighted_popularity_shares": {
+        "head": 0.91864,
+        "mid": 0.077193,
+        "tail": 0.004167
+      },
+      "source_weighted_scenario_shares": {
+        "boundary": 0.063743,
+        "browsing": 0.376572,
+        "buying": 0.409101,
+        "intent_override": 0.150585
+      },
+      "source_weighted_taxonomy_shares": {
+        "accessories-other": 0.150877,
+        "clothing": 0.464693,
+        "jewelry": 0.085088,
+        "shoes": 0.299342
+      },
+      "target_set_sha256": "bf067328e64f1ba7d698eb949813942f4173a96a07694f0a57b3166d19c120b8",
+      "taxonomy_counts": {
+        "accessories-other": 411,
+        "clothing": 974,
+        "jewelry": 253,
+        "shoes": 362
+      },
+      "unique_target_count": 747,
+      "unique_targets": 747
+    },
+    "selection": {
+      "bytes": 1308532,
+      "difficulty_counts": {
+        "easy": 1756,
+        "hard": 12,
+        "medium": 232
+      },
+      "file_sha256": "41ed8938ce3caa95df98155d10bb6cac01d5d279270ea8b6764979ca17a6e322",
+      "filename": "proxy_selection.jsonl",
+      "popularity_counts": {
+        "head": 1887,
+        "mid": 107,
+        "tail": 6
+      },
+      "row_count": 2000,
+      "rows": 2000,
+      "scenario_counts": {
+        "boundary": 100,
+        "browsing": 800,
+        "buying": 800,
+        "intent_override": 300
+      },
+      "sealed": false,
+      "sha256": "41ed8938ce3caa95df98155d10bb6cac01d5d279270ea8b6764979ca17a6e322",
+      "source_weight_effective_target_count": 26.610478,
+      "source_weight_max_target_share": 0.150256,
+      "source_weight_sum": 5271.0,
+      "source_weighted_popularity_shares": {
+        "head": 0.969266,
+        "mid": 0.029596,
+        "tail": 0.001138
+      },
+      "source_weighted_scenario_shares": {
+        "boundary": 0.050776,
+        "browsing": 0.440826,
+        "buying": 0.368585,
+        "intent_override": 0.139813
+      },
+      "source_weighted_taxonomy_shares": {
+        "accessories-other": 0.171125,
+        "clothing": 0.647695,
+        "jewelry": 0.052362,
+        "shoes": 0.128818
+      },
+      "target_set_sha256": "1d3b7bf59a0c45c163c71ede3f2ea150db1681c6918ad36b7650e4d8fc121a4f",
+      "taxonomy_counts": {
+        "accessories-other": 419,
+        "clothing": 956,
+        "jewelry": 240,
+        "shoes": 385
+      },
+      "unique_target_count": 746,
+      "unique_targets": 746
+    },
+    "train_explore": {
+      "bytes": 1315338,
+      "difficulty_counts": {
+        "easy": 1717,
+        "hard": 7,
+        "medium": 276
+      },
+      "file_sha256": "2175696171c0d874fca4b9aa456ff5fd7d570f2184f59ade6781198f6443198e",
+      "filename": "proxy_train_explore.jsonl",
+      "popularity_counts": {
+        "head": 1869,
+        "mid": 113,
+        "tail": 18
+      },
+      "row_count": 2000,
+      "rows": 2000,
+      "scenario_counts": {
+        "boundary": 100,
+        "browsing": 800,
+        "buying": 800,
+        "intent_override": 300
+      },
+      "sealed": false,
+      "sha256": "2175696171c0d874fca4b9aa456ff5fd7d570f2184f59ade6781198f6443198e",
+      "source_weight_effective_target_count": 1.665766,
+      "source_weight_max_target_share": 0.774056,
+      "source_weight_sum": 21585.0,
+      "source_weighted_popularity_shares": {
+        "head": 0.213065,
+        "mid": 0.784387,
+        "tail": 0.002548
+      },
+      "source_weighted_scenario_shares": {
+        "boundary": 0.014377,
+        "browsing": 0.544287,
+        "buying": 0.252876,
+        "intent_override": 0.18846
+      },
+      "source_weighted_taxonomy_shares": {
+        "accessories-other": 0.047626,
+        "clothing": 0.859856,
+        "jewelry": 0.017605,
+        "shoes": 0.074913
+      },
+      "target_set_sha256": "1dc8ca5190a3f4a28d9ef2cbbf79f8b4fef226edb68b28f38941a42ffafd1b5b",
+      "taxonomy_counts": {
+        "accessories-other": 413,
+        "clothing": 960,
+        "jewelry": 253,
+        "shoes": 374
+      },
+      "unique_target_count": 747,
+      "unique_targets": 747
+    }
+  }
+}

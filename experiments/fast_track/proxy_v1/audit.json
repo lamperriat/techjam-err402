@@ -1,0 +1,235 @@
+{
+  "checks": {
+    "catalog_inner_join_only": true,
+    "confirmation_sealed": true,
+    "exact_split_rows": true,
+    "excluded_output_overlap_zero": true,
+    "pairwise_target_overlap_zero": true,
+    "scenario_ratio_exact": true,
+    "test_rows_read_zero": true
+  },
+  "coverage": {
+    "eligible_source_rows": 35717,
+    "eligible_unique_targets": 2986,
+    "prior_catalog_join_rate": 0.024736,
+    "proxy_rows": 8000,
+    "proxy_unique_target_union": 2986
+  },
+  "schema_version": "track4.amazon-validation-proxy-audit.v1",
+  "split_distributions": {
+    "calibration": {
+      "difficulty_counts": {
+        "easy": 1742,
+        "hard": 10,
+        "medium": 248
+      },
+      "popularity_counts": {
+        "head": 1885,
+        "mid": 102,
+        "tail": 13
+      },
+      "repeated_target_rows": 1254,
+      "scenario_counts": {
+        "boundary": 100,
+        "browsing": 800,
+        "buying": 800,
+        "intent_override": 300
+      },
+      "source_weight_effective_target_count": 66.898119,
+      "source_weight_max_target_share": 0.076029,
+      "source_weight_sum": 4301.0,
+      "source_weighted_popularity_shares": {
+        "head": 0.970239,
+        "mid": 0.026738,
+        "tail": 0.003023
+      },
+      "source_weighted_scenario_shares": {
+        "boundary": 0.034018,
+        "browsing": 0.424879,
+        "buying": 0.398302,
+        "intent_override": 0.142802
+      },
+      "source_weighted_taxonomy_shares": {
+        "accessories-other": 0.17089,
+        "clothing": 0.548012,
+        "jewelry": 0.088352,
+        "shoes": 0.192746
+      },
+      "taxonomy_counts": {
+        "accessories-other": 420,
+        "clothing": 935,
+        "jewelry": 283,
+        "shoes": 362
+      },
+      "unique_targets": 746
+    },
+    "confirmation": {
+      "difficulty_counts": {
+        "easy": 1750,
+        "hard": 6,
+        "medium": 244
+      },
+      "popularity_counts": {
+        "head": 1882,
+        "mid": 106,
+        "tail": 12
+      },
+      "repeated_target_rows": 1253,
+      "scenario_counts": {
+        "boundary": 100,
+        "browsing": 800,
+        "buying": 800,
+        "intent_override": 300
+      },
+      "source_weight_effective_target_count": 51.817407,
+      "source_weight_max_target_share": 0.092763,
+      "source_weight_sum": 4560.0,
+      "source_weighted_popularity_shares": {
+        "head": 0.91864,
+        "mid": 0.077193,
+        "tail": 0.004167
+      },
+      "source_weighted_scenario_shares": {
+        "boundary": 0.063743,
+        "browsing": 0.376572,
+        "buying": 0.409101,
+        "intent_override": 0.150585
+      },
+      "source_weighted_taxonomy_shares": {
+        "accessories-other": 0.150877,
+        "clothing": 0.464693,
+        "jewelry": 0.085088,
+        "shoes": 0.299342
+      },
+      "taxonomy_counts": {
+        "accessories-other": 411,
+        "clothing": 974,
+        "jewelry": 253,
+        "shoes": 362
+      },
+      "unique_targets": 747
+    },
+    "selection": {
+      "difficulty_counts": {
+        "easy": 1756,
+        "hard": 12,
+        "medium": 232
+      },
+      "popularity_counts": {
+        "head": 1887,
+        "mid": 107,
+        "tail": 6
+      },
+      "repeated_target_rows": 1254,
+      "scenario_counts": {
+        "boundary": 100,
+        "browsing": 800,
+        "buying": 800,
+        "intent_override": 300
+      },
+      "source_weight_effective_target_count": 26.610478,
+      "source_weight_max_target_share": 0.150256,
+      "source_weight_sum": 5271.0,
+      "source_weighted_popularity_shares": {
+        "head": 0.969266,
+        "mid": 0.029596,
+        "tail": 0.001138
+      },
+      "source_weighted_scenario_shares": {
+        "boundary": 0.050776,
+        "browsing": 0.440826,
+        "buying": 0.368585,
+        "intent_override": 0.139813
+      },
+      "source_weighted_taxonomy_shares": {
+        "accessories-other": 0.171125,
+        "clothing": 0.647695,
+        "jewelry": 0.052362,
+        "shoes": 0.128818
+      },
+      "taxonomy_counts": {
+        "accessories-other": 419,
+        "clothing": 956,
+        "jewelry": 240,
+        "shoes": 385
+      },
+      "unique_targets": 746
+    },
+    "train_explore": {
+      "difficulty_counts": {
+        "easy": 1717,
+        "hard": 7,
+        "medium": 276
+      },
+      "popularity_counts": {
+        "head": 1869,
+        "mid": 113,
+        "tail": 18
+      },
+      "repeated_target_rows": 1253,
+      "scenario_counts": {
+        "boundary": 100,
+        "browsing": 800,
+        "buying": 800,
+        "intent_override": 300
+      },
+      "source_weight_effective_target_count": 1.665766,
+      "source_weight_max_target_share": 0.774056,
+      "source_weight_sum": 21585.0,
+      "source_weighted_popularity_shares": {
+        "head": 0.213065,
+        "mid": 0.784387,
+        "tail": 0.002548
+      },
+      "source_weighted_scenario_shares": {
+        "boundary": 0.014377,
+        "browsing": 0.544287,
+        "buying": 0.252876,
+        "intent_override": 0.18846
+      },
+      "source_weighted_taxonomy_shares": {
+        "accessories-other": 0.047626,
+        "clothing": 0.859856,
+        "jewelry": 0.017605,
+        "shoes": 0.074913
+      },
+      "taxonomy_counts": {
+        "accessories-other": 413,
+        "clothing": 960,
+        "jewelry": 253,
+        "shoes": 374
+      },
+      "unique_targets": 747
+    }
+  },
+  "taxonomy_share_ranges": {
+    "accessories-other": {
+      "max": 0.21,
+      "min": 0.2055,
+      "range": 0.0045
+    },
+    "clothing": {
+      "max": 0.487,
+      "min": 0.4675,
+      "range": 0.0195
+    },
+    "jewelry": {
+      "max": 0.1415,
+      "min": 0.12,
+      "range": 0.0215
+    },
+    "shoes": {
+      "max": 0.1925,
+      "min": 0.181,
+      "range": 0.0115
+    }
+  },
+  "warnings": [
+    "Most raw validation targets are outside the frozen 50k catalog; proxy coverage is an inner-join subset.",
+    "Only a small fraction of prior item identifiers join the frozen catalog, so many preference-tag aggregates are neutral; purchase-frequency bins still use the raw pre-validation history length.",
+    "Target repetition is allowed only within a split because fewer than 8,000 eligible unique targets exist.",
+    "Use source-row micro metrics as primary and taxonomy macro metrics as a required stress view.",
+    "Target-group disjointness can place a very high-frequency product in only one split; inspect source_weight_max_target_share and reject gains isolated to that concentration.",
+    "Repeated rows are target-clustered, not independent observations; confidence intervals and promotion gates must resample/aggregate by target and agree with target-uniform metrics."
+  ]
+}

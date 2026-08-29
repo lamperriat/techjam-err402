@@ -48,10 +48,16 @@
   purchase-frequency 只使用 validation 前 history 长度的离散区间；prior item 对 frozen
   catalog 的 join rate 仅 2.4736%，因此许多 preference-tag aggregate 为 neutral。这是
   proxy 与 organizer-private 分布未知之间的明确限制。
-- 13 项 fixture/security 测试通过，覆盖 source/config 漂移、test 路径提前拒绝、输出
+- source-freeze commit 为 `d8f6805c3edf42bb8d21d81bcdf0b3527e928e87`；13 项
+  fixture/security 测试通过，覆盖 source/config 漂移、test 路径提前拒绝、输出
   冲突、fresh-checkout aggregate evidence、production marker 伪造与中途发布回滚。
   六文件发布可在普通异常时回滚，但不是断电/强杀下的集合级原子事务；中断后必须先
-  审核残留文件。最终 commit-bound 双构建 hash 将在 implementation checkpoint 后生成。
+  审核残留文件。完整仓库为 593/593 tests、官方资产 14/14、`compileall` 通过。
+- 从 source-freeze commit 做两次完整构建，四 split、manifest 与 audit 全部
+  byte-identical；随后只保留 aggregate evidence 的 fresh-checkout 模拟也逐字节补齐四
+  split。manifest SHA-256 为
+  `8058973426bbc76ea856a5c48a61e91ed9e35ae44988a21a6d7b2195e88a7193`，audit 为
+  `1e6b084bf16fbd0000ec0bceca8057265390f3fde03c1936aced39f6f50537e8`。
 - confirmation 只物化为 sealed 文件；本阶段没有运行 evaluator 或读取其结果。
 
 ## Phase 3 — action oracle next
