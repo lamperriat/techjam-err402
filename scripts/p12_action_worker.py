@@ -145,15 +145,26 @@ class P12WorkerError(RuntimeError):
 
 
 class NetworkAuditGuard:
-    """Deny and count Python-audited network activity."""
+    """Deny network-capable socket events while auditing local metadata calls."""
 
     def __init__(self) -> None:
         self.attempt_count = 0
+        self.local_metadata_count = 0
+        self.event_counts: Counter[str] = Counter()
 
     def hook(self, event: str, _arguments: tuple[object, ...]) -> None:
-        if event.startswith("socket."):
-            self.attempt_count += 1
-            raise PermissionError("network activity is disabled")
+        if not event.startswith("socket."):
+            return
+        self.event_counts[event] += 1
+        # ONNX Runtime reads the local machine name during offline session
+        # construction.  `gethostname` neither resolves a name nor opens or
+        # addresses a socket, so report it separately instead of misclassifying
+        # it as a network attempt.  Every other socket audit event fails closed.
+        if event == "socket.gethostname":
+            self.local_metadata_count += 1
+            return
+        self.attempt_count += 1
+        raise PermissionError("network activity is disabled")
 
 
 def _canonical_bytes(value: object) -> bytes:
@@ -1095,6 +1106,10 @@ class P12ActionRuntime:
                 self.failure_counts["p11_invariant"]
             ),
             "network_attempt_count": self.network_guard.attempt_count,
+            "local_socket_metadata_count": self.network_guard.local_metadata_count,
+            "socket_audit_event_counts": dict(
+                sorted(self.network_guard.event_counts.items())
+            ),
             "full_catalog_search_calls": semantic_summary["full_catalog_search_calls"],
             "trace_written_after_components_closed": True,
             "asset_validation": self.asset_validation,

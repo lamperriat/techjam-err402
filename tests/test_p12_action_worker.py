@@ -345,9 +345,15 @@ class RequestBoundaryTests(unittest.TestCase):
     def test_network_audit_is_fail_closed_and_counted(self) -> None:
         guard = worker.NetworkAuditGuard()
         guard.hook("open", ())
+        guard.hook("socket.gethostname", ())
         with self.assertRaises(PermissionError):
             guard.hook("socket.connect", ())
         self.assertEqual(guard.attempt_count, 1)
+        self.assertEqual(guard.local_metadata_count, 1)
+        self.assertEqual(
+            guard.event_counts,
+            {"socket.connect": 1, "socket.gethostname": 1},
+        )
 
 
 class P11InvariantTests(unittest.TestCase):
