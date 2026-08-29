@@ -56,7 +56,7 @@ SCHEMA_VERSION = "track4.p12-action-oracle-result.v1"
 CONFIG_SCHEMA = "track4.p12-action-oracle.v1"
 DEFAULT_CONFIG = Path("configs/p12_action_oracle_v1.json")
 EXPECTED_CONFIG_CANONICAL_SHA256 = (
-    "31910896ce89dd632bd59a8418b3cda0288f56a1381284423eee5e4fe40222e0"
+    "be4d72c77f9424716abfa45580bd676140aa29f471eb7c7da0375dbc24d241a4"
 )
 ALLOWED_SPLITS = {
     "train_explore": {
