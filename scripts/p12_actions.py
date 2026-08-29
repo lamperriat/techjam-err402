@@ -13,7 +13,7 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass
-from typing import Literal, Mapping, Sequence
+from typing import Callable, Literal, Mapping, Sequence
 
 from starter.attributes import ConversationConstraintView, ProductAttributeView
 from starter.p8_negative import EXPLICIT_VIOLATION, ExecutableNegative
@@ -29,6 +29,7 @@ from starter.reranker import score_candidate
 
 SCHEMA_VERSION = "p12.target-blind-actions.v1"
 MAX_CANDIDATES = 50
+TOP_K = 10
 
 KEEP_R08 = "KEEP_R08"
 KEEP_P11 = "KEEP_P11"
@@ -41,6 +42,9 @@ GUARDED_COMPACT_SLOT10_STRICT = "GUARDED_COMPACT_SLOT10_STRICT"
 P11_EVIDENCE_NOVEL_SLOT10 = "P11_EVIDENCE_NOVEL_SLOT10"
 HARD_CLAUSE_NOVEL_SLOT10 = "HARD_CLAUSE_NOVEL_SLOT10"
 TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10 = "TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10"
+VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10 = "VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10"
+DUAL_BOUNDARY_CONSENSUS_SLOT10 = "DUAL_BOUNDARY_CONSENSUS_SLOT10"
+RECENT_OVERRIDE_RANK_FUSION_SLOT10 = "RECENT_OVERRIDE_RANK_FUSION_SLOT10"
 ASK = "ASK"
 ACTION_IDS = (
     KEEP_R08,
@@ -54,6 +58,9 @@ ACTION_IDS = (
     P11_EVIDENCE_NOVEL_SLOT10,
     HARD_CLAUSE_NOVEL_SLOT10,
     TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10,
+    VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10,
+    DUAL_BOUNDARY_CONSENSUS_SLOT10,
+    RECENT_OVERRIDE_RANK_FUSION_SLOT10,
     ASK,
 )
 
@@ -97,6 +104,25 @@ TWO_SIGNAL_LEXICAL_RUNNER_MARGIN_MIN = 0.05
 TWO_SIGNAL_CONSTRAINT_INCUMBENT_MARGIN_MIN = 0.20
 TWO_SIGNAL_CONSTRAINT_RUNNER_MARGIN_MIN = 0.10
 TWO_SIGNAL_RELEVANCE_MARGIN_MIN = 0.02
+
+VISIBLE_CONSTRAINT_WEIGHTS = (0.45, 0.45, 0.10)
+VISIBLE_CONSTRAINT_INCUMBENT_MARGIN_MIN = 0.03
+VISIBLE_CONSTRAINT_RUNNER_MARGIN_MIN = 0.015
+VISIBLE_CONSTRAINT_RELEVANCE_REGRESSION_MAX = 0.02
+
+DUAL_BOUNDARY_WEIGHTS = (0.55, 0.30, 0.15)
+DUAL_BOUNDARY_INCUMBENT_MARGIN_MIN = 0.02
+DUAL_BOUNDARY_RUNNER_MARGIN_MIN = 0.01
+DUAL_BOUNDARY_RELEVANCE_REGRESSION_MAX = 0.02
+DUAL_BOUNDARY_P11_RANK_MAX = 30
+DUAL_BOUNDARY_AUX_RANK_MIN = 11
+DUAL_BOUNDARY_AUX_RANK_MAX = 15
+DUAL_BOUNDARY_AUX_ADVANTAGE_MIN = 3
+
+RECENT_OVERRIDE_WEIGHTS = (0.50, 0.35, 0.15)
+RECENT_OVERRIDE_INCUMBENT_MARGIN_MIN = 0.04
+RECENT_OVERRIDE_RUNNER_MARGIN_MIN = 0.02
+RECENT_OVERRIDE_RELEVANCE_REGRESSION_MAX = 0.01
 
 _AMOUNT = r"(?P<amount>(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)"
 _CURRENCY_AMOUNT = rf"(?:usd\s*)?\$?\s*{_AMOUNT}"
@@ -194,6 +220,23 @@ class BudgetConstraint:
             or float(self.amount) < 0
         ):
             raise ValueError("budget amount must be a finite non-negative number")
+
+
+RouterReason = Literal[
+    "disabled",
+    "invalid_context",
+    "rank_guard",
+    "incumbent_margin",
+    "runner_margin",
+    "relevance_guard",
+    "activated",
+]
+
+
+@dataclass(frozen=True, slots=True)
+class RouterDecision:
+    identifiers: tuple[str, ...]
+    reason: RouterReason
 
 
 def _amount(match: re.Match[str]) -> float | None:
@@ -958,12 +1001,281 @@ def rank_two_signal_consensus_novel_slot10(
     return _swap_rank10(context.original, challenger)
 
 
+@dataclass(frozen=True, slots=True)
+class _RouterContext:
+    original: tuple[str, ...]
+    incumbent: str
+    safe_novel: tuple[str, ...]
+    scores: Mapping[str, CandidateScore]
+    ranks: tuple[Mapping[str, int], Mapping[str, int], Mapping[str, int]]
+
+
+def _router_context(
+    p11_ids: Sequence[str],
+    structured_ids: Sequence[str],
+    semantic_ids: Sequence[str],
+    candidate_scores: Mapping[str, CandidateScore],
+) -> _RouterContext | None:
+    """Validate the complete target-blind C50 context for Family 3."""
+
+    if any(
+        isinstance(values, (str, bytes, bytearray))
+        for values in (p11_ids, structured_ids, semantic_ids)
+    ):
+        return None
+    original = _original(p11_ids)
+    structured = _original(structured_ids)
+    semantic = _original(semantic_ids)
+    if (
+        not _valid_pool(original)
+        or len(original) <= TOP_K
+        or not _valid_pool(structured)
+        or not _valid_pool(semantic)
+        or len(structured) != len(original)
+        or len(semantic) != len(original)
+        or set(structured) != set(original)
+        or set(semantic) != set(original)
+        or not isinstance(candidate_scores, Mapping)
+    ):
+        return None
+    try:
+        if set(candidate_scores) != set(original):
+            return None
+        scores = {identifier: candidate_scores[identifier] for identifier in original}
+    except (KeyError, TypeError, ValueError):
+        return None
+    if any(_candidate_evidence_score(score) is None for score in scores.values()):
+        return None
+
+    incumbent = original[TOP_K - 1]
+    incumbent_bucket = CONFLICT_BUCKETS[scores[incumbent].conflict_state]
+    auxiliary_top10 = frozenset((*structured[:TOP_K], *semantic[:TOP_K]))
+    safe_novel = tuple(
+        identifier
+        for identifier in original[TOP_K:]
+        if identifier not in auxiliary_top10
+        and scores[identifier].conflict_state != EXPLICIT_VIOLATION
+        and CONFLICT_BUCKETS[scores[identifier].conflict_state] <= incumbent_bucket
+    )
+    rankings = (original, structured, semantic)
+    return _RouterContext(
+        original=original,
+        incumbent=incumbent,
+        safe_novel=safe_novel,
+        scores=scores,
+        ranks=tuple(
+            {
+                identifier: rank
+                for rank, identifier in enumerate(ranking, start=1)
+            }
+            for ranking in rankings
+        ),
+    )
+
+
+def _router_original(p11_ids: Sequence[str]) -> tuple[str, ...]:
+    if isinstance(p11_ids, (str, bytes, bytearray)):
+        return ()
+    return _original(p11_ids)
+
+
+def _valid_non_negative_int(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def _router_utility(rank: int, candidate_count: int) -> float:
+    return (candidate_count - rank) / (candidate_count - 1)
+
+
+def _router_fusion_scores(
+    context: _RouterContext,
+    candidate_ids: Sequence[str],
+    weights: tuple[float, float, float],
+) -> dict[str, float]:
+    candidate_count = len(context.original)
+    return {
+        identifier: round(
+            sum(
+                weight * _router_utility(ranks[identifier], candidate_count)
+                for weight, ranks in zip(weights, context.ranks, strict=True)
+            ),
+            12,
+        )
+        for identifier in candidate_ids
+    }
+
+
+def _decide_router_slot10(
+    context: _RouterContext,
+    eligible: Sequence[str],
+    weights: tuple[float, float, float],
+    *,
+    incumbent_margin_min: float,
+    runner_margin_min: float,
+    relevance_regression_max: float,
+    winner_guard: Callable[[str], bool] | None = None,
+) -> RouterDecision:
+    candidates = tuple(eligible)
+    if len(candidates) < 2 or len(candidates) != len(set(candidates)):
+        return RouterDecision(context.original, "rank_guard")
+    if any(identifier not in context.safe_novel for identifier in candidates):
+        return RouterDecision(context.original, "invalid_context")
+
+    scores = _router_fusion_scores(
+        context,
+        (*candidates, context.incumbent),
+        weights,
+    )
+    p11_rank = context.ranks[0]
+    ordered = tuple(
+        sorted(
+            candidates,
+            key=lambda identifier: (-scores[identifier], p11_rank[identifier]),
+        )
+    )
+    # Freeze winner and runner before any guard.  A failed winner is never
+    # replaced by a lower-ranked challenger.
+    winner, runner = ordered[:2]
+    if winner_guard is not None and not winner_guard(winner):
+        return RouterDecision(context.original, "rank_guard")
+    if _delta(scores[winner], scores[context.incumbent]) < incumbent_margin_min:
+        return RouterDecision(context.original, "incumbent_margin")
+    if _delta(scores[winner], scores[runner]) < runner_margin_min:
+        return RouterDecision(context.original, "runner_margin")
+    if _delta(
+        context.scores[winner].relevance,
+        context.scores[context.incumbent].relevance,
+    ) < -relevance_regression_max:
+        return RouterDecision(context.original, "relevance_guard")
+    ranked = _swap_rank10(context.original, winner)
+    if ranked == context.original:
+        return RouterDecision(context.original, "invalid_context")
+    return RouterDecision(ranked, "activated")
+
+
+def decide_visible_constraint_rank_fusion_slot10(
+    p11: Sequence[str],
+    structured: Sequence[str],
+    semantic: Sequence[str],
+    scores: Mapping[str, CandidateScore],
+    *,
+    visible_preference_count: int,
+    hard_clause_term_count: int,
+) -> RouterDecision:
+    """Route one slot-10 admission when visible constraints are sufficiently rich."""
+
+    original = _router_original(p11)
+    if not _valid_non_negative_int(
+        visible_preference_count
+    ) or not _valid_non_negative_int(hard_clause_term_count):
+        return RouterDecision(original, "invalid_context")
+    context = _router_context(
+        p11, structured, semantic, scores
+    )
+    if context is None:
+        return RouterDecision(original, "invalid_context")
+    if visible_preference_count < 2 and hard_clause_term_count < 4:
+        return RouterDecision(context.original, "disabled")
+    return _decide_router_slot10(
+        context,
+        context.safe_novel,
+        VISIBLE_CONSTRAINT_WEIGHTS,
+        incumbent_margin_min=VISIBLE_CONSTRAINT_INCUMBENT_MARGIN_MIN,
+        runner_margin_min=VISIBLE_CONSTRAINT_RUNNER_MARGIN_MIN,
+        relevance_regression_max=VISIBLE_CONSTRAINT_RELEVANCE_REGRESSION_MAX,
+    )
+
+
+def decide_dual_boundary_consensus_slot10(
+    p11: Sequence[str],
+    structured: Sequence[str],
+    semantic: Sequence[str],
+    scores: Mapping[str, CandidateScore],
+) -> RouterDecision:
+    """Admit a P11-tail item only on bounded agreement from both auxiliaries."""
+
+    original = _router_original(p11)
+    context = _router_context(
+        p11, structured, semantic, scores
+    )
+    if context is None:
+        return RouterDecision(original, "invalid_context")
+    p11_ranks, structured_ranks, semantic_ranks = context.ranks
+    incumbent = context.incumbent
+
+    def winner_guard(identifier: str) -> bool:
+        return (
+            p11_ranks[identifier] <= DUAL_BOUNDARY_P11_RANK_MAX
+            and DUAL_BOUNDARY_AUX_RANK_MIN
+            <= structured_ranks[identifier]
+            <= DUAL_BOUNDARY_AUX_RANK_MAX
+            and DUAL_BOUNDARY_AUX_RANK_MIN
+            <= semantic_ranks[identifier]
+            <= DUAL_BOUNDARY_AUX_RANK_MAX
+            and structured_ranks[incumbent] - structured_ranks[identifier]
+            >= DUAL_BOUNDARY_AUX_ADVANTAGE_MIN
+            and semantic_ranks[incumbent] - semantic_ranks[identifier]
+            >= DUAL_BOUNDARY_AUX_ADVANTAGE_MIN
+        )
+
+    return _decide_router_slot10(
+        context,
+        context.safe_novel,
+        DUAL_BOUNDARY_WEIGHTS,
+        incumbent_margin_min=DUAL_BOUNDARY_INCUMBENT_MARGIN_MIN,
+        runner_margin_min=DUAL_BOUNDARY_RUNNER_MARGIN_MIN,
+        relevance_regression_max=DUAL_BOUNDARY_RELEVANCE_REGRESSION_MAX,
+        winner_guard=winner_guard,
+    )
+
+
+def decide_recent_override_rank_fusion_slot10(
+    p11: Sequence[str],
+    structured: Sequence[str],
+    semantic: Sequence[str],
+    scores: Mapping[str, CandidateScore],
+    *,
+    state_version: int,
+    current_turn: int,
+    version_anchor_turn: int,
+) -> RouterDecision:
+    """Route one conservative admission during the first two post-override turns."""
+
+    original = _router_original(p11)
+    if (
+        not _valid_non_negative_int(state_version)
+        or not _valid_non_negative_int(current_turn)
+        or not _valid_non_negative_int(version_anchor_turn)
+        or state_version < 1
+        or current_turn < 1
+        or version_anchor_turn < 1
+    ):
+        return RouterDecision(original, "invalid_context")
+    context = _router_context(
+        p11, structured, semantic, scores
+    )
+    if context is None:
+        return RouterDecision(original, "invalid_context")
+    turns_since_override = current_turn - version_anchor_turn
+    if state_version <= 1 or not 0 <= turns_since_override <= 1:
+        return RouterDecision(context.original, "disabled")
+    return _decide_router_slot10(
+        context,
+        context.safe_novel,
+        RECENT_OVERRIDE_WEIGHTS,
+        incumbent_margin_min=RECENT_OVERRIDE_INCUMBENT_MARGIN_MIN,
+        runner_margin_min=RECENT_OVERRIDE_RUNNER_MARGIN_MIN,
+        relevance_regression_max=RECENT_OVERRIDE_RELEVANCE_REGRESSION_MAX,
+    )
+
+
 __all__ = [
     "ACTION_IDS",
     "ASK",
     "BudgetConstraint",
     "CANDIDATE_RERANK",
     "COMPACT_NEGATIVE_C50",
+    "DUAL_BOUNDARY_CONSENSUS_SLOT10",
     "FROZEN_SEMANTIC_RERANK",
     "GUARDED_COMPACT_SLOT10",
     "GUARDED_COMPACT_SLOT10_STRICT",
@@ -972,9 +1284,15 @@ __all__ = [
     "KEEP_R08",
     "MAX_CANDIDATES",
     "P11_EVIDENCE_NOVEL_SLOT10",
+    "RECENT_OVERRIDE_RANK_FUSION_SLOT10",
     "RESULT_AWARE_REWRITE_RETRIEVE",
+    "RouterDecision",
     "SCHEMA_VERSION",
     "TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10",
+    "VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10",
+    "decide_dual_boundary_consensus_slot10",
+    "decide_recent_override_rank_fusion_slot10",
+    "decide_visible_constraint_rank_fusion_slot10",
     "latest_budget_constraint",
     "numeric_budget_match",
     "rank_compact_negative_c50",

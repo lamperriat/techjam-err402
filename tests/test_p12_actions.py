@@ -11,6 +11,7 @@ from scripts.p12_actions import (
     BudgetConstraint,
     CANDIDATE_RERANK,
     COMPACT_NEGATIVE_C50,
+    DUAL_BOUNDARY_CONSENSUS_SLOT10,
     FROZEN_SEMANTIC_RERANK,
     GUARDED_COMPACT_SLOT10,
     GUARDED_COMPACT_SLOT10_STRICT,
@@ -18,8 +19,13 @@ from scripts.p12_actions import (
     KEEP_P11,
     KEEP_R08,
     P11_EVIDENCE_NOVEL_SLOT10,
+    RECENT_OVERRIDE_RANK_FUSION_SLOT10,
     RESULT_AWARE_REWRITE_RETRIEVE,
     TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10,
+    VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10,
+    decide_dual_boundary_consensus_slot10,
+    decide_recent_override_rank_fusion_slot10,
+    decide_visible_constraint_rank_fusion_slot10,
     latest_budget_constraint,
     numeric_budget_match,
     rank_compact_negative_c50,
@@ -109,6 +115,30 @@ def _novel_inputs() -> tuple[
     semantic = (*pool[:9], pool[11], pool[9], pool[10], *pool[12:])
     scores = {identifier: _p11_score() for identifier in pool}
     return pool, structured, semantic, scores
+
+
+def _router_inputs() -> tuple[
+    tuple[str, ...],
+    tuple[str, ...],
+    tuple[str, ...],
+    dict[str, CandidateScore],
+]:
+    pool = tuple(f"router-{index:02d}" for index in range(50))
+    auxiliary_head = (*pool[:9], pool[20])
+    auxiliary_tail = tuple(
+        identifier
+        for identifier in pool
+        if identifier not in {*auxiliary_head, pool[9], pool[10], pool[11]}
+    )
+    auxiliary = (
+        *auxiliary_head,
+        pool[10],
+        pool[11],
+        *auxiliary_tail,
+        pool[9],
+    )
+    scores = {identifier: _p11_score() for identifier in pool}
+    return pool, auxiliary, auxiliary, scores
 
 
 class BudgetParsingTests(unittest.TestCase):
@@ -779,6 +809,233 @@ class NovelSlot10ActionTests(unittest.TestCase):
         )
 
 
+class LightweightRouterActionTests(unittest.TestCase):
+    def test_visible_constraint_router_activates_one_exact_slot10_swap(self) -> None:
+        pool, structured, semantic, scores = _router_inputs()
+
+        decision = decide_visible_constraint_rank_fusion_slot10(
+            pool,
+            structured,
+            semantic,
+            scores,
+            visible_preference_count=2,
+            hard_clause_term_count=0,
+        )
+
+        expected = list(pool)
+        expected[9], expected[10] = expected[10], expected[9]
+        self.assertEqual(decision.reason, "activated")
+        self.assertEqual(decision.identifiers, tuple(expected))
+        self.assertEqual(decision.identifiers[:9], pool[:9])
+        self.assertEqual(
+            set(decision.identifiers[:10]) ^ set(pool[:10]),
+            {pool[9], pool[10]},
+        )
+
+    def test_dual_boundary_router_activates_only_with_two_auxiliary_guards(self) -> None:
+        pool, structured, semantic, scores = _router_inputs()
+
+        activated = decide_dual_boundary_consensus_slot10(
+            pool, structured, semantic, scores
+        )
+        self.assertEqual(activated.reason, "activated")
+        self.assertEqual(activated.identifiers[9], pool[10])
+
+        guarded_middle = pool[31:36]
+        guarded_tail = tuple(
+            identifier
+            for identifier in pool
+            if identifier
+            not in {*structured[:10], *guarded_middle, pool[9]}
+        )
+        too_deep = (*structured[:10], *guarded_middle, *guarded_tail, pool[9])
+        guarded = decide_dual_boundary_consensus_slot10(
+            pool, too_deep, too_deep, scores
+        )
+        self.assertEqual(guarded.reason, "rank_guard")
+        self.assertEqual(guarded.identifiers, pool)
+
+    def test_dual_boundary_does_not_scan_past_guarded_fusion_winner(self) -> None:
+        pool, structured, semantic, scores = _router_inputs()
+        semantic_demoted = list(semantic)
+        semantic_demoted.remove(pool[10])
+        semantic_demoted.insert(15, pool[10])
+
+        decision = decide_dual_boundary_consensus_slot10(
+            pool,
+            structured,
+            tuple(semantic_demoted),
+            scores,
+        )
+
+        # pool[10] remains the highest fused safe candidate, but its semantic
+        # rank is 16.  pool[11] satisfies every boundary guard; it must not be
+        # selected after the frozen winner fails.
+        self.assertEqual(decision.reason, "rank_guard")
+        self.assertEqual(decision.identifiers, pool)
+
+    def test_recent_override_router_uses_only_the_two_turn_window(self) -> None:
+        pool, structured, semantic, scores = _router_inputs()
+
+        activated = decide_recent_override_rank_fusion_slot10(
+            pool,
+            structured,
+            semantic,
+            scores,
+            state_version=2,
+            current_turn=5,
+            version_anchor_turn=4,
+        )
+        self.assertEqual(activated.reason, "activated")
+        self.assertEqual(activated.identifiers[9], pool[10])
+
+        disabled = decide_recent_override_rank_fusion_slot10(
+            pool,
+            structured,
+            semantic,
+            scores,
+            state_version=2,
+            current_turn=6,
+            version_anchor_turn=4,
+        )
+        self.assertEqual(disabled.reason, "disabled")
+        self.assertEqual(disabled.identifiers, pool)
+
+    def test_visible_router_disabled_and_strict_signal_types_fail_closed(self) -> None:
+        pool, structured, semantic, scores = _router_inputs()
+        disabled = decide_visible_constraint_rank_fusion_slot10(
+            pool,
+            structured,
+            semantic,
+            scores,
+            visible_preference_count=1,
+            hard_clause_term_count=3,
+        )
+        invalid = decide_visible_constraint_rank_fusion_slot10(
+            pool,
+            structured,
+            semantic,
+            scores,
+            visible_preference_count=True,
+            hard_clause_term_count=4,
+        )
+        self.assertEqual((disabled.reason, disabled.identifiers), ("disabled", pool))
+        self.assertEqual((invalid.reason, invalid.identifiers), ("invalid_context", pool))
+
+    def test_frozen_winner_does_not_scan_after_relevance_guard(self) -> None:
+        pool, structured, semantic, scores = _router_inputs()
+        scores[pool[10]] = _p11_score(relevance=0.17)
+
+        decision = decide_visible_constraint_rank_fusion_slot10(
+            pool,
+            structured,
+            semantic,
+            scores,
+            visible_preference_count=2,
+            hard_clause_term_count=0,
+        )
+
+        self.assertEqual(decision.reason, "relevance_guard")
+        self.assertEqual(decision.identifiers, pool)
+
+    def test_incumbent_and_runner_margins_have_distinct_fail_closed_reasons(self) -> None:
+        pool, _, _, scores = _router_inputs()
+        incumbent = decide_visible_constraint_rank_fusion_slot10(
+            pool,
+            pool,
+            pool,
+            scores,
+            visible_preference_count=2,
+            hard_clause_term_count=0,
+        )
+        self.assertEqual(incumbent.reason, "incumbent_margin")
+
+        _, structured, semantic, _ = _router_inputs()
+        structured_tied = list(structured)
+        left, right = structured_tied.index(pool[10]), structured_tied.index(pool[11])
+        structured_tied[left], structured_tied[right] = (
+            structured_tied[right],
+            structured_tied[left],
+        )
+        runner = decide_visible_constraint_rank_fusion_slot10(
+            pool,
+            tuple(structured_tied),
+            semantic,
+            scores,
+            visible_preference_count=2,
+            hard_clause_term_count=0,
+        )
+        self.assertEqual(runner.reason, "runner_margin")
+        self.assertEqual(runner.identifiers, pool)
+
+    def test_all_router_apis_reject_malformed_candidate_scores(self) -> None:
+        pool, structured, semantic, scores = _router_inputs()
+        malformed = dict(scores)
+        malformed.pop(pool[-1])
+        decisions = (
+            decide_visible_constraint_rank_fusion_slot10(
+                pool,
+                structured,
+                semantic,
+                malformed,
+                visible_preference_count=2,
+                hard_clause_term_count=0,
+            ),
+            decide_dual_boundary_consensus_slot10(
+                pool, structured, semantic, malformed
+            ),
+            decide_recent_override_rank_fusion_slot10(
+                pool,
+                structured,
+                semantic,
+                malformed,
+                state_version=2,
+                current_turn=4,
+                version_anchor_turn=4,
+            ),
+        )
+        self.assertEqual(
+            tuple((decision.reason, decision.identifiers) for decision in decisions),
+            (("invalid_context", pool),) * 3,
+        )
+
+    def test_three_router_conditions_are_materially_distinct(self) -> None:
+        pool, structured, semantic, scores = _router_inputs()
+        visible = decide_visible_constraint_rank_fusion_slot10(
+            pool,
+            structured,
+            semantic,
+            scores,
+            visible_preference_count=2,
+            hard_clause_term_count=0,
+        )
+        consensus = decide_dual_boundary_consensus_slot10(
+            pool, structured, semantic, scores
+        )
+        no_override = decide_recent_override_rank_fusion_slot10(
+            pool,
+            structured,
+            semantic,
+            scores,
+            state_version=1,
+            current_turn=1,
+            version_anchor_turn=1,
+        )
+        no_visible = decide_visible_constraint_rank_fusion_slot10(
+            pool,
+            structured,
+            semantic,
+            scores,
+            visible_preference_count=0,
+            hard_clause_term_count=0,
+        )
+
+        self.assertEqual(visible.reason, "activated")
+        self.assertEqual(consensus.reason, "activated")
+        self.assertEqual(no_override.reason, "disabled")
+        self.assertEqual(no_visible.reason, "disabled")
+
+
 class ActionIdTests(unittest.TestCase):
     def test_goal_action_ids_are_frozen_and_unique(self) -> None:
         self.assertEqual(
@@ -795,6 +1052,9 @@ class ActionIdTests(unittest.TestCase):
                 P11_EVIDENCE_NOVEL_SLOT10,
                 HARD_CLAUSE_NOVEL_SLOT10,
                 TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10,
+                VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10,
+                DUAL_BOUNDARY_CONSENSUS_SLOT10,
+                RECENT_OVERRIDE_RANK_FUSION_SLOT10,
                 ASK,
             ),
         )

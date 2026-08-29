@@ -68,6 +68,15 @@ MAX_RESPONSE_BYTES = 1_048_576
 MAX_TRACE_BYTES = 512 * 1024 * 1024
 MAX_TURNS = 10
 TOP_K = 10
+FAMILY3_DECISION_REASONS = (
+    "disabled",
+    "invalid_context",
+    "rank_guard",
+    "incumbent_margin",
+    "runner_margin",
+    "relevance_guard",
+    "activated",
+)
 MAX_MESSAGE_BYTES = 8_192
 MAX_SUMMARY_BYTES = 1_024
 MAX_PROFILE_TAGS = 3
@@ -417,6 +426,45 @@ def _validate_identifier_sequence(value: object, label: str) -> tuple[str, ...]:
     return result
 
 
+def _validate_novel_slot10_c50(
+    baseline: Sequence[str],
+    ranked: Sequence[str],
+    blocked_top10: frozenset[str],
+    label: str,
+) -> tuple[str, ...]:
+    """Require an exact C50 no-op or one novel admission at rank 10."""
+
+    original = _validate_identifier_sequence(baseline, f"{label} baseline")
+    candidate = _validate_identifier_sequence(ranked, label)
+    if len(candidate) != len(original) or set(candidate) != set(original):
+        raise P12WorkerError(f"{label} is not an exact C50 permutation")
+    if candidate == original:
+        return candidate
+    original_top10 = original[:TOP_K]
+    candidate_top10 = candidate[:TOP_K]
+    added = set(candidate_top10) - set(original_top10)
+    if (
+        len(original) <= TOP_K
+        or candidate_top10[: TOP_K - 1] != original_top10[: TOP_K - 1]
+        or len(set(candidate_top10) ^ set(original_top10)) != 2
+        or len(added) != 1
+        or not added.isdisjoint(blocked_top10)
+    ):
+        raise P12WorkerError(f"{label} violates its novel single-slot guard")
+    challenger = next(iter(added))
+    challenger_index = original.index(challenger)
+    if challenger_index < TOP_K:
+        raise P12WorkerError(f"{label} challenger is not in the P11 C50 tail")
+    expected = list(original)
+    expected[TOP_K - 1], expected[challenger_index] = (
+        expected[challenger_index],
+        expected[TOP_K - 1],
+    )
+    if tuple(expected) != candidate:
+        raise P12WorkerError(f"{label} changed more than one C50 slot")
+    return candidate
+
+
 def _validate_served_response(
     response: object, captured_final: object, label: str
 ) -> str | None:
@@ -661,6 +709,20 @@ class P12CaptureAgent(Agent):
                 "score_fail_closed_turns": 0,
             }
         )
+        self._p12_family3_counts: Counter[str] = Counter(
+            {"total_turns": 0, "compute_failure_count": 0}
+        )
+        self._p12_family3_reason_counts: dict[str, Counter[str]] = {
+            action: Counter({reason: 0 for reason in FAMILY3_DECISION_REASONS})
+            for action in (
+                p12_actions.VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10,
+                p12_actions.DUAL_BOUNDARY_CONSENSUS_SLOT10,
+                p12_actions.RECENT_OVERRIDE_RANK_FUSION_SLOT10,
+            )
+        }
+        self._p12_family3_failure_counts: Counter[str] = Counter(
+            {action: 0 for action in self._p12_family3_reason_counts}
+        )
         super().__init__(
             catalog_path,
             llm_client=None,
@@ -844,6 +906,81 @@ class P12CaptureAgent(Agent):
             self._p12_family2_counts["score_fail_closed_turns"] += 1
             return {}, hard_clause_terms, visible_preference_count
 
+    def _p12_family3_rankings(
+        self,
+        state: SessionState,
+        p11_c50: Sequence[str],
+        structured: Sequence[str],
+        semantic: Sequence[str],
+        candidate_scores: Mapping[str, CandidateScore],
+        visible_preference_count: int,
+        hard_clause_terms: Sequence[str],
+    ) -> dict[str, tuple[str, ...]]:
+        """Compute three independent Family 3 actions with exact fail-closed fallback."""
+
+        baseline = tuple(p11_c50)
+        self._p12_family3_counts["total_turns"] += 1
+        current_turn = max(1, len(state.messages))
+        calls = (
+            (
+                p12_actions.VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10,
+                lambda: p12_actions.decide_visible_constraint_rank_fusion_slot10(
+                    baseline,
+                    structured,
+                    semantic,
+                    candidate_scores,
+                    visible_preference_count=visible_preference_count,
+                    hard_clause_term_count=len(hard_clause_terms),
+                ),
+            ),
+            (
+                p12_actions.DUAL_BOUNDARY_CONSENSUS_SLOT10,
+                lambda: p12_actions.decide_dual_boundary_consensus_slot10(
+                    baseline,
+                    structured,
+                    semantic,
+                    candidate_scores,
+                ),
+            ),
+            (
+                p12_actions.RECENT_OVERRIDE_RANK_FUSION_SLOT10,
+                lambda: p12_actions.decide_recent_override_rank_fusion_slot10(
+                    baseline,
+                    structured,
+                    semantic,
+                    candidate_scores,
+                    state_version=state.version,
+                    current_turn=current_turn,
+                    version_anchor_turn=state.version_anchor_turn,
+                ),
+            ),
+        )
+        blocked = frozenset((*tuple(structured)[:TOP_K], *tuple(semantic)[:TOP_K]))
+        rankings: dict[str, tuple[str, ...]] = {}
+        for action, decide in calls:
+            try:
+                decision = decide()
+                reason = decision.reason
+                ranked = tuple(decision.identifiers)
+                if reason not in FAMILY3_DECISION_REASONS:
+                    raise ValueError("Family3 decision reason is invalid")
+                _validate_novel_slot10_c50(
+                    baseline,
+                    ranked,
+                    blocked,
+                    f"{action} decision",
+                )
+                if (reason == "activated") != (ranked != baseline):
+                    raise ValueError("Family3 reason and ranking activation disagree")
+            except Exception:
+                self._p12_family3_counts["compute_failure_count"] += 1
+                self._p12_family3_failure_counts[action] += 1
+                rankings[action] = baseline
+                continue
+            self._p12_family3_reason_counts[action][reason] += 1
+            rankings[action] = ranked
+        return rankings
+
     def _apply_p11(
         self,
         state: SessionState,
@@ -942,6 +1079,15 @@ class P12CaptureAgent(Agent):
             has_non_category_signal=(
                 visible_preference_count > 0 or bool(hard_clause_terms)
             ),
+        )
+        family3_rankings = self._p12_family3_rankings(
+            state,
+            p11_c50,
+            structured,
+            semantic,
+            candidate_scores,
+            visible_preference_count,
+            hard_clause_terms,
         )
         self._p12_compact_counts["total_turns"] += 1
         self._p12_compact_counts["ledger_records_examined"] += int(
@@ -1045,6 +1191,14 @@ class P12CaptureAgent(Agent):
                 )
                 if tuple(expected) != tuple(ranked):
                     raise P12WorkerError(f"{name} changed more than one C50 slot")
+        blocked_family3 = frozenset((*structured[:TOP_K], *semantic[:TOP_K]))
+        for name, ranked in family3_rankings.items():
+            _validate_novel_slot10_c50(
+                p11_c50,
+                ranked,
+                blocked_family3,
+                f"{name} capture",
+            )
         self._p12_last_capture = {
             "state_identity": id(state),
             "r08_full": r08_full,
@@ -1058,6 +1212,15 @@ class P12CaptureAgent(Agent):
             "p11_evidence_novel_slot10_full": p11_evidence_novel,
             "hard_clause_novel_slot10_full": hard_clause_novel,
             "two_signal_consensus_novel_slot10_full": two_signal_consensus,
+            "visible_constraint_rank_fusion_slot10_full": family3_rankings[
+                p12_actions.VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10
+            ],
+            "dual_boundary_consensus_slot10_full": family3_rankings[
+                p12_actions.DUAL_BOUNDARY_CONSENSUS_SLOT10
+            ],
+            "recent_override_rank_fusion_slot10_full": family3_rankings[
+                p12_actions.RECENT_OVERRIDE_RANK_FUSION_SLOT10
+            ],
             "p11_invariants": invariant,
         }
         return list(p11_full), diagnostics
@@ -1091,6 +1254,61 @@ class P12CaptureAgent(Agent):
     def p12_family2_summary(self) -> dict[str, Any]:
         return {
             "counts": dict(sorted(self._p12_family2_counts.items())),
+            "privacy": "aggregate counts only; no text, values, identifiers, ordinals, or labels",
+        }
+
+    def p12_family3_summary(self) -> dict[str, Any]:
+        eligibility_counts: dict[str, dict[str, int]] = {}
+        for action, reasons in self._p12_family3_reason_counts.items():
+            failures = int(self._p12_family3_failure_counts[action])
+            eligibility_counts[action] = {
+                "context_valid": max(
+                    0,
+                    int(self._p12_family3_counts["total_turns"])
+                    - int(reasons["invalid_context"])
+                    - failures,
+                ),
+                "router_enabled": sum(
+                    int(reasons[reason])
+                    for reason in (
+                        "rank_guard",
+                        "incumbent_margin",
+                        "runner_margin",
+                        "relevance_guard",
+                        "activated",
+                    )
+                ),
+                "rank_guard_passed": sum(
+                    int(reasons[reason])
+                    for reason in (
+                        "incumbent_margin",
+                        "runner_margin",
+                        "relevance_guard",
+                        "activated",
+                    )
+                ),
+                "incumbent_margin_passed": sum(
+                    int(reasons[reason])
+                    for reason in ("runner_margin", "relevance_guard", "activated")
+                ),
+                "runner_margin_passed": int(reasons["relevance_guard"])
+                + int(reasons["activated"]),
+                "relevance_guard_passed": int(reasons["activated"]),
+            }
+        return {
+            "counts": dict(sorted(self._p12_family3_counts.items())),
+            "reason_counts": {
+                action: {
+                    reason: int(self._p12_family3_reason_counts[action][reason])
+                    for reason in FAMILY3_DECISION_REASONS
+                }
+                for action in self._p12_family3_reason_counts
+            },
+            "compute_failure_counts": {
+                action: int(self._p12_family3_failure_counts[action])
+                for action in self._p12_family3_failure_counts
+            },
+            "eligibility_counts": eligibility_counts,
             "privacy": "aggregate counts only; no text, values, identifiers, ordinals, or labels",
         }
 
@@ -1262,6 +1480,20 @@ def _compose_trace_record(
             "two-signal consensus novel C50",
         ),
     }
+    family3_full = {
+        p12_actions.VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10: _validate_identifier_sequence(
+            p11_capture.get("visible_constraint_rank_fusion_slot10_full"),
+            "visible-constraint rank-fusion C50",
+        ),
+        p12_actions.DUAL_BOUNDARY_CONSENSUS_SLOT10: _validate_identifier_sequence(
+            p11_capture.get("dual_boundary_consensus_slot10_full"),
+            "dual-boundary consensus C50",
+        ),
+        p12_actions.RECENT_OVERRIDE_RANK_FUSION_SLOT10: _validate_identifier_sequence(
+            p11_capture.get("recent_override_rank_fusion_slot10_full"),
+            "recent-override rank-fusion C50",
+        ),
+    }
     if len(structured) != len(c50) or set(structured) != set(c50):
         raise P12WorkerError("structured capture is not a C50 permutation")
     if len(semantic) != len(c50) or set(semantic) != set(c50):
@@ -1280,6 +1512,11 @@ def _compose_trace_record(
         for ranked in family2_full.values()
     ):
         raise P12WorkerError("Family2 capture is not an exact C50 permutation")
+    if any(
+        len(ranked) != len(c50) or set(ranked) != set(c50)
+        for ranked in family3_full.values()
+    ):
+        raise P12WorkerError("Family3 capture is not an exact C50 permutation")
     guarded_top10 = guarded_compact[:TOP_K]
     p11_top10 = p11[:TOP_K]
     if guarded_top10 != p11_top10 and (
@@ -1326,6 +1563,13 @@ def _compose_trace_record(
         )
         if tuple(expected) != ranked:
             raise P12WorkerError(f"{name} changed more than one C50 slot")
+    for name, ranked in family3_full.items():
+        _validate_novel_slot10_c50(
+            p11_c50,
+            ranked,
+            frozenset(blocked_family2),
+            f"{name} trace capture",
+        )
     if (
         not isinstance(p5_capture, Mapping)
         or p5_capture.get("variant_id") != P5_R01
@@ -1354,6 +1598,17 @@ def _compose_trace_record(
         ),
         p12_actions.TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10: list(
             family2_full[p12_actions.TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10][:TOP_K]
+        ),
+        p12_actions.VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10: list(
+            family3_full[p12_actions.VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10][
+                :TOP_K
+            ]
+        ),
+        p12_actions.DUAL_BOUNDARY_CONSENSUS_SLOT10: list(
+            family3_full[p12_actions.DUAL_BOUNDARY_CONSENSUS_SLOT10][:TOP_K]
+        ),
+        p12_actions.RECENT_OVERRIDE_RANK_FUSION_SLOT10: list(
+            family3_full[p12_actions.RECENT_OVERRIDE_RANK_FUSION_SLOT10][:TOP_K]
         ),
         p12_actions.ASK: list(p11[:TOP_K]),
     }
@@ -1427,6 +1682,9 @@ class P12ActionRuntime:
                 p12_actions.P11_EVIDENCE_NOVEL_SLOT10,
                 p12_actions.HARD_CLAUSE_NOVEL_SLOT10,
                 p12_actions.TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10,
+                p12_actions.VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10,
+                p12_actions.DUAL_BOUNDARY_CONSENSUS_SLOT10,
+                p12_actions.RECENT_OVERRIDE_RANK_FUSION_SLOT10,
             )
         }
         self._output_change_turns: Counter[str] = Counter()
@@ -1551,6 +1809,17 @@ class P12ActionRuntime:
             if callable(getattr(self.p11_agent, "p12_family2_summary", None))
             else {"counts": {}, "privacy": "unavailable"}
         )
+        family3_funnel = (
+            self.p11_agent.p12_family3_summary()
+            if callable(getattr(self.p11_agent, "p12_family3_summary", None))
+            else {
+                "counts": {},
+                "reason_counts": {},
+                "compute_failure_counts": {},
+                "eligibility_counts": {},
+                "privacy": "unavailable",
+            }
+        )
         self._close_components()
         if self._closed_components != ["p11_agent", "p5_agent", "semantic"]:
             raise P12WorkerError("P12 component close order is invalid")
@@ -1582,6 +1851,7 @@ class P12ActionRuntime:
                 "guarded_compact_base": "P11.C50",
                 "guarded_compact_strict_base": "P11.C50 adjacent rank-11 only",
                 "family2_base": "P11.C50 excluding structured/semantic Top10 challengers",
+                "family3_base": "P11.C50 rank-fusion novel single-slot actions",
                 "result_aware_computation_count": self.result_aware_computation_count,
                 "activation_definition": (
                     "per-turn Top10 member set differs from KEEP_P11"
@@ -1600,6 +1870,7 @@ class P12ActionRuntime:
                 },
                 "compact_funnel": compact_funnel,
                 "family2_funnel": family2_funnel,
+                "family3_funnel": family3_funnel,
             },
             "p11": {
                 "mode": "active",
@@ -1626,6 +1897,9 @@ class P12ActionRuntime:
                 family2_funnel.get("counts", {}).get(
                     "score_fail_closed_turns", 0
                 )
+            ),
+            "family3_compute_failure_count": int(
+                family3_funnel.get("counts", {}).get("compute_failure_count", 0)
             ),
             "network_attempt_count": self.network_guard.attempt_count,
             "local_socket_metadata_count": self.network_guard.local_metadata_count,

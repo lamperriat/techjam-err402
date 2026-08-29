@@ -43,6 +43,7 @@ from scripts.p12_actions import (  # noqa: E402
     ASK,
     CANDIDATE_RERANK,
     COMPACT_NEGATIVE_C50,
+    DUAL_BOUNDARY_CONSENSUS_SLOT10,
     FROZEN_SEMANTIC_RERANK,
     GUARDED_COMPACT_SLOT10,
     GUARDED_COMPACT_SLOT10_STRICT,
@@ -50,8 +51,10 @@ from scripts.p12_actions import (  # noqa: E402
     KEEP_P11,
     KEEP_R08,
     P11_EVIDENCE_NOVEL_SLOT10,
+    RECENT_OVERRIDE_RANK_FUSION_SLOT10,
     RESULT_AWARE_REWRITE_RETRIEVE,
     TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10,
+    VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10,
 )
 from scripts.p12_oracle_metrics import aggregate_action_oracle  # noqa: E402
 
@@ -60,7 +63,7 @@ SCHEMA_VERSION = "track4.p12-action-oracle-result.v1"
 CONFIG_SCHEMA = "track4.p12-action-oracle.v1"
 DEFAULT_CONFIG = Path("configs/p12_action_oracle_v1.json")
 EXPECTED_CONFIG_CANONICAL_SHA256 = (
-    "69da9c40aa6ec32448490e8c454508c3f1d1aa4fa45139d47f49b22e4d327bda"
+    "e58eb99d558ccb57352be05fd1a933d8d0b7fc7de30586f75ee1e6af285f14b9"
 )
 ALLOWED_SPLITS = {
     "train_explore": {
@@ -98,6 +101,11 @@ FAMILY2_NOVEL_SLOT10_ACTIONS = (
     P11_EVIDENCE_NOVEL_SLOT10,
     HARD_CLAUSE_NOVEL_SLOT10,
     TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10,
+)
+FAMILY3_NOVEL_SLOT10_ACTIONS = (
+    VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10,
+    DUAL_BOUNDARY_CONSENSUS_SLOT10,
+    RECENT_OVERRIDE_RANK_FUSION_SLOT10,
 )
 SAFE_PROFILE_KEYS = {
     "purchase_frequency",
@@ -839,6 +847,7 @@ def validate_trace(
             GUARDED_COMPACT_SLOT10,
             GUARDED_COMPACT_SLOT10_STRICT,
             *FAMILY2_NOVEL_SLOT10_ACTIONS,
+            *FAMILY3_NOVEL_SLOT10_ACTIONS,
         ):
             if (
                 len(clean_actions[action]) != min(10, len(clean_pools["c50"]))
@@ -866,7 +875,10 @@ def validate_trace(
         structured_top10 = frozenset(clean_actions[CANDIDATE_RERANK])
         semantic_top10 = frozenset(clean_actions[FROZEN_SEMANTIC_RERANK])
         p11_tail_c50 = frozenset(clean_pools["c50"][10:])
-        for action in FAMILY2_NOVEL_SLOT10_ACTIONS:
+        for action in (
+            *FAMILY2_NOVEL_SLOT10_ACTIONS,
+            *FAMILY3_NOVEL_SLOT10_ACTIONS,
+        ):
             novel = clean_actions[action]
             if novel == p11:
                 continue
@@ -1220,6 +1232,7 @@ def _merge_worker_summaries(shards: Sequence[ShardResult]) -> dict[str, Any]:
         "semantic_failure_count",
         "rewrite_failure_count",
         "family2_score_failure_count",
+        "family3_compute_failure_count",
         "full_catalog_search_calls",
         "p11_invariant_failure_count",
     )
@@ -1470,6 +1483,7 @@ def build_go_no_go(
         GUARDED_COMPACT_SLOT10,
         GUARDED_COMPACT_SLOT10_STRICT,
         *FAMILY2_NOVEL_SLOT10_ACTIONS,
+        *FAMILY3_NOVEL_SLOT10_ACTIONS,
     )
     stable_actions: list[str] = []
     for action in deployable_actions:
@@ -1488,6 +1502,7 @@ def build_go_no_go(
         "semantic_failure_count",
         "rewrite_failure_count",
         "family2_score_failure_count",
+        "family3_compute_failure_count",
         "full_catalog_search_calls",
         "p11_invariant_failure_count",
     )
@@ -1503,6 +1518,8 @@ def build_go_no_go(
         and action_failures <= int(gate["semantic_or_rewrite_failure_count_max"])
         and counts["family2_score_failure_count"]
         <= int(gate["family2_score_failure_count_max"])
+        and counts["family3_compute_failure_count"]
+        <= int(gate["family3_compute_failure_count_max"])
         and counts["full_catalog_search_calls"] == 0
         and counts["p11_invariant_failure_count"] == 0
     )
@@ -1727,6 +1744,7 @@ def run(split: str, *, limit: int | None = None) -> tuple[Path, dict[str, Any]]:
             "CANDIDATE_RERANK and FROZEN_SEMANTIC_RERANK are fixed P12-v1 diagnostic policies, not promoted production routes.",
             "The three compact-negative actions are target-blind diagnostics, not promoted production routes.",
             "The three Family2 novel-slot actions are target-blind C50 diagnostics, not promoted production routes.",
+            "The three Family3 rank-fusion novel-slot actions are target-blind C50 diagnostics, not promoted production routes.",
             "BUDGET_AROUND_NOVEL_SLOT10 was rejected before execution because source-only catalog inspection found price coverage in only 3 of 50,000 rows.",
         ],
     }

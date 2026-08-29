@@ -15,6 +15,7 @@ from scripts.p12_actions import (
     ASK,
     CANDIDATE_RERANK,
     COMPACT_NEGATIVE_C50,
+    DUAL_BOUNDARY_CONSENSUS_SLOT10,
     FROZEN_SEMANTIC_RERANK,
     GUARDED_COMPACT_SLOT10,
     GUARDED_COMPACT_SLOT10_STRICT,
@@ -22,8 +23,10 @@ from scripts.p12_actions import (
     KEEP_P11,
     KEEP_R08,
     P11_EVIDENCE_NOVEL_SLOT10,
+    RECENT_OVERRIDE_RANK_FUSION_SLOT10,
     RESULT_AWARE_REWRITE_RETRIEVE,
     TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10,
+    VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10,
 )
 
 
@@ -59,6 +62,9 @@ def _trace_row(
             P11_EVIDENCE_NOVEL_SLOT10: list(p11[:10]),
             HARD_CLAUSE_NOVEL_SLOT10: list(p11[:10]),
             TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10: list(p11[:10]),
+            VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10: list(p11[:10]),
+            DUAL_BOUNDARY_CONSENSUS_SLOT10: list(p11[:10]),
+            RECENT_OVERRIDE_RANK_FUSION_SLOT10: list(p11[:10]),
             ASK: list(p11[:10]),
         },
         "candidate_pools": {
@@ -177,6 +183,11 @@ class FrozenConfigTests(unittest.TestCase):
             "family2 thresholds": lambda value: value["actions"][
                 "family2_novel_slot10"
             ]["p11_evidence"].__setitem__("evidence_delta_min", -1.0),
+            "family3 thresholds": lambda value: value["actions"][
+                "family3_rank_fusion_slot10"
+            ]["visible_constraint"].__setitem__(
+                "challenger_vs_incumbent_utility_delta_min", -1.0
+            ),
             "bootstrap": lambda value: value["evaluation"]["bootstrap"].__setitem__(
                 "resamples", 1
             ),
@@ -353,6 +364,46 @@ class TraceValidationTests(unittest.TestCase):
                     grouped[1][0]["actions"][action], [*p11[:9], challenger]
                 )
 
+    def test_accepts_each_family3_novel_tail_single_slot_swap(self) -> None:
+        for action in runner.FAMILY3_NOVEL_SLOT10_ACTIONS:
+            with self.subTest(action=action):
+                rows = _valid_trace()
+                p11 = rows[0]["actions"][KEEP_P11]
+                challenger = rows[0]["candidate_pools"]["c50"][20]
+                rows[0]["actions"][action] = [*p11[:9], challenger]
+
+                grouped = runner.validate_trace(rows, 1, self.ids)
+
+                self.assertEqual(
+                    grouped[1][0]["actions"][action], [*p11[:9], challenger]
+                )
+
+    def test_family3_novel_slot_rejects_prefix_mutation_and_old_action_top10(self) -> None:
+        prefix_mutation = _valid_trace()
+        p11 = prefix_mutation[0]["actions"][KEEP_P11]
+        prefix_mutation[0]["actions"][VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10] = [
+            *p11[:8],
+            prefix_mutation[0]["candidate_pools"]["c50"][20],
+            p11[9],
+        ]
+        self.assert_invalid(prefix_mutation, "Top1-9-preserving single-slot")
+
+        structured = _valid_trace()
+        p11 = structured[0]["actions"][KEEP_P11]
+        structured[0]["actions"][DUAL_BOUNDARY_CONSENSUS_SLOT10] = [
+            *p11[:9],
+            structured[0]["actions"][CANDIDATE_RERANK][0],
+        ]
+        self.assert_invalid(structured, "not novel to structured and semantic Top10")
+
+        semantic = _valid_trace()
+        p11 = semantic[0]["actions"][KEEP_P11]
+        semantic[0]["actions"][RECENT_OVERRIDE_RANK_FUSION_SLOT10] = [
+            *p11[:9],
+            semantic[0]["candidate_pools"]["c50"][10],
+        ]
+        self.assert_invalid(semantic, "not novel to structured and semantic Top10")
+
     def test_family2_novel_slot_rejects_prefix_mutation_and_non_tail_candidate(self) -> None:
         prefix_mutation = _valid_trace()
         p11 = prefix_mutation[0]["actions"][KEEP_P11]
@@ -413,6 +464,9 @@ class TraceValidationTests(unittest.TestCase):
                     P11_EVIDENCE_NOVEL_SLOT10: list(p11),
                     HARD_CLAUSE_NOVEL_SLOT10: list(p11),
                     TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10: list(p11),
+                    VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10: list(p11),
+                    DUAL_BOUNDARY_CONSENSUS_SLOT10: list(p11),
+                    RECENT_OVERRIDE_RANK_FUSION_SLOT10: list(p11),
                     ASK: list(p11),
                 },
                 "candidate_pools": {
@@ -624,6 +678,15 @@ class GoNoGoTests(unittest.TestCase):
                 TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10: {
                     "relative_to_baseline": dict(candidate_relative)
                 },
+                VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10: {
+                    "relative_to_baseline": dict(candidate_relative)
+                },
+                DUAL_BOUNDARY_CONSENSUS_SLOT10: {
+                    "relative_to_baseline": dict(candidate_relative)
+                },
+                RECENT_OVERRIDE_RANK_FUSION_SLOT10: {
+                    "relative_to_baseline": dict(candidate_relative)
+                },
             },
             "oracle": {
                 "metrics": {
@@ -638,6 +701,7 @@ class GoNoGoTests(unittest.TestCase):
             "semantic_failure_count": 0,
             "rewrite_failure_count": 0,
             "family2_score_failure_count": 0,
+            "family3_compute_failure_count": 0,
             "full_catalog_search_calls": 0,
             "p11_invariant_failure_count": 0,
         }
@@ -661,6 +725,9 @@ class GoNoGoTests(unittest.TestCase):
                 P11_EVIDENCE_NOVEL_SLOT10,
                 HARD_CLAUSE_NOVEL_SLOT10,
                 TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10,
+                VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10,
+                DUAL_BOUNDARY_CONSENSUS_SLOT10,
+                RECENT_OVERRIDE_RANK_FUSION_SLOT10,
             ],
         )
 
@@ -678,6 +745,19 @@ class GoNoGoTests(unittest.TestCase):
         self.assertEqual(exploratory["status"], "NON_DECISION_SIGNAL_ONLY")
         self.assertFalse(exploratory["cage_r10_implementation_authorized"])
 
+        failed_family3_worker = {
+            **self.worker,
+            "family3_compute_failure_count": 1,
+        }
+        failed_family3 = runner.build_go_no_go(
+            self.aggregate,
+            failed_family3_worker,
+            self.config,
+            decision_eligible=True,
+        )
+        self.assertEqual(failed_family3["status"], "NO_GO")
+        self.assertFalse(failed_family3["worker_integrity_passed"])
+
         missing_family2_count = dict(self.worker)
         del missing_family2_count["family2_score_failure_count"]
         with self.assertRaisesRegex(
@@ -686,6 +766,18 @@ class GoNoGoTests(unittest.TestCase):
             runner.build_go_no_go(
                 self.aggregate,
                 missing_family2_count,
+                self.config,
+                decision_eligible=True,
+            )
+
+        missing_family3_count = dict(self.worker)
+        del missing_family3_count["family3_compute_failure_count"]
+        with self.assertRaisesRegex(
+            runner.OracleRunError, "family3_compute_failure_count"
+        ):
+            runner.build_go_no_go(
+                self.aggregate,
+                missing_family3_count,
                 self.config,
                 decision_eligible=True,
             )
@@ -786,6 +878,7 @@ def _worker_summary(scale: int = 1) -> dict:
         "semantic_failure_count": 0,
         "rewrite_failure_count": 0,
         "family2_score_failure_count": 0,
+        "family3_compute_failure_count": 0,
         "full_catalog_search_calls": 0,
         "p11_invariant_failure_count": 0,
     }
@@ -961,6 +1054,8 @@ class ParallelShardTests(unittest.TestCase):
         ]
         shards[0].receipt.worker_summary["family2_score_failure_count"] = 1
         shards[2].receipt.worker_summary["family2_score_failure_count"] = 2
+        shards[0].receipt.worker_summary["family3_compute_failure_count"] = 4
+        shards[1].receipt.worker_summary["family3_compute_failure_count"] = 5
         merged = runner._merge_worker_summaries(shards)
         self.assertEqual(merged["parallel_workers"], 3)
         self.assertEqual(merged["trajectory"]["completed_sessions"], 6)
@@ -982,6 +1077,7 @@ class ParallelShardTests(unittest.TestCase):
         ):
             self.assertEqual(merged[key], 0)
         self.assertEqual(merged["family2_score_failure_count"], 3)
+        self.assertEqual(merged["family3_compute_failure_count"], 9)
         self.assertEqual(len(merged["per_shard"]), 3)
 
     def test_worker_summary_reports_unavailable_rss_without_zero_substitution(self) -> None:

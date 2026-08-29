@@ -148,6 +148,18 @@ class _FakeP11Agent:
                 ranked[9],
             )
             family2_rankings[name] = tuple(ranked)
+        family3_rankings: dict[str, tuple[str, ...]] = {}
+        for name, challenger_index in (
+            ("visible_constraint_rank_fusion_slot10_full", 14),
+            ("dual_boundary_consensus_slot10_full", 15),
+            ("recent_override_rank_fusion_slot10_full", 16),
+        ):
+            ranked = list(p11_c50)
+            ranked[9], ranked[challenger_index] = (
+                ranked[challenger_index],
+                ranked[9],
+            )
+            family3_rankings[name] = tuple(ranked)
         self.capture = {
             "r08_full": r08,
             "p11_full": p11,
@@ -164,6 +176,7 @@ class _FakeP11Agent:
                 guarded_compact_strict
             ),
             **family2_rankings,
+            **family3_rankings,
             "p11_invariants": worker._validate_p11_invariants(
                 r08, p11, _valid_diagnostics()
             ),
@@ -202,6 +215,28 @@ class _FakeP11Agent:
             "counts": {
                 "total_turns": 10,
                 "turns_with_complete_c50_scores": 10,
+            },
+            "privacy": "aggregate counts only; no text, values, identifiers, ordinals, or labels",
+        }
+
+    def p12_family3_summary(self) -> dict[str, object]:
+        return {
+            "counts": {"total_turns": 10, "compute_failure_count": 0},
+            "reason_counts": {
+                action: {
+                    reason: 10 if reason == "activated" else 0
+                    for reason in worker.FAMILY3_DECISION_REASONS
+                }
+                for action in (
+                    p12_actions.VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10,
+                    p12_actions.DUAL_BOUNDARY_CONSENSUS_SLOT10,
+                    p12_actions.RECENT_OVERRIDE_RANK_FUSION_SLOT10,
+                )
+            },
+            "compute_failure_counts": {
+                p12_actions.VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10: 0,
+                p12_actions.DUAL_BOUNDARY_CONSENSUS_SLOT10: 0,
+                p12_actions.RECENT_OVERRIDE_RANK_FUSION_SLOT10: 0,
             },
             "privacy": "aggregate counts only; no text, values, identifiers, ordinals, or labels",
         }
@@ -686,6 +721,122 @@ class Family2C50ScoringTests(unittest.TestCase):
         self.assertEqual(agent._p12_family2_counts["feature_fetch_calls"], 0)
 
 
+class Family3WorkerHookTests(unittest.TestCase):
+    @staticmethod
+    def _capture_agent() -> worker.P12CaptureAgent:
+        agent = object.__new__(worker.P12CaptureAgent)
+        agent._p12_family3_counts = Counter(
+            {"total_turns": 0, "compute_failure_count": 0}
+        )
+        agent._p12_family3_reason_counts = {
+            action: Counter(
+                {reason: 0 for reason in worker.FAMILY3_DECISION_REASONS}
+            )
+            for action in (
+                p12_actions.VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10,
+                p12_actions.DUAL_BOUNDARY_CONSENSUS_SLOT10,
+                p12_actions.RECENT_OVERRIDE_RANK_FUSION_SLOT10,
+            )
+        }
+        agent._p12_family3_failure_counts = Counter(
+            {action: 0 for action in agent._p12_family3_reason_counts}
+        )
+        return agent
+
+    def test_reason_funnel_activation_and_per_action_exception_fallback(self) -> None:
+        agent = self._capture_agent()
+        baseline = _ids(50)
+        activated = list(baseline)
+        activated[9], activated[11] = activated[11], activated[9]
+        noop = SimpleNamespace(identifiers=baseline, reason="rank_guard")
+        active = SimpleNamespace(identifiers=tuple(activated), reason="activated")
+        state = SimpleNamespace(messages=["first", "second"], version=2, version_anchor_turn=1)
+
+        with (
+            patch.object(
+                p12_actions,
+                "decide_visible_constraint_rank_fusion_slot10",
+                return_value=noop,
+            ),
+            patch.object(
+                p12_actions,
+                "decide_dual_boundary_consensus_slot10",
+                return_value=active,
+            ),
+            patch.object(
+                p12_actions,
+                "decide_recent_override_rank_fusion_slot10",
+                side_effect=RuntimeError("unexpected"),
+            ),
+        ):
+            ranked = agent._p12_family3_rankings(
+                state,
+                baseline,
+                baseline,
+                baseline,
+                {},
+                1,
+                (),
+            )
+
+        self.assertEqual(
+            ranked[p12_actions.VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10], baseline
+        )
+        self.assertEqual(
+            ranked[p12_actions.DUAL_BOUNDARY_CONSENSUS_SLOT10], tuple(activated)
+        )
+        self.assertEqual(
+            ranked[p12_actions.RECENT_OVERRIDE_RANK_FUSION_SLOT10], baseline
+        )
+        self.assertEqual(agent._p12_family3_counts["total_turns"], 1)
+        self.assertEqual(agent._p12_family3_counts["compute_failure_count"], 1)
+        self.assertEqual(
+            agent._p12_family3_reason_counts[
+                p12_actions.VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10
+            ]["rank_guard"],
+            1,
+        )
+        self.assertEqual(
+            agent._p12_family3_reason_counts[
+                p12_actions.DUAL_BOUNDARY_CONSENSUS_SLOT10
+            ]["activated"],
+            1,
+        )
+        self.assertEqual(
+            agent._p12_family3_failure_counts[
+                p12_actions.RECENT_OVERRIDE_RANK_FUSION_SLOT10
+            ],
+            1,
+        )
+        funnel = agent.p12_family3_summary()
+        self.assertEqual(
+            funnel["eligibility_counts"][
+                p12_actions.DUAL_BOUNDARY_CONSENSUS_SLOT10
+            ]["relevance_guard_passed"],
+            1,
+        )
+        self.assertNotIn("item-", json.dumps(funnel, sort_keys=True))
+        self.assertIn("privacy", funnel)
+
+    def test_compose_rejects_malformed_family3_single_slot_capture(self) -> None:
+        p11_agent = _FakeP11Agent([])
+        p11_agent.reset("conversation_1", dict(SAFE_PROFILE))
+        p11_agent.respond("conversation_1", "visible", 1, 10)
+        p11_capture = p11_agent.take_last_capture("conversation_1")
+        p5_agent = _FakeP5Agent([])
+        p5_agent.reset("conversation_1", dict(SAFE_PROFILE))
+        p5_agent.respond("conversation_1", "visible", 1, 10)
+        p5_capture = p5_agent.take_last_capture("conversation_1")
+        malformed = list(
+            p11_capture["visible_constraint_rank_fusion_slot10_full"]
+        )
+        malformed[8], malformed[14] = malformed[14], malformed[8]
+        p11_capture["visible_constraint_rank_fusion_slot10_full"] = tuple(malformed)
+
+        with self.assertRaisesRegex(worker.P12WorkerError, "single-slot guard"):
+            worker._compose_trace_record(1, 1, p11_capture, p5_capture)
+
+
 class ResourceMeasurementTests(unittest.TestCase):
     def test_peak_rss_backend_returns_a_positive_measurement(self) -> None:
         peak_rss, backend = worker._peak_rss_bytes()
@@ -817,6 +968,9 @@ class RuntimeTraceTests(unittest.TestCase):
                     p12_actions.P11_EVIDENCE_NOVEL_SLOT10,
                     p12_actions.HARD_CLAUSE_NOVEL_SLOT10,
                     p12_actions.TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10,
+                    p12_actions.VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10,
+                    p12_actions.DUAL_BOUNDARY_CONSENSUS_SLOT10,
+                    p12_actions.RECENT_OVERRIDE_RANK_FUSION_SLOT10,
                 ):
                     self.assertEqual(
                         len(
@@ -857,6 +1011,9 @@ class RuntimeTraceTests(unittest.TestCase):
                     p12_actions.P11_EVIDENCE_NOVEL_SLOT10: 10,
                     p12_actions.HARD_CLAUSE_NOVEL_SLOT10: 10,
                     p12_actions.TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10: 10,
+                    p12_actions.VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10: 10,
+                    p12_actions.DUAL_BOUNDARY_CONSENSUS_SLOT10: 10,
+                    p12_actions.RECENT_OVERRIDE_RANK_FUSION_SLOT10: 10,
                 },
             )
             self.assertEqual(
@@ -868,6 +1025,9 @@ class RuntimeTraceTests(unittest.TestCase):
                     p12_actions.P11_EVIDENCE_NOVEL_SLOT10: 1,
                     p12_actions.HARD_CLAUSE_NOVEL_SLOT10: 1,
                     p12_actions.TWO_SIGNAL_CONSENSUS_NOVEL_SLOT10: 1,
+                    p12_actions.VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10: 1,
+                    p12_actions.DUAL_BOUNDARY_CONSENSUS_SLOT10: 1,
+                    p12_actions.RECENT_OVERRIDE_RANK_FUSION_SLOT10: 1,
                 },
             )
             self.assertEqual(
@@ -884,12 +1044,23 @@ class RuntimeTraceTests(unittest.TestCase):
                     "turns_with_complete_c50_scores": 10,
                 },
             )
+            self.assertEqual(
+                summary["actions"]["family3_funnel"]["counts"],
+                {"total_turns": 10, "compute_failure_count": 0},
+            )
+            self.assertEqual(
+                summary["actions"]["family3_funnel"]["reason_counts"][
+                    p12_actions.VISIBLE_CONSTRAINT_RANK_FUSION_SLOT10
+                ]["activated"],
+                10,
+            )
             self.assertEqual(summary["p11"]["per_turn_invariants_verified"], 10)
             self.assertEqual(summary["full_catalog_search_calls"], 0)
             self.assertEqual(summary["semantic_failure_count"], 0)
             self.assertEqual(summary["rewrite_failure_count"], 0)
             self.assertEqual(summary["p11_invariant_failure_count"], 0)
             self.assertEqual(summary["family2_score_failure_count"], 0)
+            self.assertEqual(summary["family3_compute_failure_count"], 0)
             self.assertTrue(summary["trace_written_after_components_closed"])
 
     def test_drop_and_finalize_before_ten_turns_publish_nothing(self) -> None:
