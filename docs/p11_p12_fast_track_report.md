@@ -26,9 +26,37 @@
 - **残余风险：** uniform-tail override 与 confirmation-boundary 有局部 MRR 回退；
   P11 不改善 HR，private 800 泛化未知。
 
-## Phase 2 — next checkpoint
+## Phase 2 — Amazon validation proxy
 
-只在 Amazon Reviews 2023 Clothing_Shoes_and_Jewelry 5-core **validation** proxy
-（至少 8k、target-group-disjoint、排除 public targets、绝不读取 test）的 action
-oracle 达到预设 Go 条件后，才实现最小 guarded Top50→Top10 admission；否则保留
-P11/R08 served path 并记录 No-Go。
+- 固定来源为 Amazon Reviews 2023 `Clothing_Shoes_and_Jewelry` 5-core
+  **validation-only**；原始文件 345,027,412 bytes，SHA-256 `94b00815…a21ba`，
+  `test_rows_read=0`。原始与派生行均 gitignored、不可随 release/ZIP 分发。
+- builder 在解析前后校验 source/catalog/header，并 fail-closed 固定官方 revision、URL、
+  byte/hash、50k catalog、配置身份、public 与 P1–P11 共 16 份已消费语料；2,720 个
+  target 的排除 union 正确且 pairwise overlap=0。CLI 不接受 fixture 配置，Python API
+  也不能通过伪造 `production_pinned` 绕过固定配置。
+- 2,524,981 个 source rows 中，35,717 rows / 2,986 unique targets 能 inner join
+  frozen 50k catalog 并通过排除。因 unique target 少于 8k，target 只可在自己的
+  split 内重复；四 split 的 target overlap 均为 0。
+- 已生成 train/explore、calibration、selection、sealed confirmation 各 2,000 行，
+  场景均严格为 800/800/300/100；四 split 合计覆盖全部 2,986 eligible targets。
+- source-frequency >=10% 的 1 个 outcome-independent validation-source outlier 在看
+  结果前固定进入 train/explore，
+  防止单个商品支配 held-out；selection 最大 source-weight share 为 15.03%。所有结论
+  仍须同时报告 source-weighted、target-uniform 与 taxonomy-balanced 三个视图。
+- raw user ID/rating/timestamp/history 不落盘；target rating 不作 prior rating。
+  purchase-frequency 只使用 validation 前 history 长度的离散区间；prior item 对 frozen
+  catalog 的 join rate 仅 2.4736%，因此许多 preference-tag aggregate 为 neutral。这是
+  proxy 与 organizer-private 分布未知之间的明确限制。
+- 13 项 fixture/security 测试通过，覆盖 source/config 漂移、test 路径提前拒绝、输出
+  冲突、fresh-checkout aggregate evidence、production marker 伪造与中途发布回滚。
+  六文件发布可在普通异常时回滚，但不是断电/强杀下的集合级原子事务；中断后必须先
+  审核残留文件。最终 commit-bound 双构建 hash 将在 implementation checkpoint 后生成。
+- confirmation 只物化为 sealed 文件；本阶段没有运行 evaluator 或读取其结果。
+
+## Phase 3 — action oracle next
+
+只在未封存的 explore/calibration/selection 上复用一个通用 runner，比较 KEEP_R08、
+KEEP_P11、C50 structured rerank、candidate-only semantic、result-aware rewrite 与 ASK。
+Oracle HR 至少 `+1.5pp`（或等价明确 Score 上界）且跨 scenario/taxonomy 有净 rescue
+后，才实现最小 guarded Top50→Top10 admission；否则保留 P11/R08 并记录 No-Go。

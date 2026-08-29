@@ -1,0 +1,241 @@
+{
+  "schema_version": "track4.amazon-validation-proxy.v1",
+  "source": {
+    "dataset": "McAuley-Lab/Amazon-Reviews-2023",
+    "domain": "Clothing_Shoes_and_Jewelry",
+    "split": "validation",
+    "revision": "2aa726ef444e72c6a1364c4baa0bcdfb1de55db6",
+    "url": "https://huggingface.co/datasets/McAuley-Lab/Amazon-Reviews-2023/resolve/2aa726ef444e72c6a1364c4baa0bcdfb1de55db6/benchmark/5core/last_out_w_his/Clothing_Shoes_and_Jewelry.valid.csv",
+    "path": "data/external/amazon_reviews_2023/Clothing_Shoes_and_Jewelry.valid.csv",
+    "bytes": 345027412,
+    "sha256": "94b00815eb883ee41ceea08229139c5a0711ee2b6b212a64ecff1450044a21ba",
+    "header": "user_id,parent_asin,rating,timestamp,history",
+    "fields": [
+      "user_id",
+      "parent_asin",
+      "rating",
+      "timestamp",
+      "history"
+    ],
+    "history_delimiter": " "
+  },
+  "catalog": {
+    "path": "data/catalog.jsonl",
+    "rows": 50000,
+    "sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67"
+  },
+  "exclusions": {
+    "group_key": "ground_truth.parent_asin",
+    "file_hash_mode": "SHA-256 over UTF-8 bytes after CRLF/CR to LF normalization",
+    "consumed_target_union_count": 2720,
+    "require_consumed_corpora_pairwise_target_disjoint": true,
+    "consumed_corpora": [
+      {
+        "id": "released_public",
+        "path": "data/public_set.jsonl",
+        "rows": 200,
+        "file_sha256": "857259f7a438e6188ac63e18995b6ff4489bfcfc4a716a798b9a2aa0ee8f7579"
+      },
+      {
+        "id": "p1_derived",
+        "path": "experiments/p1_derived_product_disjoint.jsonl",
+        "rows": 200,
+        "file_sha256": "69c413e1cdc032d437af2dcda4a33dc4104860454402ced72001952582cfe687"
+      },
+      {
+        "id": "p5_selection",
+        "path": "experiments/p5_selection_product_disjoint.jsonl",
+        "rows": 200,
+        "file_sha256": "0d58a32f65b67c9408558a59df461c340691928a791117099a56049e177efa0c"
+      },
+      {
+        "id": "p6_selection",
+        "path": "experiments/p6_selection_product_disjoint.jsonl",
+        "rows": 200,
+        "file_sha256": "27544cdb6ed9495808c35bbab09b4dbadcb88a1d75d162f17bb4fba6ee8841c7"
+      },
+      {
+        "id": "p7_selection",
+        "path": "experiments/p7_selection_product_disjoint.jsonl",
+        "rows": 200,
+        "file_sha256": "bad13262ca5cccd3585a80c255918a91c894c8d44d538435006064c3596f9546"
+      },
+      {
+        "id": "p8_selection",
+        "path": "experiments/p8_selection_product_disjoint.jsonl",
+        "rows": 200,
+        "file_sha256": "1c11d73d7c8ced617ce874e15a563f240731ca9654ed42bcc4f773b7b4da81ee"
+      },
+      {
+        "id": "p8_confirmation",
+        "path": "experiments/p8_confirmation_product_disjoint.jsonl",
+        "rows": 200,
+        "file_sha256": "3ae6f8ff7ab0362399b348c3443daa5b7138aab9cf72e944b7e11dd71d7d3dde"
+      },
+      {
+        "id": "p9_selection",
+        "path": "experiments/p9_selection_product_disjoint.jsonl",
+        "rows": 200,
+        "file_sha256": "6298cbd6d7507f4b163ab4979a86ff109e0dffa90557e3b28e5d20d129e5be9f"
+      },
+      {
+        "id": "p9_confirmation",
+        "path": "experiments/p9_confirmation_product_disjoint.jsonl",
+        "rows": 200,
+        "file_sha256": "4bbd9d53f32e3773de18bab881ba6e5ef0887ca86701897798ee086430ed08d9"
+      },
+      {
+        "id": "p11_primary",
+        "path": "experiments/p11_primary_representative.jsonl",
+        "rows": 200,
+        "file_sha256": "1d578694c3226d1b008d2c9f2f252ed63d114a544c82c218c06116b13c00cf84"
+      },
+      {
+        "id": "p11_uniform_tail",
+        "path": "experiments/p11_uniform_tail.jsonl",
+        "rows": 200,
+        "file_sha256": "87d2334dd28dded92df2d8c8897f7f9552efb655bc74488d49dafe2f6efc1dfd"
+      },
+      {
+        "id": "p11_confirmation",
+        "path": "experiments/p11_confirmation.jsonl",
+        "rows": 200,
+        "file_sha256": "6dfdcdaf8cd6a091a9b82c192b076ad4e48a89b4023d5ef65394a6d6daf737ba"
+      },
+      {
+        "id": "p11_failure_negative",
+        "path": "experiments/p11_failure_negative.jsonl",
+        "rows": 80,
+        "file_sha256": "c0c593dc90af45ec9f3dcdfaaace286f9b0a53c52d0a833c8d292a4488126290"
+      },
+      {
+        "id": "p11_failure_budget",
+        "path": "experiments/p11_failure_budget.jsonl",
+        "rows": 80,
+        "file_sha256": "a522134897f7ab8348c327a9a53d30075033dc379bcec610777201abfbb6ee91"
+      },
+      {
+        "id": "p11_failure_override",
+        "path": "experiments/p11_failure_override.jsonl",
+        "rows": 80,
+        "file_sha256": "1eeb7e552f2ef0ce8aae413adb7a6393891f1e265c774728ed6ba3b35685df95"
+      },
+      {
+        "id": "p11_failure_missing_evidence",
+        "path": "experiments/p11_failure_missing_evidence.jsonl",
+        "rows": 80,
+        "file_sha256": "2aca6b723b592b84caf173fb55c231e8572d0844da9f57cd0c89b9e0489f4ef9"
+      }
+    ],
+    "manual_target_ledger": {
+      "path": "configs/p12_manual_target_exclusions.json",
+      "schema_version": "track4.p12-manual-exclusions.v1",
+      "expected_count": 0,
+      "file_sha256": "355f4a25d65f24ed5d39f929d8309aa5ee527ae74dab157913f712b186de2235"
+    }
+  },
+  "selection": {
+    "seed": "track4-amazon-validation-proxy-v1",
+    "source_frequency_outlier_train_threshold": 0.1,
+    "source_frequency_outlier_policy": "assign outcome-independent validation-source-frequency outliers to train_explore before held-out hash grouping",
+    "target_join": "inner_join_frozen_catalog",
+    "group_split": {
+      "key": "parent_asin",
+      "algorithm": "outcome-independent validation-source-frequency outliers to train_explore, then taxonomy/popularity-stratified SHA-256 order with deterministic per-stratum rotation and round-robin target-group assignment",
+      "pairwise_target_overlap_required": 0
+    },
+    "row_sampling": {
+      "algorithm": "breadth-first deterministic source-occurrence sampling inside each fixed target group, using safe-profile histograms only",
+      "weighting": "raw per-target source frequency divided across emitted rows as evaluator-only source_weight",
+      "raw_user_id_persisted": false
+    },
+    "scenario_assignment": {
+      "algorithm": "stable hash shuffle of a fixed scenario multiset",
+      "counts_per_split": {
+        "buying": 800,
+        "browsing": 800,
+        "intent_override": 300,
+        "boundary": 100
+      }
+    }
+  },
+  "outputs": {
+    "root": "experiments/fast_track/proxy_v1",
+    "manifest": "experiments/fast_track/proxy_v1/manifest.json",
+    "audit": "experiments/fast_track/proxy_v1/audit.json",
+    "splits": {
+      "train_explore": {
+        "path": "experiments/fast_track/proxy_v1/proxy_train_explore.jsonl",
+        "rows": 2000,
+        "sealed": false
+      },
+      "calibration": {
+        "path": "experiments/fast_track/proxy_v1/proxy_calibration.jsonl",
+        "rows": 2000,
+        "sealed": false
+      },
+      "selection": {
+        "path": "experiments/fast_track/proxy_v1/proxy_selection.jsonl",
+        "rows": 2000,
+        "sealed": false
+      },
+      "confirmation": {
+        "path": "experiments/fast_track/proxy_v1/proxy_confirmation.sealed.jsonl",
+        "rows": 2000,
+        "sealed": true,
+        "requires_explicit_unseal": true
+      }
+    },
+    "total_rows": 8000
+  },
+  "annotations": {
+    "taxonomy": {
+      "version": "catalog-path-coarse-v1",
+      "values": [
+        "clothing",
+        "shoes",
+        "jewelry",
+        "accessories-other"
+      ],
+      "leaf_path_included": true
+    },
+    "popularity": {
+      "version": "catalog-rating-number-midrank-v1",
+      "values": [
+        "head",
+        "mid",
+        "tail"
+      ]
+    },
+    "evaluation_views": {
+      "source_weighted": {
+        "aggregation": "micro_average_over_sampled_source_rows"
+      },
+      "target_uniform": {
+        "aggregation": "one equal contribution per unique target after aggregating its repeated sessions"
+      },
+      "taxonomy_balanced": {
+        "aggregation": "unweighted_macro_average_over_nonempty_taxonomy_groups",
+        "reuses_source_rows": true
+      }
+    }
+  },
+  "privacy": {
+    "agent_profile_source": "pre-validation history length and frozen-catalog coarse metadata aggregates only",
+    "raw_fields_never_emitted": [
+      "user_id",
+      "rating",
+      "timestamp",
+      "history"
+    ],
+    "target_rating_used_as_prior_profile": false,
+    "raw_history_asins_persisted": false
+  },
+  "distribution": {
+    "nonredistributable": true,
+    "local_research_use_only": true,
+    "commit_raw_or_derived_rows": false,
+    "include_raw_or_derived_rows_in_release_or_zip": false,
+    "boundary": "validation-derived proxy; not organizer-private data and not a byte-identical organizer generator"
+  }
+}

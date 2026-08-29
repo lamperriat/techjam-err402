@@ -8,6 +8,8 @@ experiments/
 observer_startup_error.log
 data/catalog.jsonl
 data/releases/
+# External research/validation assets are local-only and must never enter Git or releases.
+data/external/
 # Organizer-only code, private evaluation data, manifests, and build reports.
 organizer/
 secure/

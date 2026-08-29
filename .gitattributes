@@ -1,1 +1,3 @@
 starter/assets/p11_features.sqlite -text
+experiments/fast_track/proxy_v1/audit.json -text
+experiments/fast_track/proxy_v1/manifest.json -text

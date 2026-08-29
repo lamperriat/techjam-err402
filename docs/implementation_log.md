@@ -44,6 +44,32 @@ Last updated: 2026-08-29 SGT.
   production run. `TECHJAM_P11_MODE=off` restores the complete R08 order, while
   `retrieval_mode=control` preserves the pre-P4 weighted-RRF output for paired experiments.
 
+## P12 validation-only proxy builder
+
+- Added a fixed-source, standard-library streaming builder for the pinned Amazon Reviews
+  2023 Clothing_Shoes_and_Jewelry 5-core validation CSV; filename, byte count, SHA-256,
+  five-column schema, official catalog identity, 16 consumed corpora, and the empty manual
+  exclusion ledger all fail closed before outputs are published.
+- The local-only source contains 2,524,981 rows. After the frozen-catalog inner join and
+  2,720-target exclusion, 35,717 rows / 2,986 targets remain. No test split was read.
+- Four 2,000-row target-group-disjoint splits use exact 40/40/15/5 scenario quotas,
+  catalog-only taxonomy/popularity/difficulty, safe aggregate profiles, and an explicitly
+  sealed confirmation filename. Raw user/rating/timestamp/prior-ID sequences never persist.
+- One outcome-independent validation-source-frequency outlier is assigned to train/explore before the
+  held-out hash split. Purchase-frequency uses only a bucketed pre-validation history
+  length; preference tags use joined frozen-catalog metadata. The manifest exposes raw
+  source weights, target-uniform and taxonomy stress views, concentration/effective-target
+  diagnostics, and the 2.4736% prior-catalog join limitation.
+- Production load/build pins the complete tracked config, records canonical/LF hash modes,
+  re-verifies inputs after parsing, rejects input/output collisions, and refuses both flat
+  CLI configs and forged production dataclasses. Publication uses exclusive hard links,
+  verifies identical pre-tracked aggregate evidence, and rolls back ordinary exceptions;
+  it is explicitly not crash-atomic as a six-file set.
+- Thirteen fixture/security tests pass, including config/source drift, fresh-checkout
+  aggregate evidence, production-marker forgery, and injected publish failure. Final
+  commit-bound aggregate hashes are generated only after this implementation checkpoint;
+  derived rows remain ignored and are never eligible for tracking.
+
 ## P11 Top-10-preserving reranker: frozen formal promote decision
 
 The sole preregistered P11 formal run completed with decision `promote_p11_r01` and winner
