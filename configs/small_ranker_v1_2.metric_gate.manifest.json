@@ -1,0 +1,72 @@
+{
+  "schema_version": "small-ranker-metric-gate-manifest.v1",
+  "recorded_on": "2026-08-30",
+  "branch": "small-ranker-v1.2-metric-gate",
+  "parent_checkpoint": "d9aff66",
+  "scope": {
+    "split": "train_explore",
+    "ranker_retrained": false,
+    "agent_or_runtime_started": false,
+    "calibration_opened": false,
+    "selection_opened": false,
+    "confirmation_opened": false,
+    "public_opened": false
+  },
+  "protocol": {
+    "ranker": "frozen ndcg_d4_lr003 outer-OOF scores",
+    "gate_model": "unchanged nested target-blind logistic rescue model",
+    "challenger_threshold_rule": "inner-OOF zero hit-to-miss, nonnegative MRR delta, nonpositive MTTC delta, then maximum TechnicalScore",
+    "outer_folds": 5,
+    "inner_folds": 5,
+    "threshold_quantiles": 65
+  },
+  "sources": {
+    "feature_cache_sha256": "2b19835a1bced7f21322610296c712e3d06d915274719e11c268d31f7f596089",
+    "label_cache_sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+    "oof_score_sha256": "ef9f53ec46e6b18626329d612abbab342b0714dd0ad83c7e6b06040028fe75aa",
+    "analyzer": {
+      "path": "scripts/analyze_small_ranker_metric_gate.py",
+      "sha256": "6af0e6249ca8c5bbeef5da29108995dc0f7b0621f53b3f99cc21da02c4b0cf0d"
+    },
+    "ignored_result": {
+      "path": "experiments/fast_track/small_ranker_metric_gate_v1.json",
+      "bytes": 10262,
+      "sha256": "6bcc9d8048e72203443b7d874b989b333089d63c72025f11c409d0ccebe53f5c"
+    }
+  },
+  "current_gate_reference": {
+    "miss_to_hit": 56,
+    "hit_to_miss": 0,
+    "net_hits": 56,
+    "hr_delta": 0.028,
+    "mrr_delta": -0.059318,
+    "mttc_delta": -0.356,
+    "technical_score_delta": 0.003325,
+    "activation_sessions": 1461
+  },
+  "metric_safe_challenger": {
+    "miss_to_hit": 7,
+    "hit_to_miss": 0,
+    "net_hits": 7,
+    "fold_net_hits": [0, 0, 0, 0, 7],
+    "fold_mrr_delta": [0.0, 0.0, 0.0, 0.0, -0.002583],
+    "hr_delta": 0.0035,
+    "mrr_delta": -0.000517,
+    "mttc_delta": -0.01,
+    "technical_score_delta": 0.001795,
+    "activation_sessions": 22,
+    "activation_turns": 41,
+    "wall_seconds": 2.441047
+  },
+  "test_evidence": {
+    "command": "C:\\Users\\danie\\anaconda3\\python.exe -m pytest tests/test_small_ranker_metric_gate.py -q",
+    "result": "2 passed in 0.22s"
+  },
+  "decision": {
+    "status": "NO_GO",
+    "reason": "threshold-only metric constraints reduced rescue below +10, rescued only one outer fold, and did not preserve MRR on held outer OOF",
+    "promote": false,
+    "served_default": "off",
+    "next_algorithm": "train an explicit first-hit reciprocal-rank harm head or a direct session-utility gate; do not continue threshold-only tuning"
+  }
+}
