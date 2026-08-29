@@ -134,6 +134,31 @@ catalog; it does not load an undisclosed private dataset.
   roles were aggregated, but a one-millionth official-score bridge mismatch prevented
   confirmation repeat. Released-public was not run. This output contains aggregates and
   hashes, not organizer-private rows.
+- P11 adds three 200-session formal corpora and four 80-session diagnostic corpora. Their
+  920 target products are mutually disjoint and have zero overlap with the complete 1,800
+  released-public/P1/P5/P6/P7/P8/P9 target registry. Primary, uniform-tail, and
+  confirmation SHA-256 values are respectively
+  `1d578694c3226d1b008d2c9f2f252ed63d114a544c82c218c06116b13c00cf84`,
+  `87d2334dd28dded92df2d8c8897f7f9552efb655bc74488d49dafe2f6efc1dfd`, and
+  `6dfdcdaf8cd6a091a9b82c192b076ad4e48a89b4023d5ef65394a6d6daf737ba`.
+  Corpus metadata SHA-256 is
+  `40995692dda99dbca7d94382568e656f45aa1575874f37625d07feb1d8866b8e`.
+  All are deterministic catalog-derived local evaluation data, not organizer labels or a
+  private-set proxy.
+- `experiments/p11_features.sqlite` is a 50,000-row, 32,501,760-byte catalog-only,
+  label-free, target-blind feature sidecar with SHA-256
+  `83b6d8c04be6666173806b6e9cb03301eecb8ca58a60272bfa719e6533380473`.
+- `experiments/p11_top10_evaluation.json` is the ignored, aggregate-only output from the
+  sole frozen P11 formal protocol, schema `p11.top10-evaluation.v1`, 133,774 bytes, and
+  SHA-256 `fe0f8820b22c07136db44fb3739809d22b8edc5d1125707c5b0523dec312b912`.
+  The associated formal-attempt marker is schema `p11.formal-attempt.v1`, 262 bytes,
+  SHA-256 `3638d4f7f95c3d877bf47b77210b6f7a448330bd6f1d77f885ffd1073d0fd669`;
+  the confirmation-consumed marker is schema `p11.confirmation-consumed.v1`, 269 bytes,
+  SHA-256 `b72590359d10ee1f52ea6e0876be669f9da21256ac8486f449fac05fc1865df3`.
+  Primary, uniform-tail, and confirmation ran only after their frozen sequence gates;
+  four failure slices stayed at `runs_per_slice=0`, and released public was not run. An
+  independent scrub found none of the 920 sample IDs or 920 target ASINs in the three
+  formal marker/result outputs.
 - `experiments/*.json` and versioned Workbench runs are participant outputs.
 - Attached audit/handoff ZIPs and prior-agent reports are project evidence, not new
   organizer labels.

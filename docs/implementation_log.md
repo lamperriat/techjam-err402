@@ -7,6 +7,11 @@ Last updated: 2026-08-29 SGT.
 ## Current verified implementation
 
 - Branch: `p4-architecture-search`
+- P11 preregistration lock: `c6efa5f` (`chore: freeze P11 preregistration lock`)
+- P11 frozen source: `639cf78` (`fix: align P11 protocol hash with corpus builder`),
+  including the P11 implementation checkpoint at parent `4f27ee8`
+- P11 formal decision: `promote_p11_r01`; aggregate result SHA-256
+  `fe0f8820b22c07136db44fb3739809d22b8edc5d1125707c5b0523dec312b912`
 - P9 preregistration lock: `e36d515` (`chore: freeze p9 preregistration lock`)
 - P9 compact-negative protocol: `d03690d` (`feat: add hardened compact-negative p9 protocol`)
 - P4 served/reference bridge: `1f8fd3c` (`test: bridge frozen and promoted response traces`)
@@ -38,12 +43,12 @@ Last updated: 2026-08-29 SGT.
   or set them explicitly for a production run. `retrieval_mode=control` preserves the
   pre-P4 weighted-RRF output for paired experiments.
 
-## P11 Top-10-preserving reranker: pre-formal source-freeze candidate
+## P11 Top-10-preserving reranker: frozen formal promote decision
 
-This section records verified pre-formal infrastructure, not an experiment outcome. The
-served Agent remains R08 `coverage/off/fast`; P9 remains frozen and was neither modified
-nor rerun. The separate preregistration lock has not been generated. No P11 formal
-evaluator, released-public evaluation, or production promotion has occurred.
+The sole preregistered P11 formal run completed with decision `promote_p11_r01` and winner
+`P11.R01.top10_linear`. This is an isolated experiment promotion, not yet a production
+route change: the served Agent and complete fallback remain R08 `coverage/off/fast`.
+P9 stayed frozen and was neither modified nor rerun. Released public was not evaluated.
 
 - Added an exact future-experiment metric bridge that validates HR, MRR, MTTC,
   Efficiency, TechnicalScore, `best_rank`, and reciprocal-rank consistency in the official
@@ -148,18 +153,71 @@ evaluator, released-public evaluation, or production promotion has occurred.
   contract/target-blind/network/token/exception audits. The paired bootstrap uses the
   explicitly frozen unrounded per-session TechnicalScore contribution; exact rounded
   official aggregate scores are validated separately.
-- Runner hardening has independent GO reviews for the parent audit stream and all three
-  target-source scans; a final independent readiness re-review of the later SQLite/RSS
-  hardening also returned GO for source freeze.
-  The P11 focused suite passes `101/101`, the full project suite passes `559/559`, and the
-  official asset verifier passes `14/14`. A real four-role zero-session smoke reports zero
-  network, denied-audit, and generic exception events and records valid post-`atexit`
-  Windows peak RSS for all roles. Formal readiness still requires the source commit/push,
-  a separately committed/pushed preregistration lock, and a clean `--dry-preflight` from
-  the locked HEAD.
-- `configs/p11_prereg_lock.json`, the formal-attempt and confirmation-consumption markers,
-  and `experiments/p11_top10_evaluation.json` do not exist at this checkpoint. Therefore
-  there are no P11 selection/confirmation metrics and no promote/reject decision to report.
+- Runner hardening had independent GO reviews for the parent audit stream and all three
+  target-source scans; a final readiness re-review of the SQLite/RSS hardening also
+  returned GO. Source commit `639cf78` was pushed before lock generation. The lock-only
+  commit `c6efa5f6250c013e4a6618661ef947623e709cc5` was then pushed with lock SHA-256
+  `1fbcd9b52062cd342b2f29b0a1c66b4eb1d892ffdbe2cd9b1fd35894eb412325`.
+  Locked `--dry-preflight` passed identity validation and the four-role zero-session smoke;
+  confirmation remained byte/hash-only and no one-shot marker existed at that point.
+- The one formal run then followed the frozen order: primary initial, primary fresh exact
+  repeat, uniform-tail non-regression, confirmation consumption and semantic parse,
+  confirmation initial, confirmation fresh exact repeat, final gate. It finished in
+  `477.032` seconds under the 5,400-second whole-run deadline. Primary and confirmation
+  repeats were exact, all 18 formal subprocesses were fresh, and every contract,
+  target-blind, network, token, generic-exception, pre-import audit, Top-10 membership, and
+  tail-preservation check passed.
+
+| Split | Role | HR@10 | MRR | MTTC | Efficiency | TechnicalScore |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Primary | C00 R08 | 0.930000 | 0.583204 | 3.370000 | 0.763000 | 0.792561 |
+| Primary | R01 Top-10 | 0.930000 | 0.625488 | 3.370000 | 0.763000 | 0.805246 |
+| Uniform tail | C00 R08 | 0.900000 | 0.607732 | 3.540000 | 0.746000 | 0.781520 |
+| Uniform tail | R01 Top-10 | 0.900000 | 0.618764 | 3.540000 | 0.746000 | 0.784829 |
+| Confirmation | C00 R08 | 0.955000 | 0.581927 | 3.140000 | 0.786000 | 0.809278 |
+| Confirmation | R01 Top-10 | 0.955000 | 0.629524 | 3.140000 | 0.786000 | 0.823557 |
+
+Initial-run absolute resources were:
+
+| Split | Role | Wall seconds | Response P95 ms | Peak RSS bytes |
+| --- | --- | ---: | ---: | ---: |
+| Primary | C00 R08 | 25.644050 | 61.1538 | 147,890,176 |
+| Primary | R01 Top-10 | 26.960285 | 63.9380 | 151,748,608 |
+| Uniform tail | C00 R08 | 27.889994 | 64.2017 | 147,480,576 |
+| Uniform tail | R01 Top-10 | 28.020347 | 64.8137 | 150,405,120 |
+| Confirmation | C00 R08 | 23.525219 | 70.2335 | 147,615,744 |
+| Confirmation | R01 Top-10 | 24.113710 | 72.5760 | 151,543,808 |
+
+- TechnicalScore deltas were `+0.012685` primary, `+0.003309` uniform-tail, and
+  `+0.014279` confirmation. The preregistered 10,000-resample paired 95% CIs were
+  `[0.004354166667, 0.021275000000]` primary and
+  `[0.004538690476, 0.024201190476]` confirmation, both strictly above zero. Their
+  unrounded paired observed means were `0.012685119048` and `0.014279166667`.
+  Every split had zero HR and MTTC delta, zero hit-to-miss, and zero scenario-HR delta.
+  Shared control/candidate scenario HRs were primary `0.800000/0.925000/0.937500/0.966667`,
+  uniform-tail `0.900000/0.925000/0.887500/0.866667`, and confirmation
+  `0.900000/0.987500/0.937500/0.933333` for
+  boundary/browsing/buying/intent-override respectively. The preregistration constrained
+  scenario HR, not scenario MRR: uniform-tail intent-override MRR changed
+  `0.712037 -> 0.685370`, and confirmation boundary MRR changed
+  `0.428571 -> 0.420952`. These do not invalidate the frozen decision but remain explicit
+  production-integration risks to monitor.
+- Initial-run candidate ratios against the worse of C00 or B00 were, by split, primary
+  wall/P95/RSS `1.051327/1.045528/1.027000`, uniform-tail
+  `1.004674/1.009532/1.024582`, and confirmation
+  `1.027087/1.033353/1.026610`. Including exact repeats, the global worst observed
+  wall/P95/RSS ratios were `1.051327/1.052578/1.027000`; all are below the frozen
+  `1.15/1.20/1.10` limits.
+- The aggregate-only artifacts are fixed by SHA-256: formal-attempt marker
+  `3638d4f7f95c3d877bf47b77210b6f7a448330bd6f1d77f885ffd1073d0fd669`,
+  confirmation-consumed marker
+  `b72590359d10ee1f52ea6e0876be669f9da21256ac8486f449fac05fc1865df3`, and result
+  `fe0f8820b22c07136db44fb3739809d22b8edc5d1125707c5b0523dec312b912`.
+  Failure slices remained non-gating with `runs_per_slice=0`. Post-result verification
+  passes the complete `559/559` suite, official assets `14/14`, and `compileall`.
+- The formal gate therefore promotes R01 for a later reversible production integration.
+  Until that separate change is implemented and verified, direct/default production
+  behavior remains R08 and the published checkpoint remains unchanged.
 
 ## P9 compact-negative experiment: frozen retain decision
 

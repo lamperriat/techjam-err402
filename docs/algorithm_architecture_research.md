@@ -94,9 +94,9 @@ measured bucket justifies it. Every model path must declare model/version/licens
 hash, disk/RAM, latency, token/network behavior, and an offline fallback before public
 gating.
 
-## P11 Top-10 set-preserving reranker: pre-formal implementation
+## P11 Top-10 set-preserving reranker: formal promote decision
 
-P11 implements the next bounded ranking hypothesis without changing the served Agent.
+P11 tested the next bounded ranking hypothesis without changing the served Agent.
 R08 `coverage/off/fast` remains the fallback and B00 reference. C00 must reproduce B00;
 S00 computes the proposal but returns C00; R01 may only permute the exact current Top 10
 and must preserve every candidate after rank 10. The scorer is the fixed monotonic
@@ -148,8 +148,48 @@ loaded but before that split's workers. This is a documented trusted-Python boun
 an OS sandbox for hostile native or arbitrary reflective code. The focused suite is
 `101/101`, the complete regression is `559/559`, official assets are `14/14`, and a real
 four-role zero-session smoke has valid post-`atexit` peak RSS with zero network, denial,
-or generic-exception events. No P11 lock, formal marker, confirmation result, or promotion
-decision exists; source/lock commit-and-push plus dry preflight remain required.
+or generic-exception events. Source commit `639cf78` and the separate lock-only commit
+`c6efa5f` were pushed before evaluation; lock SHA-256 is
+`1fbcd9b52062cd342b2f29b0a1c66b4eb1d892ffdbe2cd9b1fd35894eb412325`.
+The locked dry preflight passed without creating a formal marker or semantically parsing
+confirmation.
+
+The sole formal run completed in the preregistered order and produced
+`promote_p11_r01`:
+
+| Split | C00 TechnicalScore | R01 TechnicalScore | Delta | C00 MRR | R01 MRR |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Primary | 0.792561 | 0.805246 | +0.012685 | 0.583204 | 0.625488 |
+| Uniform tail | 0.781520 | 0.784829 | +0.003309 | 0.607732 | 0.618764 |
+| Confirmation | 0.809278 | 0.823557 | +0.014279 | 0.581927 | 0.629524 |
+
+HR@10 and MTTC were identical to C00 on all three splits: primary
+`0.930000/3.370000`, uniform-tail `0.900000/3.540000`, and confirmation
+`0.955000/3.140000`. Every scenario HR was unchanged and hit-to-miss was zero. Primary
+and confirmation paired 10,000-resample 95% TechnicalScore CIs were
+`[0.004354166667, 0.021275000000]` and
+`[0.004538690476, 0.024201190476]`. Primary and confirmation exact fresh-process repeats
+passed. Initial-run worst candidate wall/P95/RSS ratios against either C00 or B00 were
+`1.051327/1.045528/1.027000`, `1.004674/1.009532/1.024582`, and
+`1.027087/1.033353/1.026610` for primary, uniform-tail, and confirmation, below the
+`1.15/1.20/1.10` limits; including repeats, the global maxima were
+`1.051327/1.052578/1.027000`. All contract, target-blind, network, token, exception, Top-10
+membership, tail, identity, and whole-run deadline gates passed across 18 fresh worker
+processes. Four failure slices passed their hash/schema/disjointness validation but stayed
+non-gating with zero agent/evaluator runs; released public was not run.
+
+One risk is intentionally visible rather than hidden by the overall gain: scenario MRR was
+not a preregistered non-regression gate. Uniform-tail intent-override MRR changed from
+`0.712037` to `0.685370`, and confirmation boundary MRR from `0.428571` to `0.420952`,
+even though both scenario HRs stayed fixed. A served integration should monitor these two
+slices and must not retune on the consumed P11 evidence.
+
+The aggregate result SHA-256 is
+`fe0f8820b22c07136db44fb3739809d22b8edc5d1125707c5b0523dec312b912`.
+Post-result verification is `559/559` tests, `14/14` official asset checks, and clean
+`compileall`. This promotes the isolated R01 experiment for a later reversible production
+integration; it does not silently switch the current default, so R08 remains served and
+is still the complete fallback.
 
 ## P9 compact-negative execution result
 

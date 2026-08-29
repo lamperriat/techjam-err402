@@ -206,6 +206,24 @@ public was not evaluated, and no production promotion occurred. The served Agent
 R08 `coverage/off/fast` with the public checkpoint above. P9's isolated Python audit
 boundary is not an OS sandbox against hostile native code.
 
+P11 corrected the future metric bridge with synthetic fixtures, then evaluated one fixed,
+catalog-only `p11.top10-linear.v3` scorer on three new product-disjoint splits while
+preserving the exact R08 Top-10 member set and complete tail. Source `639cf78` and the
+separate lock-only commit `c6efa5f` were pushed before the sole formal run. Primary C00 to
+R01 changed MRR/Score from `0.583204/0.792561` to `0.625488/0.805246`; uniform-tail changed
+`0.607732/0.781520` to `0.618764/0.784829`; confirmation changed
+`0.581927/0.809278` to `0.629524/0.823557`. HR and MTTC were unchanged on every split,
+hit-to-miss was zero, primary and confirmation paired 95% CI lower bounds were positive,
+fresh exact repeats passed, and all preregistered quality/resource/audit gates passed. The
+formal experiment decision is `promote_p11_r01`; aggregate result SHA-256 is
+`fe0f8820b22c07136db44fb3739809d22b8edc5d1125707c5b0523dec312b912`.
+Scenario HR was preserved, but scenario MRR was not a frozen gate and regressed on the
+uniform-tail intent-override and confirmation boundary slices; production integration
+must keep that residual risk visible without retuning on the consumed evidence.
+Released public was not run. This promotes the isolated candidate for a separate reversible
+served integration; it has not changed the current default, which remains R08
+`coverage/off/fast` with R08 as the complete fallback.
+
 Direct `Agent()` construction reads three optional experiment variables:
 `TECHJAM_RETRIEVAL_MODE` (`coverage` or `control`),
 `TECHJAM_RERANK_MODE` (`off`, `shadow`, or experimental `active`) and
@@ -320,10 +338,17 @@ starter/attributes.py             target-blind normalized product/constraint vie
 starter/reranker.py               deterministic gated Top-50 scorer
 starter/slot_ledger.py             auditable normalized conversation shadow
 starter/clarification.py           candidate-aware QuestionValue shadow
+starter/p11_features.py            frozen catalog-only Top-10 feature/scoring contract
+starter/p11_lab.py                 isolated B00/C00/S00/R01 P11 role layer
 evaluator/local_evaluator.py      public-set simulator and scorer
 scripts/compare_results.py        report and strict complete-result comparison
 scripts/evaluate_agent.py         mode-controlled evaluator + provenance manifest
 scripts/evaluate_generalization.py target-blind phrase/product-disjoint stress gate
+scripts/official_metric_bridge.py exact future official aggregate-score reconstruction
+scripts/build_p11_corpora.py      deterministic fresh P11 corpus builder
+scripts/build_p11_sidecar.py      catalog-only compressed feature builder
+scripts/build_p11_prereg_lock.py  fail-closed source/data/sidecar lock builder
+scripts/evaluate_p11.py           one-shot fresh-process P11 formal runner
 scripts/benchmark_resources.py    repeatability, RSS, latency, and route-recall audit
 scripts/verify_promoted_agent.py  frozen-reference to served-Agent promotion bridge
 observer/shadow_analysis.py        target-blind cross-session question diagnostics

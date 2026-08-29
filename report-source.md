@@ -4,7 +4,7 @@ Last checked: 2026-08-29 SGT.
 
 Audience: Track 4 implementation team, reviewers, and submission auditors.
 
-Scope: organizer-controlled requirements and data, P4-P9 architecture decisions, and
+Scope: organizer-controlled requirements and data, P4-P11 architecture decisions, and
 submission-readiness claims. This is the repository's canonical research report and
 claim/source ledger. It separates organizer requirements, primary research, and
 repository-local measurements. A paper can motivate an experiment; only this
@@ -27,11 +27,12 @@ offline verifier passed 14/14 checks. These facts establish participant-kit comp
 they do not expose or validate the private 800 sessions or the final judging hardware.
 
 The current evidence also does **not** justify saying that every project plan or
-submission obligation is complete. P9 retained C00 because its confirmation repeat was
-never reached after a decision-affecting metric-bridge mismatch; no public run or served
-promotion followed. The competition-window significant update, public/default-branch
-release, short report, team-contribution disclosure, and three-minute demonstration remain
-separate gates.
+submission obligation is complete. P9 retained C00 after a decision-affecting bridge
+mismatch. P11 later fixed the future bridge with synthetic fixtures and formally promoted
+an isolated Top-10 set-preserving scorer on three new product-disjoint splits, but no
+released-public run or served integration followed. The competition-window significant
+implementation update, public/default-branch release, short report, team-contribution
+disclosure, and three-minute demonstration remain separate gates.
 
 ## Organizer and data sources
 
@@ -79,9 +80,32 @@ separate gates.
 | Are the private 800 rows or final hardware limits knowable? | Not published | Treat them as known unknowns and preserve deterministic offline/resource fallbacks |
 | May the team change the Agent architecture? | Yes; the contract and evaluator are fixed, while retrieval, state, routing, clarification, reranking, and legal model choices are participant work | Keep official artifacts byte-stable while improving `starter/` and experiment-only modules |
 | Is R08 proven best on the private set? | No; it is the best eligible design under one frozen local selection protocol and a bounded public confirmation | Keep claims local and scenario-specific |
-| Should P5 PRF, P6 depth, P7 BGE, P8, or P9 be rerun on its frozen corpus? | No; each protocol has consumed its frozen evidence | P9 may motivate a separately preregistered replication with new targets and a corrected metric bridge, but not a same-corpus rerun, result-driven tuning, or a fake new architecture |
-| Is a generic dense/model swap the next priority? | No; local sparse union already recovered 198/200 P7 targets and the tested dense route rescued zero while failing wall/RSS gates | Prioritize shortlist discrimination, negative constraints, state, and question policy |
+| Should P5 PRF, P6 depth, P7 BGE, P8, P9, or P11 be rerun on its frozen corpus? | No; each protocol has consumed its frozen evidence | P11 may proceed only through a separate served-integration change using the frozen scorer; no same-corpus rerun, result-driven tuning, or fake new architecture |
+| Is a generic dense/model swap the next priority? | No; local sparse union already recovered 198/200 P7 targets and the tested dense route rescued zero while failing wall/RSS gates | First finish the reversible P11 served integration; then use fresh evidence for state/question-policy or other mechanism work |
 | Are submission obligations complete? | No | Preserve a separate post-start implementation commit, before/after evidence, public repository/default-branch verification, report, licensing, and demo checklist |
+
+## P11 frozen local evidence and claim boundary
+
+P11 used a fixed, catalog-only, target-blind scorer that may only permute the exact served
+R08 Top 10 and must preserve the entire tail. Source `639cf78` and lock-only commit
+`c6efa5f` were pushed before the one formal run. The three formal splits contain 600 fresh,
+mutually product-disjoint sessions and exclude all previously opened targets. Primary,
+uniform-tail, and confirmation TechnicalScore changed from
+`0.792561/0.781520/0.809278` to `0.805246/0.784829/0.823557`; all three preserved HR,
+MTTC, scenario HR, and zero hit-to-miss. Primary and confirmation paired-bootstrap lower
+bounds were positive, exact fresh-process repeats passed, and every frozen resource and
+audit gate passed. Result SHA-256 is
+`fe0f8820b22c07136db44fb3739809d22b8edc5d1125707c5b0523dec312b912`.
+Scenario MRR was not a frozen non-regression gate; uniform-tail intent-override and
+confirmation boundary each had a small MRR decrease despite unchanged scenario HR. This
+must remain a disclosed integration risk rather than a reason to retune consumed data.
+
+The valid local decision is `promote_p11_r01`, not “proven on the private 800” and not
+“already served.” Released public was not evaluated. The current Agent remains R08
+`coverage/off/fast`; a reversible served bridge, integration tests, and a separately
+governed final gate are still required. The core P11 feature checkpoint predates the
+competition window, so the later hash-fix and lock commits are not overstated as the
+required significant post-start product implementation.
 
 ## P8 research recommendation
 

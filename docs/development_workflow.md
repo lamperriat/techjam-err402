@@ -225,21 +225,25 @@ Successful browser-started evaluations refresh `results.json`; evaluator and gen
 3. The first architecture wave is complete: 14 raw candidates were run, 13 were
    semantically valid/effective after the R12 false-activation audit, and R08 alone passed
    selection and promotion gates.
-4. P5 PRF, P6 depth, P7 BGE, P8, and P9 are frozen completed experiments and must not be
-   rerun or tuned on their consumed corpora. P9 preserved P8's quality signal while passing
-   its resource limits on two opened splits, but a metric-bridge rounding false negative
-   prevented confirmation repeat; the formal decision therefore retained C00.
-5. Repair the exact-versus-official aggregate bridge only with synthetic unit fixtures.
-   Any replication must keep the P9 mechanism unchanged, use new target-disjoint splits,
-   and be identified as execution validation rather than a new ranking architecture.
-6. The next feature family is structured numeric-budget interval execution. It needs a
-   separate preregistration and fresh targets; P9/public outcomes must not select its
-   intervals, fallbacks, or question policy. Because P4 R12 already tested a bounded price
-   ranker, this work is not counted as another architecture unless a preregistered stage-
-   graph audit proves a materially different mechanism.
-7. Advance only a survivor that passes fresh selection, repeat, confirmation, strict
-   quality/resource gates, then one released-public/phrase confirmation. Semantic
-   dependencies additionally require recall, licensing, offline, and packaging evidence.
+4. P5 PRF, P6 depth, P7 BGE, P8, P9, and P11 are frozen completed experiments and must not
+   be rerun or tuned on their consumed corpora. P9 retained C00 after its bridge false
+   negative. P11 fixed the future bridge only with synthetic fixtures, then passed 95/95
+   preregistered final checks on three new target-disjoint splits; its isolated decision is
+   `promote_p11_r01` with zero hit-to-miss and exact primary/confirmation repeats.
+5. The next implementation task is a separate, reversible served bridge for the already
+   frozen P11 scorer. First expose it as an explicit opt-in mode without changing weights,
+   retrieval depth, Top-10 membership, or question policy. A missing/invalid sidecar or any
+   feature error must return the complete R08 order, and the default remains R08 during
+   bridge verification.
+6. Verify the bridge with response/route equality, member-set/tail invariants, no-key,
+   zero-network/token, lifecycle/resource, Windows, and Workbench trace tests. Freeze and
+   audit that integration source before deciding whether to consume one released-public
+   final gate. Public results may confirm or reject the frozen integration but may not tune
+   it.
+7. Switch the default only in a later rollback-safe commit if the integration gate passes;
+   retain an explicit one-command R08 fallback. Structured numeric-budget execution,
+   candidate-aware clarification, Top11-50 promotion, and neural routes remain later fresh-
+   corpus projects, not shortcuts around the P11 integration boundary.
 
 The repository has completed no-credential reliability, Workbench diagnostics,
 versioned term state, pending-question lifecycle, broader target-blind phrase parsing,
@@ -249,6 +253,6 @@ robustness and resource gates, normalized product attributes, a shadow SlotLedge
 candidate-aware QuestionValue diagnostics, and cross-session shadow analysis. It has not
 made the slot ledger the retrieval source of truth, activated candidate-aware questioning,
 implemented served hard filtering/relaxation or numeric budget execution, or added
-dense/profile/semantic ranking. P8/P9 explicit-negative partition and deterministic active
-rerank v1/v2 remain experiment-only implementations; P9 did not complete confirmation
-repeat and is not served.
+dense/profile/semantic ranking. P8/P9 explicit-negative partition remains experiment-only;
+P9 did not complete confirmation repeat. P11's Top-10 set-preserving scorer passed its
+formal experiment, but the served bridge/default switch is intentionally still pending.

@@ -105,13 +105,30 @@ C00 and made no released-public run or production change. This is neither organi
 validation nor evidence about the private 800. The staged Python audit/read boundary is
 not an OS sandbox against hostile native code.
 
+P11 is a third, separately preregistered local evidence layer, not an organizer result. It
+used 600 formal sessions across primary, uniform-tail, and confirmation splits whose
+targets are mutually disjoint and excluded every previously opened public/local target.
+The fixed candidate only permuted the exact served R08 Top 10. It improved TechnicalScore
+by `0.012685`, `0.003309`, and `0.014279` on the three splits while preserving HR, MTTC,
+every scenario HR, and zero hit-to-miss; all frozen repeat, bootstrap, resource, identity,
+contract, target-blind, network, token, and exception gates passed. The formal decision is
+`promote_p11_r01`, but released public was not run and the served/default Agent has not
+changed. Result SHA-256 is
+`fe0f8820b22c07136db44fb3739809d22b8edc5d1125707c5b0523dec312b912`.
+This claim does not imply scenario-MRR non-regression: the frozen gate covered scenario HR,
+and two small scenario-MRR regressions remain integration risks.
+
 ## Competition-level timing and submission obligations
 
 The Official Rules define the Submission Period as 2026-08-29 12:00 SGT through
 2026-09-01 12:00 SGT and require an existing project to receive a significant update
-after the period starts. Every commit recorded here was made before 2026-08-29 12:00 SGT
-and is therefore pre-competition evidence only; none can satisfy the post-start update
-requirement.
+after the period starts. The main P11 feature checkpoint `4f27ee8` was created at 06:08 SGT
+and remains pre-competition evidence. The protocol-hash correction `639cf78` (13:26 SGT)
+and lock-only commit `c6efa5f` (13:51 SGT) are post-start and make the formal result
+auditable, but the repository does not overstate those narrowly scoped freeze operations
+as the required significant product implementation. The planned reversible P11 served
+integration must be a separate substantive post-start code commit with before/after tests
+and public/default-branch evidence before the submission obligation is claimed complete.
 
 The public Devpost overview additionally requests a written project description and
 tech stack, a public code repository with a comprehensive README, and a public
