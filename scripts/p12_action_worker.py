@@ -44,6 +44,7 @@ from starter.p9_evidence import (  # noqa: E402
     OFFICIAL_CATALOG_ROWS,
     OFFICIAL_CATALOG_SHA256,
     masks_from_view,
+    stable_compact_partition,
 )
 from starter.semantic import (  # noqa: E402
     OfflineSemanticEncoder,
@@ -623,6 +624,21 @@ class P12CaptureAgent(Agent):
         self._p12_last_capture: dict[str, Any] | None = None
         self._p12_structured_seconds: list[float] = []
         self._p12_semantic_seconds: list[float] = []
+        self._p12_compact_counts: Counter[str] = Counter(
+            {
+                "total_turns": 0,
+                "ledger_records_examined": 0,
+                "executable_constraints": 0,
+                "turns_with_executable_constraints": 0,
+                "turns_with_c50_explicit_violation": 0,
+                "turns_with_rank10_explicit_violation": 0,
+                "turns_with_better_class_outsider": 0,
+                "turns_with_adjacent_compatible_outsider": 0,
+                "full_partition_order_change_turns": 0,
+                "diagnostic_fail_closed_turns": 0,
+            }
+        )
+        self._p12_compiler_rejections: Counter[str] = Counter()
         super().__init__(
             catalog_path,
             llm_client=None,
@@ -751,9 +767,79 @@ class P12CaptureAgent(Agent):
             compact_evidence,
             compilation.constraints,
         )
+        guarded_compact_strict = p12_actions.rank_guarded_compact_slot10_strict(
+            p11_c50,
+            compact_evidence,
+            compilation.constraints,
+        )
+        self._p12_compact_counts["total_turns"] += 1
+        self._p12_compact_counts["ledger_records_examined"] += int(
+            compilation.examined_count
+        )
+        self._p12_compact_counts["executable_constraints"] += len(
+            compilation.constraints
+        )
+        self._p12_compiler_rejections.update(dict(compilation.rejection_counts))
+        if compilation.constraints:
+            self._p12_compact_counts["turns_with_executable_constraints"] += 1
+            try:
+                partition = stable_compact_partition(
+                    p11_c50,
+                    compact_evidence,
+                    compilation.constraints,
+                    top_k=TOP_K,
+                    candidate_pool=len(p11_c50),
+                )
+                compatible_end = partition.compatible_count
+                violation_start = compatible_end + partition.unknown_count
+                compatible_ids = frozenset(partition.identifiers[:compatible_end])
+                unknown_ids = frozenset(
+                    partition.identifiers[compatible_end:violation_start]
+                )
+                violation_ids = frozenset(partition.identifiers[violation_start:])
+                if violation_ids:
+                    self._p12_compact_counts[
+                        "turns_with_c50_explicit_violation"
+                    ] += 1
+                incumbent = p11_c50[TOP_K - 1]
+                if incumbent in violation_ids:
+                    self._p12_compact_counts[
+                        "turns_with_rank10_explicit_violation"
+                    ] += 1
+                class_order = {
+                    **{identifier: 0 for identifier in compatible_ids},
+                    **{identifier: 1 for identifier in unknown_ids},
+                    **{identifier: 2 for identifier in violation_ids},
+                }
+                incumbent_class = class_order.get(incumbent, 0)
+                if any(
+                    class_order.get(identifier, incumbent_class) < incumbent_class
+                    for identifier in p11_c50[TOP_K:]
+                ):
+                    self._p12_compact_counts[
+                        "turns_with_better_class_outsider"
+                    ] += 1
+                if (
+                    incumbent in violation_ids
+                    and len(p11_c50) > TOP_K
+                    and p11_c50[TOP_K] in compatible_ids
+                ):
+                    self._p12_compact_counts[
+                        "turns_with_adjacent_compatible_outsider"
+                    ] += 1
+                if tuple(partition.identifiers) != tuple(p11_c50):
+                    self._p12_compact_counts[
+                        "full_partition_order_change_turns"
+                    ] += 1
+            except (KeyError, TypeError, ValueError):
+                self._p12_compact_counts["diagnostic_fail_closed_turns"] += 1
         for name, ranked in (
             (p12_actions.COMPACT_NEGATIVE_C50, compact_negative),
             (p12_actions.GUARDED_COMPACT_SLOT10, guarded_compact),
+            (
+                p12_actions.GUARDED_COMPACT_SLOT10_STRICT,
+                guarded_compact_strict,
+            ),
         ):
             if len(ranked) != len(c50) or set(ranked) != set(c50):
                 raise P12WorkerError(f"{name} changed C50 membership")
@@ -766,6 +852,7 @@ class P12CaptureAgent(Agent):
             "semantic_full": semantic,
             "compact_negative_full": compact_negative,
             "guarded_compact_slot10_full": guarded_compact,
+            "guarded_compact_slot10_strict_full": guarded_compact_strict,
             "p11_invariants": invariant,
         }
         return list(p11_full), diagnostics
@@ -785,6 +872,15 @@ class P12CaptureAgent(Agent):
         return {
             "structured": list(self._p12_structured_seconds),
             "semantic": list(self._p12_semantic_seconds),
+        }
+
+    def p12_compact_summary(self) -> dict[str, Any]:
+        return {
+            "counts": dict(sorted(self._p12_compact_counts.items())),
+            "compiler_rejection_counts": dict(
+                sorted(self._p12_compiler_rejections.items())
+            ),
+            "privacy": "aggregate counts only; no text, values, identifiers, ordinals, or labels",
         }
 
 
@@ -922,6 +1018,10 @@ def _compose_trace_record(
     guarded_compact = _validate_identifier_sequence(
         p11_capture.get("guarded_compact_slot10_full"), "guarded compact C50"
     )
+    guarded_compact_strict = _validate_identifier_sequence(
+        p11_capture.get("guarded_compact_slot10_strict_full"),
+        "strict guarded compact C50",
+    )
     if len(structured) != len(c50) or set(structured) != set(c50):
         raise P12WorkerError("structured capture is not a C50 permutation")
     if len(semantic) != len(c50) or set(semantic) != set(c50):
@@ -930,6 +1030,11 @@ def _compose_trace_record(
         raise P12WorkerError("compact-negative capture is not a C50 permutation")
     if len(guarded_compact) != len(c50) or set(guarded_compact) != set(c50):
         raise P12WorkerError("guarded compact capture is not a C50 permutation")
+    if (
+        len(guarded_compact_strict) != len(c50)
+        or set(guarded_compact_strict) != set(c50)
+    ):
+        raise P12WorkerError("strict guarded compact capture is not a C50 permutation")
     guarded_top10 = guarded_compact[:TOP_K]
     p11_top10 = p11[:TOP_K]
     if guarded_top10 != p11_top10 and (
@@ -938,6 +1043,19 @@ def _compose_trace_record(
         or len(set(guarded_top10) ^ set(p11_top10)) != 2
     ):
         raise P12WorkerError("guarded compact capture violates its single-slot guard")
+    strict_top10 = guarded_compact_strict[:TOP_K]
+    if strict_top10 != p11_top10 and (
+        len(p11) <= TOP_K
+        or len(p11_top10) != TOP_K
+        or strict_top10[: TOP_K - 1] != p11_top10[: TOP_K - 1]
+        or strict_top10[TOP_K - 1] != p11[TOP_K]
+        or guarded_compact_strict[TOP_K] != p11_top10[TOP_K - 1]
+        or guarded_compact_strict[TOP_K + 1 :] != p11[TOP_K + 1 : len(c50)]
+        or len(set(strict_top10) ^ set(p11_top10)) != 2
+    ):
+        raise P12WorkerError(
+            "strict guarded compact capture violates its adjacent single-slot guard"
+        )
     if (
         not isinstance(p5_capture, Mapping)
         or p5_capture.get("variant_id") != P5_R01
@@ -955,6 +1073,9 @@ def _compose_trace_record(
         p12_actions.RESULT_AWARE_REWRITE_RETRIEVE: list(result_aware[:TOP_K]),
         p12_actions.COMPACT_NEGATIVE_C50: list(compact_negative[:TOP_K]),
         p12_actions.GUARDED_COMPACT_SLOT10: list(guarded_compact[:TOP_K]),
+        p12_actions.GUARDED_COMPACT_SLOT10_STRICT: list(
+            guarded_compact_strict[:TOP_K]
+        ),
         p12_actions.ASK: list(p11[:TOP_K]),
     }
     if set(actions) != set(p12_actions.ACTION_IDS):
@@ -1023,6 +1144,7 @@ class P12ActionRuntime:
             for action in (
                 p12_actions.COMPACT_NEGATIVE_C50,
                 p12_actions.GUARDED_COMPACT_SLOT10,
+                p12_actions.GUARDED_COMPACT_SLOT10_STRICT,
             )
         }
         self._output_change_turns: Counter[str] = Counter()
@@ -1133,6 +1255,15 @@ class P12ActionRuntime:
             if callable(getattr(self.p11_agent, "p12_timing", None))
             else {"structured": [], "semantic": []}
         )
+        compact_funnel = (
+            self.p11_agent.p12_compact_summary()
+            if callable(getattr(self.p11_agent, "p12_compact_summary", None))
+            else {
+                "counts": {},
+                "compiler_rejection_counts": {},
+                "privacy": "unavailable",
+            }
+        )
         self._close_components()
         if self._closed_components != ["p11_agent", "p5_agent", "semantic"]:
             raise P12WorkerError("P12 component close order is invalid")
@@ -1162,6 +1293,7 @@ class P12ActionRuntime:
                 "result_aware_base": "R08+P5.R01",
                 "compact_negative_base": "P11.C50",
                 "guarded_compact_base": "P11.C50",
+                "guarded_compact_strict_base": "P11.C50 adjacent rank-11 only",
                 "result_aware_computation_count": self.result_aware_computation_count,
                 "activation_definition": (
                     "per-turn Top10 member set differs from KEEP_P11"
@@ -1178,6 +1310,7 @@ class P12ActionRuntime:
                     action: int(self._output_change_turns[action])
                     for action in self._membership_activation_sessions
                 },
+                "compact_funnel": compact_funnel,
             },
             "p11": {
                 "mode": "active",

@@ -45,6 +45,7 @@ from scripts.p12_actions import (  # noqa: E402
     COMPACT_NEGATIVE_C50,
     FROZEN_SEMANTIC_RERANK,
     GUARDED_COMPACT_SLOT10,
+    GUARDED_COMPACT_SLOT10_STRICT,
     KEEP_P11,
     KEEP_R08,
     RESULT_AWARE_REWRITE_RETRIEVE,
@@ -56,7 +57,7 @@ SCHEMA_VERSION = "track4.p12-action-oracle-result.v1"
 CONFIG_SCHEMA = "track4.p12-action-oracle.v1"
 DEFAULT_CONFIG = Path("configs/p12_action_oracle_v1.json")
 EXPECTED_CONFIG_CANONICAL_SHA256 = (
-    "be4d72c77f9424716abfa45580bd676140aa29f471eb7c7da0375dbc24d241a4"
+    "661c69b70b385ef0f3591b38f844ad23ea0387e20bd6d9c071030b8a443cefb2"
 )
 ALLOWED_SPLITS = {
     "train_explore": {
@@ -828,6 +829,7 @@ def validate_trace(
             FROZEN_SEMANTIC_RERANK,
             COMPACT_NEGATIVE_C50,
             GUARDED_COMPACT_SLOT10,
+            GUARDED_COMPACT_SLOT10_STRICT,
         ):
             if (
                 len(clean_actions[action]) != min(10, len(clean_pools["c50"]))
@@ -841,6 +843,17 @@ def validate_trace(
             or len(set(guarded) ^ set(p11)) != 2
         ):
             raise OracleRunError("guarded compact action violates its single-slot guard")
+        strict_guarded = clean_actions[GUARDED_COMPACT_SLOT10_STRICT]
+        if strict_guarded != p11 and (
+            len(p11) != 10
+            or len(clean_pools["c50"]) <= 10
+            or strict_guarded[:9] != p11[:9]
+            or strict_guarded[9] != clean_pools["c50"][10]
+            or len(set(strict_guarded) ^ set(p11)) != 2
+        ):
+            raise OracleRunError(
+                "strict guarded compact action violates its adjacent single-slot guard"
+            )
         row = {
             "ordinal": ordinal,
             "turn": turn,
@@ -1416,6 +1429,7 @@ def build_go_no_go(
         RESULT_AWARE_REWRITE_RETRIEVE,
         COMPACT_NEGATIVE_C50,
         GUARDED_COMPACT_SLOT10,
+        GUARDED_COMPACT_SLOT10_STRICT,
     )
     stable_actions: list[str] = []
     for action in deployable_actions:
@@ -1668,7 +1682,7 @@ def run(split: str, *, limit: int | None = None) -> tuple[Path, dict[str, Any]]:
             "ASK follows the observed KEEP_P11 trajectory and is not an independent counterfactual.",
             "RESULT_AWARE_REWRITE_RETRIEVE is an R08-based diagnostic action, not a P11 composition.",
             "CANDIDATE_RERANK and FROZEN_SEMANTIC_RERANK are fixed P12-v1 diagnostic policies, not promoted production routes.",
-            "COMPACT_NEGATIVE_C50 and GUARDED_COMPACT_SLOT10 are target-blind compact-negative diagnostics, not promoted production routes.",
+            "The three compact-negative actions are target-blind diagnostics, not promoted production routes.",
         ],
     }
     assert_identifier_free_artifact(artifact, catalog_ids)

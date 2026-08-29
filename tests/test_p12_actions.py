@@ -13,6 +13,7 @@ from scripts.p12_actions import (
     COMPACT_NEGATIVE_C50,
     FROZEN_SEMANTIC_RERANK,
     GUARDED_COMPACT_SLOT10,
+    GUARDED_COMPACT_SLOT10_STRICT,
     KEEP_P11,
     KEEP_R08,
     RESULT_AWARE_REWRITE_RETRIEVE,
@@ -21,6 +22,7 @@ from scripts.p12_actions import (
     rank_compact_negative_c50,
     rank_frozen_semantic_c50,
     rank_guarded_compact_slot10,
+    rank_guarded_compact_slot10_strict,
     rank_structured_c50,
 )
 from starter.attributes import (
@@ -340,6 +342,9 @@ class CompactNegativeActionTests(unittest.TestCase):
 
         self.assertEqual(rank_compact_negative_c50(pool, evidence, ()), pool)
         self.assertEqual(rank_guarded_compact_slot10(pool, evidence, ()), pool)
+        self.assertEqual(
+            rank_guarded_compact_slot10_strict(pool, evidence, ()), pool
+        )
 
     def test_full_partition_is_stable_and_uses_unknown_before_violation(self) -> None:
         pool = tuple(f"item-{index:02d}" for index in range(12))
@@ -353,7 +358,7 @@ class CompactNegativeActionTests(unittest.TestCase):
         self.assertEqual(ranked, (pool[10], *pool[1:10], pool[0], pool[11]))
         self.assertEqual(set(ranked), set(pool))
 
-    def test_guarded_action_swaps_only_rank10_for_compatible_challenger(self) -> None:
+    def test_guarded_action_uses_first_strictly_better_class(self) -> None:
         pool = tuple(f"item-{index:02d}" for index in range(12))
         evidence = {identifier: _masks(color="blue") for identifier in pool}
         evidence[pool[9]] = _masks(color="red")
@@ -362,17 +367,40 @@ class CompactNegativeActionTests(unittest.TestCase):
         ranked = rank_guarded_compact_slot10(pool, evidence, (_negative(),))
 
         expected = list(pool)
-        expected[9], expected[11] = expected[11], expected[9]
+        expected[9], expected[10] = expected[10], expected[9]
         self.assertEqual(ranked, tuple(expected))
         self.assertEqual(ranked[:9], pool[:9])
-        self.assertEqual(set(ranked[:10]) ^ set(pool[:10]), {pool[9], pool[11]})
+        self.assertEqual(set(ranked[:10]) ^ set(pool[:10]), {pool[9], pool[10]})
 
-    def test_guarded_action_rejects_unknown_or_earlier_violation(self) -> None:
+    def test_strict_action_only_repairs_compatible_adjacent_rank11(self) -> None:
+        pool = tuple(f"item-{index:02d}" for index in range(12))
+        evidence = {identifier: _masks(color="blue") for identifier in pool}
+        evidence[pool[9]] = _masks(color="red")
+
+        ranked = rank_guarded_compact_slot10_strict(
+            pool, evidence, (_negative(),)
+        )
+
+        expected = list(pool)
+        expected[9], expected[10] = expected[10], expected[9]
+        self.assertEqual(ranked, tuple(expected))
+        self.assertEqual(ranked[:9], pool[:9])
+        self.assertEqual(ranked[11:], pool[11:])
+
+        evidence[pool[10]] = _masks()
+        self.assertEqual(
+            rank_guarded_compact_slot10_strict(
+                pool, evidence, (_negative(),)
+            ),
+            pool,
+        )
+
+    def test_guarded_action_rejects_no_better_class_or_earlier_violation(self) -> None:
         pool = tuple(f"item-{index:02d}" for index in range(12))
         unknown_tail = {identifier: _masks(color="blue") for identifier in pool}
-        unknown_tail[pool[9]] = _masks(color="red")
+        unknown_tail[pool[9]] = _masks()
         unknown_tail[pool[10]] = _masks()
-        unknown_tail[pool[11]] = _masks()
+        unknown_tail[pool[11]] = _masks(color="red")
         self.assertEqual(
             rank_guarded_compact_slot10(pool, unknown_tail, (_negative(),)),
             pool,
@@ -383,6 +411,12 @@ class CompactNegativeActionTests(unittest.TestCase):
         earlier_violation[pool[9]] = _masks(color="red")
         self.assertEqual(
             rank_guarded_compact_slot10(pool, earlier_violation, (_negative(),)),
+            pool,
+        )
+        self.assertEqual(
+            rank_guarded_compact_slot10_strict(
+                pool, earlier_violation, (_negative(),)
+            ),
             pool,
         )
 
@@ -425,6 +459,7 @@ class ActionIdTests(unittest.TestCase):
                 RESULT_AWARE_REWRITE_RETRIEVE,
                 COMPACT_NEGATIVE_C50,
                 GUARDED_COMPACT_SLOT10,
+                GUARDED_COMPACT_SLOT10_STRICT,
                 ASK,
             ),
         )

@@ -17,6 +17,7 @@ from scripts.p12_actions import (
     COMPACT_NEGATIVE_C50,
     FROZEN_SEMANTIC_RERANK,
     GUARDED_COMPACT_SLOT10,
+    GUARDED_COMPACT_SLOT10_STRICT,
     KEEP_P11,
     KEEP_R08,
     RESULT_AWARE_REWRITE_RETRIEVE,
@@ -51,6 +52,7 @@ def _trace_row(
             RESULT_AWARE_REWRITE_RETRIEVE: ranking[:10],
             COMPACT_NEGATIVE_C50: c50_reverse[:10],
             GUARDED_COMPACT_SLOT10: list(p11[:10]),
+            GUARDED_COMPACT_SLOT10_STRICT: list(p11[:10]),
             ASK: list(p11[:10]),
         },
         "candidate_pools": {
@@ -342,7 +344,8 @@ class TraceValidationTests(unittest.TestCase):
                     FROZEN_SEMANTIC_RERANK: list(ranking),
                     RESULT_AWARE_REWRITE_RETRIEVE: list(ranking),
                     COMPACT_NEGATIVE_C50: list(reversed(ranking)),
-                    GUARDED_COMPACT_SLOT10: list(ranking),
+                    GUARDED_COMPACT_SLOT10: list(p11),
+                    GUARDED_COMPACT_SLOT10_STRICT: list(p11),
                     ASK: list(p11),
                 },
                 "candidate_pools": {
@@ -542,6 +545,9 @@ class GoNoGoTests(unittest.TestCase):
                 GUARDED_COMPACT_SLOT10: {
                     "relative_to_baseline": dict(candidate_relative)
                 },
+                GUARDED_COMPACT_SLOT10_STRICT: {
+                    "relative_to_baseline": dict(candidate_relative)
+                },
             },
             "oracle": {
                 "metrics": {
@@ -574,6 +580,7 @@ class GoNoGoTests(unittest.TestCase):
                 RESULT_AWARE_REWRITE_RETRIEVE,
                 COMPACT_NEGATIVE_C50,
                 GUARDED_COMPACT_SLOT10,
+                GUARDED_COMPACT_SLOT10_STRICT,
             ],
         )
 

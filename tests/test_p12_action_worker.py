@@ -125,9 +125,14 @@ class _FakeP11Agent:
         p11_c50 = p11[:50]
         compact_negative = (*p11_c50[10:20], *p11_c50[:10], *p11_c50[20:])
         guarded_compact = list(p11_c50)
-        guarded_compact[9], guarded_compact[10] = (
-            guarded_compact[10],
+        guarded_compact[9], guarded_compact[11] = (
+            guarded_compact[11],
             guarded_compact[9],
+        )
+        guarded_compact_strict = list(p11_c50)
+        guarded_compact_strict[9], guarded_compact_strict[10] = (
+            guarded_compact_strict[10],
+            guarded_compact_strict[9],
         )
         self.capture = {
             "r08_full": r08,
@@ -141,6 +146,9 @@ class _FakeP11Agent:
             "semantic_full": (*r08[1:50], r08[0]),
             "compact_negative_full": compact_negative,
             "guarded_compact_slot10_full": tuple(guarded_compact),
+            "guarded_compact_slot10_strict_full": tuple(
+                guarded_compact_strict
+            ),
             "p11_invariants": worker._validate_p11_invariants(
                 r08, p11, _valid_diagnostics()
             ),
@@ -163,6 +171,16 @@ class _FakeP11Agent:
 
     def p12_timing(self) -> dict[str, list[float]]:
         return {"structured": [0.001] * 10, "semantic": [0.002] * 10}
+
+    def p12_compact_summary(self) -> dict[str, object]:
+        return {
+            "counts": {
+                "total_turns": 10,
+                "turns_with_executable_constraints": 10,
+            },
+            "compiler_rejection_counts": {},
+            "privacy": "aggregate counts only; no text, values, identifiers, ordinals, or labels",
+        }
 
     def close(self) -> None:
         self.closed = True
@@ -601,6 +619,12 @@ class RuntimeTraceTests(unittest.TestCase):
                     ),
                     2,
                 )
+                self.assertEqual(
+                    record["actions"][
+                        p12_actions.GUARDED_COMPACT_SLOT10_STRICT
+                    ][9],
+                    record["candidate_pools"]["c50"][10],
+                )
 
             summary = receipt["worker_summary"]
             self.assertEqual(summary["trajectory"]["fixed_turns"], 10)
@@ -616,6 +640,7 @@ class RuntimeTraceTests(unittest.TestCase):
                 {
                     p12_actions.COMPACT_NEGATIVE_C50: 10,
                     p12_actions.GUARDED_COMPACT_SLOT10: 10,
+                    p12_actions.GUARDED_COMPACT_SLOT10_STRICT: 10,
                 },
             )
             self.assertEqual(
@@ -623,6 +648,14 @@ class RuntimeTraceTests(unittest.TestCase):
                 {
                     p12_actions.COMPACT_NEGATIVE_C50: 1,
                     p12_actions.GUARDED_COMPACT_SLOT10: 1,
+                    p12_actions.GUARDED_COMPACT_SLOT10_STRICT: 1,
+                },
+            )
+            self.assertEqual(
+                summary["actions"]["compact_funnel"]["counts"],
+                {
+                    "total_turns": 10,
+                    "turns_with_executable_constraints": 10,
                 },
             )
             self.assertEqual(summary["p11"]["per_turn_invariants_verified"], 10)

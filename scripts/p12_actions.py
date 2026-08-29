@@ -36,6 +36,7 @@ FROZEN_SEMANTIC_RERANK = "FROZEN_SEMANTIC_RERANK"
 RESULT_AWARE_REWRITE_RETRIEVE = "RESULT_AWARE_REWRITE_RETRIEVE"
 COMPACT_NEGATIVE_C50 = "COMPACT_NEGATIVE_C50"
 GUARDED_COMPACT_SLOT10 = "GUARDED_COMPACT_SLOT10"
+GUARDED_COMPACT_SLOT10_STRICT = "GUARDED_COMPACT_SLOT10_STRICT"
 ASK = "ASK"
 ACTION_IDS = (
     KEEP_R08,
@@ -45,6 +46,7 @@ ACTION_IDS = (
     RESULT_AWARE_REWRITE_RETRIEVE,
     COMPACT_NEGATIVE_C50,
     GUARDED_COMPACT_SLOT10,
+    GUARDED_COMPACT_SLOT10_STRICT,
     ASK,
 )
 
@@ -422,7 +424,12 @@ def rank_guarded_compact_slot10(
     compact_evidence: Mapping[str, Sequence[int]],
     negative_constraints: Sequence[ExecutableNegative],
 ) -> tuple[str, ...]:
-    """Swap only a violating P11 rank-10 item for a compatible C50 challenger."""
+    """Swap rank 10 for the first C50 outsider in a strictly better class.
+
+    Compact classes are ordered compatible, unknown, explicit violation.  The
+    P11 ranks 1-9 must be free of explicit violations and remain byte-for-byte
+    unchanged.  Missing or invalid evidence is an exact no-op.
+    """
 
     original, partition = _compact_partition(
         candidate_ids, compact_evidence, negative_constraints
@@ -435,13 +442,21 @@ def rank_guarded_compact_slot10(
     violations = frozenset(partition.identifiers[violation_start:])
     if any(identifier in violations for identifier in original[:9]):
         return original
-    if original[9] not in violations:
+    unknown_end = violation_start
+    unknown = frozenset(partition.identifiers[compatible_end:unknown_end])
+    class_order = {
+        **{identifier: 0 for identifier in compatible},
+        **{identifier: 1 for identifier in unknown},
+        **{identifier: 2 for identifier in violations},
+    }
+    incumbent_class = class_order.get(original[9])
+    if incumbent_class is None or incumbent_class == 0:
         return original
     challenger_index = next(
         (
             index
             for index, identifier in enumerate(original[10:], start=10)
-            if identifier in compatible
+            if class_order.get(identifier, incumbent_class) < incumbent_class
         ),
         None,
     )
@@ -460,6 +475,49 @@ def rank_guarded_compact_slot10(
     return result
 
 
+def rank_guarded_compact_slot10_strict(
+    candidate_ids: Sequence[str],
+    compact_evidence: Mapping[str, Sequence[int]],
+    negative_constraints: Sequence[ExecutableNegative],
+) -> tuple[str, ...]:
+    """Apply one adjacent, high-confidence compact repair at the Top-10 edge.
+
+    The incumbent P11 rank 10 must be an explicit violation and the adjacent
+    P11 rank 11 must be compatible.  Ranks 1-9 must contain no explicit
+    violation.  The only permitted change is swapping ranks 10 and 11.
+    """
+
+    original, partition = _compact_partition(
+        candidate_ids, compact_evidence, negative_constraints
+    )
+    if partition is None or len(original) <= 10:
+        return original
+    compatible_end = partition.compatible_count
+    violation_start = compatible_end + partition.unknown_count
+    compatible = frozenset(partition.identifiers[:compatible_end])
+    violations = frozenset(partition.identifiers[violation_start:])
+    if (
+        any(identifier in violations for identifier in original[:9])
+        or original[9] not in violations
+        or original[10] not in compatible
+    ):
+        return original
+    ranked = list(original)
+    ranked[9], ranked[10] = ranked[10], ranked[9]
+    result = tuple(ranked)
+    if (
+        result[:9] != original[:9]
+        or result[9] != original[10]
+        or result[10] != original[9]
+        or result[11:] != original[11:]
+        or len(result) != len(original)
+        or set(result) != set(original)
+        or len(set(result[:10]) ^ set(original[:10])) != 2
+    ):
+        return original
+    return result
+
+
 __all__ = [
     "ACTION_IDS",
     "ASK",
@@ -468,6 +526,7 @@ __all__ = [
     "COMPACT_NEGATIVE_C50",
     "FROZEN_SEMANTIC_RERANK",
     "GUARDED_COMPACT_SLOT10",
+    "GUARDED_COMPACT_SLOT10_STRICT",
     "KEEP_P11",
     "KEEP_R08",
     "MAX_CANDIDATES",
@@ -478,5 +537,6 @@ __all__ = [
     "rank_compact_negative_c50",
     "rank_frozen_semantic_c50",
     "rank_guarded_compact_slot10",
+    "rank_guarded_compact_slot10_strict",
     "rank_structured_c50",
 ]
