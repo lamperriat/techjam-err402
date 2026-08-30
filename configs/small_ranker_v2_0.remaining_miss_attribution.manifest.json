@@ -1,0 +1,85 @@
+{
+  "schema_version": "small-ranker-remaining-miss-attribution-manifest.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.0-MISS-ATTRIBUTION",
+  "preregistration_commit": "c293c6b",
+  "implementation_commit": "659bcf7",
+  "result": {
+    "path": "experiments/fast_track/small_ranker_v2_0/remaining_miss_attribution_20260830T1500.json",
+    "sha256": "effcd73071aa329d4558027543fe2d066c38e3fc84887441b9578c34435233c3",
+    "wall_seconds": 7.414067
+  },
+  "policy_identity": {
+    "baseline_hits": 1895,
+    "candidate_hits": 1943,
+    "remaining_misses": 57,
+    "activation_sha256": "48ad9137cb3b99985d3d7e4035575bf06225d8c6b4f9f3c134a468f404d1c410",
+    "chosen_sha256": "229952c9ced7f6eec1ff1938480adc85ba5093ad865336465749029576e47051"
+  },
+  "exclusive_classes": {
+    "A_candidate_absent": {"sessions": 14, "fraction": 0.245614},
+    "B_ranker_failure": {"sessions": 35, "fraction": 0.614035},
+    "C_admission_failure": {"sessions": 8, "fraction": 0.140351},
+    "D_irrecoverable_ambiguous": {"sessions": 0, "fraction": 0.0}
+  },
+  "candidate_recall": {
+    "C10": 0.9475,
+    "C20": 0.9715,
+    "C50": 0.991,
+    "C100": 0.993,
+    "C200": "unavailable in the frozen blind trace and not inferred"
+  },
+  "candidate_depth_of_remaining_misses": {
+    "C11_20": {"ranker_failure": 15, "admission_failure": 6},
+    "C21_50": {"ranker_failure": 16, "admission_failure": 2},
+    "C51_100": {"ranker_failure": 4, "admission_failure": 0},
+    "absent_C100": {"candidate_absent": 14}
+  },
+  "ranker_failure_structure": {
+    "outer_fold": [16, 8, 1, 8, 2],
+    "taxonomy": {
+      "clothing": 17,
+      "shoes": 15,
+      "accessories-other": 3,
+      "jewelry": 0
+    },
+    "scenario_type": {
+      "browsing": 16,
+      "buying": 13,
+      "intent_override": 5,
+      "boundary": 1
+    },
+    "source_support": {
+      "coverage": 35,
+      "fused": 35,
+      "strict": 29,
+      "broad": 26,
+      "semantic": 1,
+      "structured": 1,
+      "p11": 0
+    },
+    "first_reachable_category_conflict": 13
+  },
+  "oracle_bounds": {
+    "current_hr_at_10": 0.9715,
+    "rescues_needed_for_0_99": 37,
+    "remaining_actionable_misses": 43,
+    "required_actionable_rescue_fraction": 0.860465,
+    "mechanical_c100_oracle_hr_at_10": 0.993,
+    "conservative_distinguishable_repair_hr_at_10": 0.993,
+    "oracle_bound_stop": false
+  },
+  "privacy": {
+    "posthoc_target_access": true,
+    "target_written_to_runtime_or_feature_cache": false,
+    "individual_session_or_product_identifiers_serialized": false,
+    "identity_shape_matches": 0,
+    "held_out_splits_opened": false
+  },
+  "tests": "3 passed",
+  "decision": {
+    "largest_actionable_class": "B_ranker_failure",
+    "next_mechanism": "evaluate the already-trained pairwise_d4_control ranker on the identical semantic-off projection while keeping the fold-safe two-head admission protocol fixed",
+    "rationale": "the frozen raw-feature evidence reports pairwise top1 accuracy 0.796377 versus 0.777730 for ndcg_d4_lr003; this tests one ranker-objective change against the observed ranking bottleneck"
+  }
+}

@@ -427,3 +427,25 @@ opened no dataset/label. All `110` turns completed with zero fallback: cold Agen
 `185.83/277.76ms`, and process peak RSS `166,883,328` bytes. This benchmark is deployment
 evidence only and is not promotion evidence. Full hashes and failure-attempt provenance
 are in `configs/small_ranker_v1_9.deployable_artifact.manifest.json`.
+
+## SR-v2.0 remaining-miss attribution
+
+The frozen activation and chosen-candidate hashes were reproduced exactly before target
+labels were joined in a posthoc-only analyzer. Of the 57 remaining misses, 14 (`24.56%`)
+are absent from C100, 35 (`61.40%`) are ranker failures, 8 (`14.04%`) are admission
+failures, and 0 meet the deliberately strict exact-evidence ambiguity lower bound. No
+session or product identifier is serialized in the aggregate result.
+
+Candidate recall is C10 `0.9475`, C20 `0.9715`, C50 `0.9910`, and C100 `0.9930`.
+C200 is not present in the frozen trace and was not inferred. Thus candidate reachability
+does not mathematically rule out 0.99, but the policy must rescue 37 of only 43 actionable
+misses (`86.05%`) without one hit-to-miss. Candidate expansion is not the first bottleneck:
+31 of 35 ranker failures are already within ranks 11-50, while only four are at 51-100.
+
+Ranker failures concentrate in clothing (`17`) and shoes (`15`), browsing (`16`) and
+buying (`13`), with fold counts `16/8/1/8/2`. The target already has fused support in all
+35 cases, strict support in 29, broad support in 26, and semantic support in only one;
+13 have a first-reachable category-conflict feature. This makes another embedding-first
+candidate expansion unlikely to address the dominant error. The next single-variable
+test is the existing pairwise ranker under the identical semantic-off projection and the
+unchanged fold-safe two-head admission protocol.
