@@ -708,3 +708,24 @@ artifact. Stage 1a is authorized to build and repeat all five target-free outer 
 T-only selector training and any held outcome remain unauthorized until those surfaces
 are frozen. Aggregate evidence is tracked in
 `configs/small_ranker_v2_9.top5_proposal_depth_stage0.manifest.json`.
+
+## SR-V2.10 version-scoped unseen-first pagination
+
+The frozen v1.9 policy was replayed without changing its ranker or admission. Within an
+intent version, the final C100 order was stable-partitioned into unseen then seen products;
+the served set reset before an explicit intent override. The policy is target-blind and
+the first page of every version is identical to v1.9.
+
+This exposed a dominant serving-layer bottleneck. Mean distinct products across 100
+available exposure slots rose from `25.2015` to `97.4115`, and same-version repeated
+slots fell to zero. HR@10 rose from `0.9715` to `0.9910`, with `39` miss-to-hit, zero
+hit-to-miss, and fold net hits `14/8/7/8/2`. MTTC improved by `0.259` and TechnicalScore
+improved by `0.013106`. The complete replay repeated exactly in `8.184s`.
+
+The experiment is nevertheless a strict No-Go because MRR fell from `0.676861` to
+`0.670779`; folds 1 and 3 also regressed. The failure is ordering-only: early discovery
+of a target at a low rank can pre-empt a later high-rank v1.9 hit. The next single
+mechanism keeps the identical unseen exposure set but preserves every unseen current
+Top10 item at its original rank and fills only positions occupied by already-seen,
+therefore known-nontarget, products. Evidence is tracked in
+`configs/small_ranker_v2_10.versioned_unseen_pagination.manifest.json`.

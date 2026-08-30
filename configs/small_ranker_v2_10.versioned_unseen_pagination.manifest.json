@@ -1,0 +1,54 @@
+{
+  "schema_version": "small-ranker-versioned-unseen-pagination-manifest.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.10-VERSIONED-UNSEEN-PAGINATION",
+  "status": "NO_GO_MRR_ONLY",
+  "commits": {
+    "preregistration": "8612639"
+  },
+  "result": {
+    "path": "experiments/fast_track/small_ranker_v2_10/versioned_unseen_20260830T2246/result.json",
+    "sha256": "c5878ac6db7ba7f2a047fde40f23b6859a76418c5a8cd76cefd76a932c7ceb1c",
+    "bytes": 4813,
+    "exact_repeat_sha256": "527cb1cddced65c5cd15f96847d8976d4631a18d28c626109e190d6d79379a91"
+  },
+  "comparison": {
+    "baseline_hr_at_10": 0.9715,
+    "candidate_hr_at_10": 0.991,
+    "miss_to_hit": 39,
+    "hit_to_miss": 0,
+    "fold_net_hits": [14, 8, 7, 8, 2],
+    "baseline_mrr": 0.676861,
+    "candidate_mrr": 0.670779,
+    "mrr_delta": -0.006082,
+    "baseline_mttc": 3.056,
+    "candidate_mttc": 2.797,
+    "mttc_delta": -0.259,
+    "technical_score_delta": 0.013106
+  },
+  "exposure": {
+    "baseline_mean_distinct_products": 25.2015,
+    "candidate_mean_distinct_products": 97.4115,
+    "candidate_duplicate_fraction": 0.025885,
+    "same_version_repeat_slots": 0,
+    "changed_sessions": 2000,
+    "changed_turns": 16834,
+    "intent_override_resets": 300
+  },
+  "privacy": {
+    "target_blind_policy": true,
+    "train_explore_target_used_only_for_aggregate_metrics": true,
+    "individual_session_or_product_identifiers_serialized": false,
+    "held_out_split_or_full_agent_opened": false
+  },
+  "verification": {
+    "focused_tests": "4 passed",
+    "cached_replay_wall_seconds": 8.183746,
+    "frozen_v1_9_identity_reproduced": true
+  },
+  "decision": {
+    "promote": false,
+    "reason": "HR crossed 0.99 with zero hit-to-miss and every fold positive, but aggregate MRR and folds 1/3 regressed because stable compaction can expose a future high-rank target earlier at a lower rank",
+    "next_single_mechanism": "preserve every unseen current-Top10 item at its original rank and fill only already-seen rank holes, earliest hole first, with the same unseen tail; this keeps the identical 0.991 exposure set while changing only its within-page order"
+  }
+}
