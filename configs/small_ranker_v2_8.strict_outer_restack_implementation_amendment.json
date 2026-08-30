@@ -1,0 +1,71 @@
+{
+  "schema_version": "small-ranker-strict-outer-restack-implementation-amendment.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.8-STRICT-OUTER-RESTACK",
+  "parent_preregistration_commit": "23db8ee",
+  "reason": "bind the executable Stage-0 mechanics and clarify two frozen implementation facts before any Stage-0 training is run",
+  "hypothesis_or_promotion_gate_changed": false,
+  "clarifications": {
+    "current_gate_preprocessing": "the frozen implementation uses unweighted per-feature mean and standard deviation; sample weights enter only the liblinear logistic loss",
+    "held_label_access": "NumPy must transiently decompress each complete 2,000-session NPZ member before fancy slicing because the compressed member is not row-addressable. The isolation claim is therefore computational rather than byte-I/O blindness: no H_0 outcome value may be indexed into a retained array, passed to supervision or metric-selection code, serialized, or influence any fit",
+    "stage_0_training_labels": "the preregistered generic and focused rankers use only their domain-masked T_0 relevance supervision. Beyond that ranker objective, outcome labels may additionally be used only for current inner gate selection and A_00 focused cohort construction; V_00 proposal/selector outcome metrics and every H_0 outcome computation remain forbidden",
+    "standard_stacking_boundary": "the current gate and focused cohort inner surfaces may be outcome-adaptive elsewhere within T_o and are not independently untouched inner-fold evidence; only the later final H_o result is strict held-outer evidence"
+  },
+  "stage_0_inputs": {
+    "allowlist": [
+      "raw 133-feature train_explore tensor",
+      "numeric train_explore label archive",
+      "semantic-off projected 133-feature tensor",
+      "tracked small_ranker_v1 cache manifest as the frozen 133-feature order and index schema",
+      "five hash-pinned frozen helper modules for feature, gate, metric, regret, quantile, focused weighting, and focused training semantics",
+      "tracked v2.8 preregistration and this amendment"
+    ],
+    "forbidden": [
+      "pre-v2.8 OOF score or activation surfaces",
+      "global v2.5 focused cache",
+      "old experiment result JSON",
+      "calibration, selection, confirmation, public, Amazon, or external data",
+      "Agent or official evaluator"
+    ],
+    "input_hashes": {
+      "raw_features": "2b19835a1bced7f21322610296c712e3d06d915274719e11c268d31f7f596089",
+      "labels": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+      "projected_features": "cd9b075b923c31afe10b9a9c6d720de22e221c93de961595ff484ea4f532b90a",
+      "feature_schema_manifest": "a930d184672bc29d9dd4bc1c2e908da035712ab061f2127a9771b2f3ed6a5c1a",
+      "train_small_ranker_py": "db7f4a3e19da118abb7d37fc1530babd6928894e51e85010b11d9dcdc1d7e583",
+      "export_fold_safe_artifact_py": "5115026c53b21d4d5930cb9af7783c0988b049a0e259f5a0a588901ad44f5e8b",
+      "metric_gate_py": "8c0cbffa6cd3dc62ddee3bb386c16bd60592a6324ecf6fcf4bcd4cf37951ca83",
+      "rr_regret_gate_py": "793e3615df38cd995f55e57decaeea35b549e40ad50ee3bf8a6dbf1055ca7e80",
+      "focused_outer_oof_py": "8fbf05d6225e04e3f76db7e65a91160394f11316ac90b416b6cf53b0b2ba497c",
+      "preregistration": "67d93823f2016dc4fdbcfa6687c236692f2e554cfa678e0878b5f1294c7a3ef9"
+    }
+  },
+  "stage_0_mechanics": {
+    "selected_rows": "materialize frozen 40-row grouped training data only for T_0 sessions, retaining global numeric session ordinals and one positive per query group",
+    "generic_training": "native XGBoost 1.7.6 DMatrix grouped ranking, fixed rounds and seeds from preregistration, nthread=1, no eval_set, no early stopping",
+    "generic_scoring": "semantic-off projected C100, output_margin=true, stable first-index ties, exclusive score and choice files",
+    "current_surface": "shape-generic, operation-for-operation equivalents of the frozen slot-10 choice and 25-feature gate surface; no dummy H_0 carrier rows",
+    "current_gate": "five inner OOF fits for both frozen heads over T_0 action rows, pooled frozen quantile selection, then direct application of the returned inner threshold to form the T_0 OOF current state",
+    "focused_cohort": "derive A_00 hard/control groups only from the domain-local T_0 OOF current state; require both cohorts and preserve incumbent-then-C100[10:100] allowed-91 order",
+    "focused_training": "reuse the frozen v2.5 session-normalized, exact 50/50 cohort-balanced group weights and fixed depth-3 300-round Booster",
+    "rrf3_probe": "compute the target-free equal-weight stable-rank RRF(k=60) choice on V_00 from domain-local current, d6, and regularized scores",
+    "repeat": "share only the sealed, hash-bound input tensors and one deterministic T_0 grouped-row materialization; rebuild every model, gate, current state, focused cohort/cache, score, choice, and RRF surface in both passes and require exact hashes"
+  },
+  "stage_0_output": {
+    "location": "a new gitignored experiments/fast_track/small_ranker_v2_8/stage0_* directory",
+    "tracked_followup": "a later manifest records only paths, domains, shapes, counts, timing, resource usage, and hashes",
+    "forbidden_metrics": [
+      "V_00 proposal rescue or harm",
+      "selector HR, MRR, MTTC, or TechnicalScore",
+      "H_0 current or final-policy outcome"
+    ],
+    "pass_status": "IMPLEMENTATION_PASS_STAGE0 only; it is not algorithmic evidence and cannot authorize a runtime artifact"
+  },
+  "stage_0_environment": {
+    "python": "3.9.19",
+    "numpy": "1.26.4",
+    "xgboost": "1.7.6",
+    "sklearn": "1.1.3",
+    "threads": 1
+  }
+}
