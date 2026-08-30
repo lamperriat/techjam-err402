@@ -1,0 +1,71 @@
+{
+  "schema_version": "small-ranker-grace-miss-attribution-implementation-contract.v1",
+  "experiment_id": "SR-V2.14-GRACE-MISS-ATTRIBUTION",
+  "status": "FROZEN_BEFORE_IMPLEMENTATION_AND_OUTCOME",
+  "direct_parent": "d4b41e7926f2e75fb902c6a150741231007d1db2",
+  "preregistration": {"path": "configs/small_ranker_v2_14.grace_remaining_miss_attribution_preregistration.json", "git_blob_oid_sha1": "7dc15c6211ffaf20d4fc89b8877c67bde8e24b56"},
+  "git_choreography": {
+    "branch": "small-ranker-v2.14-grace-miss-attribution",
+    "remote": "origin",
+    "remote_url": "https://github.com/lamperriat/techjam-err402.git",
+    "contract_commit_must_be_clean_and_pushed_before_implementation": true,
+    "implementation_direct_parent_rule": "exact pushed contract commit",
+    "implementation_paths": ["scripts/analyze_grace_remaining_misses.py", "tests/test_grace_remaining_miss_attribution.py"],
+    "implementation_must_be_clean_and_pushed_before_attach": true
+  },
+  "pinned_helpers_at_parent_aec6a8a": {
+    "scripts/evaluate_rank1_score_priority_replacement.py": "efe5646d5164f8fe2f952d308d489b957c7a4bb6",
+    "scripts/evaluate_rank1_seen_replacement.py": "f15c54aae4a3760d95afd366f07bdefd1ef34665",
+    "scripts/export_small_ranker_fold_safe_artifact.py": "5a714ca8c6d2cf6403be89ae6e107a4d0e0b2512",
+    "scripts/train_small_ranker.py": "1388e8746d002a850b54b08cac886f8ab4afddf0"
+  },
+  "source_contract": {
+    "target_free_before_receipt": {
+      "projected_features": {"path": "D:/tiktok/techjam-v1-2-metric-gate/experiments/fast_track/small_ranker_fold_safe_projected_features.npy", "bytes": 1064000128, "sha256": "cd9b075b923c31afe10b9a9c6d720de22e221c93de961595ff484ea4f532b90a", "shape": [2000, 10, 100, 133], "dtype": "float32"},
+      "oof_scores": {"path": "D:/tiktok/techjam-err402-fast-track/experiments/fast_track/small_ranker_v1/oof_batch_v1/oof_scores_runtime_projection_no_semantic.npy", "bytes": 8000128, "sha256": "5000deb9b77b3e7b326ccab6455222b291d2ec859ddab2043fe67d23a3217c5e", "shape": [2000, 10, 100], "dtype": "float32"},
+      "blind_trace": {"aggregate_path": "D:/tiktok/techjam-err402-fast-track/experiments/fast_track/action_oracle_v1/train_explore-full-aggregate.json", "aggregate_sha256": "11ad3e24aec412f6cb3b146d248aa7e2335a12dafccc20241eeb3301af97ca24", "combined_sha256": "f9a441220926aebf49f4b4d54a0f50df99f72ad4f8c0342e5528517503473e7b", "depths": [20, 50, 100]},
+      "catalog": {"path": "D:/tiktok/techjam-err402-fast-track/data/catalog.jsonl", "rows": 50000, "sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67"}
+    },
+    "post_receipt_only": {
+      "label_archive": {"path": "D:/tiktok/techjam-err402-fast-track/experiments/fast_track/small_ranker_v1/labels_v2.npz", "bytes": 1702876, "sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb", "members_in_exact_access_order": ["baseline_rank", "positive_index", "eligible_from", "outer_fold", "inner_fold"], "archive_open_count": 1},
+      "proxy": {"path": "D:/tiktok/techjam-err402-fast-track/experiments/fast_track/proxy_v1/proxy_train_explore.jsonl", "rows": 2000, "sha256": "2175696171c0d874fca4b9aa456ff5fd7d570f2184f59ade6781198f6443198e", "open_count": 1, "allowed_field": "ground_truth.parent_asin only for ephemeral catalog join"}
+    }
+  },
+  "receipt_contract": {
+    "fixed_path": "experiments/fast_track/small_ranker_v2_14/grace_remaining_miss_attribution_20260831/result.json",
+    "first_post_preflight_mutation": "atomic O_CREAT|O_EXCL durable pending marker",
+    "first_outcome_path_stat_open_or_hash": "after durable marker",
+    "post_consumption_failure": "write INVALID_ATTRIBUTION_CONSUMED with error class and rerun_forbidden=true",
+    "successful_result": "canonical JSON plus newline, fsync, privacy scan before final write",
+    "self_hash": "record raw receipt bytes/hash in the later tracked result manifest, never recursively inside receipt"
+  },
+  "exact_formulas": {
+    "eligible": "turn_index + 1 >= eligible_from[session]",
+    "candidate_recall_at_depth_d": "any eligible turn with 0 <= positive_index < d for d in [10,20,50,100]",
+    "grace_hit": "any eligible turn where positive_index is nonnegative and is a member of numeric grace_candidate_pages[turn]",
+    "remaining_miss": "not grace_hit",
+    "admission_rejected": "any eligible turn where positive_index is nonnegative, frozen chosen equals positive_index, and frozen activation is false",
+    "state_rejected": "the same grace replay with served additionally cleared immediately before eligible_from exposes the target on an eligible page while the actual grace replay does not",
+    "primary_precedence": ["candidate_absent_at_c100", "admission_grace_state_rejection", "candidate_present_but_ranker_failure"],
+    "lifecycle": "(any pre-eligible positive_index>=0 OR any pre-eligible grace-page membership) AND all eligible positive_index<0",
+    "query_zero": "for every eligible turn, query_specificity_fraction==0 OR active_constraint_count_fraction==0, using candidate row zero because both fields are query-state constants",
+    "attribute_missing": "at least one eligible reachable target row exists AND on every such row sum(slot_compatible)==0 AND (missing_positive_evidence_fraction>0 OR sum(slot_unknown)>0)",
+    "information_insufficient": "query_zero OR attribute_missing",
+    "catalog_missing": "catalog row absent OR title blank OR categories empty OR all(features,description,details,store) empty OR price is null; output each field flag count and their union only"
+  },
+  "hard_gates": {
+    "chosen_raw_sha256": "229952c9ced7f6eec1ff1938480adc85ba5093ad865336465749029576e47051",
+    "activation_raw_sha256": "48ad9137cb3b99985d3d7e4035575bf06225d8c6b4f9f3c134a468f404d1c410",
+    "grace_ascii_page_sha256": "6f84d2aa03d792027634a358bdcef9adf646717c94cc3ec0916e87e33410448a",
+    "grace_hits": 1982,
+    "remaining_misses": 18,
+    "primary_total": 18,
+    "grace_exact_repeat": true,
+    "source_unchanged_during_run": true,
+    "result_has_no_identifiers_or_per_session_vectors": true,
+    "wall_seconds_max": 120,
+    "peak_working_set_bytes_max": 2147483648
+  },
+  "frontier_semantics": {"present_by_c200": "pending_not_observed", "present_by_c400": "pending_not_observed", "absent_at_c400": "pending_not_observed", "prohibit_inference": true},
+  "runtime": {"changed": false, "target_features": 0, "default": "off", "evaluator_or_agent_started": false, "gpu_used": false, "protected_splits_opened": false}
+}
