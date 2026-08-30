@@ -1,0 +1,86 @@
+{
+  "schema_version": "small-ranker-fixed-two-page-runtime-integration.v1",
+  "recorded_on": "2026-08-31",
+  "experiment_id": "SR-V2.12-FIXED-TWO-PAGE-RUNTIME",
+  "status": "RUNTIME_INTEGRATED_DEFAULT_OFF",
+  "commits": {
+    "cached_promotion": "7d08e14",
+    "runtime_integration": "d42472e"
+  },
+  "runtime": {
+    "environment_variable": "TECHJAM_PAGINATION_MODE",
+    "allowed_modes": ["off", "active"],
+    "default_mode": "off",
+    "placement": "after frozen P11 and small-ranker v1.9, before final Top10 response slicing",
+    "upstream_requirement": "both P11 and small-ranker v1.9 must report active with no fallback",
+    "fallback": "return the complete upstream order unchanged",
+    "grace_pages_per_intent_version": 2,
+    "page_size": 10,
+    "intent_override_reset": true,
+    "record_only_actually_served_identifiers": true,
+    "target_blind": true,
+    "causal_per_turn": true
+  },
+  "source": {
+    "starter_agent_sha256": "1e50154b208081f9ff318d2893187d164faff714740438323e73356647bfd5e8",
+    "pagination_runtime_sha256": "a21b701402f97dbd8fd8f22e5e553f4e1fccd9e21fe4292bb937254d447c8014",
+    "pagination_tests_sha256": "f4c63605416d398339f6fa8a622720ddd7d71825e05b13ce562322a716747952"
+  },
+  "focused_verification": {
+    "commands": [
+      "python -m pytest -q tests/test_versioned_pagination_runtime.py tests/test_versioned_unseen_pagination.py tests/test_agent.py",
+      "python -m pytest -q tests/test_small_ranker_runtime.py tests/test_verify_promoted_agent.py"
+    ],
+    "result": "58 passed, 1 skipped",
+    "frozen_replay_top10_parity": true,
+    "off_mode_exact_identity": true,
+    "off_mode_output_sha256": "4bac465153000efdf9abed04b2456d5e4e8dd6cc91a8dadb2775ab6d60f4a1ff",
+    "active_first_two_pages_identity": true,
+    "active_exact_repeat": true,
+    "active_output_sha256": "1b1176cacf3a0643922052ce7a4ac04d5ceed46d9f85061e1061a4ddb8cc730e",
+    "intent_override_observed": {
+      "new_version": 2,
+      "intent_age": 1,
+      "activated": false,
+      "output_changed": false,
+      "completed_pages": 1,
+      "served_count": 10
+    }
+  },
+  "target_free_smoke": {
+    "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+    "p11_sidecar_sha256": "83b6d8c04be6666173806b6e9cb03301eecb8ca58a60272bfa719e6533380473",
+    "small_ranker_artifact_observed_sha256": "f2d0e381b2362613010f3c8f2eb36f84f47b7932ab439480c7045effe59ffc31",
+    "cold_init_seconds": 2.591710,
+    "three_turn_seconds": 0.841943,
+    "third_page_effective_mode": "active",
+    "third_page_activated": true,
+    "third_page_fallback": false,
+    "third_page_full_membership_preserved": true,
+    "five_turn_off_seconds": 1.251042,
+    "five_turn_active_seconds": 1.240553,
+    "observed_active_minus_off_seconds": -0.010489,
+    "resource_interpretation": "bounded target-free smoke only; timing noise is not promotion evidence"
+  },
+  "full_suite": {
+    "result": "799 passed, 10 failed, 3 skipped",
+    "failures_attributed_to_changed_files": 0,
+    "known_environment_or_frozen_fixture_failures": {
+      "missing_ignored_frozen_assets": 4,
+      "frozen_python_or_numpy_version_mismatch": 4,
+      "pre_existing_protocol_hash_drift": 2
+    }
+  },
+  "privacy": {
+    "full_agent_or_metric_evaluator_started": false,
+    "outcome_or_target_opened": false,
+    "heldout_or_public_opened": false,
+    "new_data_downloaded": false
+  },
+  "decision": {
+    "runtime_checkpoint_complete": true,
+    "served_default": "off",
+    "cached_oof_metrics_unchanged": true,
+    "next_single_mechanism": "preregister progressive-other plus intent-version question reset; begin with target-blind evaluator-contract tests and a bounded 100-session smoke, not a new full Agent run"
+  }
+}
