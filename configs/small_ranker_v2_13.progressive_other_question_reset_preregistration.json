@@ -1,0 +1,97 @@
+{
+  "schema_version": "small-ranker-progressive-other-question-reset-preregistration.v1",
+  "recorded_on": "2026-08-31",
+  "experiment_id": "SR-V2.13-PROGRESSIVE-OTHER-QUESTION-RESET",
+  "parent_commit": "b0e86298186c673e6e48750afbfcf60424c24521",
+  "unique_hypothesis": "after the frozen two-page grace, repeated explicit rejection of a displayed attribute/value family is useful causal evidence that subsequent pages should prioritize unseen candidates outside that family; scoping this memory to one intent version and resetting the corresponding question lifecycle on an override or positive restatement can improve later-turn discovery without changing the first two pages or harming previously hit sessions",
+  "frozen_sources": {
+    "v2_12_runtime_manifest_sha256": "5063d3a1a59d110433646c389bc8dd63504cc62d87bfb06c7419d3081e9ada6d",
+    "v2_12_cached_manifest_sha256": "9774509cb7922cb68a66aa4ea995a9f871d420b73b0365c33a01ada5ed955873",
+    "starter_agent_sha256": "1e50154b208081f9ff318d2893187d164faff714740438323e73356647bfd5e8",
+    "versioned_pagination_sha256": "a21b701402f97dbd8fd8f22e5e553f4e1fccd9e21fe4292bb937254d447c8014"
+  },
+  "single_mechanism_boundary": {
+    "baseline": "frozen v2.12 fixed two-page grace over frozen v1.9/P11/R08",
+    "eligible_turns": "intent-age three or later only",
+    "eligible_evidence": "an explicit user rejection parsed from the current or prior causal turn and attributable to a displayed attribute/value family in the same intent version",
+    "ineligible_evidence": [
+      "target identifier, target attributes, hit status, future turns, evaluator labels, popularity-only inference",
+      "a generic retry with no attributable displayed family",
+      "implicit non-click, non-selection, silence, or an unanswered recommendation",
+      "an inferred product attribute that is unknown in the catalog record"
+    ],
+    "memory_update": "increment one bounded rejection count for each explicitly rejected displayed family; deduplicate identical evidence within a turn",
+    "ranking_transform": "keep the frozen v2.12 unseen-first partition, then stable-partition the unseen remainder into non-rejected-family before rejected-family candidates; preserve upstream order inside each partition and use seen candidates only as the existing fallback",
+    "question_reset": "on every intent-version increment, cancel pending question state and reopen asked/exhausted attributes for the new version; on an explicit positive restatement of a previously rejected attribute/value family, clear only that family's negative memory before ranking",
+    "hard_resets": [
+      "category change",
+      "explicit intent override",
+      "session reset"
+    ],
+    "bounds": {
+      "maximum_family_records_per_intent_version": 16,
+      "maximum_count_per_family": 3,
+      "maximum_candidates_examined": 100,
+      "first_two_pages_byte_identity_required": true,
+      "full_candidate_membership_preservation_required": true
+    },
+    "prohibited_changes": [
+      "retrieval depth, P11 order, v1.9 ranker, grace-page count, question order, evaluator semantics",
+      "learned weights, target-conditioned admission, label-conditioned thresholds, new data"
+    ]
+  },
+  "implementation_sequence": {
+    "phase_0_contract": "implement pure state/update/ordering functions and tests only; verify target blindness, causal ordering, resets, bounds, determinism, and frozen v2.12 identity when no eligible evidence exists",
+    "phase_1_runtime_shadow": "wire the mechanism behind a distinct default-off mode and expose bounded diagnostics; failure must return the complete frozen v2.12 order unchanged",
+    "phase_2_smoke": "run exactly one frozen 100-session cached smoke after source and protocol hashes are committed; do not run a full Agent or inspect individual targets during tuning",
+    "phase_3_nested_oof": "allow one cached 2000-session nested OOF exact-repeat only when the smoke has positive net hits, zero hit-to-miss, non-regressive MRR and MTTC, and deterministic identity"
+  },
+  "contract_tests": [
+    "no eligible rejection is byte-identical to frozen v2.12",
+    "the first two pages of every intent version are byte-identical to frozen v1.9",
+    "a family rejection never promotes a candidate from that same family above an otherwise-order-equivalent unseen candidate outside it",
+    "generic retry alone does not create family memory",
+    "positive restatement clears only the matching family memory before ranking",
+    "intent override clears all progressive memory and question lifecycle state before the new version's first response",
+    "duplicates and malformed attributes fail closed to frozen v2.12",
+    "Top100 membership, Top10 uniqueness, stable ties, and exact repeat are preserved"
+  ],
+  "promotion_gates": {
+    "smoke": {
+      "sessions": 100,
+      "aggregate_net_hits_minimum": 1,
+      "aggregate_hit_to_miss_exactly": 0,
+      "aggregate_mrr_delta_minimum": 0.0,
+      "aggregate_mttc_delta_maximum": 0.0,
+      "technical_score_delta_strictly_above": 0.0,
+      "exact_repeat_required": true
+    },
+    "nested_oof": {
+      "aggregate_hr_at_10_strictly_above": 0.991,
+      "aggregate_hit_to_miss_exactly": 0,
+      "aggregate_mrr_minimum": 0.695795,
+      "aggregate_mttc_maximum": 2.869,
+      "aggregate_technical_score_strictly_above": 0.866858,
+      "every_outer_fold_net_hits_minimum": 0,
+      "every_outer_fold_hit_to_miss_exactly": 0,
+      "every_outer_fold_mrr_delta_minimum": 0.0,
+      "every_outer_fold_mttc_delta_maximum": 0.0,
+      "exact_repeat_required": true
+    }
+  },
+  "resource_and_privacy": {
+    "served_default": "off",
+    "runtime_fallback": "complete frozen v2.12 output identity",
+    "full_agent_allowed": false,
+    "heldout_public_amazon_test_allowed": false,
+    "new_data_download_allowed": false,
+    "individual_outcome_serialization_allowed": false,
+    "cached_smoke_wall_seconds_maximum": 30,
+    "cached_nested_oof_wall_seconds_maximum": 120
+  },
+  "decision_queue": {
+    "go": "freeze and integrate only if every applicable smoke and nested-OOF gate passes",
+    "smoke_no_go": "record No-Go without opening 2000-session outcomes; proceed to the preregistered clause-isolated C200/C400 target-blind recall probe",
+    "nested_oof_no_go": "record No-Go and keep v2.12 as the best frozen candidate; do not tune family rules on opened outcomes"
+  }
+}
