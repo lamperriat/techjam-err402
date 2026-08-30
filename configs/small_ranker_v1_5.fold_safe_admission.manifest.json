@@ -35,6 +35,28 @@
       "path": "experiments/fast_track/small_ranker_three_head_gate_v1.json",
       "bytes": 8021,
       "sha256": "9bd5a417070c18569a98ed5c2b4b21a15674cf3932bc0337a06e2a0f32655cb2"
+    },
+    "ignored_exact_repeat": {
+      "path": "experiments/fast_track/small_ranker_three_head_gate_v1_repeat1.json",
+      "bytes": 8021,
+      "sha256": "eda935ee867bd40ed8858b518be15be7174b99dd77aae31b6d90237d34b334c1"
+    }
+  },
+  "exact_reproduction": {
+    "excluded_field": "timing_seconds",
+    "equal": true,
+    "canonical_sha256_original": "ac2a14b0f27a5e972c0a12ed0b5dabadd5b6a2d8fc6b0b873b10ad11e7955fbe",
+    "canonical_sha256_repeat": "ac2a14b0f27a5e972c0a12ed0b5dabadd5b6a2d8fc6b0b873b10ad11e7955fbe",
+    "repeat_wall_seconds": 8.302337,
+    "metrics_reproduced": {
+      "miss_to_hit": 48,
+      "hit_to_miss": 0,
+      "net_hits": 48,
+      "fold_net_hits": [7, 13, 8, 7, 13],
+      "hr_delta": 0.024,
+      "mrr_delta": 0.001933,
+      "mttc_delta": -0.1115,
+      "technical_score_delta": 0.01481
     }
   },
   "label_counts": {
@@ -86,10 +108,10 @@
     "result": "3 passed in 0.10s"
   },
   "decision": {
-    "status": "PROMISING_OOF_REPRODUCE_ONLY",
-    "reason": "all five outer folds gained hits and MRR with zero hit-to-miss, but the candidate is selected on train_explore only and activates 70.6% of sessions",
+    "status": "PROMISING_OOF_REPRODUCED_FRESH_VALIDATION_REQUIRED",
+    "reason": "all five outer folds gained hits and MRR with zero hit-to-miss and the frozen result reproduced exactly except timing, but evidence remains train_explore only and the policy activates 70.6% of sessions",
     "promote": false,
     "served_default": "off",
-    "next_algorithm": "exactly reproduce frozen OOF; if deterministic, freeze a new product-family-disjoint validation split rather than reuse the observed calibration"
+    "next_algorithm": "freeze a new product-family-disjoint validation protocol and target-blind cache rather than reuse the observed calibration"
   }
 }

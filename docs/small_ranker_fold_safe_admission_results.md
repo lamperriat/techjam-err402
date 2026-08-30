@@ -37,7 +37,16 @@ points while satisfying the hard safety constraints in all outer folds. It is
 still aggressive—8,098 activated turns across 1,412 of 2,000 sessions—and all
 evidence remains within the development split.
 
-The next checkpoint is an exact frozen reproduction. If reproducible, validation
-must use a newly frozen product-family-disjoint split. The already observed
-calibration cannot be reused as untouched evidence. P11/R08 fallback and the
-served default remain unchanged.
+## Exact reproduction
+
+The frozen experiment was repeated without changing code, caches, scores, seeds,
+or protocol. Excluding only `timing_seconds`, both artifacts have the identical
+canonical SHA-256
+`ac2a14b0f27a5e972c0a12ed0b5dabadd5b6a2d8fc6b0b873b10ad11e7955fbe`.
+All global and fold metrics reproduced exactly; the repeat took `8.302337`
+seconds.
+
+The next checkpoint is a newly frozen product-family-disjoint validation
+protocol and target-blind cache. The already observed calibration cannot be
+reused as untouched evidence. P11/R08 fallback and the served default remain
+unchanged.
