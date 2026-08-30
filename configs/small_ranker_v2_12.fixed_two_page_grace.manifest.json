@@ -1,0 +1,66 @@
+{
+  "schema_version": "small-ranker-fixed-two-page-grace-manifest.v1",
+  "recorded_on": "2026-08-31",
+  "experiment_id": "SR-V2.12-FIXED-TWO-PAGE-GRACE",
+  "status": "GO_CACHED_REPLAY_RUNTIME_INTEGRATION_REQUIRED",
+  "commits": {
+    "preregistration": "6657a38",
+    "implementation": "e53c976"
+  },
+  "result": {
+    "path": "experiments/fast_track/small_ranker_v2_12/fixed_two_page_grace_20260831T0230/result.json",
+    "sha256": "5035cf7823fd3f55138a1c224b4b124d67405a20aa5b15bf1b1601f016de8dbe",
+    "bytes": 4916,
+    "exact_repeat_sha256": "9377deb5f9f6f19fe4fb41077892613232b59e69d51bb7ad19a2ee0cc063486d"
+  },
+  "comparison": {
+    "baseline_hr_at_10": 0.9715,
+    "candidate_hr_at_10": 0.991,
+    "miss_to_hit": 39,
+    "hit_to_miss": 0,
+    "fold_net_hits": [14, 8, 7, 8, 2],
+    "baseline_mrr": 0.676861,
+    "candidate_mrr": 0.695795,
+    "mrr_delta": 0.018934,
+    "fold_mrr_delta": [0.019319, 0.007305, 0.036768, 0.004668, 0.026609],
+    "baseline_mttc": 3.056,
+    "candidate_mttc": 2.869,
+    "mttc_delta": -0.187,
+    "baseline_technical_score": 0.847688,
+    "candidate_technical_score": 0.866858,
+    "technical_score_delta": 0.01917,
+    "fold_technical_score_delta": [0.028946, 0.015842, 0.02263, 0.0151, 0.013333]
+  },
+  "exposure": {
+    "grace_pages_per_intent_version": 2,
+    "baseline_mean_distinct_products": 25.2015,
+    "candidate_mean_distinct_products": 90.779,
+    "candidate_duplicate_fraction": 0.09221,
+    "same_version_repeat_slots": 14453,
+    "changed_sessions": 2000,
+    "changed_turns": 14822,
+    "intent_override_resets": 300
+  },
+  "regression": {
+    "v2_10_output_sha256": "c1eba772db45edde0db7edafe97f40e0a5268e3a7afd5c0e5dba0c3fcd40bd6a",
+    "v2_10_metrics_exact": true,
+    "v2_10_regression_artifact_sha256": "8eaf19bfc0b3258fde61b3c944a7f774c9b2e45ba68da9af04a4b1718a207d4e",
+    "v2_11_output_sha256": "f367b06b81cdbf9028fde45e3fb3bdbef4b22878e182951dbe9c54bb572e0897",
+    "v2_11_metrics_and_repeat_exact": true,
+    "v2_11_regression_artifact_sha256": "502bdf7128d10be77b400996530287d04aab07e53cc6e9ad94a891294b192c0b"
+  },
+  "privacy_and_resource": {
+    "target_blind_policy": true,
+    "train_explore_target_used_only_for_aggregate_metrics": true,
+    "individual_session_or_product_identifiers_serialized": false,
+    "held_out_split_or_full_agent_opened": false,
+    "cached_replay_wall_seconds": 8.011486,
+    "focused_tests": "7 passed"
+  },
+  "decision": {
+    "promote_cached_mechanism": true,
+    "served_default": "off",
+    "reason": "the preregistered two-page grace retained all 39 v2.10 rescues and zero harms while making aggregate and every-fold MRR, MTTC, and TechnicalScore strictly positive relative to v1.9",
+    "next_single_mechanism": "integrate exactly the frozen two-page intent-version grace plus unchanged stable unseen-first pagination behind an explicit default-off runtime mode; preserve complete v1.9/P11/R08 fallback and verify target-free Agent state/reset parity before any new evaluator run"
+  }
+}
