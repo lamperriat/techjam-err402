@@ -16,6 +16,14 @@
     "input_binding": "feature count/order, action width, seed, C, solver, max_iter, utility multiplier, quantile grid, frozen hashes, and readiness minima are checked against the committed preregistration before evaluation",
     "posthoc_invariant": "the already-recorded v2.6 union oracle remains report-only and must reproduce 20 sessions, fold counts [9,2,7,1,1], and HR ceiling 0.9815; it never filters runtime actions or model rows"
   },
+  "implementation_constants": {
+    "max_actions": 3,
+    "model_seed": 20260830,
+    "regret_multiplier": 1.0,
+    "minimum_rescue_sessions": 5,
+    "minimum_rescue_families": 5,
+    "quantiles": "0/64 through 63/64 plus KEEP=1.0"
+  },
   "unchanged": {
     "feature_names_and_count": true,
     "model_family_and_hyperparameters": true,
