@@ -271,6 +271,25 @@ def test_context_turn_rejects_missing_extra_forbidden_identifier_and_control_dat
             worker.validate_context_turn(value)
 
 
+def test_context_turn_rejects_exact_non_b0_catalog_token_without_false_positive() -> None:
+    catalog_identifier = "123456789X"
+    leaked = {**_context_turn(), "message": f"show {catalog_identifier} please"}
+    with pytest.raises(worker.C200WorkerError):
+        worker._validate_context_turn_payload(
+            leaked,
+            frozenset({catalog_identifier}),
+        )
+
+    benign = {**_context_turn(), "message": "I need waterproof boots."}
+    assert (
+        worker._validate_context_turn_payload(
+            benign,
+            frozenset({catalog_identifier}),
+        )["message"]
+        == benign["message"]
+    )
+
+
 @pytest.mark.parametrize("name", ["version", "version_anchor_turn", "override_count"])
 def test_context_turn_rejects_bool_as_integer(name: str) -> None:
     context = _context_turn()
@@ -688,6 +707,16 @@ def test_result_privacy_allows_required_aggregates_and_rejects_identity_data() -
     for payload in forbidden:
         with pytest.raises(probe.C200ProbeError):
             probe._result_privacy_scan(payload)
+
+    for payload in (
+        {"safe": "123456789X"},
+        {"by_taxonomy": {"123456789X": {"count": 1}}},
+    ):
+        with pytest.raises(probe.C200ProbeError):
+            probe._result_privacy_scan(
+                payload,
+                catalog_ids={"123456789X"},
+            )
 
 
 def test_formal_source_orders_receipt_workers_and_target_attach() -> None:

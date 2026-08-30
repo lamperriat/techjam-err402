@@ -71,6 +71,10 @@ MAX_WORKING_SET_BYTES = 2_147_483_648
 ASIN_SHAPE_RE = re.compile(
     r"(?<![A-Z0-9])B0[A-Z0-9]{8}(?![A-Z0-9])", re.IGNORECASE
 )
+CATALOG_IDENTIFIER_TOKEN_RE = re.compile(
+    r"(?<![A-Z0-9])[A-Z0-9]{10}(?![A-Z0-9])", re.IGNORECASE
+)
+CATALOG_IDENTIFIER_RE = re.compile(r"[A-Z0-9]{10}")
 NONCE_RE = re.compile(r"[0-9a-f]{32}")
 CONTROL_CHARACTERS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
@@ -272,7 +276,9 @@ def _catalog_identity(path: Path) -> tuple[SourceIdentity, frozenset[str]]:
             if (
                 not isinstance(identifier, str)
                 or not identifier
-                or ASIN_SHAPE_RE.fullmatch(identifier) is None
+                or not identifier.isascii()
+                or CATALOG_IDENTIFIER_RE.fullmatch(identifier) is None
+                or identifier != identifier.upper()
                 or identifier in identifiers
             ):
                 raise C200WorkerError("catalog identifier shape or uniqueness drifted")
@@ -357,7 +363,11 @@ def _validate_context_turn_payload(
     _validate_slot_records(value["active_records"], "active_records")
     _validate_slot_records(value["retired_records"], "retired_records")
     for text in _walk_strings(value):
-        if ASIN_SHAPE_RE.search(text):
+        catalog_tokens = {
+            match.group(0).upper()
+            for match in CATALOG_IDENTIFIER_TOKEN_RE.finditer(text)
+        }
+        if ASIN_SHAPE_RE.search(text) or catalog_tokens & catalog_identifiers:
             raise C200WorkerError("visible context contains an identifier-shaped token")
     return value
 

@@ -53,15 +53,16 @@ BRANCH = "small-ranker-v2.16-c200-recall"
 REMOTE = "origin"
 REMOTE_URL = "https://github.com/lamperriat/techjam-err402.git"
 REMOTE_REF = "refs/remotes/origin/" + BRANCH
-BASE_COMMIT = "ba52ed8baa8bc371f4c045bc06d3f1abbbeeddc6"
-PREREG_COMMIT = "27decc46bc3752b5c7654c8c90a139ecac0ac78d"
-PREREG_BLOB = "a867866b79cc9b047b1a447141bdc58594101034"
+ORIGINAL_PREREG_COMMIT = "27decc46bc3752b5c7654c8c90a139ecac0ac78d"
+BASE_COMMIT = "22ebdbe2016a46750cb82092279ab5055ab02252"
+PREREG_COMMIT = "e412300fd12b36790eaee6ec81cab50fba60ba99"
+PREREG_BLOB = "f911e483dcdc3d86e0def38e231260a832baa379"
 PREREG_CANONICAL_SHA256 = (
-    "4ddcf68fedee90d42133176c8d1b53a8dcddcd33ee450906e78a0a7cfaea2ce0"
+    "1048c305cbef5a5c03671338862848c4a2addd6b29c1971e8ec8b45a3c8b9b09"
 )
-PREREG_PATH = ROOT / "configs/small_ranker_v2_16.c200_candidate_recall_preregistration.json"
+PREREG_PATH = ROOT / "configs/small_ranker_v2_16.c200_candidate_recall_preflight_erratum.json"
 PREREG_PATHS = {
-    "configs/small_ranker_v2_16.c200_candidate_recall_preregistration.json"
+    "configs/small_ranker_v2_16.c200_candidate_recall_preflight_erratum.json"
 }
 IMPLEMENTATION_PATHS = {
     "scripts/c200_candidate_worker.py",
@@ -139,6 +140,10 @@ WORKER_PATH = ROOT / "scripts/c200_candidate_worker.py"
 
 ASIN_SHAPE_RE = re.compile(
     rb"(?<![A-Z0-9])B0[A-Z0-9]{8}(?![A-Z0-9])", re.IGNORECASE
+)
+CATALOG_IDENTIFIER_RE = re.compile(rb"[A-Z0-9]{10}")
+CATALOG_IDENTIFIER_TOKEN_RE = re.compile(
+    rb"(?<![A-Z0-9])[A-Z0-9]{10}(?![A-Z0-9])", re.IGNORECASE
 )
 COMMIT_RE = re.compile(r"[0-9a-f]{40}")
 
@@ -370,12 +375,13 @@ def _load_preregistration() -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_unique_object)
     if not isinstance(value, dict) or not (
         value.get("schema_version")
-        == "small-ranker-c200-candidate-recall-preregistration.v1"
+        == "small-ranker-c200-candidate-recall-preflight-erratum.v1"
         and value.get("status")
-        == "PREREGISTERED_BEFORE_IMPLEMENTATION_CONTEXT_REBUILD_AND_C200_OUTCOME"
-        and value.get("parent_commit") == BASE_COMMIT
+        == "PREREGISTERED_AFTER_TARGET_FREE_PREFLIGHT_FAILURE_BEFORE_CORRECTION_AND_OUTCOME"
+        and value.get("parent_implementation_commit") == BASE_COMMIT
+        and value.get("original_preregistration_commit") == ORIGINAL_PREREG_COMMIT
         and _canonical_sha256(value) == PREREG_CANONICAL_SHA256
-        and _git("rev-parse", f"{PREREG_COMMIT}:configs/small_ranker_v2_16.c200_candidate_recall_preregistration.json")
+        and _git("rev-parse", f"{PREREG_COMMIT}:configs/small_ranker_v2_16.c200_candidate_recall_preflight_erratum.json")
         == PREREG_BLOB
     ):
         raise C200ProbeError("preregistration identity drifted")
@@ -450,7 +456,9 @@ def _load_catalog_target_free() -> tuple[
             identifier = str(value.get("parent_asin", "")) if isinstance(value, dict) else ""
             if (
                 not identifier
-                or ASIN_SHAPE_RE.fullmatch(identifier.encode("utf-8")) is None
+                or not identifier.isascii()
+                or CATALOG_IDENTIFIER_RE.fullmatch(identifier.encode("ascii")) is None
+                or identifier != identifier.upper()
                 or identifier in products
             ):
                 raise C200ProbeError("catalog identifier surface drifted")
@@ -1039,7 +1047,12 @@ def _walk_values(value: object) -> Iterable[object]:
             yield from _walk_values(child)
 
 
-def _result_privacy_scan(value: object) -> None:
+def _result_privacy_scan(
+    value: object,
+    *,
+    catalog_ids: Iterable[str] = (),
+) -> None:
+    catalog_membership = frozenset(str(item).upper() for item in catalog_ids)
     forbidden_keys = {
         "session_id",
         "sample_id",
@@ -1064,8 +1077,14 @@ def _result_privacy_scan(value: object) -> None:
         ):
             if len(item) >= SESSION_COUNT:
                 raise C200ProbeError("result contains a session-length vector")
-        elif isinstance(item, str) and ASIN_SHAPE_RE.search(item.encode("utf-8")):
-            raise C200ProbeError("result contains an identifier-shaped token")
+        elif isinstance(item, str):
+            encoded = item.encode("utf-8")
+            exact_catalog_tokens = {
+                match.group(0).decode("ascii").upper()
+                for match in CATALOG_IDENTIFIER_TOKEN_RE.finditer(encoded)
+            }
+            if ASIN_SHAPE_RE.search(encoded) or exact_catalog_tokens & catalog_membership:
+                raise C200ProbeError("result contains an identifier-shaped token")
 
 
 def _open_proxy_after_receipt(path: Path) -> OpenProxySource:
@@ -1964,6 +1983,7 @@ def run(implementation_commit: str) -> dict[str, Any]:
             "implementation": {
                 "commit": implementation_commit,
                 "preregistration_commit": PREREG_COMMIT,
+                "original_preregistration_commit": ORIGINAL_PREREG_COMMIT,
                 "branch": BRANCH,
                 "default": "off",
                 "causal": True,
@@ -2065,7 +2085,7 @@ def run(implementation_commit: str) -> dict[str, Any]:
                 ],
             },
         }
-        _result_privacy_scan(result)
+        _result_privacy_scan(result, catalog_ids=preflight.catalog_ids)
         if descriptor is None:
             raise C200ProbeError("receipt descriptor was closed before result seal")
         _write_descriptor(descriptor, result)
