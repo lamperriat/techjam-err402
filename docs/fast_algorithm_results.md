@@ -676,3 +676,35 @@ tuning. The frozen evidence is recorded in
 `configs/small_ranker_v2_8.strict_outer_restack_stage1.manifest.json`. The next
 experiment must change proposal reachability or candidate recall rather than reuse
 this selector.
+
+## SR-V2.9 fixed top-5 proposal depth — Stage 0 mechanics pass
+
+The single preregistered change is proposal depth per frozen family from one to five.
+For each family, the enumerator ranks the same allowed 91 C100 positions, takes the raw
+top five, then excludes the current choice and incumbent without refill. Equal candidate
+ordinals are deduplicated across pairwise, RRF-3, and focused families by OR-ing support
+bits; the unchanged 19-feature selector surface can therefore contain at most 15 actions
+per turn.
+
+The target-free outer-0 first/repeat build passed with exact identity
+`41e5cd8563ec38e78c3c279c27937721c8e2b0c8cfa960139e28af278bc1a27a`.
+The same builder at `k=1` reproduced all nine v2.8 runtime fields bit-exactly in all
+three phases, every old top-1 candidate and support bit remained present, KEEP preserved
+the complete current policy, and the causal latch selected at most one action per
+session. OOF-T expanded from `23,348` to `127,398` action rows; reference-T from
+`22,244` to `127,616`; held-H from `6,321` to `33,060`. Median/P95 unique width was
+`8/11`, and the maximum observed width was `14`.
+
+The run took `12.805s` total (`12.633s` for first plus repeat), peaked at
+`762,101,760` bytes, and wrote `87,813,708` bytes across 55 files. All frozen source,
+36-array allow-list, exact-repeat, privacy, and resource gates passed. Nine focused
+helper/boundary tests passed and the production script compiled under Python 3.9; these
+tests are not described as full orchestration coverage because Stage 0 itself supplies
+that integration check.
+
+No label archive, target outcome, selector fit, Agent, evaluator, or forbidden split was
+opened. Consequently this is not an HR/MRR/MTTC result and does not authorize a runtime
+artifact. Stage 1a is authorized to build and repeat all five target-free outer surfaces;
+T-only selector training and any held outcome remain unauthorized until those surfaces
+are frozen. Aggregate evidence is tracked in
+`configs/small_ranker_v2_9.top5_proposal_depth_stage0.manifest.json`.

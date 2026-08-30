@@ -1,0 +1,105 @@
+{
+  "schema_version": "small-ranker-top5-proposal-depth-stage0-manifest.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.9-STRICT-TOP5-PROPOSAL-DEPTH-STAGE0",
+  "status": "IMPLEMENTATION_PASS_STAGE0",
+  "evidence_boundary": "target-free outer-0 mechanics only; no label archive, selector fit, proposal oracle, outcome metric, Agent, or evaluator",
+  "git": {
+    "preregistration_commit": "6ad3518",
+    "implementation_commit": "a2ab783c7fabaf6531f604a00b158ab31bc40cad"
+  },
+  "result": {
+    "path": "experiments/fast_track/small_ranker_v2_9/stage0_20260830T222836/stage0_result.json",
+    "sha256": "1ccb96454936c58f28cf096f2e864b4e5dd874e46afe4de3bec15a0704e113e3",
+    "bytes": 38796,
+    "exact_repeat": true,
+    "identity_sha256": "41e5cd8563ec38e78c3c279c27937721c8e2b0c8cfa960139e28af278bc1a27a"
+  },
+  "sources": {
+    "preregistration_sha256": "51c0a9d909e7e8d21604ff29981c8a35ca217b94e0ec9d6f8c98ca12d700cebb",
+    "implementation_amendment_sha256": "3058bd3b009bc8079478d0a0c95df5d02b2691b66b40ef322d80bc3a61c3b505",
+    "probe_sha256": "6ca765d0df519da789ebbeecf82b9629ac32298b41180e1ca951d769f1a94e64",
+    "v2_8_result_sha256": "a683f50f6acdb2ee3cc0c88507e6f5ac4f46b2a6b0599acf2e6a4abdc3d17c97",
+    "v2_8_freeze_identity_sha256": "78e70b6211804e677c38db550bcf6c032834d7abcfd312ac0508f8db0db3a0b2",
+    "outer_0_identity_sha256": "c67f5bc009f7b9a84c7a407ad7c70314e2a43b2c1954a6a24750373f8d5c40da",
+    "feature_order_sha256": "f5a8fa2a1d6c2d191a43c01f741b65d0850e928291a64ee4e8c996fafa7b0bec"
+  },
+  "mechanics": {
+    "proposal_depth_per_family": 5,
+    "maximum_unique_actions_per_turn": 15,
+    "k1_all_nine_fields_bit_exact": true,
+    "old_top1_candidate_and_support_subset": true,
+    "keep_composition_exact": true,
+    "causal_latch_at_most_one_action_per_session": true,
+    "first_repeat_phase_arrays_exact": true,
+    "phases": {
+      "oof_T": {
+        "sessions": 1600,
+        "turns": 16000,
+        "old_top1_action_rows": 23348,
+        "top5_action_rows": 127398,
+        "width_mean": 7.962375,
+        "width_p50_higher": 8,
+        "width_p95_higher": 11,
+        "width_max": 13,
+        "session_order_sha256": "95e2b59be6a061892eab6aeb0bd4233a60021eee32d85115553e6f10348d1fc4"
+      },
+      "reference_T": {
+        "sessions": 1600,
+        "turns": 16000,
+        "old_top1_action_rows": 22244,
+        "top5_action_rows": 127616,
+        "width_mean": 7.976,
+        "width_p50_higher": 8,
+        "width_p95_higher": 11,
+        "width_max": 14,
+        "session_order_sha256": "95e2b59be6a061892eab6aeb0bd4233a60021eee32d85115553e6f10348d1fc4"
+      },
+      "held_H": {
+        "sessions": 400,
+        "turns": 4000,
+        "old_top1_action_rows": 6321,
+        "top5_action_rows": 33060,
+        "width_mean": 8.265,
+        "width_p50_higher": 8,
+        "width_p95_higher": 11,
+        "width_max": 14,
+        "session_order_sha256": "2acfabe2eaa431df5acf5d6721a3e78db5e2028112bc32aa300db420d1471d63"
+      }
+    }
+  },
+  "privacy": {
+    "label_archive_opened": false,
+    "outcome_member_accesses": 0,
+    "held_state_or_metric_computed": false,
+    "agent_or_full_evaluator_started": false,
+    "forbidden_split_or_external_data_opened": false
+  },
+  "resource": {
+    "wall_seconds": 12.804929,
+    "first_plus_repeat_wall_seconds": 12.633181,
+    "first_plus_repeat_wall_seconds_maximum": 600,
+    "peak_working_set_bytes": 762101760,
+    "peak_working_set_bytes_maximum": 3289186304,
+    "new_cache_bytes": 87813708,
+    "new_cache_bytes_maximum": 1073741824,
+    "output_files": 55,
+    "xgboost_fits": 0,
+    "selector_fits": 0,
+    "workers": 1,
+    "all_budget_gates_passed": true
+  },
+  "verification": {
+    "targeted_tests": "9 passed",
+    "python_3_9_compile": true,
+    "independent_static_reviews": 3,
+    "deterministic_algorithm_or_protocol_blocker_found": false
+  },
+  "decision": {
+    "stage1a_authorized": true,
+    "selector_or_outcome_authorized": false,
+    "runtime_artifact_authorized": false,
+    "hr_mrr_mttc_or_technical_score_claimed": false,
+    "next_single_step": "build and exactly repeat all five target-free outer top-5 oof_T, reference_T, and held_H surfaces, then freeze their identity before any T-only selector training"
+  }
+}
