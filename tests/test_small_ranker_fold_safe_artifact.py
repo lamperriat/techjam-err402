@@ -46,6 +46,8 @@ def test_serialized_head_probability_matches_logistic_formula() -> None:
     assert exporter._head_probability(head, row) == pytest.approx(expected)
     actual = exporter._serialized_head_probabilities(head, row[None, :])
     assert actual.tolist() == pytest.approx([expected])
+    with pytest.raises(exporter.ArtifactFreezeError):
+        exporter._head_probability(head, [3.0])
 
 
 def test_artifact_scan_rejects_only_exact_forbidden_keys() -> None:

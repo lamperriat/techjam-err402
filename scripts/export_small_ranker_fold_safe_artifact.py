@@ -471,9 +471,17 @@ def _export_head(
 
 
 def _head_probability(head: Mapping[str, Any], row: Sequence[float]) -> float:
+    lengths = (
+        len(row),
+        len(head["mean"]),
+        len(head["scale"]),
+        len(head["coef"]),
+    )
+    if len(set(lengths)) != 1:
+        raise ArtifactFreezeError("serialized admission head shape mismatch")
     logit = float(head["intercept"])
     for value, mean, scale, coefficient in zip(
-        row, head["mean"], head["scale"], head["coef"], strict=True
+        row, head["mean"], head["scale"], head["coef"]
     ):
         logit += float(coefficient) * (
             (float(value) - float(mean)) / float(scale)
@@ -541,12 +549,15 @@ def _tree_semantic_dependency_audit(
     changed_indices = {
         int(base.FEATURE_INDEX[name]) for name in SEMANTIC_OFF_FEATURE_NAMES
     }
-    split_indices = [
-        int(feature)
-        for tree in tree_model["trees"]
-        for left, feature in zip(tree["l"], tree["f"], strict=True)
-        if int(left) >= 0
-    ]
+    split_indices: list[int] = []
+    for tree in tree_model["trees"]:
+        if len(tree["l"]) != len(tree["f"]):
+            raise ArtifactFreezeError("serialized tree shape mismatch")
+        split_indices.extend(
+            int(feature)
+            for left, feature in zip(tree["l"], tree["f"])
+            if int(left) >= 0
+        )
     dependent = [index for index in split_indices if index in changed_indices]
     return {
         "semantic_route_required": False,
