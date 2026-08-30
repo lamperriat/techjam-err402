@@ -1,0 +1,115 @@
+{
+  "schema_version": "small-ranker-supplemental-pairwise-preregistration.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.3-SUPPLEMENTAL-PAIRWISE",
+  "parent_commit": "89952c3",
+  "hypothesis": "the frozen pairwise ranker contains complementary proposals for 13 of the current policy's 57 misses, and a target-blind disagreement gate can select a safe subset without replacing or undoing the current 0.9715 policy",
+  "unique_variable": "add one pairwise proposal as an optional override of the current served slot-10 choice; KEEP preserves the current policy exactly",
+  "frozen_inputs": {
+    "current_semantic_off_oof_score_sha256": "5000deb9b77b3e7b326ccab6455222b291d2ec859ddab2043fe67d23a3217c5e",
+    "current_activation_sha256": "48ad9137cb3b99985d3d7e4035575bf06225d8c6b4f9f3c134a468f404d1c410",
+    "pairwise_semantic_off_oof_score_sha256": "1765f60c3f111f751e8d0c133bbbd93d2a1e174db24b2c4c64c80aea66a4778b",
+    "semantic_off_projected_features_sha256": "cd9b075b923c31afe10b9a9c6d720de22e221c93de961595ff484ea4f532b90a",
+    "candidate_universe": "C100"
+  },
+  "supplemental_action": {
+    "current_served_choice": "current ranker choice when its frozen OOF admission activates, otherwise the P11 slot-10 incumbent",
+    "available_when": "pairwise choice differs from the current served choice and also differs from the P11 incumbent",
+    "never_undo_to_p11": true,
+    "activated_policy": "replace that turn's current served slot-10 choice with the pairwise choice while retaining all other current-policy decisions",
+    "keep_policy": "bit-exact current chosen and activation arrays"
+  },
+  "runtime_feature_contract": {
+    "feature_count": 31,
+    "feature_names": [
+      "pairwise_margin_vs_current_choice",
+      "pairwise_top_gap",
+      "pairwise_challenger_score",
+      "pairwise_current_choice_score",
+      "coverage_rank_fraction",
+      "broad_presence",
+      "strict_presence",
+      "structured_presence",
+      "semantic_presence",
+      "top10_route_agreement_fraction",
+      "route_rank_dispersion",
+      "active_title_category_idf_coverage",
+      "active_features_details_idf_coverage",
+      "active_description_store_idf_coverage",
+      "active_token_recall",
+      "active_rare_term_coverage",
+      "active_bigram_coverage",
+      "hard_clause_coverage",
+      "explicit_negative_violation",
+      "missing_positive_evidence_fraction",
+      "query_specificity_fraction",
+      "goal_age_fraction",
+      "pairwise_minus_current_active_recall",
+      "pairwise_minus_current_hard_coverage",
+      "pairwise_minus_current_conflict_sum",
+      "current_policy_active",
+      "current_ranker_margin",
+      "current_ranker_top_gap",
+      "pairwise_minus_current_choice_score_under_current_ranker",
+      "current_choice_rank_fraction_under_pairwise_ranker",
+      "pairwise_choice_rank_fraction_under_current_ranker"
+    ],
+    "target_feature": false,
+    "identity_feature": false,
+    "future_turn_feature": false,
+    "both_ranker_scores_available_at_runtime": true
+  },
+  "training_labels": {
+    "construction": "apply each available supplemental action in isolation on top of the complete frozen current-policy trace",
+    "rescue": "current session miss becomes a hit",
+    "regret": "isolated action lowers session reciprocal rank or increases first-hit turn relative to current",
+    "reciprocal_rank_loss": "max(0, current reciprocal rank minus isolated-action reciprocal rank)",
+    "mttc_loss": "max(0, isolated-action first-hit turn minus current first-hit turn)",
+    "rescue_head_weights": "1.0 rescue, 5.0 regret, 0.05 otherwise",
+    "regret_head_weights": "5 + 20*reciprocal_rank_loss + 0.2*mttc_loss for regret, 0.2 rescue, 0.05 otherwise",
+    "target_is_label_only": true
+  },
+  "model": {
+    "heads": ["rescue", "composite_regret"],
+    "type": "L2 logistic regression",
+    "C": 0.2,
+    "solver": "liblinear",
+    "max_iter": 300,
+    "utility": "P(rescue) - 1.0*P(composite_regret)",
+    "quantiles": "0/64 through 63/64 plus KEEP",
+    "hyperparameter_sweep": false
+  },
+  "cross_fit": {
+    "outer": "hold out one product-family fold from both supplemental heads and admission selection",
+    "inner": "cross-fit both heads across the fixed inner folds within outer-train sessions",
+    "threshold_selection": "map the selected inner-safe quantile to outer-train utility and apply only to the held outer fold",
+    "inner_safety": "aggregate and every inner fold must have zero current-hit-to-miss, nonnegative MRR delta, and nonpositive MTTC delta",
+    "current_policy_role": "frozen OOF comparator and immutable default action surface; it is not refit or tuned",
+    "session_or_product_identity_feature": false
+  },
+  "promotion_gate": {
+    "aggregate_hr_at_10_strictly_greater_than": 0.9715,
+    "hit_to_miss_relative_to_current": 0,
+    "every_fold_net_hits_relative_to_current_nonnegative": true,
+    "every_fold_mrr_delta_relative_to_current_nonnegative": true,
+    "aggregate_mrr_delta_relative_to_current_nonnegative": true,
+    "every_fold_mttc_delta_relative_to_current_nonpositive": true,
+    "aggregate_mttc_delta_relative_to_current_nonpositive": true,
+    "technical_score_delta_relative_to_current_strictly_positive": true,
+    "exact_repeat": true
+  },
+  "oracle_reporting": {
+    "allowed_posthoc_only": true,
+    "report_pairwise_supplemental_reachable_sessions_and_fold_counts": true,
+    "must_not_change_model_or_threshold_after_result": true
+  },
+  "execution_boundary": {
+    "cached_train_explore_only": true,
+    "agent_or_evaluator_started": false,
+    "held_out_splits_opened": false,
+    "external_data_downloaded": false,
+    "full_model_or_artifact_only_if_promoted": true,
+    "new_exclusive_output": true
+  },
+  "decision_rule": "Promote only if every gate passes and the exact repeat matches; otherwise close this supplemental formulation without changing features, weights, multiplier, or thresholds"
+}
