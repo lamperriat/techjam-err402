@@ -396,3 +396,34 @@ A materially new future stage requires new authority and new evidence, not anoth
 
 Under the current instruction not to add a full split or another rule variant, Family 1-4
 is complete with a reproducible negative boundary rather than a deployable HR action.
+
+## SR-v1.9 fold-safe deployable artifact
+
+The exact semantic-off projection repeat closed the reproducibility gap, after which the
+frozen `ndcg_d4_lr003` ranker was paired with rescue and reciprocal-rank-regret admission
+heads. RR multiplier is fixed at `1.0`; direct hit-loss is absent because its isolated
+training label has no positives. Fold-specific raw probabilities are not reused. Each
+outer fold selects an inner-safe activation quantile, and the final median quantile is
+mapped to the unlabeled full-model utility distribution.
+
+The deployment-form nested OOF result retains HR@10 `0.9715`: `48` miss-to-hit, `0`
+hit-to-miss, fold net `7/13/8/7/13`, MRR `+0.001933`, MTTC `-0.1045`, and
+TechnicalScore `+0.014670`. It activates `6,573` turns in `1,251` sessions. This equals
+the current candidate HR and is a deployment checkpoint, not a new algorithm promotion
+above `0.9715`.
+
+The tracked artifact is `starter/assets/small_ranker_fold_safe_v1.json`, `256,639` bytes,
+SHA-256 `f8d0b6c0e402edeb34b1e35119c5295449888bc1be713607e88337fa874d16dc`.
+Its independent render is byte-identical; identity-shaped token count and forbidden target
+key count are both zero. XGBoost versus pure-Python parity is exact for all sampled C100
+orders (maximum score error `3.5214e-6`), and serialized admission decisions match the
+vectorized reference on all `20,000` turns. The runtime remains off by default and falls
+back completely to P11/R08 on missing/corrupt artifacts, invariant failures, exceptions,
+or budget failures.
+
+A target-free handwritten runtime benchmark imported no evaluator or training library and
+opened no dataset/label. All `110` turns completed with zero fallback: cold Agent init
+`2.628s`, one 10-turn session `3.141s`, 10-session batch `18.340s`, turn P50/P95
+`185.83/277.76ms`, and process peak RSS `166,883,328` bytes. This benchmark is deployment
+evidence only and is not promotion evidence. Full hashes and failure-attempt provenance
+are in `configs/small_ranker_v1_9.deployable_artifact.manifest.json`.

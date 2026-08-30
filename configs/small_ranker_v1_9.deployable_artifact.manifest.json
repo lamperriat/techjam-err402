@@ -1,0 +1,115 @@
+{
+  "schema_version": "small-ranker-deployable-artifact-manifest.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V1.9-ARTIFACT-FREEZE",
+  "status": "ARTIFACT_FREEZE_PASSED_RUNTIME_INTEGRATED_DEFAULT_OFF",
+  "commits": {
+    "preregistration": "d7476d3",
+    "exporter": "01e3d44",
+    "runtime_integration": "ab3962c",
+    "exact_projection_repeat": "f603f6e"
+  },
+  "frozen_inputs": {
+    "feature_cache_sha256": "2b19835a1bced7f21322610296c712e3d06d915274719e11c268d31f7f596089",
+    "label_cache_sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+    "semantic_off_projected_features_sha256": "cd9b075b923c31afe10b9a9c6d720de22e221c93de961595ff484ea4f532b90a",
+    "semantic_off_oof_scores_sha256": "5000deb9b77b3e7b326ccab6455222b291d2ec859ddab2043fe67d23a3217c5e",
+    "full_ranker_sha256": "6730ad952c5a0fa8e4bdb33864ec84690cb3ac342a8c899edaae16c8481eff40",
+    "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67"
+  },
+  "nested_oof": {
+    "baseline_hr_at_10": 0.9475,
+    "candidate_hr_at_10": 0.9715,
+    "miss_to_hit": 48,
+    "hit_to_miss": 0,
+    "net_hits": 48,
+    "fold_net_hits": [7, 13, 8, 7, 13],
+    "fold_mrr_delta": [0.00175, 0.00225, 0.002, 0.00175, 0.001917],
+    "baseline_mrr": 0.674928,
+    "candidate_mrr": 0.676861,
+    "mrr_delta": 0.001933,
+    "baseline_mttc": 3.1605,
+    "candidate_mttc": 3.056,
+    "mttc_delta": -0.1045,
+    "baseline_technical_score": 0.833018,
+    "candidate_technical_score": 0.847688,
+    "technical_score_delta": 0.01467,
+    "activation_sessions": 1251,
+    "activation_turns": 6573,
+    "fold_activation_quantiles": [0.390625, 0.6875, 0.40625, 0.859375, 0.5]
+  },
+  "full_data_policy": {
+    "ranker": "ndcg_d4_lr003",
+    "ranker_rounds": 273,
+    "heads": ["rescue", "reciprocal_rank_regret"],
+    "rr_multiplier": 1.0,
+    "activation_quantile": 0.5,
+    "quantile_reference_value": 0.0002739899481431189,
+    "mapped_threshold": 0.0002726453906021024,
+    "available_action_turns": 17917,
+    "activated_sessions": 1710,
+    "activated_turns": 8959,
+    "decision_sha256": "5fccc2751f6a1521de8ff553463c55b3ce8a6086645b5dce20f6a5c541a82c73",
+    "serialized_decision_exact": true
+  },
+  "artifact": {
+    "tracked_path": "starter/assets/small_ranker_fold_safe_v1.json",
+    "local_freeze_path": "experiments/fast_track/small_ranker_v1_9/freeze_20260830T1410/small_ranker_fold_safe_v1.json",
+    "bytes": 256639,
+    "deep_size_bytes": 717225,
+    "sha256": "f8d0b6c0e402edeb34b1e35119c5295449888bc1be713607e88337fa874d16dc",
+    "repeat_byte_identical": true,
+    "identity_shape_matches": 0,
+    "forbidden_target_keys": 0,
+    "mode_default": "off",
+    "fallback": "P11/R08"
+  },
+  "parity": {
+    "semantic_off_projection_exact_on_rows": 10000,
+    "semantic_route_required": false,
+    "semantic_off_projection_required": true,
+    "semantic_dependent_tree_splits": 259,
+    "ranker_reference_rows": 1000,
+    "ranker_maximum_absolute_score_error": 0.000003521384314808529,
+    "ranker_c100_order_exact": true,
+    "head_reference_rows": 1000,
+    "head_maximum_absolute_probability_error": 5.551115123125783e-16,
+    "sample_activation_exact": true,
+    "full_activation_exact": true
+  },
+  "runtime_benchmark": {
+    "result_path": "experiments/fast_track/small_ranker_v1_9/runtime_benchmark_20260830T1425.json",
+    "result_sha256": "9b17c6ddb52645ffc08f8f882fa45d5e0bdcad7d1ac44fb6ddb94b8224bea651",
+    "evaluator_imported": false,
+    "dataset_or_target_opened": false,
+    "completed_turns": 110,
+    "initialization_seconds": 2.6278885999927297,
+    "single_session_seconds": 3.1414236999989953,
+    "batch_sessions": 10,
+    "batch_seconds": 18.339726400008658,
+    "turn_p50_ms": 185.83309999667108,
+    "turn_p95_ms": 277.7627999894321,
+    "turn_maximum_ms": 590.3204000205733,
+    "peak_rss_bytes": 166883328,
+    "fallbacks": 0,
+    "activations": 66,
+    "loaded_forbidden_training_libraries": []
+  },
+  "freeze_result": {
+    "path": "experiments/fast_track/small_ranker_v1_9/freeze_20260830T1410/freeze_result.json",
+    "sha256": "0e023e8d26383c41d1ceacc0ceedd17f18b16c2a98e21b001e1fd039d59f8611"
+  },
+  "tests": {
+    "artifact_export": "7 passed",
+    "runtime": "8 passed, 1 skipped",
+    "python_runtime": "3.11",
+    "freeze_training_stack": "Python 3.9.19 / NumPy 1.26.4 / sklearn 1.1.3 / XGBoost 1.7.6"
+  },
+  "evidence_boundary": {
+    "held_out_splits_opened": false,
+    "full_agent_evaluator_run": false,
+    "new_external_data_downloaded": false,
+    "oof_099_claimed": false,
+    "next": "attribute the remaining 57 nested-OOF misses and test one bottleneck mechanism"
+  }
+}

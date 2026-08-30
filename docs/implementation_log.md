@@ -1228,6 +1228,21 @@ IntentGraph target architecture.
 - `914879c`: optional OpenAI-compatible client, usage tests, challenge notes, and the type-only evaluator Protocol wrapper.
 - `2a6cc8e` and `9a35be5`: official participant-kit history shared byte-for-byte with upstream.
 
+### 2026-08-30 - fold-safe small-ranker deployment checkpoint
+
+- Reproduced the semantic-off projection exactly, including the 1.064 GB projected
+  feature hash and canonical nested-OOF result.
+- Froze the `ndcg_d4_lr003` 273-tree model with rescue and RR-regret admission heads;
+  runtime activation is selected by cross-fitted quantile and defaults to off.
+- Integrated the new two-head artifact schema while retaining backward compatibility
+  with the prior research artifact and exact P11/R08 fail-closed behavior.
+- Verified OOF HR@10 `0.9715`, `48/0` rescue/harm, nonnegative fold MRR, improved MTTC,
+  exact C100 rank parity, exact all-turn admission parity, and zero identity/target keys.
+- Added a target-free real-Agent resource benchmark: 110 turns, zero fallback, no
+  evaluator/training-library import, P95 `277.76ms`, peak RSS `166,883,328` bytes.
+- The checkpoint does not claim OOF `0.99` or private generalization; work continues with
+  structural attribution of the remaining 57 OOF misses.
+
 ## Competition boundary
 
 The Devpost Rules and event pages were checked on 2026-08-27 SGT. The submission window begins on 2026-08-29 at 12:00 SGT. This integration is a pre-window technical baseline and does not by itself prove the required significant post-start update. After the window opens, substantial code work must have clear commits, tests, results, and documentation.
