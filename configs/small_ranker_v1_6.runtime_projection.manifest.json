@@ -1,0 +1,84 @@
+{
+  "schema_version": "small-ranker-fold-safe-runtime-projection-manifest.v1",
+  "recorded_on": "2026-08-30",
+  "branch": "small-ranker-v1.7-runtime-projection",
+  "parent_checkpoint": "5ae0646",
+  "scope": {
+    "split": "train_explore",
+    "semantic_route": "missing",
+    "ranker_retrained": false,
+    "heads_retrained_nested_oof": true,
+    "agent_or_runtime_started": false,
+    "calibration_opened": false,
+    "selection_opened": false,
+    "confirmation_opened": false,
+    "public_opened": false
+  },
+  "sources": {
+    "feature_cache_sha256": "2b19835a1bced7f21322610296c712e3d06d915274719e11c268d31f7f596089",
+    "label_cache_sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+    "projected_oof_score_sha256": "5000deb9b77b3e7b326ccab6455222b291d2ec859ddab2043fe67d23a3217c5e",
+    "analyzer": {
+      "path": "scripts/analyze_small_ranker_fold_safe_runtime_projection.py",
+      "sha256": "70d8ced761c5569f29cda79f94651073d35b7842f4b53e5fb53be1d7795c7c08"
+    },
+    "ignored_projected_feature_cache": {
+      "path": "experiments/fast_track/small_ranker_fold_safe_projected_features.npy",
+      "bytes": 1064000128,
+      "sha256": "cd9b075b923c31afe10b9a9c6d720de22e221c93de961595ff484ea4f532b90a"
+    },
+    "ignored_result": {
+      "path": "experiments/fast_track/small_ranker_fold_safe_runtime_projection_v1.json",
+      "bytes": 8086,
+      "sha256": "537fdd04ccc7be3e81effab5d064f8910db7705c880e2b47e4b51232b2c63946"
+    }
+  },
+  "runtime_projected_outer_oof": {
+    "baseline_hr_at_10": 0.9475,
+    "challenger_hr_at_10": 0.9715,
+    "miss_to_hit": 48,
+    "hit_to_miss": 0,
+    "net_hits": 48,
+    "fold_net_hits": [7, 13, 8, 7, 13],
+    "fold_hit_to_miss": [0, 0, 0, 0, 0],
+    "fold_mrr_delta": [0.00175, 0.00225, 0.002, 0.00175, 0.001917],
+    "fold_mttc_delta": [-0.08, -0.1125, -0.1225, -0.0475, -0.145],
+    "hr_delta": 0.024,
+    "mrr_delta": 0.001933,
+    "mttc_delta": -0.1015,
+    "technical_score_delta": 0.01461,
+    "activation_sessions": 1421,
+    "activation_turns": 8226,
+    "rescue_label_rows": 409,
+    "rr_regret_label_rows": 414,
+    "activated_rr_regret_rows": 4,
+    "projection_seconds": 2.225759,
+    "analysis_seconds": 7.983414,
+    "wall_seconds": 11.825018
+  },
+  "full_semantic_reference": {
+    "challenger_hr_at_10": 0.9715,
+    "miss_to_hit": 48,
+    "hit_to_miss": 0,
+    "net_hits": 48,
+    "fold_net_hits": [7, 13, 8, 7, 13],
+    "mrr_delta": 0.001933,
+    "mttc_delta": -0.1115,
+    "technical_score_delta": 0.01481,
+    "activation_turns": 8098
+  },
+  "test_evidence": {
+    "commands": [
+      "C:\\Users\\danie\\anaconda3\\python.exe -m py_compile scripts/analyze_small_ranker_fold_safe_runtime_projection.py",
+      "C:\\Users\\danie\\anaconda3\\python.exe -m pytest tests/test_small_ranker_three_head_gate.py -q"
+    ],
+    "result": "3 passed in 0.10s"
+  },
+  "decision": {
+    "status": "PROMISING_RUNTIME_OOF_REPRODUCE_ONLY",
+    "reason": "the deployable semantic-route-off projection exactly preserved HR, MRR, zero hit-to-miss, and fold net gains; MTTC and TechnicalScore remained positive but the projected run is not yet exactly repeated or exported as one full-data policy",
+    "promote": false,
+    "served_default": "off",
+    "next_algorithm": "exactly reproduce projection, then export one full-data ranker plus rescue/RR-regret artifact using the preregistered OOF activation-quantile mapping"
+  }
+}
