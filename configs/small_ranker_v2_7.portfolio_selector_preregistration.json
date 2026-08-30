@@ -1,0 +1,136 @@
+{
+  "schema_version": "small-ranker-portfolio-selector-preregistration.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.7-CAUSAL-PORTFOLIO-SELECTOR",
+  "parent_commit": "93a94e4",
+  "evidence_status": "conditional exploratory nested admission over already-frozen OOF proposal surfaces; not end-to-end nested stacking and not yet deployable",
+  "hypothesis": "a target-blind selector can choose a safe subset of the complementary pairwise, RRF-3, and focused LambdaMART proposals while preserving the complete current policy as the default",
+  "unique_variable": "deduplicate the three frozen proposal families into a per-turn action portfolio and learn one fixed two-head causal admission rule with a one-supplement-per-session latch",
+  "frozen_inputs": {
+    "current_semantic_off_oof_score_sha256": "5000deb9b77b3e7b326ccab6455222b291d2ec859ddab2043fe67d23a3217c5e",
+    "current_activation_sha256": "48ad9137cb3b99985d3d7e4035575bf06225d8c6b4f9f3c134a468f404d1c410",
+    "pairwise_semantic_off_oof_score_sha256": "1765f60c3f111f751e8d0c133bbbd93d2a1e174db24b2c4c64c80aea66a4778b",
+    "rrf3_combined_score_sha256": "61e072d3c9e6cf5ef59534c817ec87b62ae4342044871fa7f803700d65e7ad3c",
+    "focused_lambdamart_oof_score_sha256": "a77bde22c17a57b44a737ef397615e59012fbe999e46e7cbc6e4ba9d1159b776",
+    "semantic_off_projected_features_sha256": "cd9b075b923c31afe10b9a9c6d720de22e221c93de961595ff484ea4f532b90a",
+    "candidate_universe": "C100"
+  },
+  "action_contract": {
+    "construction_scope": "all 2000 cached sessions and all visible turns, without filtering on target, current hit, eligible_from, oracle membership, or outcome",
+    "current_served_choice": "current ranker choice when its frozen admission activates, otherwise the P11 slot-10 incumbent",
+    "available_when": "a family proposal differs from both the current served choice and the P11 incumbent",
+    "deduplication_key": ["session", "turn", "candidate_ordinal"],
+    "deduplication_value": "three-bit pairwise/RRF-3/focused family support mask",
+    "maximum_actions_per_turn": 3,
+    "maximum_supplemental_actions_per_session": 1,
+    "keep": "bit-exact current chosen and activation arrays"
+  },
+  "causal_runtime_policy": {
+    "scan": "process turns in ascending order from the first visible turn; eligible_from is never consulted",
+    "within_turn": "score only actions visible at the current turn and choose maximum utility, then higher family support, then lower candidate ordinal",
+    "activation": "execute the first within-turn winner whose utility is at least the frozen threshold, set the session latch, and KEEP on every later turn",
+    "no_future_information": true,
+    "forbidden": [
+      "session-global maximum over all ten turns",
+      "target/current-hit/oracle/eligible_from features or action filtering",
+      "candidate or session identifiers as model features",
+      "more than one supplemental action per session"
+    ]
+  },
+  "runtime_feature_contract": {
+    "feature_count": 19,
+    "feature_names": [
+      "current_policy_active",
+      "turn_fraction",
+      "prior_current_activation_count_fraction",
+      "actionable_unique_count_fraction",
+      "pairwise_support",
+      "rrf3_support",
+      "focused_support",
+      "action_rank_fraction_under_current",
+      "action_rank_fraction_under_pairwise",
+      "action_rank_fraction_under_rrf3",
+      "action_rank_fraction_under_focused",
+      "current_choice_rank_fraction_under_pairwise",
+      "current_choice_rank_fraction_under_rrf3",
+      "current_choice_rank_fraction_under_focused",
+      "action_coverage_rank_fraction",
+      "action_minus_current_top10_route_agreement",
+      "action_minus_current_active_token_recall",
+      "action_minus_current_hard_clause_coverage",
+      "action_minus_current_constraint_conflict_sum"
+    ],
+    "rank_definition": "stable allowed-C100 rank fraction computed independently on each frozen surface",
+    "target_feature": false,
+    "identity_feature": false,
+    "raw_ranker_score_feature": false,
+    "future_turn_feature": false,
+    "eligible_from_feature": false
+  },
+  "training_labels": {
+    "construction": "replace one action row in isolation on top of the complete frozen current-policy trace; labels may use evaluator outcomes but are never runtime features",
+    "rescue": "current session miss becomes a hit",
+    "regret": "isolated action lowers reciprocal rank or increases first-hit turn relative to current",
+    "reciprocal_rank_loss": "max(0, current reciprocal rank minus isolated-action reciprocal rank)",
+    "mttc_loss": "max(0, isolated-action first-hit turn minus current first-hit turn)",
+    "direct_hit_loss_is_not_a_model_head": true,
+    "rescue_head_raw_weights": "1.0 rescue, 5.0 regret, 0.05 neutral",
+    "regret_head_raw_weights": "5 + 20*reciprocal_rank_loss + 0.2*mttc_loss for regret, 0.2 rescue, 0.05 neutral",
+    "weight_normalization": "normalize each head's action weights to sum to one within each session",
+    "target_is_label_only": true
+  },
+  "model": {
+    "heads": ["isolated_rescue", "isolated_composite_regret"],
+    "type": "two weighted standardized L2 logistic regressions",
+    "C": 0.2,
+    "solver": "liblinear",
+    "fit_intercept": true,
+    "max_iter": 300,
+    "random_state": 20260830,
+    "preprocessing": "weighted mean and scale fitted only on the corresponding training partition; constant scale becomes one",
+    "utility": "P(rescue) - 1.0*P(composite_regret)",
+    "hyperparameter_or_multiplier_sweep": false,
+    "minimum_distinct_rescue_sessions_per_fit": 5,
+    "single_class_or_insufficient_positive_action": "KEEP the affected evaluation fold"
+  },
+  "cross_fit": {
+    "outer": "hold out one fixed product-family fold from selector model fitting and threshold admission",
+    "inner": "within outer-train, cross-fit both heads over the fixed inner folds and simulate the exact causal latch policy",
+    "threshold_candidates": "fixed quantiles 0/64 through 63/64 of inner-OOF per-turn winner utilities plus KEEP",
+    "inner_safety": "aggregate and every inner fold must have zero hit-to-miss, nonnegative net hits, nonnegative MRR delta, and nonpositive MTTC delta",
+    "inner_evidence_minimum": "aggregate has at least one miss-to-hit and at least two inner folds have a miss-to-hit",
+    "safe_candidate_order": "technical-score delta, net rescue, positive-fold count, fewer supplemental actions, higher quantile",
+    "outer_mapping": "refit both heads on all outer-train rows and map the selected quantile to the unlabeled outer-train per-turn winner utility distribution; never copy a raw threshold across fits",
+    "held_outer_policy": "apply the mapped threshold with the same chronological first-passing latch policy",
+    "exact_repeat": true,
+    "claim_boundary": "the selector is nested conditional on frozen base OOF surfaces; a positive result requires strict outer/inner regeneration of all upstream proposal surfaces before a no-family-leakage claim"
+  },
+  "promotion_gate": {
+    "aggregate_hr_at_10_strictly_greater_than": 0.9715,
+    "hit_to_miss_relative_to_current": 0,
+    "every_fold_net_hits_relative_to_current_nonnegative": true,
+    "every_fold_mrr_delta_relative_to_current_nonnegative": true,
+    "aggregate_mrr_delta_relative_to_current_nonnegative": true,
+    "every_fold_mttc_delta_relative_to_current_nonpositive": true,
+    "aggregate_mttc_delta_relative_to_current_nonpositive": true,
+    "technical_score_delta_relative_to_current_strictly_positive": true,
+    "exact_repeat": true,
+    "positive_result_status": "DIRECTION_PASS_STRICT_RESTACK_REQUIRED",
+    "deployment_forbidden_before_strict_restack_and_three_base_runtime_artifacts": true
+  },
+  "posthoc_reporting_and_stop_rule": {
+    "report_union_oracle_only_after_frozen_result": true,
+    "known_union_oracle_ceiling_hr_at_10": 0.9815,
+    "known_ceiling_cannot_reach_project_0_99_goal": true,
+    "observed_but_excluded_from_v2_7": "a fixed late-turn multi-action round-robin was discovered posthoc and must not be represented as a v2.7 preregistered result",
+    "if_no_direction_pass": "close the learned one-action selector without model, feature, weight, multiplier, or threshold tuning; separately register a materially new proposal or an explicitly posthoc multi-action validation route",
+    "if_direction_pass": "rebuild pairwise, RRF-3, and focused proposal surfaces inside every meta outer/inner training domain before deployment claims"
+  },
+  "execution_boundary": {
+    "cached_train_explore_only": true,
+    "agent_or_full_evaluator_started": false,
+    "calibration_selection_confirmation_public_or_external_data_opened": false,
+    "full_model_or_runtime_artifact_only_after_strict_restack_promotion": true,
+    "new_exclusive_outputs": true
+  }
+}
