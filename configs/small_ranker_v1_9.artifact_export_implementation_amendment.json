@@ -1,0 +1,33 @@
+{
+  "schema_version": "small-ranker-artifact-export-implementation-amendment.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V1.9-ARTIFACT-FREEZE",
+  "algorithm_changed": false,
+  "model_or_label_selection_changed": false,
+  "failed_attempts": [
+    {
+      "code_commit": "48b0d64",
+      "output": "experiments/fast_track/small_ranker_v1_9/freeze_20260830T1450",
+      "status": "IMPLEMENTATION_FAILURE",
+      "reason": "Python 3.9 does not support zip(strict=True)",
+      "deployable_artifact_written": false
+    },
+    {
+      "code_commit": "31aecd7",
+      "output": "experiments/fast_track/small_ranker_v1_9/freeze_20260830T1400",
+      "status": "PARITY_IMPLEMENTATION_FAILURE",
+      "reason": "two of 20,000 turn decisions differed at the raw quantile boundary despite <=6.11e-16 head probability error",
+      "tree_c100_order_exact": true,
+      "tree_maximum_absolute_score_error": 0.000003521384314808529,
+      "artifact_repeat_byte_identical": true,
+      "artifact_bytes": 256591
+    }
+  ],
+  "implementation_fix": {
+    "rule": "compute the method=higher quantile membership from serialized-head unlabeled utilities, then serialize a threshold at the midpoint between the largest inactive utility and smallest active utility",
+    "uses_labels_or_outcomes": false,
+    "changes_quantile_membership": false,
+    "reason": "make runtime loop arithmetic and vectorized reference arithmetic produce byte-identical activation decisions"
+  },
+  "retry_rule": "use a new exclusive output directory; preserve both failed directories; do not change the preregistered ranker, heads, RR multiplier, quantile grid, folds, or safety gates"
+}

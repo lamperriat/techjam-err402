@@ -246,6 +246,32 @@ def _threshold_at_quantile(values: np.ndarray, quantile: float) -> float:
     return float(np.quantile(values, quantile, method="higher"))
 
 
+def _deployable_threshold_at_quantile(
+    values: np.ndarray, quantile: float
+) -> tuple[float, float]:
+    """Place the serialized threshold inside the quantile decision gap."""
+
+    raw_threshold = _threshold_at_quantile(values, quantile)
+    if math.isinf(raw_threshold):
+        return raw_threshold, raw_threshold
+    intended = values >= raw_threshold
+    if not np.any(intended):
+        raise ArtifactFreezeError("finite quantile selected no action rows")
+    lowest_active = float(np.min(values[intended]))
+    if np.all(intended):
+        threshold = float(np.nextafter(lowest_active, -math.inf))
+    else:
+        highest_inactive = float(np.max(values[~intended]))
+        if highest_inactive >= lowest_active:
+            raise ArtifactFreezeError("quantile decision gap is not separable")
+        threshold = highest_inactive + (
+            lowest_active - highest_inactive
+        ) / 2.0
+    if not np.array_equal(intended, values >= threshold):
+        raise ArtifactFreezeError("stable quantile threshold changed membership")
+    return raw_threshold, threshold
+
+
 def _quantile_choice_key(row: Mapping[str, Any]) -> tuple[float, ...]:
     return (
         float(row["technical_score_delta"]),
@@ -857,14 +883,32 @@ def run(
     full_regret_probability = base._predict_gate(
         regret_head[1], regret_head[2], regret_head[3], full_gate_flat
     ).reshape(full_action.shape)
-    full_utility = (
+    full_reference_utility = (
         full_rescue_probability - RR_MULTIPLIER * full_regret_probability
     )
-    final_quantile = float(np.median(np.asarray(nested["fold_quantiles"])))
-    final_threshold = _threshold_at_quantile(
-        full_utility[full_action], final_quantile
+    serialized_rescue_probability = _serialized_head_probabilities(
+        rescue_head[0], full_gate_flat
+    ).reshape(full_action.shape)
+    serialized_regret_probability = _serialized_head_probabilities(
+        regret_head[0], full_gate_flat
+    ).reshape(full_action.shape)
+    serialized_utility = (
+        serialized_rescue_probability
+        - RR_MULTIPLIER * serialized_regret_probability
     )
-    full_activation = full_action & (full_utility >= final_threshold)
+    final_quantile = float(np.median(np.asarray(nested["fold_quantiles"])))
+    quantile_reference_value, final_threshold = (
+        _deployable_threshold_at_quantile(
+            serialized_utility[full_action], final_quantile
+        )
+    )
+    full_activation = full_action & (serialized_utility >= final_threshold)
+    reference_activation = full_action & (
+        full_reference_utility >= final_threshold
+    )
+    full_decision_exact = bool(
+        np.array_equal(full_activation, reference_activation)
+    )
 
     tree_model, _base_score = base._export_tree_model(inputs.ranker_path)
     if len(tree_model["trees"]) != 273:
@@ -891,6 +935,7 @@ def run(
             "rr_regret_head": regret_head[0],
             "rr_multiplier": RR_MULTIPLIER,
             "activation_quantile": final_quantile,
+            "quantile_reference_value": quantile_reference_value,
             "threshold": final_threshold,
         },
         "sources": {
@@ -921,21 +966,6 @@ def run(
     _write_exclusive(repeat_path, json.loads(artifact_path.read_text("utf-8")))
     repeat_equal = artifact_path.read_bytes() == repeat_path.read_bytes()
 
-    serialized_rescue_probability = _serialized_head_probabilities(
-        rescue_head[0], full_gate_flat
-    ).reshape(full_action.shape)
-    serialized_regret_probability = _serialized_head_probabilities(
-        regret_head[0], full_gate_flat
-    ).reshape(full_action.shape)
-    serialized_activation = full_action & (
-        serialized_rescue_probability
-        - RR_MULTIPLIER * serialized_regret_probability
-        >= final_threshold
-    )
-    full_decision_exact = bool(
-        np.array_equal(full_activation, serialized_activation)
-    )
-
     parity = _parity_audit(
         booster,
         tree_model,
@@ -945,49 +975,76 @@ def run(
         final_threshold,
         seed=40221360830,
     )
-    if (
-        parity["ranker_maximum_absolute_score_error"] > 2e-5
-        or not parity["ranker_full_c100_order_exact"]
-        or parity["head_maximum_absolute_probability_error"] > 1e-10
-        or not parity["activation_exact"]
-        or not full_decision_exact
-        or not repeat_equal
-        or artifact_path.stat().st_size > 8 * 1024 * 1024
-    ):
+    artifact_record = {
+        "path": artifact_path.relative_to(ROOT).as_posix(),
+        "bytes": artifact_path.stat().st_size,
+        "sha256": _sha256(artifact_path),
+        "repeat_path": repeat_path.relative_to(ROOT).as_posix(),
+        "repeat_sha256": _sha256(repeat_path),
+        "byte_identical_repeat": repeat_equal,
+        "deep_size_bytes": _deep_size(artifact),
+        "forbidden_key_matches": forbidden_keys,
+        "asin_shape_matches": asin_matches,
+    }
+    full_policy_record = {
+        "activation_quantile": final_quantile,
+        "quantile_reference_value": quantile_reference_value,
+        "mapped_threshold": final_threshold,
+        "available_action_turns": int(full_action.sum()),
+        "activated_turns": int(full_activation.sum()),
+        "activated_sessions": int(np.any(full_activation, axis=1).sum()),
+        "decision_sha256": hashlib.sha256(
+            full_activation.tobytes()
+        ).hexdigest(),
+        "reference_decision_sha256": hashlib.sha256(
+            reference_activation.tobytes()
+        ).hexdigest(),
+        "serialized_decision_exact": full_decision_exact,
+        "head_training_action_rows": int(flat_action.sum()),
+        "rescue_positive_rows": int(oof_surface.rescue.sum()),
+        "rr_regret_positive_rows": int(oof_surface.regret.sum()),
+    }
+    parity_failures = {
+        "ranker_score_error": parity[
+            "ranker_maximum_absolute_score_error"
+        ]
+        > 2e-5,
+        "ranker_order": not parity["ranker_full_c100_order_exact"],
+        "head_probability_error": parity[
+            "head_maximum_absolute_probability_error"
+        ]
+        > 1e-10,
+        "sample_activation": not parity["activation_exact"],
+        "full_activation": not full_decision_exact,
+        "artifact_repeat": not repeat_equal,
+        "artifact_size": artifact_path.stat().st_size > 8 * 1024 * 1024,
+    }
+    if any(parity_failures.values()):
+        result.update(
+            {
+                "full_policy": full_policy_record,
+                "artifact": artifact_record,
+                "parity": parity,
+                "parity_failures": parity_failures,
+                "semantic_dependency": semantic_dependency,
+            }
+        )
+        result["decision"] = {
+            "oof_gate_passed": True,
+            "artifact_frozen": False,
+            "served_default": "off",
+            "status": "ARTIFACT_PARITY_NO_GO",
+        }
+        result["timing_seconds"]["total"] = round(
+            time.perf_counter() - started, 6
+        )
+        _write_exclusive(result_path, result)
         raise ArtifactFreezeError("deployable artifact parity/resource gate failed")
     benchmark = _benchmark_tree(tree_model, inputs.projected_features)
     result.update(
         {
-            "full_policy": {
-                "activation_quantile": final_quantile,
-                "mapped_threshold": final_threshold,
-                "available_action_turns": int(full_action.sum()),
-                "activated_turns": int(full_activation.sum()),
-                "activated_sessions": int(
-                    np.any(full_activation, axis=1).sum()
-                ),
-                "decision_sha256": hashlib.sha256(
-                    full_activation.tobytes()
-                ).hexdigest(),
-                "serialized_decision_sha256": hashlib.sha256(
-                    serialized_activation.tobytes()
-                ).hexdigest(),
-                "serialized_decision_exact": full_decision_exact,
-                "head_training_action_rows": int(flat_action.sum()),
-                "rescue_positive_rows": int(oof_surface.rescue.sum()),
-                "rr_regret_positive_rows": int(oof_surface.regret.sum()),
-            },
-            "artifact": {
-                "path": artifact_path.relative_to(ROOT).as_posix(),
-                "bytes": artifact_path.stat().st_size,
-                "sha256": _sha256(artifact_path),
-                "repeat_path": repeat_path.relative_to(ROOT).as_posix(),
-                "repeat_sha256": _sha256(repeat_path),
-                "byte_identical_repeat": repeat_equal,
-                "deep_size_bytes": _deep_size(artifact),
-                "forbidden_key_matches": forbidden_keys,
-                "asin_shape_matches": asin_matches,
-            },
+            "full_policy": full_policy_record,
+            "artifact": artifact_record,
             "full_ranker_scores": {
                 "path": score_path.relative_to(ROOT).as_posix(),
                 "bytes": score_path.stat().st_size,

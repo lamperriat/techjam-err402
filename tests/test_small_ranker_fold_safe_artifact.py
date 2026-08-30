@@ -16,6 +16,18 @@ def test_threshold_quantile_uses_higher_and_keep_is_infinite() -> None:
         exporter._threshold_at_quantile(np.asarray([]), 0.5)
 
 
+def test_deployable_threshold_preserves_quantile_membership() -> None:
+    values = np.asarray([0.1, 0.2, 0.3, 0.4], dtype=np.float64)
+    raw, stable = exporter._deployable_threshold_at_quantile(values, 0.5)
+    assert raw == pytest.approx(0.3)
+    assert 0.2 < stable < 0.3
+    assert np.array_equal(values >= raw, values >= stable)
+    raw_keep, stable_keep = exporter._deployable_threshold_at_quantile(
+        values, 1.0
+    )
+    assert math.isinf(raw_keep) and math.isinf(stable_keep)
+
+
 def test_quantile_choice_obeys_metric_then_safety_tiebreaks() -> None:
     weaker = {
         "technical_score_delta": 0.1,
