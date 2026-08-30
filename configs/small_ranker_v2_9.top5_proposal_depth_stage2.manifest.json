@@ -1,0 +1,204 @@
+{
+  "schema_version": "small-ranker-top5-proposal-depth-stage2-manifest.v1",
+  "recorded_on": "2026-08-31",
+  "experiment_id": "SR-V2.9-STRICT-TOP5-PROPOSAL-DEPTH-STAGE2",
+  "status": "NO_GO_CLOSE_EXACT_K5_ROUTE",
+  "evidence_boundary": "one irreversible aggregate-only train_explore outer-OOF outcome attachment; no Agent, official evaluator, forbidden split, external data, per-session outcome, identifier, or target string was opened or serialized",
+  "git": {
+    "stage1b_evidence_commit": "85b378186fa3fefb2b34ae38ac1437e873c2b7c7",
+    "protocol_commit": "a92fc83ed37b4697ae492d958e3ebd852b4d08fb",
+    "successful_implementation_commit": "4d674c79f549512d2e64818f01438ed4173c8ac3",
+    "implementation_parent_is_protocol_commit": true,
+    "protocol_parent_is_stage1b_evidence_commit": true,
+    "implementation_paths_exact": true,
+    "clean_and_upstream_equal_before_attach": true
+  },
+  "result": {
+    "path": "experiments/fast_track/small_ranker_v2_9/stage2_one_shot_20260831/stage2_outcome_result.json",
+    "tracked": false,
+    "one_shot_receipt": true,
+    "rerun_authorized": false,
+    "bytes": 36616,
+    "sha256": "da57c3fef7c6c4244eda4e6a07d4dfd9a1f43c78540de48e560850f5b046b66c",
+    "canonical_json_bytes_without_output_record": 36516,
+    "strict_decision_canonical_sha256": "7fbcb3ff1ac824265904199007953549e09dd6f4113f7ff614647ae6631f948a"
+  },
+  "pre_receipt_mechanical_failures": {
+    "count": 3,
+    "outcome_attach_runs": 0,
+    "label_archive_opened": false,
+    "receipt_created": false,
+    "repairs": [
+      {
+        "checkpoint": "cf09ba5e9f8033a4e8ca2c9c71133586fd4335d0",
+        "failure": "wrong Python environment rejected by the dependency identity preflight"
+      },
+      {
+        "checkpoint": "cf09ba5e9f8033a4e8ca2c9c71133586fd4335d0",
+        "failure": "Stage1b exact-repeat aggregate identity field name rejected before frozen-input loading"
+      },
+      {
+        "checkpoint": "5886b82c05d5e8863639d016e0f4d334da4c19f1",
+        "failure": "legacy global comparator gate width was guarded as 26 instead of the pinned helper's 25"
+      }
+    ],
+    "protocol_treatment": "mechanical pre-receipt failures only; none consumed the single semantic outcome attachment"
+  },
+  "sources": {
+    "protocol_sha256": "dcbcfc7b04b1b5700f9913e24dcdfdfad575fb638ffb3bf70184dfc1c7a40ba9",
+    "implementation_source_sha256": "28b31743bef7885854e66281aba348ae855ed0bb9e88cc87e05e3b3789dfdf0a",
+    "target_free_input_start_end_identity_sha256": "49bc3a1c4dd3d67b6485dc2c48bd9449e55d0ec110fe33587acb2d6bdfc38792",
+    "target_free_input_count": 61,
+    "target_free_input_bytes": 1074676245,
+    "label_archive_sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+    "label_archive_bytes": 1702876,
+    "same_label_handle_start_end": true,
+    "global_chosen_raw_sha256": "229952c9ced7f6eec1ff1938480adc85ba5093ad865336465749029576e47051",
+    "global_activation_raw_sha256": "48ad9137cb3b99985d3d7e4035575bf06225d8c6b4f9f3c134a468f404d1c410"
+  },
+  "environment": {
+    "python": "3.9.19",
+    "numpy": "1.26.4",
+    "sklearn": "1.1.3",
+    "xgboost": "1.7.6",
+    "workers": 1
+  },
+  "frozen_global_comparator": {
+    "hits": 1943,
+    "misses": 57,
+    "hit_rate_at_10": 0.9715,
+    "mrr": 0.676861,
+    "mttc": 3.056,
+    "technical_score": 0.847688,
+    "activation_sessions": 1251,
+    "activation_turns": 6573,
+    "fold_quantiles": [0.390625, 0.6875, 0.40625, 0.859375, 0.5],
+    "head_fit_helper_invocations": 60,
+    "liblinear_fit_calls": 60,
+    "constant_gate_returns": 0,
+    "held_rows_used_for_prediction_only": true,
+    "t_only_target_derivation_verified": true
+  },
+  "primary_final_vs_domain_local_current": {
+    "baseline_hits": 1940,
+    "baseline_hr_at_10": 0.97,
+    "policy_hits": 1939,
+    "policy_hr_at_10": 0.9695,
+    "miss_to_hit": 0,
+    "hit_to_miss": 1,
+    "net_hits": -1,
+    "fold_net_hits": [0, 0, 0, 0, -1],
+    "fold_mrr_delta": [0.0, 0.00225, 0.0, 0.0, -0.00025],
+    "fold_mttc_delta": [0.0, 0.0125, 0.0, 0.0, 0.0025],
+    "fold_technical_score_delta": [0.0, 0.000425, 0.0, 0.0, -0.001375],
+    "mrr": 0.675711,
+    "mrr_delta": 0.0004,
+    "mttc": 3.068,
+    "mttc_delta": 0.003,
+    "technical_score": 0.846103,
+    "technical_score_delta": -0.00019,
+    "supplement_sessions": 698,
+    "supplement_turns": 698,
+    "gate_passed": false
+  },
+  "secondary_final_vs_frozen_global_current": {
+    "baseline_hits": 1943,
+    "baseline_hr_at_10": 0.9715,
+    "policy_hits": 1939,
+    "policy_hr_at_10": 0.9695,
+    "miss_to_hit": 6,
+    "hit_to_miss": 10,
+    "net_hits": -4,
+    "fold_net_hits": [5, -1, -6, 1, -3],
+    "fold_mrr_delta": [0.00125, 0.003, -0.0015, 0.00025, -0.00875],
+    "fold_mttc_delta": [-0.0725, 0.0525, 0.1025, -0.0275, 0.005],
+    "fold_technical_score_delta": [0.008075, -0.0014, -0.01, 0.001875, -0.006475],
+    "mrr": 0.675711,
+    "mrr_delta": -0.00115,
+    "mttc": 3.068,
+    "mttc_delta": 0.012,
+    "technical_score": 0.846103,
+    "technical_score_delta": -0.001585,
+    "final_activation_sessions": 1662,
+    "final_activation_turns": 7850,
+    "gate_passed": false
+  },
+  "posthoc_proposal_union": {
+    "computed_after_strict_decision_freeze": true,
+    "policy_selection_or_mutation": false,
+    "candidate_recall": {
+      "C10": 0.9475,
+      "C20": 0.9715,
+      "C50": 0.991,
+      "C100": 0.993,
+      "C200": "unavailable in the frozen blind trace and not inferred"
+    },
+    "domain_local_current": {
+      "current_hits": 1940,
+      "reachable_sessions": 39,
+      "reachable_by_outer_fold": [10, 6, 13, 7, 3],
+      "maximum_zero_harm_ceiling_hits": 1979,
+      "maximum_zero_harm_ceiling_hr_at_10": 0.9895
+    },
+    "frozen_global_current": {
+      "current_hits": 1943,
+      "reachable_sessions": 35,
+      "reachable_by_outer_fold": [15, 5, 7, 7, 1],
+      "maximum_zero_harm_ceiling_hits": 1978,
+      "maximum_zero_harm_ceiling_hr_at_10": 0.989,
+      "capacity_at_least_37": false,
+      "capacity_strictly_above_0_99": false
+    }
+  },
+  "resource": {
+    "stage2_wall_seconds": 5.590712,
+    "prior_stage_wall_seconds": 152.638274,
+    "observed_peak_working_set_bytes": 1457868800,
+    "observed_working_set_bytes_after_attach": 134279168,
+    "cumulative_cache_bytes_fail_closed_upper_bound": 585999861,
+    "result_bytes_fail_closed_upper_bound": 1000000,
+    "new_feature_or_candidate_cache_builds": 0,
+    "new_retrieval_queries": 0,
+    "new_xgboost_or_challenger_selector_fits": 0,
+    "full_agent_or_official_evaluator_runs": 0,
+    "all_required_resource_checks_passed": true
+  },
+  "verification": {
+    "targeted_tests": "22 passed",
+    "targeted_test_command": "C:/Users/danie/anaconda3/envs/py39/python.exe -m unittest discover -s tests -p test_small_ranker_top5_proposal_depth_stage2.py -v",
+    "target_free_preflight": {
+      "passed": true,
+      "snapshot_count": 60,
+      "global_gate_shape": [2000, 10, 25],
+      "global_chosen_hash_exact": true
+    },
+    "single_semantic_outcome_attach": true,
+    "same_final_metrics_exact_across_comparators": true,
+    "strict_decision_frozen_before_posthoc": true,
+    "canonical_result_arithmetic_and_fold_binding_recomputed": true,
+    "manifest_result_consistency_check": true,
+    "independent_post_result_read_only_reviews": 2,
+    "independent_review_conclusion": "PASS_VALID_ALGORITHMIC_NO_GO"
+  },
+  "privacy": {
+    "archive_open_count": 1,
+    "archive_member_access_count": 5,
+    "member_access_order": ["baseline_rank", "positive_index", "eligible_from", "outer_fold", "inner_fold"],
+    "target_runtime_features": 0,
+    "held_rows_supplied_to_fit_or_selection": 0,
+    "per_session_rows_or_membership_arrays_serialized": 0,
+    "identifiers_or_target_strings_serialized": 0,
+    "forbidden_splits_or_external_data_opened": 0,
+    "full_agent_or_official_evaluator_runs": 0
+  },
+  "decision": {
+    "promote": false,
+    "primary_gate_passed": false,
+    "secondary_gate_passed": false,
+    "exact_k5_route_closed": true,
+    "retune_or_rerun_exact_k5_authorized": false,
+    "runtime_artifact_authorized": false,
+    "reason": "the frozen final policy loses one hit against its domain-local parent and four hits against the 0.9715 global comparator; the exact-k5 proposal union reaches only 35 global misses, so even a zero-harm oracle is capped at 0.989",
+    "next_single_mechanism": "use a materially different target-blind proposal or exposure mechanism; do not tune the closed exact-k5 selector or its raw thresholds"
+  }
+}
