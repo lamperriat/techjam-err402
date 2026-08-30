@@ -1,0 +1,393 @@
+{
+  "schema_version": "small-ranker-top5-proposal-depth-stage2-outcome-protocol.v1",
+  "recorded_on": "2026-08-31",
+  "experiment_id": "SR-V2.9-STRICT-TOP5-PROPOSAL-DEPTH-STAGE2",
+  "status": "PROTOCOL_FROZEN_BEFORE_ANY_STAGE2_HELD_OUTCOME_ACCESS",
+  "objective": "perform exactly one outcome attachment to the already-frozen non-identity v2.9 policy and evaluate it without tuning against both preregistered comparators",
+  "algorithmic_change": false,
+  "parent_evidence": {
+    "commit": "85b378186fa3fefb2b34ae38ac1437e873c2b7c7",
+    "stage1b_manifest_path": "configs/small_ranker_v2_9.top5_proposal_depth_stage1b.manifest.json",
+    "stage1b_manifest_sha256": "dfda329ad820d4e064591031c3b9e644648139cd99d194fc8239228fdd04bcf4",
+    "stage1b_status": "TARGET_FREE_NON_IDENTITY_POLICY_FROZEN",
+    "stage1b_result_path": "experiments/fast_track/small_ranker_v2_9/stage1b_20260831T000352/stage1b_cache_result.json",
+    "stage1b_result_sha256": "04fc8551ccc90d56546c8525df943cc6a7fc9497f9bcda5351b08205f525f642",
+    "stage1b_result_bytes": 194931,
+    "stage1b_aggregate_identity_sha256": "91fedb662eef097fc76ff9dde6e9c4f5b8d46535a421aa14ba3c981e4f852cfa"
+  },
+  "checkpoint_choreography": {
+    "protocol_commit": {
+      "direct_parent": "85b378186fa3fefb2b34ae38ac1437e873c2b7c7",
+      "allowed_changed_paths": [
+        ".gitattributes",
+        "configs/small_ranker_v2_9.top5_proposal_depth_stage2_outcome_protocol.json"
+      ],
+      "must_be_pushed_before_implementation_commit": true
+    },
+    "implementation_commit": {
+      "direct_parent_must_be_protocol_commit": true,
+      "allowed_changed_paths": [
+        "scripts/evaluate_small_ranker_top5_proposal_depth_stage2.py",
+        "tests/test_small_ranker_top5_proposal_depth_stage2.py"
+      ],
+      "synthetic_tests_only_before_commit": true,
+      "must_be_pushed_before_outcome_access": true
+    },
+    "run_preconditions": [
+      "HEAD is the supplied implementation commit",
+      "the supplied protocol commit is the direct parent of HEAD",
+      "the protocol commit is the direct child of the Stage1b evidence commit",
+      "HEAD equals both the supplied implementation commit and the branch upstream tip; the supplied protocol commit is HEAD^ and is therefore reachable from that tip",
+      "the tracked working tree is clean",
+      "the protocol and implementation commits changed exactly their allowlisted paths"
+    ],
+    "tracked_implementation_manifest_required": false,
+    "implementation_binding": "the exact clean pushed implementation commit, its direct-parent relation, its two-path diff allowlist, and its source hash recorded before label access replace a third pre-outcome manifest commit",
+    "first_real_label_archive_hash_or_open_before_both_checkpoints": false,
+    "first_real_outcome_value_supplied_to_any_fit_state_metric_or_oracle_before_both_checkpoints": false
+  },
+  "frozen_target_free_policy": {
+    "shape": [2000, 10],
+    "domain_local_current_chosen": {
+      "path": "experiments/fast_track/small_ranker_v2_9/stage1b_20260831T000352/frozen/domain_local_current_chosen.npy",
+      "file_sha256": "53c0829cea3bcce866d668823f755888f372a86a66a8fc10cc69be07e38525cb",
+      "array_sha256": "2a2a6bc69e4a7079d216d44c69b4311813b0fe857668495bc6c2b4b27c355520",
+      "dtype": "uint8"
+    },
+    "domain_local_current_activation": {
+      "path": "experiments/fast_track/small_ranker_v2_9/stage1b_20260831T000352/frozen/domain_local_current_activation.npy",
+      "file_sha256": "55b888130c327eb3321f1adbd41a09893db5f63f321260a8f32f792d1e0e1e61",
+      "array_sha256": "db338c8b42867bf30d506096facd6fec4c5e5802db8dca30c38d757d20792329",
+      "dtype": "bool"
+    },
+    "final_chosen": {
+      "path": "experiments/fast_track/small_ranker_v2_9/stage1b_20260831T000352/frozen/final_chosen.npy",
+      "file_sha256": "15dbdb29b54d3c8afd8db66a0945d471660d75636e0b1a717c0038dae5be4644",
+      "array_sha256": "b8ba27d7b518b7689caab3433c6fec470cc86e5cf505136c3f69f6f1f24aa918",
+      "dtype": "uint8"
+    },
+    "final_activation": {
+      "path": "experiments/fast_track/small_ranker_v2_9/stage1b_20260831T000352/frozen/final_activation.npy",
+      "file_sha256": "01ca9cbad62d713197d20a504783f1bc76eb36c26be4b2a2753e986ee9ef1bba",
+      "array_sha256": "c62a4ae0b1adca3df89342316b871c87640ccf5931ab069aa0dbab2f097a65d3",
+      "dtype": "bool"
+    },
+    "must_rehash_file_and_array_before_label_archive_hash_or_open": true,
+    "identity_short_circuit": false,
+    "policy_threshold_model_feature_depth_refill_or_latch_mutation_after_freeze": false
+  },
+  "proposal_union_inputs": {
+    "stage1a_manifest": {
+      "path": "configs/small_ranker_v2_9.top5_proposal_depth_stage1a.manifest.json",
+      "sha256": "d85f75a2e09ee9ad7a39e12e5b5cf858acd5c134ce122978bcab40c5d4081704"
+    },
+    "stage1a_result": {
+      "path": "experiments/fast_track/small_ranker_v2_9/stage1a_20260830T225937/stage1a_result.json",
+      "sha256": "54577998a25dbf3054f2f393e837b0d49ea1fb5a87d95103d860595c97b067b1",
+      "aggregate_identity_sha256": "b0abefdd23b4364c336e10035baa8a62b5dd1b4dd17f435b53244aec72b9c1da"
+    },
+    "v2_8_stage1_manifest": {
+      "path": "configs/small_ranker_v2_8.strict_outer_restack_stage1.manifest.json",
+      "sha256": "c57c39d8220914dcab91717b9505f7734837aeca936178167f464ec33cbbcceb"
+    },
+    "v2_8_stage1_result": {
+      "path": "experiments/fast_track/small_ranker_v2_8/stage1_20260830T1834/stage1_cache_result.json",
+      "sha256": "a683f50f6acdb2ee3cc0c88507e6f5ac4f46b2a6b0599acf2e6a4abdc3d17c97"
+    },
+    "loaded_arrays": "for each outer fold, first-pass held session_ordinal plus frozen Stage1a held_H candidates, available, current_chosen, and current_activation",
+    "repeat_use": "repeat arrays are not loaded; their exact equality is inherited only after both frozen result identities and manifests revalidate",
+    "required_checks": [
+      "five held session ordinals are disjoint, sorted, each size 400, and cover 0..1999 exactly",
+      "each candidate and available array matches its result-registered path, file hash, logical hash, shape, and dtype",
+      "available candidates are in 0..99 and unavailable candidates are -1",
+      "the stitched domain-local current arrays equal the held current arrays registered by Stage1a",
+      "no proposal score is reconstructed and no family, depth, threshold, or fold is selected after outcome"
+    ]
+  },
+  "partition_contract": {
+    "outer_folds": 5,
+    "sessions": 2000,
+    "held_sessions_per_outer": 400,
+    "training_sessions_per_outer": 1600,
+    "coverage_count_array_sha256": "bbdbdfa1aad6975399baa2db9d5f554000b79024d1d04581b3f6ccff2dfc4334",
+    "outer_fold_by_session_sha256": "0cbb3b977530d520717d5dbb3a58c6183539cf97366e78647c6fa15eaddecfe5",
+    "missing_sessions": 0,
+    "overlap_sessions": 0,
+    "each_session_is_held_exactly_once": true,
+    "fold_masks_built_from_target_free_frozen_session_ordinals_before_label_open": true,
+    "label_outer_fold_must_exactly_match_frozen_fold_masks_after_open": true
+  },
+  "supplement_contract": {
+    "source": "the five first-pass Stage1b outer supplement arrays registered in the frozen Stage1b result",
+    "stitch_by_target_free_held_session_order_before_label_open": true,
+    "expected_sessions": 698,
+    "expected_turns": 698,
+    "maximum_per_session": 1,
+    "purpose": "report incremental selector behavior only; policy outcome always uses the complete frozen final chosen and activation arrays"
+  },
+  "label_and_outcome_access": {
+    "archive_path": "D:/tiktok/techjam-err402-fast-track/experiments/fast_track/small_ranker_v1/labels_v2.npz",
+    "archive_sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+    "archive_bytes": 1702876,
+    "archive_open_count": 1,
+    "member_access_order": [
+      "baseline_rank",
+      "positive_index",
+      "eligible_from",
+      "outer_fold",
+      "inner_fold"
+    ],
+    "member_access_count": 5,
+    "all_2000_rows_attached_once": true,
+    "semantic_outcome_attach_runs_maximum": 1,
+    "family_index_required": false,
+    "identifiers_or_target_strings_loaded": false,
+    "outcome_values_serialized_per_session": false,
+    "forbidden_split_or_external_data_access": false
+  },
+  "physical_input_audit": {
+    "path_requirements": "every source, manifest, result, policy, proposal, supplement, feature, score, and label input is a regular non-symlink file at its exact pinned path",
+    "label_archive_handle": "open exactly one binary handle; hash and size-check that handle, create the fixed xb one-shot result receipt, seek the same label handle to zero, pass that same handle to the only np.load call, close the NPZ view without closing/replacing the handle, then seek and hash the same handle again",
+    "label_start_end_sha256_equal": true,
+    "label_start_end_bytes_equal": true,
+    "target_free_inputs": "record start and end file SHA256 and bytes for every input that remains in memory or memory-mapped during the attach; both observations must equal the pinned registry",
+    "path_stat_identity_start_end_equal": true,
+    "post_use_revalidation_before_final_json_write": true,
+    "start_end_audit_enters_strict_decision_identity": true,
+    "input_drift_after_receipt": "INVALID_STAGE2_ONE_SHOT_CONSUMED"
+  },
+  "frozen_global_comparator_reconstruction": {
+    "reason": "no provenance-bound materialized global activation/chosen pair exists; aggregate historical metrics cannot support per-session transition and per-fold gates",
+    "reconstruction_is_candidate_training_or_tuning": false,
+    "projected_features": {
+      "path": "D:/tiktok/techjam-v1-2-metric-gate/experiments/fast_track/small_ranker_fold_safe_projected_features.npy",
+      "sha256": "cd9b075b923c31afe10b9a9c6d720de22e221c93de961595ff484ea4f532b90a",
+      "shape": [2000, 10, 100, 133],
+      "dtype": "float32"
+    },
+    "semantic_off_oof_scores": {
+      "path": "D:/tiktok/techjam-err402-fast-track/experiments/fast_track/small_ranker_v1/oof_batch_v1/oof_scores_runtime_projection_no_semantic.npy",
+      "sha256": "5000deb9b77b3e7b326ccab6455222b291d2ec859ddab2043fe67d23a3217c5e",
+      "shape": [2000, 10, 100],
+      "dtype": "float32"
+    },
+    "runtime_projection_repeat_manifest": {
+      "path": "configs/small_ranker_v1_7.runtime_projection_repeat.manifest.json",
+      "sha256": "dcedd70bc8d905342e805c84b08ad3f375a28774fd44414b9a31025e343ceada"
+    },
+    "remaining_miss_manifest": {
+      "path": "configs/small_ranker_v2_0.remaining_miss_attribution.manifest.json",
+      "sha256": "a0f7041b9deea488e2a2b527308449146f1193fbbf055c748bdea72224add089"
+    },
+    "deployable_artifact_manifest": {
+      "path": "configs/small_ranker_v1_9.deployable_artifact.manifest.json",
+      "sha256": "0bd44c26b47b999e26fda7a7b6ee8f003b43c02dbe53b9328fbd75507eb7e574"
+    },
+    "algorithm": "an operation-equivalent row-isolated implementation of the pinned ActionSurface plus _reproduce_nested_activation semantics; do not call the historical run function or broad _load_inputs helper",
+    "target_free_preopen_phase": "derive and hash-gate incumbent, chosen, action, and gate features before the archive open; attach rescue/regret labels only after the one-shot semantic open",
+    "held_privacy": "for outer o, derive rescue/regret arrays only for T_o, perform every fit and quantile selection only on T_o, and use H_o gate features for prediction only",
+    "seed": 40220260830,
+    "fixed_logistic_head_fit_count": 60,
+    "fit_count_derivation": "5 outer folds * 5 inner folds * 2 heads plus 5 outer full-T fits * 2 heads",
+    "selection_or_parameter_sweep_added": false,
+    "expected_chosen_array_sha256": "229952c9ced7f6eec1ff1938480adc85ba5093ad865336465749029576e47051",
+    "expected_activation_array_sha256": "48ad9137cb3b99985d3d7e4035575bf06225d8c6b4f9f3c134a468f404d1c410",
+    "expected_fold_quantiles": [0.390625, 0.6875, 0.40625, 0.859375, 0.5],
+    "expected_metrics": {
+      "hits": 1943,
+      "misses": 57,
+      "hit_rate_at_10": 0.9715,
+      "mrr": 0.676861,
+      "mttc": 3.056,
+      "technical_score": 0.847688
+    },
+    "expected_activation_sessions": 1251,
+    "expected_activation_turns": 6573,
+    "fail_closed_before_candidate_comparison_if_any_identity_or_metric_differs": true
+  },
+  "source_identity": {
+    "preregistration": {
+      "path": "configs/small_ranker_v2_9.top5_proposal_depth_preregistration.json",
+      "sha256": "51c0a9d909e7e8d21604ff29981c8a35ca217b94e0ec9d6f8c98ca12d700cebb"
+    },
+    "legacy_comparator_reproducer": {
+      "path": "scripts/analyze_small_ranker_remaining_misses.py",
+      "sha256": "c080b66e94757d1865596af262ba456611490864c5169f024a1ecb1bbe0fca79"
+    },
+    "stage1b_orchestrator": {
+      "path": "scripts/build_small_ranker_top5_proposal_depth_stage1b.py",
+      "sha256": "090cc4c383b7287cbcf373126211444063bcee4126f7dc0106843bf8aa247586"
+    },
+    "stage1b_implementation_amendment": {
+      "path": "configs/small_ranker_v2_9.top5_proposal_depth_stage1b_implementation_amendment.json",
+      "sha256": "5c1e6a6e78b56c3c22a8329daac941be0ab46bc5c84c989141e30a402fdf7d7c"
+    },
+    "selector_helpers": {
+      "path": "scripts/small_ranker_portfolio_selector_py39.py",
+      "sha256": "35b7b68af7c52b7ecf0fe37ee686ed2e737ff2f6643622abd26dbc97e192cba8"
+    },
+    "metric_semantics": {
+      "path": "scripts/analyze_small_ranker_metric_gate.py",
+      "sha256": "8c0cbffa6cd3dc62ddee3bb386c16bd60592a6324ecf6fcf4bcd4cf37951ca83"
+    },
+    "frozen_helpers": {
+      "path": "scripts/export_small_ranker_fold_safe_artifact.py",
+      "sha256": "5115026c53b21d4d5930cb9af7783c0988b049a0e259f5a0a588901ad44f5e8b"
+    },
+    "base_ranker_helpers": {
+      "path": "scripts/train_small_ranker.py",
+      "sha256": "db7f4a3e19da118abb7d37fc1530babd6928894e51e85010b11d9dcdc1d7e583"
+    },
+    "rr_regret_helpers": {
+      "path": "scripts/analyze_small_ranker_rr_regret_gate.py",
+      "sha256": "793e3615df38cd995f55e57decaeea35b549e40ad50ee3bf8a6dbf1055ca7e80"
+    },
+    "all_sources_rehashed_before_label_archive_hash_or_open": true,
+    "implementation_source_hash_recorded_before_label_archive_hash_or_open": true
+  },
+  "metric_contract": {
+    "official_state": "protected baseline ranks 1..9 are immutable; otherwise an activated correct candidate has rank 10 and an activated wrong candidate has rank 0; eligibility begins at eligible_from; first hit determines reciprocal rank and turn; miss turn is 11",
+    "efficiency": "clip((11-MTTC)/10, 0, 1)",
+    "technical_score": "0.5*HR@10 + 0.3*MRR + 0.2*Efficiency",
+    "report_precision": 6,
+    "report_both_unrounded_and_rounded_metrics_and_deltas": true,
+    "unrounded_gate_arithmetic": {
+      "method": "exact rational sums over integer first ranks and first turns",
+      "mrr_delta_minimum": 0.0,
+      "mttc_delta_maximum": 0.0,
+      "floating_tolerance": "diagnostic parity only and never promotion"
+    },
+    "rounded_safety": {
+      "mrr_delta_minimum": 0.0,
+      "mttc_delta_maximum": 0.0
+    },
+    "masks": "aggregate 2000 sessions plus five fixed 400-session held outer folds",
+    "comparisons_in_order": [
+      "final versus domain-local current",
+      "final versus frozen global current",
+      "frozen global current baseline versus domain-local current challenger drift"
+    ],
+    "same_final_policy_metrics_must_be_exact_across_both_comparison_payloads": true,
+    "drift_report": "aggregate plus five folds of global-miss-to-domain-hit, global-hit-to-domain-miss, net hits, HR, MRR, MTTC, and TechnicalScore deltas; drift is descriptive and never enters the proposal oracle or promotion gate"
+  },
+  "promotion_gate": {
+    "primary_relative_to_domain_local_current": {
+      "miss_to_hit_strictly_positive": true,
+      "hit_to_miss": 0,
+      "every_outer_fold_net_hits_nonnegative": true,
+      "every_outer_fold_mrr_delta_nonnegative_rounded_and_unrounded": true,
+      "aggregate_mrr_delta_nonnegative_rounded_and_unrounded": true,
+      "every_outer_fold_mttc_delta_nonpositive_rounded_and_unrounded": true,
+      "aggregate_mttc_delta_nonpositive_rounded_and_unrounded": true,
+      "technical_score_delta_strictly_positive_at_official_6dp": true,
+      "unrounded_technical_score_delta": "report only"
+    },
+    "secondary_relative_to_frozen_current_0_9715": {
+      "absolute_hr_at_10_strictly_greater_than_0_9715_rounded_and_unrounded": true,
+      "miss_to_hit_strictly_positive": true,
+      "hit_to_miss": 0,
+      "every_outer_fold_net_hits_nonnegative": true,
+      "every_outer_fold_mrr_delta_nonnegative_rounded_and_unrounded": true,
+      "aggregate_mrr_delta_nonnegative_rounded_and_unrounded": true,
+      "every_outer_fold_mttc_delta_nonpositive_rounded_and_unrounded": true,
+      "aggregate_mttc_delta_nonpositive_rounded_and_unrounded": true,
+      "technical_score_delta_strictly_positive_at_official_6dp": true,
+      "unrounded_technical_score_delta": "report only"
+    },
+    "required_for_both": {
+      "stage1_first_repeat_identity": true,
+      "stage1b_target_free_policy_identity_and_nonidentity_checks": true,
+      "all_git_lineage_source_path_file_array_partition_privacy_and_start_end_physical_checks": true,
+      "workers_exactly": 1,
+      "new_xgboost_or_challenger_selector_fits": 0,
+      "fixed_secondary_comparator_logistic_fits_exactly": 60,
+      "new_retrieval_queries": 0,
+      "new_full_agent_or_official_evaluator_runs": 0,
+      "semantic_outcome_attach_runs_exactly": 1,
+      "new_feature_or_candidate_cache_builds": 0,
+      "stage0_plus_stage1a_plus_stage1b_wall_seconds": 152.638274,
+      "stage0_plus_stage1a_plus_stage1b_wall_seconds_maximum": 600,
+      "pre_stage2_peak_working_set_bytes": 773652480,
+      "observed_cumulative_peak_working_set_bytes_maximum": 3289186304,
+      "pre_stage2_cache_bytes": 584999861,
+      "stage2_additional_cache_bytes_maximum": 488741963,
+      "observed_cumulative_cache_bytes_maximum": 1073741824,
+      "all_checks_fail_closed_before_promote": true
+    },
+    "promote_only_if_both_comparators_pass_every_gate": true,
+    "posthoc_oracle_fields_must_not_enter_gate": true
+  },
+  "posthoc_proposal_union_report": {
+    "computed_only_after_formal_comparisons_and_promotion_boolean_are_frozen_in_memory": true,
+    "surface": "the frozen first-pass held_H available/candidates arrays; no score reconstruction, refill, rerank, family selection, or depth selection",
+    "frozen_global_surface_rule": "use the exact same supplemental-only held_H available/candidates union and replace only the comparator miss mask; do not add the domain-local served choice or fallback, and do not rebuild exclusion or refill relative to the frozen-global comparator",
+    "correct_turn": "available and turn+1>=eligible_from and positive_index>=0 and candidate==positive_index",
+    "reachable_session": "comparator is currently a miss and at least one correct_turn exists",
+    "session_counting": "at most once per session",
+    "comparators": [
+      "domain-local current",
+      "frozen global current"
+    ],
+    "report": [
+      "current hits and misses aggregate and by outer fold",
+      "correct action rows on current misses",
+      "reachable sessions aggregate and by outer fold",
+      "maximum zero-harm ceiling hits and HR@10",
+      "whether frozen-global reachable sessions are at least 37"
+    ],
+    "global_current_misses": 57,
+    "global_c100_actionable_misses_upper_bound": 43,
+    "rescues_needed_to_reach_hr_0_99": 37,
+    "strictly_above_hr_0_99_would_need": 38,
+    "candidate_recall_reused_from_tracked_v2_0_manifest": {
+      "C10": 0.9475,
+      "C20": 0.9715,
+      "C50": 0.991,
+      "C100": 0.993,
+      "C200": "unavailable in the frozen blind trace and not inferred"
+    },
+    "fail_closed_invariants": [
+      "ceiling_hits equals current_hits plus reachable_sessions",
+      "ceiling_hr_at_10 equals ceiling_hits divided by 2000",
+      "correct_action_rows are counted only under that comparator's current-miss mask",
+      "sum of misses_by_outer_fold equals aggregate misses",
+      "sum of reachable_by_outer_fold equals aggregate reachable",
+      "reachable_sessions is no greater than current misses",
+      "frozen-global reachable_sessions is no greater than 43",
+      "frozen-global ceiling_hr_at_10 is no greater than 0.993"
+    ],
+    "capacity_interpretation": "frozen-global reachable_sessions>=37 is proposal capacity only; it neither proves the final policy reached 0.99 nor enters promotion",
+    "serialized_identifiers_membership_arrays_or_per_session_rows": false,
+    "oracle_can_select_policy_k_family_threshold_feature_exclusion_refill_or_fold": false,
+    "oracle_exception_behavior": "REPORT_ONLY_UNAVAILABLE; the already-frozen strict decision and consumed one-shot receipt remain unchanged"
+  },
+  "execution_and_output": {
+    "python": "3.9.19",
+    "numpy": "1.26.4",
+    "sklearn": "1.1.3",
+    "xgboost": "1.7.6",
+    "workers": 1,
+    "network": false,
+    "new_xgboost_or_candidate_selector_fits": 0,
+    "fixed_legacy_comparator_logistic_fits": 60,
+    "new_retrieval_queries": 0,
+    "new_feature_or_candidate_cache_builds": 0,
+    "full_agent_or_official_evaluator_runs": 0,
+    "peak_working_set_bytes_maximum": 3289186304,
+    "stage0_plus_stage1a_plus_stage1b_cache_bytes": 584999861,
+    "stage2_additional_cache_bytes_maximum": 488741963,
+    "output": "experiments/fast_track/small_ranker_v2_9/stage2_one_shot_20260831/stage2_outcome_result.json",
+    "one_shot_receipt": "after every preflight and the label archive physical hash pass, create the fixed output path with mode xb and keep that same handle open; its existence blocks every later semantic attach, and on success the single canonical JSON is written through that handle",
+    "strict_decision_frozen_before_posthoc": true,
+    "strict_decision_canonical_sha256_embedded_in_final_json": true,
+    "other_output_files": 0,
+    "result_contains_only_aggregate_numeric_evidence_hashes_and_audits": true
+  },
+  "decision_rules": {
+    "mechanical_failure_before_receipt": "BLOCKED_NO_OUTCOME_CONSUMED; repair only the preregistered mechanic",
+    "failure_after_receipt_or_semantic_open_before_valid_metrics": "INVALID_STAGE2_ONE_SHOT_CONSUMED; do not rerun, do not tune, and do not call it an algorithm No-Go",
+    "outcome_no_go": "close the exact k=5 route; do not change depth, refill, features, models, weights, utility, quantiles, threshold, latch, or fold enablement",
+    "outcome_promote": "authorize only a full-data artifact freeze plus target-free parity and resource benchmark",
+    "regardless_of_result": "do not open calibration, selection, confirmation, released public, Amazon, private-shaped labels, Agent, or official evaluator"
+  }
+}
