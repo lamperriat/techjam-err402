@@ -1,0 +1,106 @@
+{
+  "schema_version": "small-ranker-strict-outer-restack-stage1-implementation-amendment.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.8-STRICT-OUTER-RESTACK",
+  "parent_stage0_evidence_commit": "3be47da",
+  "reason": "bind the complete Stage-1 execution, isolation, repeat, and resource mechanics after Stage-0 measured cost; no model, feature, label, quantile, policy, hypothesis, or promotion condition changes",
+  "hypothesis_or_promotion_gate_changed": false,
+  "semantic_clarifications": {
+    "current_gate_KEEP": "current-gate quantile 1.0 maps to positive infinity, activates no slot-10 replacement, and therefore serves the P11 incumbent",
+    "selector_KEEP": "portfolio-selector quantile 1.0 adds no supplement and preserves the already-frozen domain-local current policy bit-for-bit",
+    "focused_source": "every A_oj and T_o focused cohort is derived only from the T_o current inner-OOF policy state; the full-T_o reference policy never defines a focused cohort",
+    "strict_evidence": "T_o inner surfaces remain disclosed training-side stacking; only H_o is strict held-outer evidence"
+  },
+  "full_retrain_rule": {
+    "fits_per_pass": 150,
+    "generic_fits_per_pass": 120,
+    "focused_fits_per_pass": 30,
+    "passes": 2,
+    "required_total_xgboost_fits": 300,
+    "stage0_reuse": "Stage-0 models and scores are a mechanical parity oracle only and do not count toward either Stage-1 pass",
+    "first_pass_reuse": "no model, fitted head, score, choice, cohort, probability, utility, threshold, or policy array from first may be reused by repeat",
+    "allowed_shared_inputs": "the sealed raw/projected tensors, fold metadata, one per-worker T_o selected-row materialization, and frozen source/config files"
+  },
+  "worker_isolation": {
+    "unit": "one (pass, outer_fold) worker and one new exclusive output directory",
+    "order": "workers run sequentially; XGBoost nthread=1; no cross-outer parallelism",
+    "label_scope": "the worker retains only T_o outcome slices; compressed NPZ member decompression may transiently include H_o bytes, but no H_o outcome is indexed into a retained array, supplied to fit/selection/metric code, or serialized",
+    "held_builder": "H_o current and portfolio surfaces are inference-only interfaces with no label argument",
+    "completion": "write outer_complete.json last; partial attempts are never overwritten or treated as complete"
+  },
+  "current_policy_mechanics": {
+    "ranker_oof": "five current A_oj models score their disjoint V_oj and cover T_o exactly once",
+    "inner_gate_seed": "40220260830 + head*10000 + outer_fold*31 + inner_fold",
+    "full_gate_seed": "40220260830 + head*10000 + outer_fold*101",
+    "inner_quantile": "select on current-gate OOF utility with the frozen 0/64..63/64 plus KEEP grid",
+    "full_heads": "fit both heads only on T_o current-ranker OOF action rows",
+    "reference_mapping": "score the full-T_o current ranker and heads on target-free T_o reference rows; map the selected quantile over T_o reference action utility with the frozen higher method",
+    "held_application": "apply the one mapped reference threshold to H_o utility without refit, remap, labels, state, or outcome metric"
+  },
+  "focused_mechanics": {
+    "superset": "materialize one ordered T_o focused cohort/cache from the T_o current OOF state",
+    "partitions": "each A_oj selects cohort groups whose session is in A_oj; T_o selects all groups",
+    "weights": "recompute frozen within-session and exact 50/50 hard-control weights inside every actual partition",
+    "fail_closed": "all 30 focused training partitions require nonempty hard and control cohorts"
+  },
+  "portfolio_selector_mechanics": {
+    "runtime_features": "preserve valid-input numeric and decision parity with the frozen v2.7 19-feature computation while removing its hard-coded 2,000-session shape assumption",
+    "python39_compatibility": "the pinned training environment cannot import the v2.7 reporting dependency chain; a hash-pinned local subset copies only used selector/supplemental helpers, omits report/evaluator imports, replaces int.bit_count with the equivalent bin(value).count('1'), retains explicit shape guards, and changes no valid-input numeric or policy semantics; exception class identity is not claimed",
+    "training_surface": "T_o uses A_oj-to-V_oj OOF current, pairwise, RRF3, and focused scores; isolated labels are attached only after slicing this T_o runtime surface",
+    "reference_surface": "T_o uses the five full-T_o ranker scores and domain-local current reference activation",
+    "held_surface": "H_o uses the same five full-T_o ranker scores and the already-mapped domain-local current held activation",
+    "selector_seed": 20260830,
+    "model": "the frozen v2.7 C=0.2 liblinear L2 two-head selector; readiness, weights, utility, tie-break, quantile grid, selection key, and chronological latch are unchanged",
+    "reference_mapping": "fit full selector heads on T_o OOF actions, score target-free T_o reference and H_o actions, map selected q over T_o reference per-turn winners, then apply once to H_o",
+    "KEEP_or_readiness_failure": "do not fit outer selector heads and preserve domain-local current on H_o"
+  },
+  "freeze_and_outcome_boundary": {
+    "cache_first": "both complete 150-model passes must be frozen and canonical identities must match exactly before outcome access",
+    "repeat_identity_excludes": [
+      "path",
+      "wall time",
+      "P50/P95 timing",
+      "RSS/peak working set"
+    ],
+    "repeat_identity_includes": "all domain masks and lineage, model params/seeds/rounds and JSON hashes, score/choice arrays, current gate surfaces/heads/probabilities/utilities/q/thresholds/activation, focused cohorts/partition weights, RRF, all portfolio runtime and supervised fields, selector heads/probabilities/utilities/q/reference threshold, and held final arrays",
+    "held_stitch": "the five H_o shards cover every session exactly once",
+    "outcome": "a separate one-shot command attaches labels once and computes primary final-vs-domain-local-current, secondary final-vs-frozen-current, and domain-local-current-vs-frozen-current; no tuning is permitted between cache freeze and outcome"
+  },
+  "stage0_parity": {
+    "required": "outer-0 Stage-1 first and repeat independently reproduce every overlapping Stage-0 model, V_0j score/choice, current T_0 OOF/gate/activation, focused A_00 cohort/model/score/choice, and V_00 RRF hash",
+    "stage0_manifest_sha256": "1f79d728add447be4a010dddc75e31660b0c3c6161a40b6cb3fc1b409a2a2a18",
+    "stage0_result_sha256": "b32f00462bd8206cae229063f5d6f94a0d5ad50d5a109fa42010e71651a90a0d"
+  },
+  "resource_revision": {
+    "stage0_observed_seconds_per_nine_fits": 424.4433,
+    "stage0_peak_working_set_bytes": 2940833792,
+    "old_preregistered_estimate": "48-60 minutes for first plus repeat",
+    "revised_estimate": "approximately 105-130 minutes per pass and 3.5-4.3 hours total on the measured host",
+    "expected_peak_working_set": "3.2-4.0 GB; reserve at least 5 GB",
+    "expected_output": "approximately 1.3-1.6 GiB for both passes",
+    "effect_on_protocol": "resource estimate only; no reduced fits, reused models, parallel workers, changed batch semantics, changed rounds, or changed thread count"
+  },
+  "pinned_sources": {
+    "preregistration_sha256": "67d93823f2016dc4fdbcfa6687c236692f2e554cfa678e0878b5f1294c7a3ef9",
+    "stage0_implementation_amendment_sha256": "a4a44d28d4e88ed75c92b61723b0aa7b5627211faeb08aaa0a9c8ba2a9bc3938",
+    "stage0_probe_sha256": "a1f158c4ceffe692ba1acd8f11763dab5243efea07cc4c2c9aa54e614256159d",
+    "v2_7_selector_sha256": "b50ce1f78a4a8cc209d051eae3610fae2b2c3298f417db8ee094a05bd4f7468e",
+    "v2_7_preregistration_sha256": "15179b29c76f4075a2635d893fca0e62922b196808df7ad0e1d9a59d02da3e43",
+    "v2_7_implementation_amendment_sha256": "e27ba5f668fffe5dbcca7b4a2ca44a2c8f719e17f472134aaaaa305d8e362ef9",
+    "supplemental_pairwise_sha256": "e393aa5cfe71de20640fca28b675c3f28cb73578156fdf9a607871f1799b31ce",
+    "python39_selector_subset_sha256": "35b7b68af7c52b7ecf0fe37ee686ed2e737ff2f6643622abd26dbc97e192cba8",
+    "train_small_ranker_sha256": "db7f4a3e19da118abb7d37fc1530babd6928894e51e85010b11d9dcdc1d7e583",
+    "fold_safe_artifact_sha256": "5115026c53b21d4d5930cb9af7783c0988b049a0e259f5a0a588901ad44f5e8b",
+    "metric_gate_sha256": "8c0cbffa6cd3dc62ddee3bb386c16bd60592a6324ecf6fcf4bcd4cf37951ca83",
+    "rr_regret_sha256": "793e3615df38cd995f55e57decaeea35b549e40ad50ee3bf8a6dbf1055ca7e80",
+    "focused_trainer_sha256": "8fbf05d6225e04e3f76db7e65a91160394f11316ac90b416b6cf53b0b2ba497c"
+  },
+  "forbidden": {
+    "agent_or_full_evaluator": true,
+    "calibration_selection_confirmation_public_amazon_external": true,
+    "frozen_current_as_training_feature": true,
+    "held_label_before_repeat_freeze": true,
+    "stage0_or_first_model_reuse": true,
+    "outcome_guided_repair_or_threshold_change": true
+  }
+}
