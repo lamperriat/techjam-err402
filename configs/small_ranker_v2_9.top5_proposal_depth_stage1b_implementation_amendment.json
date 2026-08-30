@@ -1,0 +1,329 @@
+{
+  "schema_version": "small-ranker-top5-proposal-depth-stage1b-implementation-amendment.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.9-STRICT-TOP5-PROPOSAL-DEPTH-STAGE1B",
+  "parent_stage1a_evidence_commit": "bf29d629b4dc81877648480ea33046f3ac663db6",
+  "timing": "recorded before any v2.9 label archive open, T_o label attachment, selector fit, or held outcome access",
+  "purpose": "attach only T_o labels to the already-frozen top-5 oof_T surfaces, run the unchanged nested selector twice, and freeze target-free H_o policies before any held outcome access",
+  "source_binding": {
+    "preregistration_sha256": "51c0a9d909e7e8d21604ff29981c8a35ca217b94e0ec9d6f8c98ca12d700cebb",
+    "stage1a_manifest_sha256": "d85f75a2e09ee9ad7a39e12e5b5cf858acd5c134ce122978bcab40c5d4081704",
+    "stage1a_result_sha256": "54577998a25dbf3054f2f393e837b0d49ea1fb5a87d95103d860595c97b067b1",
+    "stage1a_result_bytes": 219510,
+    "stage1a_aggregate_identity_sha256": "b0abefdd23b4364c336e10035baa8a62b5dd1b4dd17f435b53244aec72b9c1da",
+    "stage1a_registered_surface_arrays": 270,
+    "stage1a_registered_surface_bytes": 438874560,
+    "stage1a_cumulative_cache_bytes": 526907778,
+    "sealed_label_archive_expected_sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+    "v2_7_python39_selector_reference_sha256": "35b7b68af7c52b7ecf0fe37ee686ed2e737ff2f6643622abd26dbc97e192cba8",
+    "v2_8_selector_builder_reference_sha256": "461b0caccfaa8a13ce3373d6b3860eb72188e8ce4fd0e281f2841028d164519a",
+    "v2_8_freezer_reference_sha256": "3c164aceedbe684bdcb86c4cab2ffa34280b24ed4043f6e3072b13f381ce2797"
+  },
+  "commit_and_open_gate": {
+    "tracked_stage1a_manifest_commit_present": true,
+    "parent_stage1a_evidence_commit_must_be_HEAD_ancestor": true,
+    "stage1a_manifest_last_change_must_equal_parent_evidence_commit": true,
+    "stage1b_implementation_checkpoint_required_before_label_archive_open": true,
+    "implementation_checkpoint_contents": [
+      "this amendment",
+      "the Stage-1b builder and freezer or equivalent single orchestrator",
+      "the targeted synthetic and target-free tests"
+    ],
+    "allowed_before_checkpoint": [
+      "source-only static review",
+      "compile and help checks",
+      "synthetic tests that do not open the sealed label archive",
+      "target-free Stage-1a source and metadata validation"
+    ],
+    "forbidden_before_checkpoint": [
+      "hashing or opening the sealed label archive",
+      "opening any label or outcome member",
+      "fitting any selector head"
+    ],
+    "run_entry_gate": "after the separate implementation commit, validate every pinned source, the Stage-1a result and all 270 registered surface files before hashing and then opening the fixed regular non-symlink label archive",
+    "ignored_stage1a_result_alone_authorizes_label_archive_open": false
+  },
+  "environment_contract": {
+    "python": "3.9.19",
+    "numpy": "1.26.4",
+    "xgboost": "1.7.6",
+    "sklearn": "1.1.3",
+    "workers": 1,
+    "validation_timing": "before the first sealed label archive hash or open"
+  },
+  "label_loader_contract": {
+    "archive_open_count": 5,
+    "member_access_count": 25,
+    "allowed_member_names_in_fixed_order": [
+      "baseline_rank",
+      "positive_index",
+      "eligible_from",
+      "inner_fold",
+      "family_index"
+    ],
+    "member_enumeration_or_discovery": false,
+    "forbidden_members_include": [
+      "outer_fold",
+      "baseline_session_hit",
+      "training_indices",
+      "training_length"
+    ],
+    "split_source": "for each outer o, H_o is the exact Stage-1a manifest-pinned held order and T_o is its ordered 1,600-session complement; no archive member defines or changes the split",
+    "materialization": "process one outer fold at a time; decompress exactly one allowed member, copy only that outer fold's ordered T_o rows, release the complete decompressed member, run first and repeat independently, then release the complete T_o bundle before the next outer fold",
+    "compressed_member_disclosure": "physical decompression may transiently expose complete-member bytes including the current H_o rows, but H_o rows are never copied from the decompressed member or retained in the current outer-fold bundle",
+    "shared_between_passes": "the current outer fold's immutable T_o-only input bundle may be reused by first and repeat; all derived labels, weights, fits, probabilities, utilities, thresholds, and policies must be recomputed independently",
+    "simultaneous_outer_label_bundles": 1,
+    "retained_outcome_scope_per_outer": "T_o only",
+    "held_outcome_rows_copied_retained_serialized_or_supplied": 0,
+    "held_builder_accepts_label_state_metric_or_oracle_argument": false,
+    "raw_T_o_member_arrays_serialized": false,
+    "archive_hash_checked_before_open": true,
+    "archive_rehashed_after_all_training_side_use": true
+  },
+  "frozen_surface_contract": {
+    "passes": [
+      "first",
+      "repeat"
+    ],
+    "outer_folds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "worker_order": "outer_0 first then repeat through outer_4 first then repeat, releasing each T_o-only bundle before opening the archive for the next outer",
+    "phases": [
+      "oof_T",
+      "reference_T",
+      "held_H"
+    ],
+    "surface_fields": [
+      "current_chosen",
+      "current_activation",
+      "current_choice",
+      "incumbent",
+      "family_choices",
+      "candidates",
+      "source_mask",
+      "available",
+      "features"
+    ],
+    "surface_array_shape_and_hash_source": "the Stage-1a result records bound above",
+    "action_axis_width": 15,
+    "maximum_available_actions_per_turn": 15,
+    "feature_count": 19,
+    "target_or_outcome_used_to_filter_actions": false,
+    "surface_rebuild_or_mutation": false,
+    "new_133_feature_cache_builds": 0,
+    "new_retrieval_queries": 0,
+    "new_upstream_xgboost_fits": 0
+  },
+  "selector_shape_amendment": {
+    "reason": "the frozen v2.7 Python-3.9 subset hard-codes MAX_ACTIONS=3 while the single preregistered top-5 depth change produces a padded action axis of 15",
+    "implementation": "derive the slot width from each validated surface, require it to equal 15, and use that width for isolated-label loops, flattening, session and family repetition, probability allocation, and coverage",
+    "algorithmic_change": false,
+    "required_compatibility": "on valid width-3 synthetic inputs, the adapted helpers must reproduce the hash-pinned v2.7 Python-3.9 helper bit-for-bit for labels, weights, probabilities, quantile, threshold, supplement, and final policy",
+    "unchanged_fields": [
+      "the frozen 19 feature names, order, and values",
+      "rescue and composite-regret label definitions",
+      "session-normalized training weights",
+      "model type, parameters, seed, and preprocessing",
+      "utility and multiplier",
+      "fit readiness",
+      "quantile grid and safety conditions",
+      "selection key",
+      "within-turn tie-break",
+      "chronological first-passing latch",
+      "complete domain-local current KEEP fallback"
+    ]
+  },
+  "unchanged_selector_contract": {
+    "heads": [
+      "isolated rescue",
+      "isolated composite reciprocal-rank and MTTC regret"
+    ],
+    "isolated_labels": "attach labels to every target-blind available oof_T action by replacing that action alone over the complete domain-local current policy",
+    "rescue_weight_raw": "1.0 rescue, 5.0 regret, 0.05 neutral",
+    "regret_weight_raw": "5 + 20*rr_loss + 0.2*mttc_loss for regret, 0.2 rescue, 0.05 neutral",
+    "weight_normalization": "normalize each head's available action weights to sum to one within each session",
+    "model": "two C=0.2 liblinear L2 logistic heads, fit_intercept=true, max_iter=300, random_state=20260830",
+    "preprocessing": "weighted mean and scale fitted only on the actual training rows; scales below 1e-8 become one",
+    "utility": "P(rescue)-1.0*P(composite_regret)",
+    "minimum_distinct_rescue_sessions_per_fit": 5,
+    "minimum_distinct_rescue_product_families_per_fit": 5,
+    "readiness": "available rows are nonempty and rescue and regret each have two classes in addition to both distinct-rescue minima",
+    "quantiles": "0/64 through 63/64 plus KEEP=1.0",
+    "within_turn_tie_break": "higher utility, then greater three-family support-bit count, then lower candidate ordinal",
+    "session_policy": "turns in ascending order; take the first winner meeting the mapped threshold and latch the session after at most one supplement",
+    "hyperparameter_weight_multiplier_quantile_feature_or_threshold_tuning": false
+  },
+  "nested_workflow": {
+    "inner_folds": 5,
+    "inner_training": "for inner j, fit both heads only on available oof_T action rows whose T_o session has inner_fold != j and score only inner_fold == j rows",
+    "inner_coverage": "when all five fits are ready, every available oof_T action row is scored exactly once and no unavailable row is scored",
+    "readiness_failure": "if any inner fit is not ready or has no validation action, select KEEP for the complete outer fold",
+    "inner_selection": "simulate the exact causal policy for every fixed quantile using T_o labels only",
+    "inner_safety": "aggregate and every inner fold require hit-to-miss=0, net hits>=0, rounded and unrounded MRR delta>=0, and rounded and unrounded MTTC delta<=0",
+    "inner_evidence": "aggregate miss-to-hit>=1 and at least two inner folds have miss-to-hit>0",
+    "selection_key": "higher TechnicalScore delta, higher net rescue, more positive inner folds, fewer supplement turns, then higher quantile",
+    "outer_fit": "for a finite selected quantile, refit both heads on all available T_o oof_T action rows; an unready outer fit fails closed to KEEP",
+    "reference_mapping": "score target-free T_o reference_T actions and map the selected quantile over per-turn winner utilities using the frozen higher method",
+    "held_application": "score target-free H_o held_H actions and apply the one mapped reference threshold once with the unchanged causal latch",
+    "held_label_state_outcome_or_metric_input": false,
+    "keep": "write the fixed output schema with zero selector surfaces and preserve domain-local current bit-for-bit"
+  },
+  "first_repeat_contract": {
+    "passes": 2,
+    "outer_workers_per_pass": 5,
+    "workers": 1,
+    "first_to_repeat_reuse_forbidden": [
+      "derived isolated labels or weights",
+      "fitted head or preprocessing state",
+      "probability or utility array",
+      "readiness or selection decision",
+      "selected quantile or mapped threshold",
+      "supplement or final policy array"
+    ],
+    "allowed_shared_inputs": [
+      "the current outer fold's immutable T_o-only input bundle",
+      "the already-frozen Stage-1a surfaces",
+      "the committed source and protocol files"
+    ],
+    "per_outer_identity_exact": true,
+    "per_output_physical_repeat": "file SHA, array SHA, bytes, shape, dtype, finite check, and identity-shape scan must match while pass-specific paths may differ",
+    "aggregate_result_written_last": true,
+    "partial_or_failed_output_root_reused_or_overwritten": false
+  },
+  "identity_contract": {
+    "per_outer_includes": [
+      "Stage-1a outer and phase identities and session-order hashes",
+      "sealed label archive SHA and the five T_o-only member hashes",
+      "derived label and weight array hashes",
+      "inner coverage, readiness, fitted model, preprocessing, probability, and utility hashes",
+      "selected quantile and mapped reference threshold",
+      "outer fitted model and preprocessing hashes",
+      "reference and held probability and utility hashes",
+      "supplement, supplemental choice, final chosen, and final activation hashes",
+      "KEEP, tie-break, causal-latch, and privacy evidence"
+    ],
+    "pass_neutral_excludes": [
+      "pass name",
+      "path",
+      "wall time",
+      "RSS and peak working set"
+    ],
+    "aggregate_includes": "ordered five outer identities, Stage-1a aggregate identity, held fold-owner and coverage hashes, stitched current and final policy hashes, source snapshot, and physical output audit",
+    "held_stitch": "the five first/repeat-exact 400-session H_o shards cover each of the 2,000 sessions exactly once in the Stage-1a manifest-pinned order",
+    "source_snapshot_start_end_exact": true,
+    "all_input_and_output_files_rehashed_before_success": true
+  },
+  "identity_short_circuit": {
+    "comparison_scope": "the stitched 2,000 by 10 H_o policy surface after complete first/repeat freeze",
+    "required_equalities": [
+      "final_chosen is bit-exact to domain-local current_chosen",
+      "final_activation is bit-exact to domain-local current_activation"
+    ],
+    "identity_status": "NO_GO_TARGET_FREE_POLICY_IDENTITY",
+    "identity_action": "close v2.9 without opening or supplying any H_o outcome and leave all target-informed frontier, oracle, HR, MRR, MTTC, and TechnicalScore fields unavailable",
+    "nonidentity_status": "TARGET_FREE_NON_IDENTITY_POLICY_FROZEN",
+    "nonidentity_action": "mark the result eligible for a tracked Stage-1b manifest to authorize preparation of a separate Stage-2 one-shot protocol; the untracked Stage-1b result itself authorizes neither preparation nor H_o outcome access",
+    "mechanical_or_repeat_failure_status": "IMPLEMENTATION_FAIL_STAGE1B_MECHANICS",
+    "mechanical_or_repeat_failure_authorizes_stage2": false
+  },
+  "output_schema": {
+    "new_exclusive_stage_root": "experiments/fast_track/small_ranker_v2_9/stage1b_*",
+    "per_outer_pass_training_label_hashes_and_counts_only": [
+      "rescue",
+      "regret",
+      "rr_loss",
+      "mttc_loss",
+      "rescue_weights",
+      "regret_weights"
+    ],
+    "supervised_label_arrays_serialized": false,
+    "per_outer_pass_selector_arrays": [
+      "inner_rescue_probability",
+      "inner_regret_probability",
+      "inner_coverage",
+      "reference_rescue_probability",
+      "reference_regret_probability",
+      "reference_utility",
+      "held_rescue_probability",
+      "held_regret_probability",
+      "held_utility",
+      "supplement",
+      "supplemental_choice",
+      "final_chosen",
+      "final_activation"
+    ],
+    "per_outer_pass_array_files": 13,
+    "outer_complete_json_files": 0,
+    "aggregate_stitched_arrays": [
+      "domain_local_current_chosen",
+      "domain_local_current_activation",
+      "final_chosen",
+      "final_activation"
+    ],
+    "aggregate_result_file": "stage1b_cache_result.json",
+    "total_npy_files": 134,
+    "total_json_files": 1,
+    "total_files": 135,
+    "keep_uses_same_file_topology": true,
+    "raw_label_members_session_ordinals_or_identifiers_serialized": false,
+    "large_cache_and_result_tracked": false,
+    "future_tracked_manifest": "configs/small_ranker_v2_9.top5_proposal_depth_stage1b.manifest.json"
+  },
+  "resource_gate": {
+    "first_plus_repeat_stage1b_wall_seconds_maximum": 600,
+    "stage0_plus_stage1a_wall_seconds_baseline": 87.409108,
+    "stage0_plus_stage1a_plus_stage1b_wall_seconds_maximum": 600,
+    "peak_working_set_bytes_maximum": 3289186304,
+    "stage0_plus_stage1a_peak_working_set_bytes_baseline": 773652480,
+    "stage1b_incremental_cache_bytes_maximum": 1073741824,
+    "stage0_plus_stage1a_cache_bytes_baseline": 526907778,
+    "stage0_plus_stage1a_plus_stage1b_cache_bytes_maximum": 1073741824,
+    "result_size_accounting": "fixed-point serialized JSON bytes are included in incremental and cumulative cache totals",
+    "cumulative_peak_definition": "maximum of the historical baseline and observed Stage-1b process peak, never their sum",
+    "ordinary_frozen_selector_iteration_seconds_target": 60,
+    "workers": 1,
+    "new_xgboost_fits": 0,
+    "new_retrieval_queries": 0,
+    "new_133_feature_query_candidate_cache_builds": 0,
+    "new_full_agent_or_official_evaluator_runs": 0,
+    "stage1b_offline_held_outcome_attach_runs": 0,
+    "failure_authorizes_stage2": false
+  },
+  "privacy_and_claim_boundary": {
+    "label_archive_opened_in_stage1b": true,
+    "retained_label_scope": "one current-outer T_o-only bundle at a time; first and repeat receive only that bundle and it is released before the next outer archive open",
+    "label_archive_open_count": 5,
+    "allowed_member_access_count": 25,
+    "held_outcome_rows_retained_or_supplied": 0,
+    "held_state_or_metric_computed": false,
+    "frozen_current_comparator_opened": false,
+    "agent_or_full_evaluator_started": false,
+    "forbidden_split_or_external_data_opened": false,
+    "T_o_inner_metrics_are_training_side_selection_evidence_only": true,
+    "HR_MRR_MTTC_or_TechnicalScore_improvement_claimed": false,
+    "runtime_artifact_authorized": false
+  },
+  "decision_boundary": {
+    "stage1b_success_requires": [
+      "all five first/repeat outer identities and physical outputs are exact",
+      "held shards cover all 2,000 sessions exactly once",
+      "all source, label-scope, privacy, causal-policy, and resource gates pass",
+      "the identity short-circuit is evaluated before any H_o outcome access"
+    ],
+    "identity_result_authorizes": "no later outcome stage; record and commit the target-free No-Go evidence only",
+    "nonidentity_result_authorizes": "nothing immediately; after the Stage-1b result is pinned in the tracked manifest, that manifest may authorize preparation of Stage 2",
+    "nonidentity_result_does_not_authorize": [
+      "opening or supplying H_o outcome rows",
+      "reporting HR, MRR, MTTC, TechnicalScore, proposal oracle, or frontier values",
+      "runtime artifact construction",
+      "Agent or evaluator execution"
+    ],
+    "stage2_commit_gate": "for a non-identity policy, commit the tracked Stage-1b manifest and then separately commit the one-shot Stage-2 outcome protocol and implementation before the first H_o outcome row is supplied to any metric",
+    "post_result_tuning": false
+  }
+}
