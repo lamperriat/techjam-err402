@@ -34,6 +34,12 @@ from starter.slot_ledger import (
     SUPERSEDED,
     SlotLedger,
 )
+from starter.versioned_pagination import (
+    GRACE_PAGES as PAGINATION_GRACE_PAGES,
+    PAGE_SIZE as PAGINATION_PAGE_SIZE,
+    SCHEMA_VERSION as PAGINATION_SCHEMA_VERSION,
+    fixed_two_page_grace_order,
+)
 
 
 TOKEN_RE = re.compile(r"[a-z0-9]+", re.IGNORECASE)
@@ -44,6 +50,8 @@ P11_MODES = ("off", "control", "shadow", "active")
 DEFAULT_P11_MODE = "active"
 SMALL_RANKER_MODES = ("off", "shadow", "active")
 DEFAULT_SMALL_RANKER_MODE = "off"
+PAGINATION_MODES = ("off", "active")
+DEFAULT_PAGINATION_MODE = "off"
 CATEGORY_PATTERNS = (
     re.compile(
         r"^\s*(?:i(?:'m| am)\s+)?(?:looking|searching|shopping)\s+for\s+"
@@ -481,6 +489,9 @@ class SessionState:
     prefer_other_next: bool = False
     pending_attribute: str | None = None
     pending_turn: int | None = None
+    pagination_version: int | None = None
+    pagination_page_count: int = 0
+    pagination_served_ids: set[str] = field(default_factory=set)
     slot_ledger: SlotLedger = field(default_factory=SlotLedger)
 
 
@@ -499,6 +510,7 @@ class Agent:
         p11_sidecar_path: str | Path | None = None,
         small_ranker_mode: str | None = None,
         small_ranker_artifact_path: str | Path | None = None,
+        pagination_mode: str | None = None,
     ) -> None:
         self.catalog_path = Path(catalog_path)
         self.llm_client = llm_client
@@ -595,6 +607,18 @@ class Agent:
             if configured_artifact is not None
             else Path(__file__).resolve().parent / "assets" / "small_ranker_v1.json"
         )
+        requested_pagination_mode = pagination_mode
+        if requested_pagination_mode is None:
+            requested_pagination_mode = (
+                os.getenv("TECHJAM_PAGINATION_MODE") if type(self) is Agent else None
+            )
+        self.pagination_mode = str(
+            requested_pagination_mode or DEFAULT_PAGINATION_MODE
+        ).strip().lower()
+        if self.pagination_mode not in PAGINATION_MODES:
+            raise ValueError(
+                "pagination_mode must be one of: " + ", ".join(PAGINATION_MODES)
+            )
         self.connection = sqlite3.connect(":memory:", check_same_thread=False)
         self._lock = threading.RLock()
         self._sessions: dict[str, SessionState] = {}
@@ -787,6 +811,113 @@ class Agent:
             "p11_ranks_1_9_preserved": True,
         }
 
+    def _pagination_status(self) -> dict[str, Any]:
+        return {
+            "schema_version": PAGINATION_SCHEMA_VERSION,
+            "configured_mode": self.pagination_mode,
+            "effective_mode": "active" if self.pagination_mode == "active" else "off",
+            "reason_code": "enabled" if self.pagination_mode == "active" else "disabled",
+            "fallback": False,
+            "grace_pages": PAGINATION_GRACE_PAGES,
+            "page_size": PAGINATION_PAGE_SIZE,
+        }
+
+    def _pagination_fallback(
+        self, baseline: list[str], reason_code: str
+    ) -> tuple[list[str], dict[str, Any]]:
+        head = list(baseline[:PAGINATION_PAGE_SIZE])
+        return baseline, {
+            **self._pagination_status(),
+            "effective_mode": "fallback",
+            "reason_code": reason_code,
+            "fallback": True,
+            "baseline_top10": head,
+            "proposed_top10": head,
+            "served_top10": head,
+            "activated": False,
+            "output_changed": False,
+        }
+
+    def _apply_pagination(
+        self,
+        state: SessionState,
+        baseline_order: list[str],
+        p11_diagnostics: dict[str, Any],
+        small_ranker_diagnostics: dict[str, Any],
+    ) -> tuple[list[str], dict[str, Any]]:
+        baseline = list(baseline_order)
+        if self.pagination_mode == "off":
+            head = list(baseline[:PAGINATION_PAGE_SIZE])
+            return baseline, {
+                **self._pagination_status(),
+                "baseline_top10": head,
+                "proposed_top10": head,
+                "served_top10": head,
+                "activated": False,
+                "output_changed": False,
+            }
+        ready = (
+            p11_diagnostics.get("effective_mode") == "active"
+            and p11_diagnostics.get("identity_verified") is True
+            and not bool(p11_diagnostics.get("fallback"))
+            and small_ranker_diagnostics.get("effective_mode") == "active"
+            and not bool(small_ranker_diagnostics.get("fallback"))
+        )
+        if not ready:
+            return self._pagination_fallback(baseline, "upstream_invariant_failure")
+        served = (
+            set(state.pagination_served_ids)
+            if state.pagination_version == state.version
+            else set()
+        )
+        completed_pages = (
+            state.pagination_page_count
+            if state.pagination_version == state.version
+            else 0
+        )
+        intent_age = completed_pages + 1
+        try:
+            proposed = list(
+                fixed_two_page_grace_order(baseline, served, intent_age)
+            )
+        except Exception as error:
+            return self._pagination_fallback(
+                baseline, f"pagination_failure:{type(error).__name__}"
+            )
+        baseline_head = list(baseline[:PAGINATION_PAGE_SIZE])
+        proposed_head = list(proposed[:PAGINATION_PAGE_SIZE])
+        return proposed, {
+            **self._pagination_status(),
+            "intent_version": state.version,
+            "intent_age": intent_age,
+            "served_before_count": len(served),
+            "baseline_top10": baseline_head,
+            "proposed_top10": proposed_head,
+            "served_top10": proposed_head,
+            "activated": intent_age > PAGINATION_GRACE_PAGES,
+            "output_changed": proposed_head != baseline_head,
+            "full_membership_preserved": set(proposed) == set(baseline),
+        }
+
+    def _record_pagination_page(
+        self,
+        state: SessionState,
+        identifiers: list[str],
+        diagnostics: dict[str, Any],
+    ) -> None:
+        if (
+            diagnostics.get("effective_mode") != "active"
+            or bool(diagnostics.get("fallback"))
+            or diagnostics.get("intent_version") != state.version
+        ):
+            return
+        if state.pagination_version != state.version:
+            state.pagination_version = state.version
+            state.pagination_page_count = 0
+            state.pagination_served_ids.clear()
+        state.pagination_served_ids.update(identifiers)
+        state.pagination_page_count += 1
+
     def _apply_p11(
         self,
         state: SessionState,
@@ -953,6 +1084,7 @@ class Agent:
                 "retrieval_mode": self.retrieval_mode,
                 "p11": self._p11_status(),
                 "small_ranker": self._small_ranker_status(),
+                "pagination": self._pagination_status(),
                 "coverage_schema_version": COVERAGE_SCHEMA_VERSION,
                 "rerank_top_n": RERANK_TOP_N,
                 "reranker_version": SCORER_VERSION,
@@ -1305,12 +1437,19 @@ class Agent:
             query_terms,
             p11_diagnostics,
         )
+        rankings["final"], pagination_diagnostics = self._apply_pagination(
+            state,
+            rankings["final"],
+            p11_diagnostics,
+            small_ranker_diagnostics,
+        )
         diagnostics = {
             **diagnostics,
             "retrieval_mode": self.retrieval_mode,
             "coverage": coverage_diagnostics,
             "p11": p11_diagnostics,
             "small_ranker": small_ranker_diagnostics,
+            "pagination": pagination_diagnostics,
         }
         self._store_ranking_diagnostics(state, diagnostics)
         return rankings
@@ -1355,6 +1494,7 @@ class Agent:
             "breakdowns": {},
             "p11": self._p11_status(),
             "small_ranker": self._small_ranker_status(),
+            "pagination": self._pagination_status(),
             "question_shadow": empty_question_shadow(
                 "Candidate attributes are computed only when rerank diagnostics are enabled."
             ),
@@ -1501,6 +1641,12 @@ class Agent:
             "rerank_mode": self.rerank_mode,
             "retrieval_mode": self.retrieval_mode,
             "p11": self._p11_status(),
+            "pagination": {
+                **self._pagination_status(),
+                "intent_version": state.pagination_version,
+                "completed_pages": state.pagination_page_count,
+                "served_count": len(state.pagination_served_ids),
+            },
             "coverage_schema_version": COVERAGE_SCHEMA_VERSION,
             "rerank_top_n": RERANK_TOP_N,
             "reranker_version": SCORER_VERSION,
@@ -1593,6 +1739,14 @@ class Agent:
                 {"parent_asin": asin}
                 for asin in rankings["final"][: min(max(top_k, 1), 10)]
             ]
+            turn_diagnostics = self._ranking_diagnostics.get(
+                id(state), self._empty_rerank_diagnostics()
+            )
+            self._record_pagination_page(
+                state,
+                [str(row["parent_asin"]) for row in recommendations],
+                dict(turn_diagnostics.get("pagination", {})),
+            )
             if self.trace_sink is not None:
                 broad_rank = {
                     asin: rank for rank, asin in enumerate(rankings["broad"], start=1)
@@ -1616,6 +1770,9 @@ class Agent:
                 p11_diagnostics = rerank_diagnostics.get("p11", self._p11_status())
                 small_ranker_diagnostics = rerank_diagnostics.get(
                     "small_ranker", self._small_ranker_status()
+                )
+                pagination_diagnostics = rerank_diagnostics.get(
+                    "pagination", self._pagination_status()
                 )
 
                 def result_rows(route: str) -> list[dict[str, Any]]:
@@ -1653,12 +1810,13 @@ class Agent:
                     "rerank": {
                         key: value
                         for key, value in rerank_diagnostics.items()
-                        if key not in {"breakdowns", "p11", "small_ranker"}
+                        if key not in {"breakdowns", "p11", "small_ranker", "pagination"}
                     },
                     "rerank_affects_output": (
                         self.rerank_mode == "active"
                         or bool(p11_diagnostics.get("output_changed"))
                         or bool(small_ranker_diagnostics.get("output_changed"))
+                        or bool(pagination_diagnostics.get("output_changed"))
                     ),
                     "retrieval_mode": self.retrieval_mode,
                     "coverage": rerank_diagnostics["coverage"],
@@ -1668,6 +1826,7 @@ class Agent:
                         if key != "breakdowns"
                     },
                     "small_ranker": dict(small_ranker_diagnostics),
+                    "pagination": dict(pagination_diagnostics),
                     "raw_fused_top_results": raw_fused_top_results,
                     "reranked_top_results": reranked_top_results,
                     "final_top_results": final_top_results,
