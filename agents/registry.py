@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Callable, Protocol
 
 from agents.v1 import AgentV1
+from agents.v2 import AgentV2
 from starter.agent import BaselineAgent
 
 
@@ -43,6 +44,15 @@ AGENTS = {
             "information-gain clarification questions."
         ),
         factory=AgentV1,
+    ),
+    "v2": AgentSpec(
+        name="v2",
+        description=(
+            "V1 retrieval with offline-LLM product attributes and family-weighted "
+            "fine-grained clarification questions. Evaluator-facing questions use "
+            "benchmark-compatible attribute names."
+        ),
+        factory=AgentV2,
     ),
 }
 
