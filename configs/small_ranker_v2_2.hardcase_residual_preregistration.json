@@ -1,0 +1,62 @@
+{
+  "schema_version": "small-ranker-hardcase-residual-preregistration.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.2-HARDCASE-RESIDUAL",
+  "parent_commit": "5442978",
+  "hypothesis": "an explicit pairwise residual trained on target-versus-current-proposal feature differences can recover cross-family signal from the 35 attributed ranker failures without replacing the frozen candidate universe or admission safety policy",
+  "unique_variable": "replace the slot-10 proposal score with one linear pairwise residual learned from frozen rich candidate features plus the current ranker score",
+  "training_pairs": {
+    "base_control": "for every eligible target-present query group, compare the target with the current proposal, or with the highest-scoring non-target when current already proposes target",
+    "hard_case_extra": "for current-policy misses where C100 contains target but current ranker never proposes it, add up to four additional highest-current-score negatives",
+    "symmetric_pairs": true,
+    "hard_case_session_weight": 10.0,
+    "control_session_weight": 1.0,
+    "per_session_weight_normalization": true,
+    "target_is_training_label_only": true
+  },
+  "model": {
+    "type": "L2 logistic pairwise linear residual",
+    "features": "133 frozen semantic-off query-candidate features plus current-ranker score",
+    "C": 0.2,
+    "solver": "liblinear",
+    "max_iter": 300,
+    "candidate_universe": "C100",
+    "score_rule": "coef/scale dot candidate feature vector; pairwise intercept and center cancel"
+  },
+  "cross_fit": {
+    "outer": "product-family fold held out from residual and admission training",
+    "inner_residual": "within each outer-train partition, train residual excluding one inner fold and score only that inner fold",
+    "inner_admission": "train rescue/RR-regret heads on residual-OOF gate rows from other inner folds and select quantile on inner OOF",
+    "outer_serving": "train residual on outer-train pairs; train admission on outer-train residual-OOF gate rows; map inner-selected quantile to outer-train unlabeled utility; apply to held outer fold",
+    "session_or_product_family_leakage": false
+  },
+  "held_constant": [
+    "semantic-off projected features",
+    "C100 candidate universe",
+    "P11 ranks 1-9 protection and slot-10-only swap",
+    "rescue and RR-regret admission heads",
+    "RR multiplier 1.0",
+    "fold-safe 64-quantile plus KEEP selection",
+    "current 0.9715 policy as promotion comparator"
+  ],
+  "promotion_gate": {
+    "aggregate_hr_at_10_strictly_greater_than": 0.9715,
+    "hit_to_miss_relative_to_current": 0,
+    "every_fold_net_hits_relative_to_current_nonnegative": true,
+    "every_fold_mrr_delta_relative_to_current_nonnegative": true,
+    "aggregate_mrr_delta_relative_to_current_nonnegative": true,
+    "every_fold_mttc_delta_relative_to_current_nonpositive": true,
+    "aggregate_mttc_delta_relative_to_current_nonpositive": true,
+    "technical_score_delta_relative_to_current_strictly_positive": true,
+    "exact_repeat": true
+  },
+  "execution_boundary": {
+    "cached_train_explore_only": true,
+    "agent_or_evaluator_started": false,
+    "held_out_splits_opened": false,
+    "external_data_downloaded": false,
+    "no_hyperparameter_or_threshold_sweep": true,
+    "full_model_or_artifact_only_if_promoted": true
+  },
+  "decision_rule": "Promote only if every gate passes; otherwise close this residual formulation and use its proposal/oracle evidence to choose the next materially different mechanism"
+}
