@@ -1,0 +1,50 @@
+{
+  "schema_version": "small-ranker-fixed-two-page-grace-preregistration.v1",
+  "recorded_on": "2026-08-31",
+  "experiment_id": "SR-V2.12-FIXED-TWO-PAGE-GRACE",
+  "parent_commit": "39f1618f59f89052c347438164a1d17f11355558",
+  "unique_hypothesis": "v2.10 loses MRR because novelty can create an earlier low-rank first hit before later dialogue evidence would rank the same target highly; serving the frozen v1.9 current Top10 for exactly the first two pages of each intent version and applying the unchanged v2.10 stable unseen-first policy from page three will retain a safe subset of the 39 rescues while restoring aggregate and fold MRR safety",
+  "frozen_sources": {
+    "v2_10_manifest_sha256": "21760ee0feb3bc73a7d163ff16b3f3d886a3f6de9fff92dfa15528c287e999b2",
+    "v2_11_manifest_sha256": "2c1ebe4fa11e20f2c477104095870fd952307d462b7eb62daf6afec550dedfac",
+    "v1_9_activation_sha256": "48ad9137cb3b99985d3d7e4035575bf06225d8c6b4f9f3c134a468f404d1c410",
+    "v1_9_chosen_sha256": "229952c9ced7f6eec1ff1938480adc85ba5093ad865336465749029576e47051",
+    "proxy_sha256": "2175696171c0d874fca4b9aa456ff5fd7d570f2184f59ade6781198f6443198e",
+    "combined_blind_trace_sha256": "f9a441220926aebf49f4b4d54a0f50df99f72ad4f8c0342e5528517503473e7b"
+  },
+  "target_blind_transform": {
+    "step_1": "start each intent version with an empty served set and intent-age one",
+    "step_2": "for intent-age one and two, serve the frozen v1.9 current Top10 exactly and still record those products as served",
+    "step_3": "from intent-age three onward, apply the unchanged v2.10 stable unseen-first page over the frozen current C100 order",
+    "step_4": "clear served state and restart the two-page grace before an explicit override/category version begins",
+    "step_5": "fall back to already-seen products only when the unseen C100 remainder cannot fill Top10",
+    "grace_pages_per_intent_version": 2,
+    "target_or_future_information": false,
+    "model_ranker_or_admission_change": false,
+    "outcome_conditioned_delay": false
+  },
+  "promotion_gates": {
+    "aggregate_hr_at_10_strictly_above": 0.9715,
+    "aggregate_hit_to_miss_exactly": 0,
+    "aggregate_mrr_minimum": 0.676861,
+    "aggregate_mttc_maximum": 3.056,
+    "aggregate_technical_score_strictly_above": 0.847688,
+    "every_outer_fold_net_hits_minimum": 0,
+    "every_outer_fold_hit_to_miss_exactly": 0,
+    "every_outer_fold_mrr_delta_minimum": 0.0,
+    "every_outer_fold_mttc_delta_maximum": 0.0,
+    "exact_repeat_required": true
+  },
+  "resource_and_privacy": {
+    "cached_replay_wall_seconds_maximum": 120,
+    "train_explore_target_use": "aggregate metrics only after this preregistration commit",
+    "individual_identifier_serialization": false,
+    "agent_or_full_evaluator_allowed": false,
+    "held_out_split_or_external_data_allowed": false,
+    "served_default": "off"
+  },
+  "decision_queue": {
+    "go": "freeze the grace policy for a default-off runtime patch with complete v1.9/P11/R08 fallback",
+    "no_go": "close fixed two-page grace without trying other fixed delays on the opened outcome; next test progressive-other in a new interaction trace, beginning with evaluator-contract and target-blind state tests"
+  }
+}
