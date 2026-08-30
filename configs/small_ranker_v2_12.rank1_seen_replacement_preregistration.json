@@ -1,6 +1,17 @@
 {
   "schema_version": "small-ranker-rank1-seen-replacement-preregistration.v1",
-  "status": "PREREGISTERED_BEFORE_OUTCOME",
+  "status": "PREREGISTERED_BEFORE_OUTCOME_WITH_MECHANICAL_AMENDMENT",
+  "protocol_amendment": {
+    "reason": "the frozen v1.9 outer-OOF comparator activation is identified by a raw hash but has no standalone stitched activation artifact; reproducing that already-selected comparator requires its fixed cross-fitted admission topology after receipt",
+    "original_preregistration_commit": "ed7aec80aa55d601c1ad2395e59ea4681da43fd7",
+    "direct_parent_rule": "this amendment is a normal direct child of the original preregistration commit",
+    "changed_path_set": [
+      "configs/small_ranker_v2_12.rank1_seen_replacement_preregistration.json"
+    ],
+    "recorded_before_any_label_open_hash_member_access_or_outcome": true,
+    "policy_mechanism_threshold_and_gate_changed": false,
+    "history_rewritten": false
+  },
   "recorded_on": "2026-08-31",
   "experiment_id": "SR-V2.12-RANK1-SEEN-REPLACEMENT",
   "parent_commit": "39f1618f59f89052c347438164a1d17f11355558",
@@ -184,8 +195,42 @@
     "attach_count": 1,
     "completed_attach_count_before_run": 0,
     "policy_frozen_before_target_metric": true,
-    "target_use": "after the irreversible receipt only: train_explore aggregate and outer-fold HR/MRR/MTTC/TechnicalScore plus a transient per-session dominance and reset-versus-eligibility audit; no target-derived value may enter policy state, reset, fit, selection, or a serialized per-session record",
-    "no_parameter_selection_after_attach": true,
+    "target_use": "after the irreversible receipt only: mechanically reproduce the already-frozen v1.9 comparator with the exact fixed 5x5x2 inner plus 5x2 outer admission topology, seeds, quantile registry, and activation hash; then compute train_explore aggregate/outer-fold metrics and transient dominance/reset audits. No target-derived value may enter the v2.12 rank1 policy, reset, mechanism selection, threshold selection, tuning, or any serialized per-session record",
+    "frozen_comparator_reproduction": {
+      "is_new_v2_12_model_or_policy_selection": false,
+      "fit_invocations_exact": 60,
+      "inner_fit_invocations": 50,
+      "outer_fit_invocations": 10,
+      "inner_quantile_selection_invocations_exact": 5,
+      "base_seed": 40220260830,
+      "inner_fit_seed_formula": "base_seed + head * 10000 + outer_fold * 31 + inner_fold",
+      "outer_fit_seed_formula": "base_seed + head * 10000 + outer_fold * 101",
+      "utility_formula": "rescue_probability - 1.0 * rr_regret_probability",
+      "quantile_registry": "float(k) / 64.0 for integer k in [0,63], followed by KEEP_QUANTILE=1.0",
+      "finite_threshold_mapping": "numpy.quantile(values, quantile, method='higher')",
+      "keep_threshold_mapping": "positive infinity",
+      "selection_safety": "aggregate and every inner fold require hit_to_miss=0, mrr_delta>=0, and mttc_delta<=0",
+      "selection_tie_break_descending": [
+        "technical_score_delta",
+        "net_hits",
+        "count(inner_fold_net_hits > 0)",
+        "negative activation_turns",
+        "quantile"
+      ],
+      "pinned_selector_source": {
+        "path": "scripts/export_small_ranker_fold_safe_artifact.py",
+        "parent_git_blob_oid": "5a714ca8c6d2cf6403be89ae6e107a4d0e0b2512",
+        "parent_sha256": "5115026c53b21d4d5930cb9af7783c0988b049a0e259f5a0a588901ad44f5e8b"
+      },
+      "expected_fold_quantiles": [0.390625, 0.6875, 0.40625, 0.859375, 0.5],
+      "expected_fold_quantiles_ordered_hard_equality_gate": true,
+      "quantile_or_activation_mismatch_status": "INVALID_ONE_SHOT_CONSUMED",
+      "expected_activation_raw_sha256": "48ad9137cb3b99985d3d7e4035575bf06225d8c6b4f9f3c134a468f404d1c410",
+      "held_outer_rows_used_for_fit_or_quantile_selection": false,
+      "v2_12_policy_uses_comparator_activation_as_a_frozen_input_only": true
+    },
+    "no_new_v2_12_parameter_or_mechanism_selection_after_attach": true,
+    "only_post_attach_selection_exception": "the five fixed frozen-comparator inner-quantile reproductions specified above",
     "mechanical_failure_before_any_target_metric": "repair only the preregistered implementation mechanic",
     "dominance_violation": "INVALID_IMPLEMENTATION_NO_ALGORITHM_CONCLUSION",
     "valid_no_go": "record and close this exact rank-1 transform; do not add a threshold or sweep",
@@ -206,8 +251,16 @@
       ],
       "must_be_pushed_before_implementation": true
     },
+    "protocol_amendment_commit": {
+      "direct_parent": "ed7aec80aa55d601c1ad2395e59ea4681da43fd7",
+      "changed_path_set_must_equal": [
+        "configs/small_ranker_v2_12.rank1_seen_replacement_preregistration.json"
+      ],
+      "must_be_pushed_before_implementation_commit_formal_run_or_any_label_access": true,
+      "must_precede_any_label_open_hash_member_access_or_outcome": true
+    },
     "implementation_commit": {
-      "direct_parent_rule": "the exact pushed commit containing this preregistration and no other changed path",
+      "direct_parent_rule": "the exact pushed protocol-amendment commit containing this amended preregistration and no other changed path",
       "changed_path_set_must_equal_allowed_paths": true,
       "allowed_paths": [
         "scripts/evaluate_rank1_seen_replacement.py",
@@ -221,9 +274,9 @@
       "git_status_porcelain_v1_untracked_files_all_is_empty": true,
       "fixed_output_absent_before_run": true,
       "fixed_output_must_not_be_cli_overridable": true,
-      "preflight_recomputes_both_direct_parent_and_exact_changed_path_sets": true,
+      "preflight_recomputes_original_preregistration_amendment_and_implementation_direct-parent_and-exact-changed-path-sets": true,
       "durable_consumed_marker_precedes_any_label_open_or_hash": true,
-      "forbidden_before_both_commits_are_pushed": [
+      "forbidden_before_protocol_amendment_and_implementation_commits_are_both_pushed": [
         "label archive open or hash",
         "target or eligible_from access",
         "outcome metric computation",
@@ -259,7 +312,9 @@
   "resource_gates": {
     "cached_replay_wall_seconds_maximum": 120,
     "workers": 1,
-    "new_model_training_allowed": false,
+    "new_v2_12_model_training_allowed": false,
+    "frozen_comparator_reproduction_fits_allowed_exactly": 60,
+    "new_v2_12_fit_or_selection_allowed": false,
     "new_retrieval_queries_allowed": false,
     "new_feature_or_candidate_cache_allowed": false,
     "agent_or_full_evaluator_allowed": false,
