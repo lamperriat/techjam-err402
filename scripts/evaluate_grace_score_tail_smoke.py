@@ -74,6 +74,8 @@ IMPLEMENTATION_PATHS = {
     "scripts/evaluate_grace_score_tail_smoke.py",
     "tests/test_grace_score_tail_smoke.py",
 }
+IMPLEMENTATION_BASE_COMMIT = "42be094b04feee6458b3249ea212d2fefeb5db5d"
+CORRECTION_PATHS = {"scripts/evaluate_grace_score_tail_smoke.py"}
 PINNED_BLOBS = {
     "scripts/evaluate_rank1_score_priority_replacement.py": "efe5646d5164f8fe2f952d308d489b957c7a4bb6",
     "scripts/evaluate_rank1_seen_replacement.py": "f15c54aae4a3760d95afd366f07bdefd1ef34665",
@@ -255,12 +257,26 @@ def _validate_git_checkpoint(implementation_commit: str) -> dict[str, Any]:
         raise Rank1ReplayError("implementation worktree is not clean")
     head = _git(("rev-parse", "HEAD"))
     parent = _git(("rev-parse", "HEAD^"))
+    implementation_base_parent = _git(
+        ("rev-parse", IMPLEMENTATION_BASE_COMMIT + "^")
+    )
     prereg_parent = _git(("rev-parse", PREREG_COMMIT + "^"))
     branch = _git(("branch", "--show-current"))
     remote_url = _git(("remote", "get-url", REMOTE))
     remote_head = _git(("rev-parse", REMOTE_REF))
     paths = set(
         _git(("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD")).splitlines()
+    )
+    implementation_base_paths = set(
+        _git(
+            (
+                "diff-tree",
+                "--no-commit-id",
+                "--name-only",
+                "-r",
+                IMPLEMENTATION_BASE_COMMIT,
+            )
+        ).splitlines()
     )
     prereg_paths = set(
         _git(
@@ -281,12 +297,14 @@ def _validate_git_checkpoint(implementation_commit: str) -> dict[str, Any]:
     expected_remote = REMOTE_URL.rstrip("/").removesuffix(".git")
     if not (
         head == implementation_commit
-        and parent == PREREG_COMMIT
+        and parent == IMPLEMENTATION_BASE_COMMIT
+        and implementation_base_parent == PREREG_COMMIT
         and prereg_parent == BASE_COMMIT
         and branch == BRANCH
         and normalized_remote == expected_remote
         and remote_head == head
-        and paths == IMPLEMENTATION_PATHS
+        and paths == CORRECTION_PATHS
+        and implementation_base_paths == IMPLEMENTATION_PATHS
         and prereg_paths == PREREG_PATHS
         and prereg_blob == PREREG_BLOB
         and pinned == PINNED_BLOBS
@@ -298,6 +316,7 @@ def _validate_git_checkpoint(implementation_commit: str) -> dict[str, Any]:
     return {
         "commit": head,
         "parent": parent,
+        "implementation_base_commit": IMPLEMENTATION_BASE_COMMIT,
         "preregistration_commit": PREREG_COMMIT,
         "branch": branch,
         "remote_equal": True,
@@ -572,12 +591,14 @@ def _load_target_free_inputs() -> SmokeInputs:
     ):
         raise Rank1ReplayError("target-free prefix identity drifted")
     versions, reset_mask, _reset_audit = decode_intent_versions(projected_prefix)
-    incumbent = base._incumbent_indices(projected_prefix)
-    chosen, _margin, _gap = base.choose_slot10(score_prefix, incumbent)
+    incumbent_full = base._incumbent_indices(projected)
+    chosen_full, _margin, _gap = base.choose_slot10(scores, incumbent_full)
+    chosen = np.ascontiguousarray(chosen_full[:SMOKE_SESSION_COUNT])
     priority = score_priority_ordinals(score_prefix)
     ages, grace_mask = intent_age_and_grace_mask(versions)
     if not (
         _array_sha256(versions) == EXPECTED_VERSION_PREFIX_SHA256
+        and _array_sha256(chosen_full) == EXPECTED_CHOSEN_SHA256
         and _array_sha256(chosen) == EXPECTED_CHOSEN_PREFIX_SHA256
         and _array_sha256(priority) == EXPECTED_PRIORITY_PREFIX_SHA256
         and _array_sha256(grace_mask) == EXPECTED_GRACE_MASK_SHA256
