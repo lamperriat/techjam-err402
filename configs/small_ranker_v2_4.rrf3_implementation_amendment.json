@@ -1,0 +1,31 @@
+{
+  "schema_version": "small-ranker-rrf3-implementation-amendment.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.4-RRF3",
+  "preregistration_commit": "dbc3db7",
+  "implementation_commit": "10ab86e",
+  "timing": "recorded after one target-free projection and before any target label, RRF oracle, admission, or metric evaluation",
+  "superseded_target_free_projection": "experiments/fast_track/small_ranker_v2_4/rrf3_projection_20260830T1740",
+  "reason": "pre-metric static review found that the evaluator did not bind a projection manifest strongly enough to the two preregistered member identities and frozen provenance",
+  "required_evidence_binding": [
+    "exact ordered member IDs",
+    "raw OOF score hashes",
+    "all fold model hashes",
+    "all inclusive best-iteration limits",
+    "projected feature, feature-cache, label-cache, preregistration, and projector hashes",
+    "per-member raw parity with two samples from each outer fold",
+    "ROOT-contained regular non-symlink float32 finite score and repeat files with exact schema and hashes"
+  ],
+  "feature_compatibility": "explicitly assert that the eight RRF fields are a position-preserving semantic rename of the frozen supplemental feature builder",
+  "threshold_clarification": "the 0/64 through 63/64 plus KEEP candidates are one fixed preregistered 65-way inner-only quantile sweep; there is no outer or posthoc threshold sweep",
+  "method_claim": "exploratory nested admission over frozen outer-OOF ranker surfaces, not end-to-end nested stacking",
+  "unchanged": [
+    "three ranker members",
+    "equal RRF weights and k=60",
+    "C100 stable ranks and tie rules",
+    "supplemental action surface",
+    "eight feature values and order",
+    "two logistic heads and weights",
+    "folds and promotion gates"
+  ]
+}

@@ -22,10 +22,16 @@ from scripts import train_small_ranker as base  # noqa: E402
 
 SCHEMA_VERSION = "small-ranker-rrf3-semantic-off-projection.v1"
 PREREGISTRATION = ROOT / "configs/small_ranker_v2_4.rrf3_preregistration.json"
+IMPLEMENTATION_AMENDMENT = ROOT / (
+    "configs/small_ranker_v2_4.rrf3_implementation_amendment.json"
+)
 DEFAULT_SOURCE_ROOT = Path(r"D:\tiktok\techjam-err402-fast-track")
 DEFAULT_PROJECTION_ROOT = Path(r"D:\tiktok\techjam-v1-2-metric-gate")
 PROJECTED_FEATURE_SHA256 = (
     "cd9b075b923c31afe10b9a9c6d720de22e221c93de961595ff484ea4f532b90a"
+)
+FEATURE_SHA256 = (
+    "2b19835a1bced7f21322610296c712e3d06d915274719e11c268d31f7f596089"
 )
 LABEL_SHA256 = (
     "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb"
@@ -96,9 +102,14 @@ def _raw_reference_audit(
 ) -> dict[str, Any]:
     import xgboost as xgb
 
-    groups = np.asarray(
-        [0, 1999, 4001, 7999, 8000, 11999, 12000, 15999, 16000, 19999]
-    )
+    groups: list[int] = []
+    sampled_folds: list[int] = []
+    for fold in range(base.OUTER_FOLDS):
+        sessions = np.flatnonzero(outer_fold == fold)
+        if len(sessions) != 400:
+            raise RRFProjectionError("raw audit fold size mismatch")
+        groups.extend((int(sessions[0]) * base.TURN_COUNT, int(sessions[-1]) * base.TURN_COUNT + 9))
+        sampled_folds.extend((fold, fold))
     expected: list[np.ndarray] = []
     actual: list[np.ndarray] = []
     for group in groups:
@@ -123,6 +134,7 @@ def _raw_reference_audit(
     actual_matrix = np.stack(actual)
     return {
         "groups": len(groups),
+        "sampled_folds": sampled_folds,
         "rows": int(expected_matrix.size),
         "maximum_absolute_error": float(
             np.max(np.abs(expected_matrix - actual_matrix))
@@ -195,6 +207,7 @@ def run(source_root: Path, projection_root: Path, output_dir: Path) -> dict[str,
         not projected_path.is_file()
         or _sha256(projected_path) != PROJECTED_FEATURE_SHA256
         or not feature_path.is_file()
+        or _sha256(feature_path) != FEATURE_SHA256
         or not label_path.is_file()
         or _sha256(label_path) != LABEL_SHA256
     ):
@@ -218,7 +231,11 @@ def run(source_root: Path, projection_root: Path, output_dir: Path) -> dict[str,
             model_paths,
             spec["best_iterations"],
         )
-        if audit["maximum_absolute_error"] != 0.0 or not audit["c100_order_exact"]:
+        if (
+            audit["maximum_absolute_error"] != 0.0
+            or not audit["c100_order_exact"]
+            or sorted(set(audit["sampled_folds"])) != list(range(base.OUTER_FOLDS))
+        ):
             raise RRFProjectionError(f"raw reference parity failed: {model_id}")
         first_path = output_dir / f"{model_id}_semantic_off_oof.npy"
         repeat_path = output_dir / f"{model_id}_semantic_off_oof.repeat.npy"
@@ -243,6 +260,7 @@ def run(source_root: Path, projection_root: Path, output_dir: Path) -> dict[str,
         members.append(
             {
                 "id": model_id,
+                "raw_score_sha256": str(spec["raw_score_sha256"]),
                 "raw_reference_parity": audit,
                 "model_sha256": list(spec["model_sha256"]),
                 "best_iterations_zero_based": list(spec["best_iterations"]),
@@ -270,8 +288,12 @@ def run(source_root: Path, projection_root: Path, output_dir: Path) -> dict[str,
         },
         "inputs": {
             "projected_feature_sha256": PROJECTED_FEATURE_SHA256,
+            "feature_cache_sha256": FEATURE_SHA256,
             "label_cache_sha256": LABEL_SHA256,
             "preregistration_sha256": _sha256(PREREGISTRATION),
+            "implementation_amendment_sha256": _sha256(
+                IMPLEMENTATION_AMENDMENT
+            ),
             "projector_sha256": _sha256(Path(__file__).resolve()),
         },
         "members": members,
@@ -284,7 +306,13 @@ def run(source_root: Path, projection_root: Path, output_dir: Path) -> dict[str,
     }
     result_path = output_dir / "projection_result.json"
     with result_path.open("x", encoding="utf-8") as handle:
-        json.dump(result, handle, sort_keys=True, separators=(",", ":"))
+        json.dump(
+            result,
+            handle,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
         handle.write("\n")
     return result
 
