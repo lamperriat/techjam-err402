@@ -80,6 +80,23 @@ def seen_hole_replacement(
     return result
 
 
+def fixed_two_page_grace(
+    order: Sequence[str],
+    served: set[str],
+    intent_age: int,
+    top_k: int = 10,
+) -> tuple[str, ...]:
+    """Exploit the current Top-K for two version-local pages, then paginate."""
+
+    if intent_age <= 0:
+        raise PaginationReplayError("intent age must be positive")
+    if top_k <= 0 or len(order) < top_k or len(order) != len(set(order)):
+        raise PaginationReplayError("invalid ranked order")
+    if intent_age <= 2:
+        return tuple(order[:top_k])
+    return stable_unseen_first(order, served, top_k)
+
+
 def reconstruct_current_order(
     turn: Mapping[str, Any], chosen_index: int, activated: bool
 ) -> tuple[str, ...]:
@@ -161,11 +178,14 @@ def _simulate(
         all_candidate: set[str] = set()
         session_baseline: list[tuple[str, ...]] = []
         session_candidate: list[tuple[str, ...]] = []
+        version_start_turn = 1
         for turn_index, turn in enumerate(traces[session]):
             turn_number = turn_index + 1
             if reset_turn > 1 and turn_number == reset_turn:
                 served.clear()
                 reset_count += 1
+                version_start_turn = turn_number
+            intent_age = turn_number - version_start_turn + 1
             order = reconstruct_current_order(
                 turn,
                 int(chosen[session, turn_index]),
@@ -179,6 +199,10 @@ def _simulate(
                 candidate = seen_hole_replacement(order, served)
                 v2_10_set_mismatches += int(
                     set(candidate) != set(unseen_first)
+                )
+            elif policy_name == "grace2":
+                candidate = fixed_two_page_grace(
+                    order, served, intent_age
                 )
             else:
                 raise PaginationReplayError("unknown pagination policy")
@@ -327,7 +351,11 @@ def run(
     experiment_id = (
         "SR-V2.11-SEEN-HOLE-REPLACEMENT"
         if policy_name == "seen_hole"
-        else "SR-V2.10-VERSIONED-UNSEEN-PAGINATION"
+        else (
+            "SR-V2.12-FIXED-TWO-PAGE-GRACE"
+            if policy_name == "grace2"
+            else "SR-V2.10-VERSIONED-UNSEEN-PAGINATION"
+        )
     )
     result = {
         "schema_version": SCHEMA_VERSION,
@@ -346,6 +374,9 @@ def run(
             "stable_unseen_first": policy_name == "unseen_first",
             "unseen_exposure_set": True,
             "page_order": policy_name,
+            "grace_pages_per_intent_version": (
+                2 if policy_name == "grace2" else 0
+            ),
             "fallback_to_seen_only_when_required": True,
             "ranker_or_admission_changed": False,
         },
@@ -397,7 +428,7 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
         "--policy",
-        choices=("unseen_first", "seen_hole"),
+        choices=("unseen_first", "seen_hole", "grace2"),
         default="unseen_first",
     )
     args = parser.parse_args()

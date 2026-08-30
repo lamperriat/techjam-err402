@@ -4,6 +4,7 @@ import unittest
 
 from scripts.evaluate_versioned_unseen_pagination import (
     PaginationReplayError,
+    fixed_two_page_grace,
     reconstruct_current_order,
     seen_hole_replacement,
     stable_unseen_first,
@@ -69,6 +70,27 @@ class VersionedUnseenPaginationTests(unittest.TestCase):
             ),
         )
         self.assertEqual(set(page), set(stable_unseen_first(order, served)))
+
+    def test_fixed_grace_exploits_two_pages_then_uses_unseen_order(self) -> None:
+        order = tuple(f"item-{index}" for index in range(15))
+        served = {"item-0", "item-2", "item-4"}
+        self.assertEqual(
+            fixed_two_page_grace(order, served, intent_age=1),
+            order[:10],
+        )
+        self.assertEqual(
+            fixed_two_page_grace(order, served, intent_age=2),
+            order[:10],
+        )
+        self.assertEqual(
+            fixed_two_page_grace(order, served, intent_age=3),
+            stable_unseen_first(order, served),
+        )
+
+    def test_fixed_grace_rejects_invalid_intent_age(self) -> None:
+        order = tuple(f"item-{index}" for index in range(10))
+        with self.assertRaises(PaginationReplayError):
+            fixed_two_page_grace(order, set(), intent_age=0)
 
 
 if __name__ == "__main__":
