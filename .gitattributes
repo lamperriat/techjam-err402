@@ -1,3 +1,25 @@
 starter/assets/p11_features.sqlite -text
 experiments/fast_track/proxy_v1/audit.json -text
 experiments/fast_track/proxy_v1/manifest.json -text
+.gitattributes text eol=lf
+docs/fast_algorithm_results.md text eol=lf
+
+# v2.8 evidence pins raw source bytes; keep those files LF-stable on Windows.
+configs/small_ranker_v2_7.portfolio_selector_implementation_amendment.json text eol=lf
+configs/small_ranker_v2_7.portfolio_selector_preregistration.json text eol=lf
+configs/small_ranker_v2_8.strict_outer_restack_implementation_amendment.json text eol=lf
+configs/small_ranker_v2_8.strict_outer_restack_preregistration.json text eol=lf
+configs/small_ranker_v2_8.strict_outer_restack_stage0.manifest.json text eol=lf
+configs/small_ranker_v2_8.strict_outer_restack_stage1_implementation_amendment.json text eol=lf
+configs/small_ranker_v2_8.strict_outer_restack_stage1.manifest.json text eol=lf
+scripts/analyze_small_ranker_metric_gate.py text eol=lf
+scripts/analyze_small_ranker_rr_regret_gate.py text eol=lf
+scripts/build_small_ranker_strict_outer_restack.py text eol=lf
+scripts/evaluate_small_ranker_portfolio_selector.py text eol=lf
+scripts/evaluate_small_ranker_supplemental_pairwise.py text eol=lf
+scripts/export_small_ranker_fold_safe_artifact.py text eol=lf
+scripts/freeze_small_ranker_strict_outer_restack.py text eol=lf
+scripts/probe_small_ranker_strict_outer_restack.py text eol=lf
+scripts/small_ranker_portfolio_selector_py39.py text eol=lf
+scripts/train_small_ranker.py text eol=lf
+scripts/train_small_ranker_focused_outer_oof.py text eol=lf

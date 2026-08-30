@@ -650,3 +650,29 @@ strict restack will not by itself reach the project-level `0.99` objective.
 - Targeted verification: 19 tests passed. All serialized-model reload predictions were exact; finite, identity-shape, lineage, and supervision-scope checks passed.
 - No proposal/selector or H0 outcome metric was computed. This is `IMPLEMENTATION_PASS_STAGE0`, not an HR@10 result and not artifact authorization.
 - Next single step: build and exactly repeat the full five-outer strict cache, then attach held labels for the preregistered outcome exactly once.
+
+## SR-V2.8 strict outer restack — Stage 1 target-free No-Go
+
+The complete five-outer topology trained all 150 rankers twice (300 XGBoost fits)
+and froze five disjoint held shards with exact repeat identity
+`78e70b6211804e677c38db550bcf6c032834d7abcfd312ac0508f8db0db3a0b2`.
+All outer identities repeated exactly, outer 0 reproduced the Stage 0 prefix, and
+held coverage contains each of the 2,000 sessions exactly once. The first and
+repeat worker passes took `5733.631s` and `4530.233s`; target-free freezing took
+`47.904s`, with peak working set `3,289,186,304` bytes.
+
+No outcome attach was consumed. The frozen `final_activation` file and array hashes
+are exactly equal to `domain-local current_activation`; the same is true for the
+two chosen arrays, over the complete `2000 x 10` policy surface. Therefore final and
+domain-local current serve the same choice on every turn under every possible label
+assignment. The preregistered primary gate requires both positive miss-to-hit and
+positive TechnicalScore delta, so it is mathematically impossible for this cache to
+pass. Reading held outcomes could not add information to that decision and was
+deliberately skipped.
+
+This is `NO_GO_TARGET_FREE_POLICY_IDENTITY`: no HR/MRR/MTTC result is claimed, no runtime
+artifact is authorized, and the v2.8 selector is closed without threshold or feature
+tuning. The frozen evidence is recorded in
+`configs/small_ranker_v2_8.strict_outer_restack_stage1.manifest.json`. The next
+experiment must change proposal reachability or candidate recall rather than reuse
+this selector.
