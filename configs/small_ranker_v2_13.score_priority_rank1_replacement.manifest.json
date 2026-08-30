@@ -1,0 +1,114 @@
+{
+  "schema_version": "small-ranker-score-priority-rank1-manifest.v1",
+  "recorded_on": "2026-08-31",
+  "experiment_id": "SR-V2.13-SCORE-PRIORITY-RANK1",
+  "status": "LOCAL_GO_GLOBAL_NO_GO",
+  "evidence_scope": "shared-cohort train_explore nested OOF; not private and not independent confirmation",
+  "commits": {
+    "lineage_base": "ddc963d569b300c8e590272b9c4e65ad5164b670",
+    "comparability": "fed015af46bdf20c4fe240fe7118af5cd55dc23f",
+    "preregistration": "9240ace8a588eb82a3898ab805126bf1e322911e",
+    "implementation": "f94e3c08b9aa4c2c39a17d2ff88088fa0ca39a2e"
+  },
+  "immutable_receipt": {
+    "path": "experiments/fast_track/small_ranker_v2_13/score_priority_rank1_one_shot_20260831/score_priority_rank1_result.json",
+    "raw_bytes": 30665,
+    "raw_sha256": "4dbff949db14d3a8ea1beb7986f5afbaaf1f6ab7f4dcd2d5262e304f93491dba",
+    "attach_count": 1,
+    "rerun_forbidden": true
+  },
+  "target_free_preflight": {
+    "git_chain_remote_and_worktree_exact": true,
+    "priority_ndarray_raw_sha256": "54bccc6f930a696f80cc754104efbbaecab96e15f3abc97534289c1f191e6505",
+    "tie_rows": 18364,
+    "duplicate_score_excess": 630767,
+    "version_increment_boundaries": 300,
+    "peak_working_set_bytes": 1576894464,
+    "first_attempt_before_receipt": "safe diagnostic failure because D:/450/conda/envs/tiktok is Python 3.11.16 and lacks the frozen sklearn/xgboost environment; no output or label access occurred",
+    "formal_environment": {
+      "path": "C:/Users/danie/anaconda3/envs/py39/python.exe",
+      "python": "3.9.19",
+      "numpy": "1.26.4",
+      "scikit_learn": "1.1.3",
+      "xgboost": "1.7.6"
+    }
+  },
+  "candidate_official_6dp": {
+    "hits": 1975,
+    "misses": 25,
+    "hit_rate_at_10": 0.9875,
+    "mrr": 0.730428,
+    "mttc": 2.818,
+    "technical_score": 0.876518,
+    "fold_metrics": [
+      {"fold": 0, "hit_rate_at_10": 0.985, "mrr": 0.751595, "mttc": 2.77, "technical_score": 0.882578},
+      {"fold": 1, "hit_rate_at_10": 0.985, "mrr": 0.722441, "mttc": 2.83, "technical_score": 0.872632},
+      {"fold": 2, "hit_rate_at_10": 0.9925, "mrr": 0.741752, "mttc": 2.7875, "technical_score": 0.883026},
+      {"fold": 3, "hit_rate_at_10": 0.985, "mrr": 0.737074, "mttc": 2.9, "technical_score": 0.875622},
+      {"fold": 4, "hit_rate_at_10": 0.99, "mrr": 0.699276, "mttc": 2.8025, "technical_score": 0.868733}
+    ]
+  },
+  "comparisons": {
+    "vs_local_v2_12_rank1": {
+      "baseline_hit_rate_at_10": 0.9765,
+      "miss_to_hit": 22,
+      "hit_to_miss": 0,
+      "net_hits": 22,
+      "fold_net_hits": [7, 7, 1, 7, 0],
+      "mrr_delta": 0.045572,
+      "mttc_delta": -0.197,
+      "technical_score_delta": 0.023111,
+      "gate_pass": true
+    },
+    "vs_global_fixed_two_page_grace": {
+      "baseline_hit_rate_at_10": 0.991,
+      "miss_to_hit": 0,
+      "hit_to_miss": 7,
+      "net_hits": -7,
+      "fold_net_hits": [-4, -1, 0, -1, -1],
+      "mrr_delta": 0.034633,
+      "mttc_delta": -0.051,
+      "technical_score_delta": 0.00966,
+      "gate_pass": false
+    },
+    "vs_v1_9_structural": {
+      "miss_to_hit": 32,
+      "hit_to_miss": 0,
+      "net_hits": 32,
+      "dominance_violations": 0
+    }
+  },
+  "candidate_recall_context": {
+    "C10": 0.9475,
+    "C20": 0.9715,
+    "C50": 0.991,
+    "C100": 0.993,
+    "recomputed_in_outcome": false
+  },
+  "integrity": {
+    "exact_repeat": true,
+    "structural_integrity": true,
+    "local_comparator_hard_identity": true,
+    "grace_comparator_hard_identity": true,
+    "fit_invocations": 60,
+    "new_v2_13_fit_or_selection": false,
+    "target_runtime_features": 0,
+    "served_default": "off",
+    "fallback_order": ["SR-V2.12-FIXED-TWO-PAGE-GRACE", "v1.9", "P11", "R08"]
+  },
+  "resource": {
+    "wall_seconds": 11.612133,
+    "peak_working_set_bytes": 1584201728,
+    "policy_p95_microseconds": 33.6,
+    "gpu_used": false,
+    "gpu_peak_bytes": 0
+  },
+  "conclusion": {
+    "global_incumbent_unchanged": "SR-V2.12-FIXED-TWO-PAGE-GRACE",
+    "global_incumbent_hit_rate_at_10": 0.991,
+    "runtime_integration_authorized": false,
+    "mechanism_closed_without_variants": true,
+    "reason": "score priority strongly improves the local rank1 mechanism but harms seven sessions already hit by the globally superior fixed-two-page grace policy",
+    "next_stage": "anonymous remaining-miss attribution relative to the fixed-two-page-grace incumbent"
+  }
+}
