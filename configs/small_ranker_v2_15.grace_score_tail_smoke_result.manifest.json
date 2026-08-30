@@ -1,0 +1,67 @@
+{
+  "schema_version": "small-ranker-grace-score-tail-smoke-result-manifest.v1",
+  "recorded_on": "2026-08-31",
+  "experiment_id": "SR-V2.15-GRACE-SCORE-TAIL-SMOKE",
+  "status": "SMOKE_NO_GO_CLOSE_COMBINATION",
+  "evidence_scope": "fixed shared-cohort train_explore rows 0:100 cached smoke; not private, independent, or 2000-session promotion evidence",
+  "commits": {
+    "lineage": "11d248ca6ff32b602bfad661711da94cb5e5235c",
+    "preregistration": "a4ca533a5b3710f0116181c9059fedb5e1b48139",
+    "implementation_base": "42be094b04feee6458b3249ea212d2fefeb5db5d",
+    "target_free_shape_correction": "d855be2d513580ea056d1aa547645478a7dd6f1e"
+  },
+  "immutable_receipt": {
+    "path": "experiments/fast_track/small_ranker_v2_15/grace_score_tail_smoke_20260831/result.json",
+    "raw_bytes": 15628,
+    "raw_sha256": "fefe9298e842c3041f78e00728263962db84ec1d45c1221662d3d2981fa27851",
+    "rerun_forbidden": true,
+    "attach_count": 1
+  },
+  "target_free_preflight": {
+    "status": "PASS_AFTER_NORMAL_CHILD_CORRECTION",
+    "first_attempt": "safe pre-receipt shape failure: full-shape choose_slot10 helper rejected a 100-session slice; no result, label, or proxy access",
+    "environment": {"python": "3.9.19", "numpy": "1.26.4", "scikit_learn": "1.1.3", "xgboost": "1.7.6"},
+    "peak_working_set_bytes": 1220083712
+  },
+  "official_6dp": {
+    "grace": {"hit_rate_at_10": 0.97, "mrr": 0.694063, "mttc": 3.0, "technical_score": 0.853219},
+    "candidate": {"hit_rate_at_10": 0.98, "mrr": 0.689567, "mttc": 2.89, "technical_score": 0.85907},
+    "delta": {"hit_rate_at_10": 0.01, "mrr": -0.004496, "mttc": -0.11, "technical_score": 0.005851}
+  },
+  "membership": {"miss_to_hit": 1, "hit_to_miss": 0, "net_hits": 1},
+  "outer_fold_diagnostics": [
+    {"fold": 0, "sessions": 14, "baseline_hr": 1.0, "candidate_hr": 1.0, "net": 0, "h2m": 0, "mrr_delta": 0.001786, "mttc_delta": -0.071429, "technical_score_delta": 0.001964},
+    {"fold": 1, "sessions": 30, "baseline_hr": 0.933333, "candidate_hr": 0.966667, "net": 1, "h2m": 0, "mrr_delta": 0.064683, "mttc_delta": -0.2, "technical_score_delta": 0.040072},
+    {"fold": 2, "sessions": 18, "baseline_hr": 0.944444, "candidate_hr": 0.944444, "net": 0, "h2m": 0, "mrr_delta": 0.0, "mttc_delta": 0.0, "technical_score_delta": 0.0},
+    {"fold": 3, "sessions": 16, "baseline_hr": 1.0, "candidate_hr": 1.0, "net": 0, "h2m": 0, "mrr_delta": 0.013988, "mttc_delta": 0.0, "technical_score_delta": 0.004196},
+    {"fold": 4, "sessions": 22, "baseline_hr": 1.0, "candidate_hr": 1.0, "net": 0, "h2m": 0, "mrr_delta": -0.119949, "mttc_delta": -0.181818, "technical_score_delta": -0.032348}
+  ],
+  "candidate_recall": {"c10": 0.94, "c20": 0.95, "c50": 0.97, "c100": 0.98},
+  "activation": {"sessions": 92, "turns": 669},
+  "integrity": {
+    "exact_repeat": true,
+    "grace_prefix_exact": true,
+    "source_same_handle_and_rehash": true,
+    "receipt_before_label": true,
+    "label_open_count": 1,
+    "proxy_open_count": 0,
+    "target_runtime_features": 0,
+    "agent_or_full_evaluator_started": false,
+    "runtime_changed": false,
+    "served_default": "off"
+  },
+  "resources": {
+    "wall_seconds": 5.97572,
+    "policy_p95_microseconds": 43.0,
+    "peak_working_set_bytes": 1240707072,
+    "gpu_used": false,
+    "gpu_peak_bytes": 0
+  },
+  "decision": {
+    "failed_gate": "aggregate MRR delta must be nonnegative in exact and official-6dp form",
+    "full_2000_outcome_authorized": false,
+    "mechanism_closed_without_variants": true,
+    "next_stage": "clause-isolated target-blind C200 candidate-recall probe, then C400 only as the next single-variable stage",
+    "fallback_order": ["SR-V2.12-FIXED-TWO-PAGE-GRACE", "v1.9", "P11", "R08"]
+  }
+}
