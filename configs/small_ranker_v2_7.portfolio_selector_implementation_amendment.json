@@ -1,0 +1,31 @@
+{
+  "schema_version": "small-ranker-portfolio-selector-implementation-amendment.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.7-CAUSAL-PORTFOLIO-SELECTOR",
+  "parent_preregistration_commit": "7317034",
+  "timing": "recorded after static implementation review and before any v2.7 outcome run",
+  "reason": "make the runtime/training boundary and fail-closed mechanics machine-auditable without changing the preregistered model, feature set, utility, threshold grid, or promotion objective",
+  "clarifications": {
+    "runtime_surface": "action construction, features, within-turn winner, chronological latch, and composition use a label-free runtime surface/API; isolated outcome labels are attached only afterward for cached training and metrics",
+    "fold_integrity": "family_index must map to exactly one outer fold and one inner fold; fold values must cover 0..4 and every outer-by-inner cell must be nonempty",
+    "fit_readiness": "both heads must have two classes and each fit must include at least five distinct rescue-positive sessions and five distinct rescue-positive product families; otherwise the effective action is KEEP",
+    "weights": "deduplicated action weights must be finite, nonnegative, sum to one across all turn/action rows of every active session, and remain zero for sessions without actions",
+    "metric_safety": "the existing nondegradation gates are checked both at official six-decimal reporting precision and on unrounded reciprocal-rank/first-hit-turn means with 1e-12 numerical tolerance",
+    "effective_quantile": "if readiness fails, the serialized effective quantile and threshold are KEEP; any safe inner proposal is retained only as a diagnostic proposed_quantile",
+    "policy_membership": "an activated supplemental choice must be a currently available deduplicated candidate for that same session and turn",
+    "input_binding": "feature count/order, action width, seed, C, solver, max_iter, utility multiplier, quantile grid, frozen hashes, and readiness minima are checked against the committed preregistration before evaluation",
+    "posthoc_invariant": "the already-recorded v2.6 union oracle remains report-only and must reproduce 20 sessions, fold counts [9,2,7,1,1], and HR ceiling 0.9815; it never filters runtime actions or model rows"
+  },
+  "unchanged": {
+    "feature_names_and_count": true,
+    "model_family_and_hyperparameters": true,
+    "rescue_and_composite_regret_labels": true,
+    "session_normalized_weight_formulas": true,
+    "utility": "P(rescue)-P(regret)",
+    "quantiles": "0/64 through 63/64 plus KEEP",
+    "chronological_one_action_latch": true,
+    "promotion_gate": true,
+    "conditional_exploratory_claim_boundary": true,
+    "no_outcome_informed_tuning": true
+  }
+}
