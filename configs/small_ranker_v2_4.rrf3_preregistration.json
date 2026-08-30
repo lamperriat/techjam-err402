@@ -1,0 +1,114 @@
+{
+  "schema_version": "small-ranker-rrf3-preregistration.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.4-RRF3",
+  "parent_commit": "71eca7f",
+  "evidence_status": "exploratory because member selection uses previously observed train_explore OOF results",
+  "hypothesis": "stable rank fusion across three previously zero-harm rankers yields a more robust and broader C100 slot-10 proposal surface than either the current or pairwise ranker alone",
+  "unique_variable": "replace the supplemental proposal with fixed equal-weight RRF-3 while retaining the current 0.9715 policy as immutable default",
+  "members": [
+    {
+      "id": "ndcg_d4_lr003",
+      "role": "current semantic-off score surface",
+      "semantic_off_oof_sha256": "5000deb9b77b3e7b326ccab6455222b291d2ec859ddab2043fe67d23a3217c5e"
+    },
+    {
+      "id": "ndcg_d6_lr006",
+      "raw_oof_sha256": "70a7aaf47640b7d3169fe1c731f9452fb3f8719b6e207500508ef324dbfbaa59",
+      "best_iterations_zero_based": [297, 170, 251, 226, 59],
+      "fold_model_sha256": [
+        "dd408ab245486383cc2a31972a77dabf471539bee8cec97cc49cc72061fb47a5",
+        "fc9f0756459b75358143ed657e15c566014bcf2d426551e8f53e24158356bdf2",
+        "82a9d002c42c34849b3f0ede731bd19ba261094810a9ad32ff279b400166df5f",
+        "9dc01d4f9abbcae37e10d6504553da25b47fd16d69cb58db7e3643aaba512474",
+        "22c1cea8aff72208400b86d5a8642c8aa275fa87c5cf665f1f8921cbee672746"
+      ]
+    },
+    {
+      "id": "ndcg_d4_regularized",
+      "raw_oof_sha256": "e3d90b5b82778e2a0f50d8a921dcd88ed3eb1c962c64c815e778e90f005977c3",
+      "best_iterations_zero_based": [3, 336, 372, 5, 4],
+      "fold_model_sha256": [
+        "c929c178d0359efb7e2929d793627fae8f61d584a8376f39c3326a92af00e659",
+        "cf7d982d53d90b5d629fe4177e5896e891722a4f6f7e52582edce3d375cc3112",
+        "e172bf7f38156a8c6224636fb2d453b4cffdb71435c19c323d9b9968df06b08f",
+        "8e7a6268bd463fc4ad8c52eb4e72e53cc7e0b60aeb59c4fe5203c98573b97fda",
+        "fa4a989115c927e0b150a28624bbf3bf08b07dca11e63e7490239f561af2c54d"
+      ]
+    }
+  ],
+  "semantic_off_projection": {
+    "projected_feature_sha256": "cd9b075b923c31afe10b9a9c6d720de22e221c93de961595ff484ea4f532b90a",
+    "outer_fold_models_score_only_their_held_fold": true,
+    "early_stopping_iteration_range_inclusive": true,
+    "raw_score_and_c100_order_reference_audit": true,
+    "score_each_missing_member_twice_and_require_byte_identity": true,
+    "target_label_read": false
+  },
+  "fusion": {
+    "method": "reciprocal rank fusion",
+    "members_equal_weight": true,
+    "k": 60,
+    "rank_universe": "all C100 candidates",
+    "rank_definition": "stable one-based descending rank with lower candidate index winning equal-score ties",
+    "formula": "sum over members of 1/(60+rank)",
+    "final_tie_break": "lower C100 candidate index",
+    "raw_score_averaging": false,
+    "learned_weight": false
+  },
+  "supplemental_action": {
+    "current_served_choice": "current ranker choice when frozen admission activates, otherwise P11 incumbent",
+    "available_when": "RRF-3 choice differs from current served choice and differs from P11 incumbent",
+    "never_undo_to_p11": true,
+    "keep": "bit-exact current chosen and activation arrays"
+  },
+  "admission": {
+    "feature_count": 8,
+    "feature_names": [
+      "current_policy_active",
+      "current_choice_rank_fraction_under_rrf3",
+      "rrf3_choice_rank_fraction_under_current_ranker",
+      "rrf3_choice_coverage_rank_fraction",
+      "rrf3_minus_current_top10_route_agreement",
+      "rrf3_minus_current_active_token_recall",
+      "rrf3_minus_current_hard_clause_coverage",
+      "rrf3_minus_current_constraint_conflict_sum"
+    ],
+    "heads": ["isolated_current_relative_rescue", "isolated_current_relative_composite_regret"],
+    "model": "two C=0.2 liblinear logistic heads with weighted preprocessing",
+    "session_normalized_weights": true,
+    "utility": "P(rescue)-P(composite_regret)",
+    "quantiles": "0/64 through 63/64 plus KEEP",
+    "inner_safety": "aggregate and every inner fold have zero hit-to-miss, nonnegative MRR delta, and nonpositive MTTC delta relative current",
+    "hyperparameter_or_threshold_sweep": false
+  },
+  "cross_fit": {
+    "ranker_surfaces": "each member is outer-fold OOF; fusion is fixed and target-blind",
+    "admission_outer_inner": "five outer product-family folds with five fixed inner folds and outer-train quantile mapping",
+    "claim": "nested admission over frozen outer-OOF ranker surfaces, not end-to-end nested stacking"
+  },
+  "promotion_gate": {
+    "aggregate_hr_at_10_strictly_greater_than": 0.9715,
+    "hit_to_miss_relative_to_current": 0,
+    "every_fold_net_hits_relative_to_current_nonnegative": true,
+    "every_fold_mrr_delta_relative_to_current_nonnegative": true,
+    "aggregate_mrr_delta_relative_to_current_nonnegative": true,
+    "every_fold_mttc_delta_relative_to_current_nonpositive": true,
+    "aggregate_mttc_delta_relative_to_current_nonpositive": true,
+    "technical_score_delta_relative_to_current_strictly_positive": true,
+    "exact_repeat": true
+  },
+  "oracle_and_stop_rule": {
+    "report_target_informed_proposal_ceiling_posthoc": true,
+    "if_no_promotion": "close RRF-3 without member, k, weight, feature, multiplier, or threshold tuning and proceed to preregistered focused nonlinear LambdaMART",
+    "if_promotion": "do not deploy directly; preregister full-member export, parity, distillation decision, and target-free resource benchmark"
+  },
+  "execution_boundary": {
+    "cached_train_explore_only": true,
+    "agent_or_evaluator_started": false,
+    "held_out_splits_opened": false,
+    "external_data_downloaded": false,
+    "full_model_or_runtime_artifact_only_if_promoted": true,
+    "new_exclusive_outputs": true
+  }
+}
