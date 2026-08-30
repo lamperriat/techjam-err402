@@ -1,0 +1,227 @@
+{
+  "schema_version": "small-ranker-strict-outer-restack-preregistration.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.8-STRICT-OUTER-RESTACK",
+  "parent_commit": "875d1ea",
+  "evidence_status": "preregistered end-to-end meta-outer OOF validation; inner safety selection remains training-side stacking rather than a separately untouched test",
+  "hypothesis": "the frozen v2.7 one-action portfolio selector retains a zero-harm HR@10 gain when every upstream ranker, current admission gate, focused cohort, and selector component is rebuilt without the evaluated outer product-family fold",
+  "unique_variable": "replace globally frozen proposal/current training surfaces with domain-local strict outer-restacked surfaces; v2.7 action features, labels, model, weights, utility, tie-break, chronological latch, quantile grid, and promotion objective are unchanged",
+  "frozen_inputs": {
+    "raw_feature_sha256": "2b19835a1bced7f21322610296c712e3d06d915274719e11c268d31f7f596089",
+    "semantic_off_projected_feature_sha256": "cd9b075b923c31afe10b9a9c6d720de22e221c93de961595ff484ea4f532b90a",
+    "label_sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+    "current_oof_score_sha256_for_held_comparator_only": "5000deb9b77b3e7b326ccab6455222b291d2ec859ddab2043fe67d23a3217c5e",
+    "current_oof_activation_sha256_for_held_comparator_only": "48ad9137cb3b99985d3d7e4035575bf06225d8c6b4f9f3c134a468f404d1c410",
+    "candidate_universe": "C100",
+    "feature_count": 133,
+    "turns": 10,
+    "sessions": 2000,
+    "outer_folds": 5,
+    "inner_folds": 5
+  },
+  "domain_algebra": {
+    "held_outer_H_o": "outer_fold == o",
+    "outer_train_T_o": "outer_fold != o",
+    "inner_valid_V_oj": "outer_fold != o and inner_fold == j",
+    "inner_train_A_oj": "outer_fold != o and inner_fold != j",
+    "inner_partition": "the five V_oj are disjoint and cover T_o exactly",
+    "required_checks": [
+      "every product family maps to one outer and one inner fold",
+      "H_o and every training domain are disjoint",
+      "A_oj and V_oj are disjoint",
+      "all masks are hashed with counts and canonical descriptors",
+      "every scored session has exactly one recorded training-domain lineage"
+    ]
+  },
+  "claim_boundary": {
+    "guaranteed": "for each final held outer fold H_o, no H_o label, target, cohort state, current-policy outcome, or feature row enters any v2.8 ranker, gate, threshold, cohort, or selector fit used to score H_o",
+    "standard_stacking": "each T_o session receives one base OOF prediction from the A_oj model that excluded its own inner fold; the selector trains on those OOF rows",
+    "not_claimed": "selector-inner validation j is not a third-level independently untouched test because base OOF models for other inner rows can use V_oj labels; only the final H_o result is promoted evidence",
+    "historical_adaptivity": "fixed boosting rounds come from already-recorded pre-v2.8 research and therefore this remains adaptive train_explore evidence, not a never-touched external test"
+  },
+  "generic_training": {
+    "library": "Python 3.9.19, XGBoost 1.7.6",
+    "training_features": "raw 133-feature frozen cache",
+    "scoring_features": "semantic-off projected 133-feature tensor",
+    "training_groups": "the frozen complete 40-row grouped ranking rows, masked by whole session/product family",
+    "early_stopping": false,
+    "fixed_round_source": "frozen pre-v2.8 deployed tree count or median historical best_iteration plus one; no v2.8 round sweep",
+    "models": [
+      {
+        "id": "current_ndcg_d4_lr003",
+        "objective": "rank:ndcg",
+        "max_depth": 4,
+        "eta": 0.03,
+        "min_child_weight": 8.0,
+        "subsample": 0.85,
+        "colsample_bytree": 0.8,
+        "reg_alpha": 0.05,
+        "reg_lambda": 2.0,
+        "rounds": 273
+      },
+      {
+        "id": "pairwise_d4_control",
+        "objective": "rank:pairwise",
+        "max_depth": 4,
+        "eta": 0.03,
+        "min_child_weight": 8.0,
+        "subsample": 0.85,
+        "colsample_bytree": 0.8,
+        "reg_alpha": 0.05,
+        "reg_lambda": 2.0,
+        "rounds": 397
+      },
+      {
+        "id": "ndcg_d6_lr006",
+        "objective": "rank:ndcg",
+        "max_depth": 6,
+        "eta": 0.06,
+        "min_child_weight": 12.0,
+        "subsample": 0.85,
+        "colsample_bytree": 0.75,
+        "reg_alpha": 0.1,
+        "reg_lambda": 3.0,
+        "rounds": 227
+      },
+      {
+        "id": "ndcg_d4_regularized",
+        "objective": "rank:ndcg",
+        "max_depth": 4,
+        "eta": 0.03,
+        "min_child_weight": 20.0,
+        "subsample": 0.75,
+        "colsample_bytree": 0.7,
+        "reg_alpha": 0.5,
+        "reg_lambda": 8.0,
+        "rounds": 6
+      }
+    ],
+    "common_parameters": {
+      "tree_method": "hist",
+      "max_bin": 256,
+      "nthread": 1,
+      "verbosity": 0,
+      "xgboost_1_7_6_limitation": "lambdarank_pair_method is unavailable and is not passed"
+    },
+    "seed": {
+      "formula": "(40220260830 + model_offset + domain_code) modulo (2^32-1)",
+      "domain_code": "code(A_oj)=5*o+j; code(T_o)=25+o",
+      "model_offsets": {
+        "current_ndcg_d4_lr003": 0,
+        "pairwise_d4_control": 10000,
+        "ndcg_d6_lr006": 20000,
+        "ndcg_d4_regularized": 30000,
+        "focused_ndcg_d3": 40000
+      },
+      "repeat_rule": "the same model id and canonical domain must receive the same seed in both passes"
+    },
+    "prediction": "Booster output_margin=true over semantic-off C100 rows",
+    "model_count_per_pass": "4 generic models times (25 A_oj domains plus 5 T_o domains) = 120"
+  },
+  "domain_local_current_policy": {
+    "T_o_ranker_oof": "assemble current-ranker predictions A_oj -> V_oj",
+    "T_o_gate_oof": "for each j, train both heads only on the assembled T_o current-ranker OOF action surface restricted to A_oj sessions, then score V_oj; never use A_oj full-model in-sample scores or the globally frozen current surface",
+    "heads": "the frozen current rescue and reciprocal-rank-regret L2 logistic definitions",
+    "preprocessing": "the frozen current weighted training/preprocessing implementation",
+    "inner_quantile": "select once from the five T_o gate-OOF utilities using the frozen 0/64..63/64+KEEP safety rule",
+    "T_o_activation": "apply the selected inner threshold to the assembled T_o OOF utilities",
+    "held_current": "fit both heads on all T_o OOF action rows; use the full-T_o current ranker on T_o reference and H_o; map the selected quantile on unlabeled T_o reference utility and score H_o",
+    "held_comparator": "the pre-v2.8 frozen current OOF policy is used only as the secondary final deployment baseline, never as a v2.8 training feature or focused-cohort input",
+    "keep_semantics": "KEEP preserves the domain-local held current policy bit-for-bit"
+  },
+  "focused_training": {
+    "features": "semantic-off projected allowed-91 query-candidate groups",
+    "cohort_rebuilt_per_outer": true,
+    "cohort_source": "domain-local T_o current OOF state only",
+    "hard": "T_o current miss with an eligible target in the allowed-91 set",
+    "control": "T_o current first-hit rank10 session with an eligible allowed target no later than first hit",
+    "weights": "within-session normalization followed by exact 50/50 hard-control balance inside each actual A_oj or T_o training partition",
+    "model": "the frozen v2.5 depth-3 rank:ndcg Booster, 300 fixed rounds, nthread=1",
+    "inner": "train each A_oj cohort and score V_oj",
+    "outer": "train the T_o cohort and score both T_o reference and H_o",
+    "model_count_per_pass": 30,
+    "forbidden": "reuse of the global v2.5 hard/control cohort"
+  },
+  "portfolio_and_selector": {
+    "pairwise": "domain-local pairwise ranker choice",
+    "rrf3": "fixed equal-weight stable-rank RRF(k=60) of domain-local current/d6/regularized scores",
+    "focused": "domain-local focused ranker choice",
+    "action": "deduplicate three family proposals by candidate and exclude domain-local current served choice and P11 incumbent",
+    "runtime_features": "the exact frozen v2.7 19-feature order",
+    "labels": "the exact frozen isolated current-relative rescue and composite RR/MTTC regret definitions",
+    "model": "the exact frozen two C=0.2 liblinear L2 logistic heads with v2.7 session-normalized weights",
+    "utility": "P(rescue)-P(regret)",
+    "inner_selection": "the exact v2.7 fixed quantile grid, readiness, aggregate/every-inner safety, and selection key on T_o OOF actions",
+    "outer_mapping": "fit heads on T_o OOF actions, score the target-free T_o full-model reference surface, map the selected quantile over per-turn winners, then score H_o",
+    "runtime_policy": "within-turn utility/support/candidate tie-break followed by chronological first-passing latch; at most one supplement per session",
+    "hyperparameter_or_threshold_tuning": false
+  },
+  "two_stage_execution": {
+    "stage_0": "for outer o=0, train and repeat the five current A_0j models and score each V_0j; assemble the T_0 current-ranker OOF surface; construct the five current gate folds, select the frozen-rule current quantile, and derive the T_0 current OOF state; then train and repeat the A_00 pairwise, d6, regularized, and focused models and score V_00. This is nine ranker fits per pass. T_0 labels may be used only as training-side supervision for the current gate and focused cohort; no H_0 label may be accessed and no V_00 proposal/selector rescue, harm, or policy outcome metric may be computed or reported",
+    "stage_0_gate": "all nine model/score/slot10-choice hashes repeat exactly, all lineage/group/parity/privacy checks pass, hard_groups(A_00)>0 and control_groups(A_00)>0, projected values are finite, and the explicit H_0 label-access counter remains zero",
+    "stage_1_topology": [
+      "for each o, train all current A_oj models and assemble current-ranker OOF predictions over T_o",
+      "fit the five current gate folds from T_o OOF action rows, select the current quantile, and freeze the domain-local T_o current OOF state",
+      "derive every A_oj and T_o focused hard/control cohort exclusively from that T_o current OOF state; fail closed unless both cohorts are nonempty in every actual training partition",
+      "train and score the A_oj pairwise, d6, regularized, and focused models to assemble selector-training OOF proposals over T_o",
+      "train the T_o current, pairwise, d6, regularized, and focused models; fit the full-T_o current heads; score the target-free T_o reference and H_o surfaces",
+      "fit/select the frozen v2.7 selector on T_o OOF actions, map its quantile on the target-free T_o full-model reference surface, and apply it to H_o once"
+    ],
+    "stage_1": "only after Stage 0 passes, execute the complete topology for all outer folds twice, freeze every target-free cache and manifest, pass all mechanical gates, and only then attach held labels for one selector/outcome evaluation",
+    "large_outputs": "gitignored model/score/surface cache; tracked manifests contain only paths, domains, shapes, counts, timing, and hashes"
+  },
+  "repeat_and_resource": {
+    "full_upstream_retrain_repeat": true,
+    "require_every_model_score_choice_and_surface_hash_exact": true,
+    "selector_exact_repeat_on_each_frozen_cache": true,
+    "workers": 1,
+    "no_network": true,
+    "record_wall_time_per_domain_and_family": true,
+    "record_peak_working_set": true,
+    "estimated_full_wall_minutes": "48-60 for first plus repeat",
+    "ordinary_selector_iteration_after_cache": "under one minute"
+  },
+  "promotion_gate": {
+    "primary_selector_ablation_relative_to_domain_local_current": {
+      "miss_to_hit_strictly_positive": true,
+      "hit_to_miss": 0,
+      "every_outer_fold_net_hits_nonnegative": true,
+      "every_outer_fold_mrr_delta_nonnegative_rounded_and_unrounded": true,
+      "aggregate_mrr_delta_nonnegative_rounded_and_unrounded": true,
+      "every_outer_fold_mttc_delta_nonpositive_rounded_and_unrounded": true,
+      "aggregate_mttc_delta_nonpositive_rounded_and_unrounded": true,
+      "technical_score_delta_strictly_positive": true
+    },
+    "secondary_final_policy_relative_to_frozen_current": {
+      "absolute_hr_at_10_strictly_greater_than": 0.9715,
+      "miss_to_hit_strictly_positive": true,
+      "hit_to_miss": 0,
+      "every_outer_fold_net_hits_nonnegative": true,
+      "every_outer_fold_mrr_delta_nonnegative_rounded_and_unrounded": true,
+      "aggregate_mrr_delta_nonnegative_rounded_and_unrounded": true,
+      "every_outer_fold_mttc_delta_nonpositive_rounded_and_unrounded": true,
+      "aggregate_mttc_delta_nonpositive_rounded_and_unrounded": true,
+      "technical_score_delta_strictly_positive": true
+    },
+    "required_for_both": {
+      "exact_repeat": true,
+      "all_lineage_hash_parity_and_privacy_checks": true
+    },
+    "required_reporting_only": "report domain-local current versus frozen current separately so upstream ranker/gate changes cannot be attributed to the selector"
+  },
+  "stop_rule": {
+    "mechanics_failure": "record IMPLEMENTATION_FAILURE and repair only the violated preregistered mechanic before any outcome",
+    "outcome_failure": "close strict-restacked one-action selector without changing rounds, cohorts, models, features, weights, utility, folds, readiness, quantiles, or latch",
+    "outcome_pass": "authorize only full-data model/artifact freeze and target-free parity/resource benchmark; do not open calibration, selection, confirmation, public, or full Agent evaluator",
+    "oracle": "report only after the strict result is frozen; never use target reachability to filter domains, rows, models, or thresholds"
+  },
+  "execution_boundary": {
+    "cached_train_explore_only": true,
+    "target_is_supervised_or_posthoc_label_only": true,
+    "runtime_features_target_and_identity_free": true,
+    "agent_or_full_evaluator_started": false,
+    "calibration_selection_confirmation_public_or_external_data_opened": false,
+    "new_exclusive_outputs": true,
+    "no_full_runtime_artifact_before_promotion": true
+  }
+}
