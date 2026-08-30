@@ -1,0 +1,75 @@
+{
+  "schema_version": "small-ranker-pairwise-projection-manifest.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.1-PAIRWISE-PROJECTION",
+  "status": "NO_GO",
+  "commits": {
+    "preregistration": "ae75df2",
+    "implementation": "a37af1a",
+    "early_stopping_fix": "cd0f2d6"
+  },
+  "projection": {
+    "result_path": "experiments/fast_track/small_ranker_v2_1/pairwise_projection_20260830T1530/projection_result.json",
+    "result_sha256": "d99f0237b5d717782265298f305008a18c90524ec312381034e7c9d72ca1dbc0",
+    "score_sha256": "1765f60c3f111f751e8d0c133bbbd93d2a1e174db24b2c4c64c80aea66a4778b",
+    "repeat_score_sha256": "1765f60c3f111f751e8d0c133bbbd93d2a1e174db24b2c4c64c80aea66a4778b",
+    "byte_identical": true,
+    "raw_reference_rows": 1000,
+    "raw_reference_maximum_absolute_error": 0.0,
+    "raw_reference_c100_order_exact": true,
+    "wall_seconds": 9.469051
+  },
+  "nested_oof": {
+    "result_path": "experiments/fast_track/small_ranker_v2_1/pairwise_evaluation_20260830T1545.json",
+    "result_sha256": "aad95463e91726fe33d5197ad4335f900632ff09cd73025c4ee5f5790c7c67cd",
+    "activation_repeat_exact": true,
+    "activation_sha256": "47eb07afb2872ac61a6dca337daf44b23ed4f0aa74f8e2c9493184f458adb54d",
+    "baseline_hr_at_10": 0.9475,
+    "candidate_hr_at_10": 0.9735,
+    "miss_to_hit_vs_p11": 52,
+    "hit_to_miss_vs_p11": 0,
+    "candidate_mrr": 0.677328,
+    "candidate_mttc": 3.057,
+    "candidate_technical_score": 0.848808,
+    "activation_sessions": 1361,
+    "activation_turns": 7115,
+    "fold_net_vs_p11": [12, 12, 11, 6, 11]
+  },
+  "relative_to_current_0_9715": {
+    "miss_to_hit": 9,
+    "hit_to_miss": 5,
+    "net_hits": 4,
+    "hr_delta": 0.002,
+    "mrr_delta": 0.000467,
+    "mttc_delta": 0.001,
+    "technical_score_delta": 0.00112,
+    "fold_net": [5, -1, 3, -1, -2],
+    "fold_mrr_delta": [0.00125, -0.00025, 0.00075, -0.00025, 0.000833],
+    "fold_mttc_delta": [-0.055, 0.0075, -0.0075, 0.0275, 0.0325]
+  },
+  "ranker_proposal_evidence": {
+    "current_correct_fraction": 0.053323,
+    "pairwise_correct_fraction": 0.057063,
+    "pairwise_correct_current_miss_sessions": 13,
+    "pairwise_correct_current_miss_turns": 105
+  },
+  "privacy_and_scope": {
+    "ranker_retrained": false,
+    "agent_or_evaluator_started": false,
+    "held_out_splits_opened": false,
+    "full_model_or_artifact_trained": false
+  },
+  "tests": "1 passed",
+  "decision": {
+    "promotion_gate_passed": false,
+    "reasons": [
+      "5 current hits become misses",
+      "folds 1, 3, and 4 lose net hits",
+      "folds 1 and 3 regress MRR",
+      "folds 1, 3, and 4 regress MTTC",
+      "aggregate MTTC regresses by 0.001"
+    ],
+    "pairwise_objective_closed": true,
+    "next": "one hard-case residual ranker trained only through product-family outer/inner cross-fitting"
+  }
+}

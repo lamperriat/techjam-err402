@@ -449,3 +449,22 @@ buying (`13`), with fold counts `16/8/1/8/2`. The target already has fused suppo
 candidate expansion unlikely to address the dominant error. The next single-variable
 test is the existing pairwise ranker under the identical semantic-off projection and the
 unchanged fold-safe two-head admission protocol.
+
+## SR-v2.1 pairwise semantic-off projection
+
+The already-trained `pairwise_d4_control` fold models were scored twice on the exact
+semantic-off tensor. Both 8 MB OOF score files are byte-identical (SHA-256
+`1765f60c3f111f751e8d0c133bbbd93d2a1e174db24b2c4c64c80aea66a4778b`), and a
+1000-row reference audit exactly reproduced the original early-stopping-aware scores and
+C100 orders. Nested admission activation also repeated exactly.
+
+Against P11, pairwise reaches HR `0.9735`, `52/0` rescue/harm, MRR `0.677328`, MTTC
+`3.057`, and TechnicalScore `0.848808`. That aggregate is not promotable. Relative to the
+current `0.9715` policy it gains nine misses but loses five existing hits; fold net is
+`5/-1/3/-1/-2`, folds 1 and 3 regress MRR, folds 1/3/4 regress MTTC, and aggregate MTTC
+regresses `+0.001`. Pairwise alone is therefore closed without weight or threshold tuning.
+
+The useful evidence is proposal complementarity: it proposes a correct candidate in 13
+of the current 57 misses. The next materially different mechanism is a hard-case residual
+ranker trained from OOF-derived target-versus-current-chosen pairs under full outer/inner
+product-family cross-fitting; the current fold-safe admission protocol remains unchanged.
