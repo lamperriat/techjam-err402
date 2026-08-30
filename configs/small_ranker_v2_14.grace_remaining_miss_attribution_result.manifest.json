@@ -1,0 +1,71 @@
+{
+  "schema_version": "small-ranker-grace-miss-attribution-result-manifest.v1",
+  "recorded_on": "2026-08-31",
+  "experiment_id": "SR-V2.14-GRACE-MISS-ATTRIBUTION",
+  "status": "COMPLETE_ANONYMOUS_ATTRIBUTION",
+  "evidence_scope": "shared-cohort nested OOF evaluator-side attribution; not private and not independent validation",
+  "commits": {
+    "preregistration": "d4b41e7926f2e75fb902c6a150741231007d1db2",
+    "implementation_contract": "a07b22b3e343c9ea690c9fa9c942c2abc14628b9",
+    "contract_amendment": "4f015f6cbb867a60e6d56cd17aa127931885a4b1",
+    "contract_amendment_v2": "cd8af48a4ce8fab63dac08b80d1354bdc0057de1",
+    "implementation_base": "7fa028876ddff4ab285c599c4c71896157cdddc9",
+    "formal_runner": "d60d848ece8c1ce221da4b1023cde4da2c905d8d"
+  },
+  "immutable_receipt": {
+    "path": "experiments/fast_track/small_ranker_v2_14/grace_remaining_miss_attribution_20260831/result.json",
+    "raw_bytes": 8174,
+    "raw_sha256": "294d8102bc6ef4d38bd22826cb763a3fa10caf17b5b02f755e6e3b710b4c02fb",
+    "rerun_forbidden": true,
+    "durable_before_label_access": true
+  },
+  "global_incumbent": {
+    "commit": "7d08e144fe6f589d64fab21f1b68c3ec2feeb684",
+    "hits": 1982,
+    "misses": 18,
+    "hit_rate_at_10": 0.991,
+    "mrr": 0.695795,
+    "mttc": 2.869,
+    "technical_score": 0.866858,
+    "outer_fold_hits": [398, 395, 397, 395, 397]
+  },
+  "exclusive_primary_attribution": {
+    "candidate_absent_at_c100": 14,
+    "candidate_present_but_ranker_failure": 4,
+    "admission_grace_state_rejection": 0,
+    "outer_fold_counts_absent_ranker_admission": [[0, 2, 0], [3, 2, 0], [3, 0, 0], [5, 0, 0], [3, 0, 0]]
+  },
+  "nonexclusive_diagnostics": {
+    "old_intent_or_question_lifecycle": 1,
+    "query_or_attribute_information_insufficient": 0,
+    "catalog_metadata_any_missing": 4,
+    "catalog_price_null": 4
+  },
+  "candidate_recall": {
+    "all_2000": {"c10": 0.9475, "c20": 0.9715, "c50": 0.991, "c100": 0.993},
+    "remaining_18": {"c10": 0.0, "c20": 0.0, "c50": 0.0, "c100": 0.222222},
+    "c200_c400": "pending_not_observed; frozen blind trace ends at exact C100"
+  },
+  "integrity": {
+    "exact_repeat": true,
+    "all_sources_unchanged": true,
+    "target_runtime_features": 0,
+    "runtime_changed": false,
+    "served_default": "off",
+    "label_archive_open_count": 1,
+    "proxy_open_count": 1,
+    "evaluator_or_agent_started": false
+  },
+  "resources": {
+    "wall_seconds": 11.642124,
+    "attribution_latency_p95_microseconds": 123.595,
+    "peak_working_set_bytes": 1585356800,
+    "gpu_used": false,
+    "gpu_peak_bytes": 0
+  },
+  "decision": {
+    "largest_primary_bottleneck": "candidate_absent_at_c100",
+    "next_stage": "single fixed-two-page-grace plus frozen score-priority cached smoke",
+    "fallback_order": ["SR-V2.12-FIXED-TWO-PAGE-GRACE", "v1.9", "P11", "R08"]
+  }
+}
