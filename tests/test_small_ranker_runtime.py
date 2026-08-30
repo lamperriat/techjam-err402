@@ -14,10 +14,12 @@ from scripts.evaluate_small_ranker_smoke import (
 from starter import small_ranker as runtime_module
 from starter.agent import Agent, DEFAULT_SMALL_RANKER_MODE, SMALL_RANKER_MODES
 from starter.small_ranker import (
+    ARTIFACT_SCHEMA_VERSION,
     FEATURE_NAMES,
     GATE_FEATURE_NAMES,
     SmallRankerRuntime,
     SmallRankerRuntimeError,
+    admission_utility,
     gate_probability,
     score_tree_model,
     swap_slot10,
@@ -34,6 +36,10 @@ RESEARCH_ARTIFACT = (
     / "research_runtime_v1.json"
 )
 P11_SIDECAR = ROOT / "starter" / "assets" / "p11_features.sqlite"
+FOLD_SAFE_ARTIFACT = (
+    ROOT / "starter" / "assets" / "small_ranker_fold_safe_v1.json"
+)
+from scripts.benchmark_small_ranker_runtime import _percentile
 
 
 def _fixture_catalog(path: Path, count: int = 24) -> Path:
@@ -100,6 +106,28 @@ def test_pure_tree_score_and_gate_probability() -> None:
     }
     assert gate_probability(gate, [0.0, 0.0]) == pytest.approx(0.5)
     assert gate_probability(gate, [1.0, 2.0]) > 0.95
+    admission = {
+        "rescue_head": gate,
+        "rr_regret_head": {**gate, "intercept": -1.0},
+        "rr_multiplier": 1.0,
+    }
+    rescue, regret, utility = admission_utility(admission, [0.0, 0.0])
+    assert rescue == pytest.approx(0.5)
+    assert regret < rescue
+    assert utility == pytest.approx(rescue - regret)
+
+
+def test_frozen_fold_safe_artifact_loads_fail_closed_by_default() -> None:
+    runtime = SmallRankerRuntime("shadow", FOLD_SAFE_ARTIFACT, P11_SIDECAR)
+    try:
+        status = runtime.status()
+        assert status["artifact_schema"] == ARTIFACT_SCHEMA_VERSION
+        assert status["configured_mode"] == "shadow"
+        assert status["fallback"] is False
+        assert runtime.admission is not None
+        assert runtime.gate is None
+    finally:
+        runtime.close()
 
 
 def test_float32_reductions_match_the_frozen_numpy_projection() -> None:
@@ -201,6 +229,7 @@ def test_smoke_resource_measurements_are_stdlib_and_deterministic() -> None:
     with pytest.raises(ValueError):
         _nearest_rank_percentile(values, 0.0)
     assert _peak_process_rss_bytes() > 0
+    assert _percentile([3.0, 1.0, 2.0], 0.5) == 2.0
 
 
 def test_agent_default_off_and_incompatible_active_mode_fail_closed(tmp_path: Path) -> None:

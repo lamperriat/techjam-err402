@@ -36,7 +36,12 @@ from starter.reranker import score_candidate
 
 
 SCHEMA_VERSION = "small-ranker-runtime.v1"
-ARTIFACT_SCHEMA_VERSION = "small-ranker-runtime-artifact.v1"
+LEGACY_ARTIFACT_SCHEMA_VERSION = "small-ranker-runtime-artifact.v1"
+ARTIFACT_SCHEMA_VERSION = "small-ranker-fold-safe-artifact.v1"
+SUPPORTED_ARTIFACT_SCHEMA_VERSIONS = (
+    LEGACY_ARTIFACT_SCHEMA_VERSION,
+    ARTIFACT_SCHEMA_VERSION,
+)
 MODES = ("off", "shadow", "active")
 TURN_COUNT = 10
 CANDIDATE_COUNT = 100
@@ -687,13 +692,28 @@ def gate_probability(gate: Mapping[str, Any], values: Sequence[float]) -> float:
     mean = gate["mean"]
     scale = gate["scale"]
     coefficients = gate["coef"]
+    if not (
+        len(values) == len(mean) == len(scale) == len(coefficients)
+    ):
+        raise SmallRankerRuntimeError("small-ranker gate row shape mismatch")
     linear = float(gate["intercept"])
-    for value, center, width, coefficient in zip(values, mean, scale, coefficients, strict=True):
+    for value, center, width, coefficient in zip(
+        values, mean, scale, coefficients
+    ):
         linear += float(coefficient) * (float(value) - float(center)) / float(width)
     if linear >= 0:
         return 1.0 / (1.0 + math.exp(-linear))
     exponential = math.exp(linear)
     return exponential / (1.0 + exponential)
+
+
+def admission_utility(
+    admission: Mapping[str, Any], values: Sequence[float]
+) -> tuple[float, float, float]:
+    rescue = gate_probability(admission["rescue_head"], values)
+    regret = gate_probability(admission["rr_regret_head"], values)
+    utility = rescue - float(admission["rr_multiplier"]) * regret
+    return rescue, regret, utility
 
 
 def swap_slot10(
@@ -738,7 +758,9 @@ def _validate_tree_model(model: Mapping[str, Any], feature_count: int, rounds: i
         if len(lengths) != 1 or not lengths or next(iter(lengths)) <= 0:
             raise SmallRankerRuntimeError("ranker tree array lengths mismatch")
         node_count = next(iter(lengths))
-        for node, (left, right, feature, value, default) in enumerate(zip(*arrays, strict=True)):
+        for node, (left, right, feature, value, default) in enumerate(
+            zip(*arrays)
+        ):
             if not math.isfinite(float(value)) or int(default) not in (0, 1):
                 raise SmallRankerRuntimeError("ranker tree value is invalid")
             if int(left) < 0:
@@ -749,6 +771,26 @@ def _validate_tree_model(model: Mapping[str, Any], feature_count: int, rounds: i
                 raise SmallRankerRuntimeError("ranker child index is invalid")
             if not 0 <= int(feature) < feature_count or int(left) == node or int(right) == node:
                 raise SmallRankerRuntimeError("ranker split is invalid")
+
+
+def _registry_order_sha256(names: Sequence[str]) -> str:
+    raw = (
+        json.dumps(list(names), sort_keys=True, separators=(",", ":")) + "\n"
+    ).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _validate_gate_head(gate: Mapping[str, Any]) -> None:
+    for name in ("mean", "scale", "coef"):
+        values = gate.get(name)
+        if not isinstance(values, list) or len(values) != len(GATE_FEATURE_NAMES):
+            raise SmallRankerRuntimeError("small-ranker gate vector mismatch")
+        if not all(math.isfinite(float(value)) for value in values):
+            raise SmallRankerRuntimeError("small-ranker gate vector is non-finite")
+    if any(float(value) <= 0 for value in gate["scale"]):
+        raise SmallRankerRuntimeError("small-ranker gate scale is invalid")
+    if not math.isfinite(float(gate.get("intercept"))):
+        raise SmallRankerRuntimeError("small-ranker gate intercept is invalid")
 
 
 class SmallRankerRuntime:
@@ -765,32 +807,82 @@ class SmallRankerRuntime:
         if ASIN_SHAPE_RE.search(raw):
             raise SmallRankerRuntimeError("small-ranker artifact contains an identity-shaped token")
         artifact = json.loads(raw)
-        if artifact.get("schema_version") != ARTIFACT_SCHEMA_VERSION:
+        artifact_schema = str(artifact.get("schema_version", ""))
+        if artifact_schema not in SUPPORTED_ARTIFACT_SCHEMA_VERSIONS:
             raise SmallRankerRuntimeError("small-ranker artifact schema mismatch")
         if tuple(artifact.get("feature_names", ())) != FEATURE_NAMES:
             raise SmallRankerRuntimeError("small-ranker feature registry mismatch")
         ranker = artifact.get("ranker")
-        gate = artifact.get("gate")
-        if not isinstance(ranker, Mapping) or not isinstance(gate, Mapping):
-            raise SmallRankerRuntimeError("small-ranker artifact sections are missing")
+        if not isinstance(ranker, Mapping):
+            raise SmallRankerRuntimeError("small-ranker ranker section is missing")
         rounds = int(ranker.get("rounds", 0))
         model = ranker.get("model")
         if not isinstance(model, Mapping):
             raise SmallRankerRuntimeError("small-ranker model is missing")
         _validate_tree_model(model, len(FEATURE_NAMES), rounds)
-        if tuple(gate.get("feature_names", ())) != GATE_FEATURE_NAMES:
-            raise SmallRankerRuntimeError("small-ranker gate registry mismatch")
-        for name in ("mean", "scale", "coef"):
-            values = gate.get(name)
-            if not isinstance(values, list) or len(values) != len(GATE_FEATURE_NAMES):
-                raise SmallRankerRuntimeError("small-ranker gate vector mismatch")
-            if not all(math.isfinite(float(value)) for value in values):
-                raise SmallRankerRuntimeError("small-ranker gate vector is non-finite")
-        if any(float(value) <= 0 for value in gate["scale"]):
-            raise SmallRankerRuntimeError("small-ranker gate scale is invalid")
-        threshold = float(gate.get("threshold"))
-        if not math.isfinite(threshold) or not 0.0 <= threshold <= 1.0:
-            raise SmallRankerRuntimeError("small-ranker threshold is invalid")
+        gate: Mapping[str, Any] | None = None
+        admission: Mapping[str, Any] | None = None
+        if artifact_schema == LEGACY_ARTIFACT_SCHEMA_VERSION:
+            gate = artifact.get("gate")
+            if not isinstance(gate, Mapping):
+                raise SmallRankerRuntimeError("small-ranker gate section is missing")
+            if tuple(gate.get("feature_names", ())) != GATE_FEATURE_NAMES:
+                raise SmallRankerRuntimeError("small-ranker gate registry mismatch")
+            _validate_gate_head(gate)
+            threshold = float(gate.get("threshold"))
+            if not math.isfinite(threshold) or not 0.0 <= threshold <= 1.0:
+                raise SmallRankerRuntimeError("small-ranker threshold is invalid")
+        else:
+            admission = artifact.get("admission")
+            if not isinstance(admission, Mapping):
+                raise SmallRankerRuntimeError(
+                    "small-ranker admission section is missing"
+                )
+            if (
+                artifact.get("mode_default") != "off"
+                or artifact.get("runtime_projection", {}).get("semantic_route")
+                != "missing"
+                or tuple(admission.get("feature_names", ()))
+                != GATE_FEATURE_NAMES
+                or artifact.get("feature_order_sha256")
+                != _registry_order_sha256(FEATURE_NAMES)
+                or admission.get("feature_order_sha256")
+                != _registry_order_sha256(GATE_FEATURE_NAMES)
+            ):
+                raise SmallRankerRuntimeError(
+                    "fold-safe artifact runtime contract mismatch"
+                )
+            rescue_head = admission.get("rescue_head")
+            regret_head = admission.get("rr_regret_head")
+            if not isinstance(rescue_head, Mapping) or not isinstance(
+                regret_head, Mapping
+            ):
+                raise SmallRankerRuntimeError(
+                    "small-ranker admission heads are missing"
+                )
+            _validate_gate_head(rescue_head)
+            _validate_gate_head(regret_head)
+            multiplier = float(admission.get("rr_multiplier"))
+            threshold = float(admission.get("threshold"))
+            if (
+                not math.isfinite(multiplier)
+                or multiplier < 0.0
+                or not math.isfinite(threshold)
+                or not -multiplier <= threshold <= 1.0
+            ):
+                raise SmallRankerRuntimeError(
+                    "small-ranker admission threshold is invalid"
+                )
+            fallback = artifact.get("fallback")
+            if (
+                not isinstance(fallback, Mapping)
+                or fallback.get("policy") != "P11/R08"
+                or fallback.get("on_missing_corrupt_exception_or_budget")
+                is not True
+            ):
+                raise SmallRankerRuntimeError(
+                    "small-ranker fallback contract mismatch"
+                )
 
         resolved_sidecar = Path(sidecar_path).resolve()
         if not resolved_sidecar.is_file():
@@ -813,8 +905,10 @@ class SmallRankerRuntime:
         self.artifact_path = path
         self.sidecar_path = resolved_sidecar
         self.artifact = artifact
+        self.artifact_schema = artifact_schema
         self.model = model
         self.gate = gate
+        self.admission = admission
         self.connection = connection
         self._evidence_cache: OrderedDict[str, StaticEvidence] = OrderedDict()
         self._history: OrderedDict[int, dict[int, dict[str, int]]] = OrderedDict()
@@ -837,6 +931,7 @@ class SmallRankerRuntime:
             "reason_code": "runtime_closed" if self._closed else "ready",
             "fallback": self._closed,
             "artifact_path": str(self.artifact_path),
+            "artifact_schema": self.artifact_schema,
             "artifact_bytes": self.artifact_path.stat().st_size if self.artifact_path.is_file() else None,
             "runtime_dependencies": "python-stdlib + existing starter modules + P11 SQLite",
             "semantic_route": "missing",
@@ -919,7 +1014,9 @@ class SmallRankerRuntime:
             if len(by_rowid) != len(missing):
                 raise SmallRankerRuntimeError("P11 sidecar C100 evidence is incomplete")
             mask_count = len(NEGATIVE_SLOT_ORDER)
-            for identifier, rowid in zip(missing, rowids, strict=True):
+            if len(missing) != len(rowids):
+                raise SmallRankerRuntimeError("P11 sidecar row count mismatch")
+            for identifier, rowid in zip(missing, rowids):
                 row = by_rowid[int(rowid)]
                 if str(row[1]) != identifier:
                     raise SmallRankerRuntimeError("P11 sidecar C100 binding mismatch")
@@ -1259,10 +1356,20 @@ class SmallRankerRuntime:
             margin = _f32(scores[chosen] - scores[incumbent])
             top_gap = _f32(scores[chosen] - ordered_scores[1])
             gate_values = self._gate_features(rows, scores, chosen, incumbent, margin, top_gap)
-            probability = gate_probability(self.gate, gate_values)
-            threshold = float(self.gate["threshold"])
+            regret_probability: float | None = None
+            if self.admission is not None:
+                probability, regret_probability, utility = admission_utility(
+                    self.admission, gate_values
+                )
+                threshold = float(self.admission["threshold"])
+            elif self.gate is not None:
+                probability = gate_probability(self.gate, gate_values)
+                utility = probability
+                threshold = float(self.gate["threshold"])
+            else:
+                raise SmallRankerRuntimeError("admission policy is unavailable")
             action_available = chosen != incumbent
-            activated = bool(action_available and probability >= threshold)
+            activated = bool(action_available and utility >= threshold)
             proposed = list(baseline)
             if activated:
                 challenger_identifier = coverage[chosen]
@@ -1300,6 +1407,8 @@ class SmallRankerRuntime:
                     "ranker_margin": margin,
                     "ranker_top_gap": top_gap,
                     "gate_probability": probability,
+                    "rr_regret_probability": regret_probability,
+                    "admission_utility": utility,
                     "gate_threshold": threshold,
                     "feature_count": len(FEATURE_NAMES),
                     "candidate_count": CANDIDATE_COUNT,
@@ -1328,6 +1437,7 @@ __all__ = [
     "SCHEMA_VERSION",
     "SmallRankerRuntime",
     "SmallRankerRuntimeError",
+    "admission_utility",
     "gate_probability",
     "rank_structured_c50",
     "score_tree_model",

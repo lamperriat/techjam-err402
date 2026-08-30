@@ -1,0 +1,33 @@
+{
+  "schema_version": "small-ranker-runtime-benchmark-preregistration.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V1.9-RUNTIME-BENCHMARK",
+  "purpose": "measure the frozen artifact in the real Agent runtime without opening an evaluator dataset or target labels",
+  "artifact_sha256": "f8d0b6c0e402edeb34b1e35119c5295449888bc1be713607e88337fa874d16dc",
+  "protocol": {
+    "catalog": "data/catalog.jsonl",
+    "agent_instances": 1,
+    "single_session_turns": 10,
+    "batch_sessions": 10,
+    "batch_turns_per_session": 10,
+    "messages": "one fixed target-free handwritten sequence reused for timing only",
+    "p11_mode": "active",
+    "small_ranker_mode": "active",
+    "llm": false,
+    "evaluator_imported": false,
+    "dataset_opened": false,
+    "target_or_label_opened": false
+  },
+  "measurements": [
+    "cold Agent initialization seconds",
+    "single-session wall seconds",
+    "per-turn p50/p95/maximum milliseconds",
+    "10-session batch wall seconds",
+    "batch sessions per second",
+    "process peak RSS bytes",
+    "runtime fallbacks",
+    "loaded forbidden training libraries"
+  ],
+  "decision_rule": "benchmark passes only when all 110 turns complete, runtime fallback count is zero, the artifact remains active, and no NumPy/XGBoost/sklearn/pandas/torch module is loaded",
+  "promotion_evidence": false
+}
