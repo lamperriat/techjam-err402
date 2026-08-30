@@ -1,0 +1,97 @@
+{
+  "schema_version": "small-ranker-focused-lambdamart-preregistration.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.5-FOCUSED-LAMBDAMART",
+  "parent_commit": "b651832",
+  "evidence_status": "exploratory cached train_explore OOF",
+  "hypothesis": "a nonlinear query-group ranker trained with session-balanced emphasis on all 43 C100-reachable current misses can learn proposal corrections that the linear hard-case residual and frozen ranker fusion could not express",
+  "unique_variable": "one focused depth-3 LambdaMART proposal model trained on complete allowed-91 groups; current policy remains the immutable default",
+  "frozen_inputs": {
+    "semantic_off_projected_features_sha256": "cd9b075b923c31afe10b9a9c6d720de22e221c93de961595ff484ea4f532b90a",
+    "feature_cache_sha256": "2b19835a1bced7f21322610296c712e3d06d915274719e11c268d31f7f596089",
+    "label_cache_sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+    "current_semantic_off_oof_score_sha256": "5000deb9b77b3e7b326ccab6455222b291d2ec859ddab2043fe67d23a3217c5e",
+    "current_activation_sha256": "48ad9137cb3b99985d3d7e4035575bf06225d8c6b4f9f3c134a468f404d1c410",
+    "current_chosen_sha256": "229952c9ced7f6eec1ff1938480adc85ba5093ad865336465749029576e47051"
+  },
+  "focused_cache": {
+    "hard_sessions": "current-policy misses with target present in the allowed slot-10 set on at least one eligible turn; expected count 43",
+    "control_sessions": "current-policy hits whose first hit has rank 10 and which expose at least one allowed target query no later than that first hit",
+    "hard_turns": "every eligible turn with target in the allowed set",
+    "control_turns": "eligible target-present turns up to and including current first-hit turn",
+    "allowed_candidates": "P11 slot-10 incumbent plus C100 indices 10 through 99, exactly 91 rows per query",
+    "negative_sampling": false,
+    "target_in_runtime_features": false,
+    "feature_count": 133,
+    "features": "exact semantic-off projected query-candidate feature row; no current score/rank, identifier, fold, cohort, session, target, or future field",
+    "large_cache_gitignored": true,
+    "tracked_manifest_and_hash": true
+  },
+  "group_weighting": {
+    "first": "within each session, all selected query groups sum to base weight one",
+    "second": "inside each actual training partition, hard and control group weights each sum to 50 percent",
+    "third": "rescale selected group weights to mean one",
+    "xgboost_weight_unit": "one weight per query group, never per candidate row"
+  },
+  "model": {
+    "library": "xgboost 1.7.6",
+    "objective": "rank:ndcg",
+    "eval_metric": "ndcg@10",
+    "tree_method": "hist",
+    "max_bin": 256,
+    "max_depth": 3,
+    "eta": 0.03,
+    "rounds": 300,
+    "min_child_weight": 8.0,
+    "subsample": 1.0,
+    "colsample_bytree": 0.8,
+    "reg_alpha": 0.1,
+    "reg_lambda": 4.0,
+    "n_jobs": 1,
+    "early_stopping": false,
+    "hyperparameter_sweep": false
+  },
+  "stage_a_outer_oof_proposal_triage": {
+    "outer_folds": 5,
+    "training": "for outer fold o, fit only focused groups whose session outer_fold differs from o",
+    "scoring": "score every query/candidate row only with the model that excluded its outer product-family fold",
+    "repeat_full_training": true,
+    "require_score_and_proposal_decision_identity": true,
+    "posthoc_reports": [
+      "current-miss supplemental proposal oracle",
+      "reachable fold distribution",
+      "ungated full-session current-relative HR/MRR/MTTC transitions",
+      "proposal agreement and action counts"
+    ],
+    "stage_b_gate": {
+      "reachable_current_miss_sessions_at_least": 14,
+      "reachable_outer_folds_at_least": 3,
+      "reason": "must strictly expand the best closed pairwise proposal ceiling of 13 sessions rather than merely retune admission"
+    }
+  },
+  "stage_b_predeclared_only_if_stage_a_passes": {
+    "ranker": "five inner models plus one outer model per outer fold using the identical cache, weights, and fixed model",
+    "proposal": "inner-OOF on outer-train for admission training; outer model on outer-train for unlabeled quantile mapping and outer-held scoring",
+    "supplemental_action": "focused choice differs from current served choice and P11 incumbent; KEEP preserves current exactly",
+    "admission_features": "the same eight bounded current/proposal rank and candidate-difference fields used by v2.3/v2.4, with focused semantic names",
+    "admission_heads": "current-relative isolated rescue and composite-regret C=0.2 logistic heads with session-normalized weighted preprocessing",
+    "utility": "P(rescue)-P(composite_regret)",
+    "quantile_candidates": "fixed 0/64 through 63/64 plus KEEP, selected inner-only",
+    "inner_safety": "aggregate and every inner fold have zero hit-to-miss, nonnegative MRR delta, and nonpositive MTTC delta",
+    "promotion": "HR strictly above 0.9715, zero aggregate hit-to-miss, no fold net/MRR/MTTC regression, positive TechnicalScore, exact repeat"
+  },
+  "method_boundary": {
+    "ranker_stage_a_claim": "strict outer product-family OOF for the newly trained focused ranker",
+    "future_stage_b_claim": "nested focused ranker/admission conditioned on the frozen current OOF comparator, not an end-to-end nested base-policy stack",
+    "target_cluster_grouping_limitation": "747 exact-target families do not prove near-duplicate-family or private generalization"
+  },
+  "execution_boundary": {
+    "cached_train_explore_only": true,
+    "agent_or_evaluator_started": false,
+    "held_out_splits_opened": false,
+    "external_data_downloaded": false,
+    "full_model_or_runtime_artifact_only_after_final_promotion": true,
+    "no_calibration_selection_confirmation_or_public": true
+  },
+  "stop_rule": "If Stage A fails either fixed proposal gate, close this exact focused LambdaMART without changing cohort, weights, tree parameters, or oracle threshold; otherwise execute the already specified nested Stage B"
+}
