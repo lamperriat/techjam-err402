@@ -1,0 +1,85 @@
+{
+  "schema_version": "small-ranker-versioned-unseen-pagination-preregistration.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.10-VERSIONED-UNSEEN-PAGINATION",
+  "parent_commit": "6f3765f",
+  "unique_hypothesis": "the frozen v1.9 policy wastes most of its ten-turn exposure budget by returning already-served products; stable unseen-first partitioning within the current intent version can expose deeper target-blind C100 candidates without losing any same-version hit",
+  "frozen_comparator": {
+    "policy": "v1.9 semantic-off nested-OOF ranker plus rescue/RR-regret admission",
+    "activation_sha256": "48ad9137cb3b99985d3d7e4035575bf06225d8c6b4f9f3c134a468f404d1c410",
+    "chosen_sha256": "229952c9ced7f6eec1ff1938480adc85ba5093ad865336465749029576e47051",
+    "expected_hits": 1943,
+    "expected_hr_at_10": 0.9715,
+    "expected_mrr": 0.676861,
+    "expected_mttc": 3.056,
+    "expected_technical_score": 0.847688
+  },
+  "frozen_inputs": {
+    "source_root": "D:/tiktok/techjam-err402-fast-track",
+    "projection_root": "D:/tiktok/techjam-v1-2-metric-gate",
+    "train_explore_proxy_sha256": "2175696171c0d874fca4b9aa456ff5fd7d570f2184f59ade6781198f6443198e",
+    "blind_trace_aggregate_sha256": "11ad3e24aec412f6cb3b146d248aa7e2335a12dafccc20241eeb3301af97ca24",
+    "combined_blind_trace_sha256": "f9a441220926aebf49f4b4d54a0f50df99f72ad4f8c0342e5528517503473e7b",
+    "feature_cache_sha256": "2b19835a1bced7f21322610296c712e3d06d915274719e11c268d31f7f596089",
+    "label_cache_sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+    "semantic_off_projected_features_sha256": "cd9b075b923c31afe10b9a9c6d720de22e221c93de961595ff484ea4f532b90a",
+    "semantic_off_oof_scores_sha256": "5000deb9b77b3e7b326ccab6455222b291d2ec859ddab2043fe67d23a3217c5e"
+  },
+  "target_blind_policy": {
+    "current_full_order": "reconstruct P11 as KEEP_P11 Top10 followed by the unchanged C100 tail, then apply the frozen v1.9 slot-10 swap at the selected C100 position",
+    "state": "one set of served product identifiers for the active intent version",
+    "per_turn_transform": "stable-partition the frozen current full order into unseen then seen identifiers, return the first ten, and record those ten after serving",
+    "fallback": "use already-seen identifiers only if fewer than ten unseen identifiers remain",
+    "version_reset": "clear the served set before the first response to a category change or explicit intent override; cached replay derives the override turn from target-free proxy behavior, never from target membership",
+    "first_turn_identity": true,
+    "ranking_or_model_change": false,
+    "target_or_future_information_in_policy": false,
+    "maximum_pool_depth": 100
+  },
+  "stage_zero_diagnostic": {
+    "observed_before_outcome_attach": {
+      "sessions": 2000,
+      "turns": 20000,
+      "mean_distinct_products_in_100_exposure_slots": 24.824,
+      "duplicate_exposure_fraction": 0.7518,
+      "mean_consecutive_top10_overlap": 8.281,
+      "identical_top10_set_transition_fraction": 0.7422,
+      "identical_top10_order_transition_fraction": 0.7097
+    },
+    "required_checks": [
+      "reproduce frozen v1.9 decision hashes and 1943/57 policy identity before candidate metrics",
+      "prove each reconstructed P11 Top10 is a permutation of C100 positions zero through nine",
+      "prove all per-turn outputs contain ten unique catalog identifiers",
+      "prove first-turn output identity and reset-before-override semantics",
+      "serialize no session identifier, target identifier, or per-session outcome"
+    ]
+  },
+  "promotion_gates": {
+    "aggregate_hr_at_10_strictly_greater_than": 0.9715,
+    "hit_to_miss_equals": 0,
+    "every_outer_fold_net_hits_minimum": 0,
+    "every_outer_fold_mrr_delta_minimum": 0.0,
+    "every_outer_fold_mttc_delta_maximum": 0.0,
+    "aggregate_mrr_delta_minimum": 0.0,
+    "aggregate_mttc_delta_maximum": 0.0,
+    "aggregate_technical_score_delta_strictly_positive": true,
+    "exact_repeat_required": true
+  },
+  "resource_gates": {
+    "cached_replay_wall_seconds_maximum": 120,
+    "agent_or_full_evaluator_allowed": false,
+    "new_external_data_allowed": false,
+    "new_model_training_allowed": false
+  },
+  "evidence_boundary": {
+    "target_allowed_after_protocol_commit": "train_explore aggregate HR/MRR/MTTC, fold transitions, and structural h-to-m audit only",
+    "target_written_to_policy_or_runtime": false,
+    "calibration_selection_confirmation_public_or_amazon_test_opened": false,
+    "served_default": "off",
+    "fallback": "complete frozen v1.9, P11, and R08 paths"
+  },
+  "decision_queue": {
+    "go": "add the same version-scoped stable partition at the final Agent output boundary behind an explicit default-off mode and cover reset/fallback behavior with focused tests",
+    "no_go": "record the exact miss mechanism and do not run v2.9 Stage 1a merely to compensate for repeated exposures"
+  }
+}
