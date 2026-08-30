@@ -708,3 +708,40 @@ artifact. Stage 1a is authorized to build and repeat all five target-free outer 
 T-only selector training and any held outcome remain unauthorized until those surfaces
 are frozen. Aggregate evidence is tracked in
 `configs/small_ranker_v2_9.top5_proposal_depth_stage0.manifest.json`.
+
+## SR-V2.9 fixed top-5 proposal depth — Stage 1a all-outer target-free freeze
+
+All five outer folds were built twice over the frozen `oof_T`, `reference_T`, and
+`held_H` surfaces. First and repeat are physically exact for all 270 surface arrays,
+and the aggregate pass-neutral identity is
+`b0abefdd23b4364c336e10035baa8a62b5dd1b4dd17f435b53244aec72b9c1da`.
+Outer 0 exactly reproduces the Stage 0 prefix identity
+`41e5cd8563ec38e78c3c279c27937721c8e2b0c8cfa960139e28af278bc1a27a`.
+The five held shards cover all 2,000 sessions exactly once, with zero missing or
+overlapping sessions and bit-exact first/repeat orders.
+
+The freeze took `74.604s` total (`64.624s` inside the ten build passes), peaked at
+`773,652,480` bytes, and produced 270 arrays plus one result JSON. Stage 1a added
+`439,094,070` bytes; cumulative Stage 0 plus Stage 1a cache usage is `526,907,778`
+bytes. Wall-time, peak-memory, incremental-cache, and cumulative-cache gates all
+passed. The 16 targeted tests passed. The local result is
+`experiments/fast_track/small_ranker_v2_9/stage1a_20260830T225937/stage1a_result.json`,
+219,510 bytes, SHA-256
+`54577998a25dbf3054f2f393e837b0d49ea1fb5a87d95103d860595c97b067b1`.
+
+This is `TARGET_FREE_ALL_OUTER_SURFACES_FROZEN`, not evidence of an HR@10, MRR,
+MTTC, or TechnicalScore improvement. No label archive, selector fit, held outcome,
+Agent, evaluator, forbidden split, or runtime artifact was opened or authorized.
+The ignored Stage 1a result alone authorizes only preparation of Stage 1b: before
+any label archive is opened, its aggregate evidence must be pinned in a committed
+tracked Stage 1a manifest and a separate Stage 1b implementation checkpoint must
+be committed.
+
+Stage 1b may then attach only each outer fold's `T_o` labels to `oof_T`, run the
+unchanged inner/outer selector twice, map the selected quantile on target-free
+`reference_T`, and freeze exact target-free `H_o` policies without retaining or
+supplying any `H_o` outcome. If the frozen final policy is identical to domain-local
+current across all 2,000 sessions, the preregistered target-free No-Go short-circuit
+must stop the experiment. Only a non-identity policy may proceed, after a separately
+committed one-shot Stage 2 outcome protocol, to the single allowed held-out outcome
+attachment.
