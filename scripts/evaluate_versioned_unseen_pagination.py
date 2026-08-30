@@ -58,6 +58,28 @@ def stable_unseen_first(
     return page
 
 
+def seen_hole_replacement(
+    order: Sequence[str], served: set[str], top_k: int = 10
+) -> tuple[str, ...]:
+    """Keep unseen Top-K ranks fixed and replace only known-seen rank holes."""
+
+    if top_k <= 0 or len(order) < top_k or len(order) != len(set(order)):
+        raise PaginationReplayError("invalid ranked order")
+    page = list(order[:top_k])
+    holes = [index for index, identifier in enumerate(page) if identifier in served]
+    tail = [
+        identifier
+        for identifier in order[top_k:]
+        if identifier not in served
+    ]
+    for index, identifier in zip(holes, tail):
+        page[index] = identifier
+    result = tuple(page)
+    if len(result) != top_k or len(result) != len(set(result)):
+        raise PaginationReplayError("invalid seen-hole page")
+    return result
+
+
 def reconstruct_current_order(
     turn: Mapping[str, Any], chosen_index: int, activated: bool
 ) -> tuple[str, ...]:
@@ -115,6 +137,7 @@ def _simulate(
     chosen: np.ndarray,
     activation: np.ndarray,
     labels: Mapping[str, np.ndarray],
+    policy_name: str,
 ) -> dict[str, Any]:
     baseline_pages: list[list[tuple[str, ...]]] = []
     candidate_pages: list[list[tuple[str, ...]]] = []
@@ -127,6 +150,7 @@ def _simulate(
     candidate_unique_total = 0
     same_version_repeat_slots = 0
     reset_count = 0
+    v2_10_set_mismatches = 0
 
     for session in range(base.SESSION_COUNT):
         reset_turn = trace_source._eligible_turn(proxy_rows[session])
@@ -148,7 +172,16 @@ def _simulate(
                 bool(activation[session, turn_index]),
             )
             baseline = order[:10]
-            candidate = stable_unseen_first(order, served)
+            unseen_first = stable_unseen_first(order, served)
+            if policy_name == "unseen_first":
+                candidate = unseen_first
+            elif policy_name == "seen_hole":
+                candidate = seen_hole_replacement(order, served)
+                v2_10_set_mismatches += int(
+                    set(candidate) != set(unseen_first)
+                )
+            else:
+                raise PaginationReplayError("unknown pagination policy")
             if turn_number == 1 or (reset_turn > 1 and turn_number == reset_turn):
                 if candidate != baseline:
                     raise PaginationReplayError("new intent version is not identity")
@@ -198,6 +231,7 @@ def _simulate(
         "changed_sessions": int(np.any(output_changed, axis=1).sum()),
         "reset_count": reset_count,
         "same_version_repeat_slots": same_version_repeat_slots,
+        "v2_10_set_mismatches": v2_10_set_mismatches,
         "baseline_mean_distinct_products": round(
             baseline_unique_total / base.SESSION_COUNT, 6
         ),
@@ -214,7 +248,12 @@ def _simulate(
     return {"global": aggregate, "folds": folds, "structural": structural}
 
 
-def run(source_root: Path, projection_root: Path, output: Path) -> dict[str, Any]:
+def run(
+    source_root: Path,
+    projection_root: Path,
+    output: Path,
+    policy_name: str = "unseen_first",
+) -> dict[str, Any]:
     started = time.perf_counter()
     output = output.resolve()
     if output.exists() or ROOT not in output.parents:
@@ -236,10 +275,20 @@ def run(source_root: Path, projection_root: Path, output: Path) -> dict[str, Any
     traces = attribution._load_traces(source_root.resolve())
     proxy_rows = attribution._load_proxy_rows(source_root.resolve())
     first = _simulate(
-        traces, proxy_rows, surface.chosen, activation, inputs.labels
+        traces,
+        proxy_rows,
+        surface.chosen,
+        activation,
+        inputs.labels,
+        policy_name,
     )
     repeat = _simulate(
-        traces, proxy_rows, surface.chosen, activation, inputs.labels
+        traces,
+        proxy_rows,
+        surface.chosen,
+        activation,
+        inputs.labels,
+        policy_name,
     )
     first_sha = _canonical_sha256(first)
     repeat_sha = _canonical_sha256(repeat)
@@ -264,9 +313,25 @@ def run(source_root: Path, projection_root: Path, output: Path) -> dict[str, Any
             for row in folds
         )
     )
+    if policy_name == "seen_hole":
+        promote = bool(
+            promote
+            and global_metrics["policy"]["hit_rate_at_10"] == 0.991
+            and global_metrics["miss_to_hit"] == 39
+            and global_metrics["policy"]["mttc"] == 2.797
+            and first["structural"]["v2_10_set_mismatches"] == 0
+            and first["structural"]["same_version_repeat_slots"] == 0
+            and first["structural"]["candidate_mean_distinct_products"]
+            == 97.4115
+        )
+    experiment_id = (
+        "SR-V2.11-SEEN-HOLE-REPLACEMENT"
+        if policy_name == "seen_hole"
+        else "SR-V2.10-VERSIONED-UNSEEN-PAGINATION"
+    )
     result = {
         "schema_version": SCHEMA_VERSION,
-        "experiment_id": "SR-V2.10-VERSIONED-UNSEEN-PAGINATION",
+        "experiment_id": experiment_id,
         "status": "GO_RUNTIME_INTEGRATION" if promote else "NO_GO_CACHED_REPLAY",
         "source": {
             "activation_sha256": activation_sha,
@@ -278,7 +343,9 @@ def run(source_root: Path, projection_root: Path, output: Path) -> dict[str, Any
         "policy": {
             "target_blind": True,
             "intent_version_scoped": True,
-            "stable_unseen_first": True,
+            "stable_unseen_first": policy_name == "unseen_first",
+            "unseen_exposure_set": True,
+            "page_order": policy_name,
             "fallback_to_seen_only_when_required": True,
             "ranker_or_admission_changed": False,
         },
@@ -328,8 +395,18 @@ def main() -> int:
         default=Path(r"D:\tiktok\techjam-v1-2-metric-gate"),
     )
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--policy",
+        choices=("unseen_first", "seen_hole"),
+        default="unseen_first",
+    )
     args = parser.parse_args()
-    result = run(args.source_root, args.projection_root, args.output)
+    result = run(
+        args.source_root,
+        args.projection_root,
+        args.output,
+        policy_name=args.policy,
+    )
     print(
         json.dumps(
             {

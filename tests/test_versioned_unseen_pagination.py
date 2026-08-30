@@ -5,6 +5,7 @@ import unittest
 from scripts.evaluate_versioned_unseen_pagination import (
     PaginationReplayError,
     reconstruct_current_order,
+    seen_hole_replacement,
     stable_unseen_first,
 )
 
@@ -47,6 +48,27 @@ class VersionedUnseenPaginationTests(unittest.TestCase):
     def test_invalid_duplicate_order_fails_closed(self) -> None:
         with self.assertRaises(PaginationReplayError):
             stable_unseen_first(("same",) * 10, set())
+
+    def test_seen_holes_receive_tail_without_moving_unseen_top10(self) -> None:
+        order = tuple(f"item-{index}" for index in range(15))
+        served = {"item-0", "item-2", "item-4"}
+        page = seen_hole_replacement(order, served)
+        self.assertEqual(
+            page,
+            (
+                "item-10",
+                "item-1",
+                "item-11",
+                "item-3",
+                "item-12",
+                "item-5",
+                "item-6",
+                "item-7",
+                "item-8",
+                "item-9",
+            ),
+        )
+        self.assertEqual(set(page), set(stable_unseen_first(order, served)))
 
 
 if __name__ == "__main__":

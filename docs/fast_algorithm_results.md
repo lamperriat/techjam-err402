@@ -729,3 +729,19 @@ mechanism keeps the identical unseen exposure set but preserves every unseen cur
 Top10 item at its original rank and fills only positions occupied by already-seen,
 therefore known-nontarget, products. Evidence is tracked in
 `configs/small_ranker_v2_10.versioned_unseen_pagination.manifest.json`.
+
+## SR-V2.11 position-preserving seen-hole replacement
+
+This ordering-only follow-up kept every unseen current-Top10 product at its exact rank
+and replaced only ranks occupied by products already served in the active intent version.
+Its per-turn product sets exactly matched v2.10, so HR remained `0.9910`, miss-to-hit
+remained `39`, hit-to-miss remained zero, MTTC remained `2.797`, and exposure coverage
+remained `97.4115` distinct products per session.
+
+It is a stronger MRR No-Go. Candidate MRR fell to `0.645342` (`-0.031519`), with all
+five folds negative. Filling earlier seen holes does not imply that a deeper candidate
+receives an early rank: multiple unseen current-Top10 anchors can leave its assigned hole
+late, while stable compaction better respects the current ranker's ordering. The result
+rules out this page order without weakening the v2.10 evidence that novelty reaches
+99.1% HR. Exact replay took `8.520s`; evidence is tracked in
+`configs/small_ranker_v2_11.seen_hole_replacement.manifest.json`.

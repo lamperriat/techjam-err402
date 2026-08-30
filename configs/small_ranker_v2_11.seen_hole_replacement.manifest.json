@@ -1,0 +1,42 @@
+{
+  "schema_version": "small-ranker-seen-hole-replacement-manifest.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.11-SEEN-HOLE-REPLACEMENT",
+  "status": "NO_GO_MRR",
+  "commits": {
+    "preregistration": "c3e13ac"
+  },
+  "result": {
+    "path": "experiments/fast_track/small_ranker_v2_11/seen_hole_20260830T2255/result.json",
+    "sha256": "515d258132ea4b5b539c0c1bfe08c1dd23091549f4f58a5e1b7bafe900d5fd9f",
+    "bytes": 4890,
+    "exact_repeat_sha256": "df4c9e28be7df037ca3cd56bd55d2e769cd35ca94c04ee8112a6404596df22d9"
+  },
+  "structural_identity_to_v2_10": {
+    "per_turn_set_mismatches": 0,
+    "hr_at_10": 0.991,
+    "miss_to_hit": 39,
+    "hit_to_miss": 0,
+    "fold_net_hits": [14, 8, 7, 8, 2],
+    "mttc": 2.797,
+    "mean_distinct_products": 97.4115,
+    "same_version_repeat_slots": 0
+  },
+  "ranking_result": {
+    "baseline_mrr": 0.676861,
+    "candidate_mrr": 0.645342,
+    "mrr_delta": -0.031519,
+    "fold_mrr_delta": [-0.018025, -0.049613, -0.026505, -0.033392, -0.030064],
+    "technical_score_delta": 0.005474
+  },
+  "verification": {
+    "focused_tests": "5 passed",
+    "cached_replay_wall_seconds": 8.52009,
+    "exact_repeat": true
+  },
+  "decision": {
+    "promote": false,
+    "reason": "preserving current unseen ranks and filling seen holes produces exactly the same 99.1 percent hit set, but ranks rescued targets substantially worse than stable current-order compaction",
+    "next_single_mechanism": "retain v2.10 current-order page ranking and add a fixed target-blind grace period per intent version before novelty begins; preregister the delay before the next outcome attach"
+  }
+}
