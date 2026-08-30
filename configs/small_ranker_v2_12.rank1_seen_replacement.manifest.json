@@ -1,0 +1,116 @@
+{
+  "schema_version": "small-ranker-rank1-seen-replacement-manifest.v1",
+  "recorded_on": "2026-08-31",
+  "experiment_id": "SR-V2.12-RANK1-SEEN-REPLACEMENT",
+  "status": "GO_RUNTIME_INTEGRATION_POST_OUTCOME_MECHANICAL_ERRATUM",
+  "evidence_classification": {
+    "policy_frozen_before_first_outcome": true,
+    "post_outcome_policy_or_threshold_change": false,
+    "fresh_evidence": false,
+    "independent_confirmation": false,
+    "additional_label_attach_performed": false,
+    "original_one_shot_remains_consumed_and_immutable": true,
+    "interpretation": "source-backed correction of one invalid bookkeeping predicate over the original preregistered OOF result; not a new sample, selection, or confirmation"
+  },
+  "commits": {
+    "base": "39f1618f59f89052c347438164a1d17f11355558",
+    "original_preregistration": "ed7aec80aa55d601c1ad2395e59ea4681da43fd7",
+    "protocol_amendment": "f557a0c7def1bb2a14310699764b75a71bfb5348",
+    "implementation": "4281142e6ab5548801f78ec25a57084965808731"
+  },
+  "original_receipt": {
+    "path": "experiments/fast_track/small_ranker_v2_12/rank1_seen_replacement_one_shot_20260831/rank1_seen_replacement_result.json",
+    "bytes": 16463,
+    "sha256": "46561c7281f0b1cf39a37bfc598b18683ff07747969edc7b895019808b965525",
+    "serialized_status": "INVALID_IMPLEMENTATION_NO_ALGORITHM_CONCLUSION",
+    "serialized_strict_decision_sha256": "716f0c74c4b94a76c017f06571ec34c1b2573a495b6b7bb58d85664fc47a85d0",
+    "rerun_forbidden": true
+  },
+  "mechanical_erratum": {
+    "failed_serialized_predicate": "label_attach.partition_valid",
+    "failed_predicate_was_the_only_false_structural_input": true,
+    "incorrect_requirement": "global count(inner_fold == fold) == 400 for every fold",
+    "why_incorrect": "the frozen builder balances outer folds by session count, but assigns each product family to an inner fold by sha256(seed:inner:family_signature) modulo 5 without a global balance operation",
+    "builder_source": {
+      "path": "scripts/build_small_ranker_cache.py",
+      "git_blob_oid": "8724f052155ae7405ecd675bdebd83df18685895",
+      "sha256": "b80ffcb69ce577e6b9517907d62fb0dc1ad08a270060600e7165645335af77bc"
+    },
+    "source_aligned_partition_contract": [
+      "the frozen archive SHA, byte count, member shape, dtype, and fold value domains match",
+      "outer folds contain exactly 400 sessions each",
+      "inner fold values are 0 through 4 and all five values occur; global equality of inner counts is not required",
+      "for every held outer and inner fold, the frozen comparator replay found nonempty model-train and model-valid action rows",
+      "held outer rows enter neither fitting nor quantile selection"
+    ],
+    "correction_method": "reclassify only from the immutable receipt and frozen builder source; do not reopen labels and do not rerun the one-shot"
+  },
+  "identity_and_integrity": {
+    "chosen_raw_sha256": "229952c9ced7f6eec1ff1938480adc85ba5093ad865336465749029576e47051",
+    "activation_raw_sha256": "48ad9137cb3b99985d3d7e4035575bf06225d8c6b4f9f3c134a468f404d1c410",
+    "replay_identity_sha256": "272bc0cbabec7ecc77120cbe7db85d0e3635afb87d85cc66159f72fc917a3745",
+    "exact_repeat": true,
+    "fit_invocations": 60,
+    "inner_quantile_selection_invocations": 5,
+    "ordered_fold_quantiles": [0.390625, 0.6875, 0.40625, 0.859375, 0.5],
+    "baseline_hit_count": 1895,
+    "trace_baseline_rank_mismatches": 0,
+    "last_reset_eligibility_mismatches": 0,
+    "dominance_violation_counts": {
+      "hit_to_miss": 0,
+      "later_first_hit": 0,
+      "same_turn_worse_rank": 0,
+      "earlier_hit_not_rank1": 0,
+      "new_hit_not_rank1": 0
+    },
+    "ranks_2_to_10_byte_identical": true,
+    "removed_rank1_already_served": true,
+    "inserted_from_unseen_c100_tail": true,
+    "reset_pages_identity": true
+  },
+  "comparison_official_6dp": {
+    "baseline": {
+      "hit_rate_at_10": 0.9715,
+      "mrr": 0.676861,
+      "mttc": 3.056,
+      "technical_score": 0.847688
+    },
+    "candidate": {
+      "hit_rate_at_10": 0.9765,
+      "mrr": 0.684856,
+      "mttc": 3.015,
+      "technical_score": 0.853407
+    },
+    "delta": {
+      "hit_rate_at_10": 0.005,
+      "mrr": 0.007995,
+      "mttc": -0.041,
+      "technical_score": 0.005719
+    },
+    "miss_to_hit": 10,
+    "hit_to_miss": 0,
+    "fold_net_hits": [3, 0, 6, 0, 1],
+    "fold_hit_to_miss": [0, 0, 0, 0, 0],
+    "fold_hr_delta": [0.0075, 0.0, 0.015, 0.0, 0.0025],
+    "fold_mrr_delta": [0.0075, 0.0, 0.018472, 0.00675, 0.00725],
+    "fold_mttc_delta": [-0.0375, -0.02, -0.0725, -0.0475, -0.0275],
+    "fold_technical_score_delta": [0.00675, 0.0004, 0.014492, 0.002975, 0.003975]
+  },
+  "resource": {
+    "cached_replay_wall_seconds": 8.033089,
+    "policy_transform_p50_microseconds": 8.4,
+    "policy_transform_p95_microseconds": 16.5,
+    "peak_working_set_bytes": 1581977600,
+    "workers": 1
+  },
+  "corrected_decision": {
+    "promotion_gates_pass_under_source_aligned_partition_contract": true,
+    "promote_to_default_off_runtime_integration": true,
+    "served_default": "off",
+    "fallback": "complete frozen v1.9, P11, and R08 paths",
+    "project_goal_hr_at_10_reached": false,
+    "remaining_misses": 47,
+    "additional_safe_hits_needed_for_0_99": 27,
+    "next_single_mechanism": "within the same structurally safe rank-1 replacement envelope, preregister one target-blind unseen-tail priority rule that changes only which unseen C100 candidate receives the replaceable rank-1 slot"
+  }
+}

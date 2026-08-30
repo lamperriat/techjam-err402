@@ -745,3 +745,44 @@ late, while stable compaction better respects the current ranker's ordering. The
 rules out this page order without weakening the v2.10 evidence that novelty reaches
 99.1% HR. Exact replay took `8.520s`; evidence is tracked in
 `configs/small_ranker_v2_11.seen_hole_replacement.manifest.json`.
+
+## SR-V2.12 rank-1 seen replacement — mechanical erratum
+
+The preregistered policy replaces only a rank-1 product that has already been
+served in the active visible intent version, and inserts the highest unseen item
+from the frozen C100 tail at rank 1. Ranks 2–10 remain byte-identical. This gives
+a structural no-harm envelope: the removed item has already produced any hit it
+can contribute, while every newly exposed hit arrives at rank 1.
+
+The immutable one-shot receipt was initially serialized as
+`INVALID_IMPLEMENTATION_NO_ALGORITHM_CONCLUSION`. The sole failing input to the
+structural decision was an erroneous bookkeeping assertion that every global
+`inner_fold` must contain exactly 400 sessions. The frozen builder greedily
+balances outer folds, and this receipt's five fold reports independently show
+that the frozen run has exactly 400 sessions in each outer fold. Inner folds are
+instead assigned per product family by `sha256(seed:inner:signature) % 5` and
+are intentionally not globally balanced. The receipt proves that all 25 nested
+train/validation cells used by the comparator were nonempty. The loader and
+receipt jointly prove the whole-archive SHA/byte identity and the schema/domain
+of the five accessed members. The consumed receipt remains unchanged; the
+one-shot was not rerun and the label archive was not reopened. The corrected
+classification is therefore a post-outcome mechanical erratum, not fresh
+evidence or an independent confirmation.
+
+Under the source-aligned partition contract, every promotion gate passes. HR@10
+moves from `0.9715` to `0.9765` with `10` miss-to-hit, zero hit-to-miss, and fold
+net hits `3/0/6/0/1`. MRR improves from `0.676861` to `0.684856`, MTTC from
+`3.056` to `3.015`, and TechnicalScore from `0.847688` to `0.853407`. Every fold
+has nonnegative HR/MRR change, nonpositive MTTC change, and positive
+TechnicalScore change. Replay identity repeated exactly; reset/eligibility,
+dominance, rank-preservation, 60-fit/5-selection, quantile, chosen, and activation
+hash audits all passed. Cached replay took `8.033s`; the serving transform P50/P95
+was `8.4/16.5` microseconds.
+
+This authorizes a default-off runtime integration with the complete frozen v1.9,
+P11, and R08 fallback, but it does not reach the project-level `0.99` target.
+There are 47 remaining misses and 27 additional safe rescues are required. The
+next single mechanism must stay inside the same rank-1 structural safety envelope
+and change only the target-blind priority among unseen C100-tail products.
+Immutable receipt provenance and the correction are tracked in
+`configs/small_ranker_v2_12.rank1_seen_replacement.manifest.json`.
