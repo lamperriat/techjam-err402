@@ -1,0 +1,55 @@
+{
+  "schema_version": "small-ranker-c200-candidate-recall-preflight-erratum.v1",
+  "status": "PREREGISTERED_AFTER_TARGET_FREE_PREFLIGHT_FAILURE_BEFORE_CORRECTION_AND_OUTCOME",
+  "recorded_on": "2026-08-31",
+  "experiment_id": "SR-V2.16-C200-CANDIDATE-RECALL",
+  "parent_implementation_commit": "22ebdbe2016a46750cb82092279ab5055ab02252",
+  "original_preregistration_commit": "27decc46bc3752b5c7654c8c90a139ecac0ac78d",
+  "failure_boundary": {
+    "phase": "target-free preflight before receipt",
+    "error": "the implementation incorrectly required every official parent_asin to match B0 plus eight alphanumeric characters",
+    "outcome_opened": false,
+    "receipt_created": false,
+    "cache_created": false,
+    "proxy_opened": false,
+    "label_archive_opened": false,
+    "protected_split_opened": false
+  },
+  "frozen_catalog_observation": {
+    "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+    "rows": 50000,
+    "unique_identifiers": 50000,
+    "identifier_length_10": 50000,
+    "uppercase_ascii_alphanumeric_length_10": 50000,
+    "b0_plus_eight_alphanumeric": 49994,
+    "other_uppercase_alphanumeric_length_10": 6,
+    "identifier_values_recorded": false
+  },
+  "frozen_correction": {
+    "catalog_gate": "accept exactly ten-character uppercase ASCII alphanumeric unique identifiers and retain the exact catalog set",
+    "visible_context_gate": "reject every B0-shaped token and reject every boundary-delimited ten-character alphanumeric token whose case-normalized value is in the exact catalog identifier set",
+    "public_helper": "retain unconditional B0-shaped rejection when no catalog set is supplied",
+    "unchanged": [
+      "C200 definition and candidate order",
+      "retrieval, Agent state, P11, Top10, question order, and all resource budgets",
+      "proxy, labels, folds, evaluator semantics, and one-shot receipt path"
+    ],
+    "new_outcome_allowed_before_corrected_implementation_push": false
+  },
+  "checkpoint_choreography": {
+    "branch": "small-ranker-v2.16-c200-recall",
+    "erratum_commit_direct_parent": "22ebdbe2016a46750cb82092279ab5055ab02252",
+    "erratum_exact_changed_paths": [
+      "configs/small_ranker_v2_16.c200_candidate_recall_preflight_erratum.json"
+    ],
+    "corrected_implementation_direct_parent": "THIS_ERRATUM_COMMIT",
+    "corrected_implementation_exact_changed_paths": [
+      "scripts/c200_candidate_worker.py",
+      "scripts/probe_c200_candidate_recall.py",
+      "tests/test_c200_candidate_recall.py"
+    ],
+    "must_push_erratum_before_correction": true,
+    "must_push_corrected_implementation_before_preflight_or_receipt": true,
+    "history_rewrite_or_amend": false
+  }
+}
