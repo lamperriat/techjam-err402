@@ -1,0 +1,98 @@
+{
+  "schema_version": "small-ranker-focused-lambdamart-manifest.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.5-FOCUSED-LAMBDAMART",
+  "status": "NO_GO_STAGE_A",
+  "commits": {
+    "preregistration": "2ef6fd6",
+    "implementation_amendment": "63b2226",
+    "implementation": "f2d4a10",
+    "focused_cache": "199671a",
+    "outer_oof_scores": "9d33b0c"
+  },
+  "cache": {
+    "manifest": "configs/small_ranker_v2_5.focused_cache.manifest.json",
+    "manifest_sha256": "fcb7430d0fe9c2d0f661e74f5eab7b81e43b7f326aaf35fd6324224f4f0b34ba",
+    "result_sha256": "fd74bda490cdb0f8bbb29f21e6435221f37a149ea5255f6f5c001d9c79203317",
+    "hard_sessions": 43,
+    "hard_query_groups": 331,
+    "control_sessions": 81,
+    "control_query_groups": 300,
+    "rows": 57421,
+    "bytes": 30607472,
+    "build_seconds": 7.101532
+  },
+  "training": {
+    "manifest": "configs/small_ranker_v2_5.focused_outer_oof.manifest.json",
+    "training_result_path": "experiments/fast_track/small_ranker_v2_5/focused_outer_oof_20260830T1945/training_result.json",
+    "training_result_sha256": "de1ba52cb71386000f84b161cfce22ca1b03164efde418c59e562a70771cf114",
+    "score_sha256": "a77bde22c17a57b44a737ef397615e59012fbe999e46e7cbc6e4ba9d1159b776",
+    "proposal_decision_sha256": "453a49b6e19b4702b5ec354ff34e1610cea2034444cbaa24c1c31afe38cd4b9f",
+    "score_bytes_identical": true,
+    "proposal_decisions_identical": true,
+    "all_fold_model_hashes_identical": true,
+    "all_serialized_model_sample_errors_zero": true,
+    "first_seconds": 30.867505,
+    "repeat_seconds": 28.061748,
+    "total_seconds": 60.783718
+  },
+  "stage_a": {
+    "result_path": "experiments/fast_track/small_ranker_v2_5/focused_stage_a_20260830T1955.json",
+    "result_sha256": "e5564accd55b975a831cc9d5e79d4d7c0a1405b72af3a0af76f9859779a14729",
+    "evaluation_seconds": 4.785916,
+    "current_hr_at_10": 0.9715,
+    "reachable_current_miss_sessions": 11,
+    "correct_action_turns": 79,
+    "reachable_by_outer_fold": [3, 0, 7, 1, 0],
+    "reachable_outer_folds": 3,
+    "maximum_zero_harm_hr_at_10": 0.977,
+    "minimum_sessions_for_stage_b": 14,
+    "minimum_folds_for_stage_b": 3,
+    "stage_b_gate_passed": false
+  },
+  "ungated_diagnostic_relative_to_current": {
+    "candidate_hr_at_10": 0.9675,
+    "miss_to_hit": 11,
+    "hit_to_miss": 19,
+    "net_hits": -8,
+    "fold_net": [-1, -2, 4, 0, -9],
+    "mrr_delta": -0.050486,
+    "mttc_delta": -0.17,
+    "technical_score_delta": -0.013746,
+    "action_sessions": 1982,
+    "action_turns": 14762
+  },
+  "candidate_recall_unchanged": {
+    "C10": 0.9475,
+    "C20": 0.9715,
+    "C50": 0.991,
+    "C100": 0.993,
+    "C200": "unavailable in the frozen blind trace and not inferred"
+  },
+  "resource": {
+    "prediction_ms_per_session_p50": 5.63807,
+    "prediction_ms_per_session_p95": 6.278764,
+    "peak_working_set_bytes": 1338449920
+  },
+  "tests": "10 passed",
+  "scope": {
+    "cached_train_explore_only": true,
+    "target_used_as_training_or_posthoc_label_only": true,
+    "ranker_and_runtime_features_target_blind": true,
+    "strict_outer_product_family_oof_for_focused_ranker": true,
+    "agent_or_evaluator_started": false,
+    "held_out_splits_opened": false,
+    "calibration_selection_confirmation_or_public_opened": false,
+    "external_data_downloaded": false,
+    "full_model_or_runtime_artifact_trained": false,
+    "claim": "exploratory outer-OOF proposal triage conditioned on the frozen current OOF comparator, not end-to-end nested stacking"
+  },
+  "decision": {
+    "focused_cohort_closed": true,
+    "cohort_weight_tree_or_gate_tuning_closed": true,
+    "stage_b_started": false,
+    "full_artifact_authorized": false,
+    "reason": "the fixed focused ranker reaches only 11 current misses, below the preregistered 14-session Stage-B gate",
+    "next": "measure overlap of already-frozen proposal families only to select one materially different preregistered mechanism"
+  }
+}

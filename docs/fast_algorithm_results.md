@@ -547,3 +547,37 @@ distillation is not justified. The corrected projection and evaluation results a
 SHA-256 `4cf40c4148081ec5cde4c252f86898c31611c6eac35e915a4a1f32d6a0a2ab95`
 and `c5907946bbd662503bbfb8534f73cc55f3ea0dc541c694fb38e54a288c9acc26`;
 aggregate evidence is tracked in `configs/small_ranker_v2_4.rrf3.manifest.json`.
+
+## SR-v2.5 focused allowed-91 LambdaMART
+
+The fixed depth-3 LambdaMART used all `43` C100-reachable current misses and
+behaviorally matched rank-10 controls.  The one-shot cache has `631` complete
+91-candidate query groups (`331` hard, `300` control), `57,421` rows, and 133
+semantic-off target-blind features.  Targets appear only in the separate one-hot
+relevance labels.  Cache rows were checked exactly against the projected feature
+tensor; relevance, session/turn uniqueness, outer/inner folds, numeric dtypes, and
+zero identifier matches were independently revalidated before training.
+
+Five product-family outer-fold models were trained twice from scratch with fixed
+XGBoost 1.7.6 parameters.  Both score tensors are byte-identical (SHA-256
+`a77bde22c17a57b44a737ef397615e59012fbe999e46e7cbc6e4ba9d1159b776`), all
+five first/repeat model hashes match, and reloaded-model sample projections have
+zero score error and exact C100 order.  The complete first/repeat passes took
+`30.868s` and `28.062s`; scoring P50/P95 was `5.64/6.28ms` per session and the
+observed peak working set was `1,338,449,920` bytes.
+
+Stage A is a preregistered No-Go.  The focused proposal can rescue only `11` of
+the current 57 misses, distributed `3/0/7/1/0` by outer fold.  Its target-informed
+zero-harm ceiling is therefore HR `0.9770`, below the fixed requirement of at
+least 14 reachable sessions across at least three folds.  Stage B's 30-model
+nested admission was not started.  Ungated application confirms that admission
+is not the main missing capability: it yields `11` miss-to-hit but `19`
+hit-to-miss, HR `0.9675`, MRR delta `-0.050486`, and TechnicalScore delta
+`-0.013746` relative to the current policy.
+
+This closes the exact focused cohort, weighting, tree parameters, and gate without
+tuning.  Cache build, training, and posthoc evaluation took `7.102s`, `60.784s`,
+and `4.786s`.  No Agent/full evaluator, calibration, selection, confirmation,
+public split, external download, full model, or runtime artifact was opened.  The
+aggregate evidence is tracked in
+`configs/small_ranker_v2_5.focused_lambdamart.manifest.json`.
