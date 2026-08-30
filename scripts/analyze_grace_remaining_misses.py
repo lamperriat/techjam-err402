@@ -51,12 +51,14 @@ PREREG_PATH = ROOT / "configs/small_ranker_v2_14.grace_remaining_miss_attributio
 CONTRACT_PATH = ROOT / "configs/small_ranker_v2_14.grace_remaining_miss_attribution_implementation_contract.json"
 AMENDMENT_PATH = ROOT / "configs/small_ranker_v2_14.grace_remaining_miss_attribution_contract_amendment.json"
 AMENDMENT_V2_PATH = ROOT / "configs/small_ranker_v2_14.grace_remaining_miss_attribution_contract_amendment_v2.json"
-PREREG_RAW_SHA256 = "986c4cf07fb589e76c2e352b3f559d80c8920e0b8fca2943eeb6e26bceab1be"
+PREREG_RAW_SHA256 = "986c4cf07fb589e76c2e352b3f559d80c8920e0b8fca2943eeb6e26bceab1be8"
 CONTRACT_RAW_SHA256 = "93fa610eccd620fde8a0df162d2c6aee26e6ad6d4b96739d5c6208f4f8feca34"
 IMPLEMENTATION_PATHS = {
     "scripts/analyze_grace_remaining_misses.py",
     "tests/test_grace_remaining_miss_attribution.py",
 }
+IMPLEMENTATION_BASE_COMMIT = "7fa028876ddff4ab285c599c4c71896157cdddc9"
+CORRECTION_PATHS = {"scripts/analyze_grace_remaining_misses.py"}
 
 SOURCE_ROOT = Path(r"D:\tiktok\techjam-err402-fast-track")
 LABEL_PATH = SOURCE_ROOT / "experiments/fast_track/small_ranker_v1/labels_v2.npz"
@@ -465,19 +467,41 @@ def _validate_git(implementation_commit: str) -> dict[str, Any]:
     remote_head = _git(("rev-parse", REMOTE_REF))
     status = _git(("status", "--porcelain=v1", "--untracked-files=all"))
     paths = set(_git(("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD")).splitlines())
+    base_parent = _git(("rev-parse", IMPLEMENTATION_BASE_COMMIT + "^"))
+    base_paths = set(
+        _git(
+            (
+                "diff-tree",
+                "--no-commit-id",
+                "--name-only",
+                "-r",
+                IMPLEMENTATION_BASE_COMMIT,
+            )
+        ).splitlines()
+    )
     amendment_blob = _git(("rev-parse", AMENDMENT_V2_COMMIT + ":" + AMENDMENT_V2_PATH.relative_to(ROOT).as_posix()))
     if not (
         implementation_commit == head
-        and parent == AMENDMENT_V2_COMMIT
+        and parent == IMPLEMENTATION_BASE_COMMIT
+        and base_parent == AMENDMENT_V2_COMMIT
         and branch == BRANCH
         and remote.rstrip("/").removesuffix(".git") == REMOTE_URL.removesuffix(".git")
         and remote_head == head
         and not status
-        and paths == IMPLEMENTATION_PATHS
+        and paths == CORRECTION_PATHS
+        and base_paths == IMPLEMENTATION_PATHS
         and amendment_blob == AMENDMENT_V2_BLOB
     ):
         raise GraceAttributionError("implementation Git checkpoint drifted")
-    return {"commit": head, "parent": parent, "branch": branch, "remote_equal": True, "clean": True, "paths_exact": True}
+    return {
+        "commit": head,
+        "parent": parent,
+        "implementation_base_commit": IMPLEMENTATION_BASE_COMMIT,
+        "branch": branch,
+        "remote_equal": True,
+        "clean": True,
+        "paths_exact": True,
+    }
 
 
 def _check_output() -> None:
