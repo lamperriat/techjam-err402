@@ -525,3 +525,25 @@ The local result is
 SHA-256 `d2ed3e8dc8d66bf11e41403c2919aed2ceaa4bdeaa6dd10896da1f715126eaee`;
 the tracked aggregate evidence is
 `configs/small_ranker_v2_3.supplemental_pairwise.manifest.json`.
+
+## SR-v2.4 fixed semantic-off RRF-3
+
+Three previously zero-harm rankers were fused with fixed equal-weight reciprocal rank
+fusion over stable C100 ranks (`k=60`). The two missing semantic-off surfaces were each
+projected twice with their original held-fold models and early-stopping limits. Both raw
+reference audits have exact scores/orders across all five folds, and both projected score
+pairs are byte-identical. A pre-metric audit superseded the first target-free projection
+attempt and strengthened the result-to-member provenance binding before any labels or
+metrics were opened.
+
+RRF-3 is a strict No-Go. Every outer fold chooses KEEP, so there are zero supplemental
+activations and no change from HR `0.9715`, MRR `0.676861`, or MTTC `3.056`. The full
+admission pipeline and both probability surfaces repeat exactly. Its target-informed
+proposal ceiling is also worse than pairwise: only 11 of 57 current misses are reachable,
+distributed `2/2/6/1/0`, for maximum zero-harm HR `0.9770` versus pairwise `0.9780`.
+
+This closes RRF-3 and RRF-6/member/`k`/weight/gate tuning. Three-ranker deployment or
+distillation is not justified. The corrected projection and evaluation results are
+SHA-256 `4cf40c4148081ec5cde4c252f86898c31611c6eac35e915a4a1f32d6a0a2ab95`
+and `c5907946bbd662503bbfb8534f73cc55f3ea0dc541c694fb38e54a288c9acc26`;
+aggregate evidence is tracked in `configs/small_ranker_v2_4.rrf3.manifest.json`.

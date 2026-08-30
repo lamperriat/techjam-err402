@@ -1,0 +1,65 @@
+{
+  "schema_version": "small-ranker-rrf3-manifest.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.4-RRF3",
+  "status": "NO_GO",
+  "commits": {
+    "preregistration": "dbc3db7",
+    "implementation": "10ab86e",
+    "evidence_binding_amendment": "48069dd"
+  },
+  "projection": {
+    "result_path": "experiments/fast_track/small_ranker_v2_4/rrf3_projection_20260830T1810/projection_result.json",
+    "result_sha256": "4cf40c4148081ec5cde4c252f86898c31611c6eac35e915a4a1f32d6a0a2ab95",
+    "member_score_sha256": [
+      "655d2296ed8c73643ccebd3e8600fca9a6579c4e920e97870adc546e15dd25cf",
+      "11c495747101937b349856873183e8903fe8f2d67abc58928fca42056b246987"
+    ],
+    "all_members_byte_identical": true,
+    "all_raw_reference_maximum_absolute_error": 0.0,
+    "all_raw_c100_orders_exact": true,
+    "all_five_folds_sampled_per_member": true,
+    "wall_seconds": 17.151929
+  },
+  "evaluation": {
+    "result_path": "experiments/fast_track/small_ranker_v2_4/rrf3_evaluation_20260830T1820.json",
+    "result_sha256": "c5907946bbd662503bbfb8534f73cc55f3ea0dc541c694fb38e54a288c9acc26",
+    "rrf_score_sha256": "61e072d3c9e6cf5ef59534c817ec87b62ae4342044871fa7f803700d65e7ad3c",
+    "baseline_hr_at_10": 0.9715,
+    "candidate_hr_at_10": 0.9715,
+    "miss_to_hit": 0,
+    "hit_to_miss": 0,
+    "activation_sessions": 0,
+    "activation_turns": 0,
+    "fold_net": [0, 0, 0, 0, 0],
+    "all_folds_keep": true,
+    "exact_repeat": true,
+    "wall_seconds": 7.152621
+  },
+  "posthoc_oracle": {
+    "target_informed_not_runtime": true,
+    "reachable_current_miss_sessions": 11,
+    "correct_action_turns": 88,
+    "reachable_by_fold": [2, 2, 6, 1, 0],
+    "maximum_zero_harm_hr_at_10": 0.977,
+    "lower_than_pairwise_oracle_0_978": true
+  },
+  "scope": {
+    "cached_train_explore_only": true,
+    "target_free_projection": true,
+    "runtime_gate_features_target_blind": true,
+    "agent_or_evaluator_started": false,
+    "held_out_splits_opened": false,
+    "ranker_retrained": false,
+    "full_model_or_artifact_trained": false,
+    "claim": "exploratory nested admission over frozen OOF surfaces, not end-to-end nested stacking"
+  },
+  "tests": "10 passed",
+  "decision": {
+    "promotion_gate_passed": false,
+    "rrf3_closed": true,
+    "rrf6_member_k_weight_and_gate_tuning_closed": true,
+    "full_artifact_authorized": false,
+    "next": "focused nonlinear query-group LambdaMART over complete allowed-91 hard/control query groups"
+  }
+}

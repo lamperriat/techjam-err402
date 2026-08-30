@@ -1261,6 +1261,10 @@ IntentGraph target architecture.
 - Rejected that gate after `124` supplemental activations produced no metric transition.
   Its target-informed action oracle is only HR `0.978`, so this pairwise proposal family
   is now closed rather than tuned.
+- Projected two additional held-fold rankers onto the exact semantic-off tensor, bound
+  their provenance to the preregistered models/iterations, and evaluated fixed RRF-3.
+  All folds selected KEEP and its oracle fell to `0.977`, so multi-ranker fusion and
+  distillation were closed before any runtime artifact work.
 
 ## Competition boundary
 
