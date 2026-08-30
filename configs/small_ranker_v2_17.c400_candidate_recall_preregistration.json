@@ -1,0 +1,176 @@
+{
+  "schema_version": "small-ranker-c400-candidate-recall-preregistration.v1",
+  "status": "PREREGISTERED_BEFORE_C400_IMPLEMENTATION_AND_OUTCOME",
+  "recorded_on": "2026-08-31",
+  "experiment_id": "SR-V2.17-C400-CANDIDATE-RECALL",
+  "parent_commit": "c94747edd890c56d4bf6a30edf86777f5868ded8",
+  "evidence_scope": "full 2000-session train_explore shared-cohort diagnostic candidate-recall probe; target-cluster folds are diagnostic and not private validation",
+  "global_incumbent": {
+    "commit": "7d08e144fe6f589d64fab21f1b68c3ec2feeb684",
+    "hit_rate_at_10": 0.991,
+    "mrr": 0.695795,
+    "mttc": 2.869,
+    "technical_score": 0.866858
+  },
+  "sealed_c200_input": {
+    "result_commit": "c94747edd890c56d4bf6a30edf86777f5868ded8",
+    "implementation_commit": "b60e767314340c5e110c2509d00c112c755cea42",
+    "erratum_commit": "e412300fd12b36790eaee6ec81cab50fba60ba99",
+    "original_preregistration_commit": "27decc46bc3752b5c7654c8c90a139ecac0ac78d",
+    "result": {
+      "path": "D:/tiktok/techjam-v2-16-c200-recall/experiments/fast_track/small_ranker_v2_16_c200_candidate_recall_20260831.json",
+      "bytes": 10214,
+      "raw_sha256": "e1925d8e962a89d666f2bd2c2cbf7b942cbd0058e0a01a83186a3585531561e4",
+      "canonical_sha256": "5ae4cb43746cfb0063156ba1d1da3be94c4b6469762517c8fc1fd9f1dcbe1e7c",
+      "git_blob_oid": "b219f5baff7e94e615df0311ba5971ea35ecceee",
+      "status": "C200_RECALL_NO_GO_CONTINUE_C400",
+      "exact_repeat": true,
+      "budgets_passed": true,
+      "candidate_recall_canonical_sha256": "05a351b59c162f87d29b50cf572f5780d5f784209582128082af126203d104d4",
+      "resources_canonical_sha256": "85f319e545c98c54b6c58547570c278aac01ab10d697168df2e7cb6273abd2ea",
+      "source_identities_canonical_sha256": "37ae2eb75e24abfd6383335d2f9c7e3445b6f6a07a31966f787d8d83c0fce4df"
+    },
+    "visible_context": {
+      "path": "D:/tiktok/techjam-v2-16-c200-recall/experiments/fast_track/c200_candidate_recall_cache_20260831/visible_context.jsonl",
+      "rows": 2000,
+      "turns": 20000,
+      "bytes": 47168882,
+      "sha256": "f30a98700da5d480731fe7e82c87c40a22f06de290e069e20dc68f9fefecd20f",
+      "redacted_message_count": 8,
+      "reuse": "read-only; never rebuild, copy, hardlink, symlink, mutate, or delete"
+    },
+    "c200_traces": [
+      {
+        "path": "D:/tiktok/techjam-v2-16-c200-recall/experiments/fast_track/c200_candidate_recall_cache_20260831/replica_a.jsonl",
+        "rows": 20000,
+        "bytes": 32226135,
+        "sha256": "a8589749376f48f019997a618481578dde36be4ca1fc723e8ed00056c23e40dc"
+      },
+      {
+        "path": "D:/tiktok/techjam-v2-16-c200-recall/experiments/fast_track/c200_candidate_recall_cache_20260831/replica_b.jsonl",
+        "rows": 20000,
+        "bytes": 32226135,
+        "sha256": "a8589749376f48f019997a618481578dde36be4ca1fc723e8ed00056c23e40dc"
+      }
+    ],
+    "c200_candidate_cells": 2425785,
+    "c200_recall_sessions": 1986,
+    "c100_absent_frontier_sessions": 14,
+    "normalized_c100_bytes": 26690930,
+    "normalized_c100_sha256": "b22b035cb7789570f36db6c52256e5deb67f593f90cbbc5c334d48f2f0a01a67"
+  },
+  "unique_mechanism": {
+    "name": "DIAGNOSTIC_BROAD_LIMIT_120_TO_320_STABLE_APPEND",
+    "single_changed_variable": {
+      "broad_bm25_limit_before": 120,
+      "broad_bm25_limit_after": 320
+    },
+    "strict_bm25_limit": 80,
+    "maximum_union": 400,
+    "capture_boundary": "dedicated Agent subclass at _apply_p11 entry; production rankings and candidate_rowids are never mutated",
+    "expanded_route": "same query terms, broad FTS expression, BM25 weights/order, strict route, weighted RRF tie key, coverage fields and coverage ordering as frozen R08",
+    "route_identity_gates": [
+      "expanded broad first 120 equals production broad route exactly",
+      "strict route is reused byte-for-byte and is never requeried or changed",
+      "production final equals the corresponding sealed variable-length C200 exactly"
+    ],
+    "c400": "sealed ordered C200 followed by expanded R08 candidates not already in C200, preserving expanded order, capped at 400, without padding",
+    "served_top10": "unchanged production C200 first 10 after control P11; expanded candidates are diagnostic only",
+    "unchanged": [
+      "production retrieval, fusion, coverage, P11, small-ranker, question order, session state, and Top10",
+      "catalog, context, proxy, labels, folds, evaluator semantics, and all model parameters"
+    ],
+    "runtime": "target-blind, causal, diagnostic-only, and default off"
+  },
+  "frozen_sources": {
+    "catalog": {
+      "path": "D:/tiktok/techjam-err402-fast-track/data/catalog.jsonl",
+      "rows": 50000,
+      "bytes": 60546327,
+      "sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67"
+    },
+    "train_explore_proxy": {
+      "path": "D:/tiktok/techjam-err402-fast-track/experiments/fast_track/proxy_v1/proxy_train_explore.jsonl",
+      "rows": 2000,
+      "bytes": 1315338,
+      "sha256": "2175696171c0d874fca4b9aa456ff5fd7d570f2184f59ade6781198f6443198e",
+      "access": "first existence/stat/open/hash only after both closed C400 traces and all target-free resource gates; one same-handle double-hash/fstat read"
+    },
+    "label_archive": {
+      "path": "D:/tiktok/techjam-err402-fast-track/experiments/fast_track/small_ranker_v1/labels_v2.npz",
+      "bytes": 1702876,
+      "sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+      "members_read_in_order": ["outer_fold", "family_index"]
+    },
+    "tracked_blobs": {
+      "starter/agent.py": "421c6d43c598102b8fefb181b72bab5da4bf1294",
+      "starter/coverage.py": "59a6507fef63afa0d9761323f5771a52741c811a",
+      "evaluator/local_evaluator.py": "7c808347b31ef3121a9cbc4810ac3eb325f950ba",
+      "scripts/build_small_ranker_cache.py": "8724f052155ae7405ecd675bdebd83df18685895",
+      "scripts/c200_candidate_worker.py": "b94fddcf5a9b20ddde540f3f43ea9962982cb096",
+      "scripts/probe_c200_candidate_recall.py": "0a57f63866683b476b9f49184673cf3154531911"
+    }
+  },
+  "formal_protocol": {
+    "preflight": "may read only Git, environment, catalog, tracked sources, sealed C200 aggregate, C200 context, and C200 traces; must not stat/open/hash proxy or labels",
+    "receipt": {
+      "fixed_output": "experiments/fast_track/small_ranker_v2_17_c400_candidate_recall_20260831.json",
+      "creation": "prepared real parent, O_WRONLY|O_CREAT|O_EXCL, canonical pending LF, fsync; any existing state forbids rerun",
+      "post_receipt_failure": "catch BaseException and durably replace only through the same descriptor with INVALID_ONE_SHOT_CONSUMED"
+    },
+    "worker_phase": "two simultaneous fresh offline workers receive only catalog, verified identifier-free context, and one read-only sealed C200 reference trace; each Agent sees only the current message and its own causal state",
+    "pre_target_gates": "both workers close Agent/SQLite, publish O_EXCL traces, pass C200 full-prefix, broad-prefix, schema, catalog, exact-repeat, Top10 identity, source and resource gates",
+    "join_phase": "only then open the proxy once with same-handle double-hash/fstat for targets/eligibility and read numeric outer_fold then family_index; compute aggregate membership only",
+    "forbidden": "no C200 rerun, no context rebuild, no full Agent evaluator, no fit/selection, no protected split, no network, no GPU, no output identifiers or per-session vectors"
+  },
+  "hard_gates": {
+    "trace": "20000 canonical ordered records with only c400, ordinal and turn; every C400 is unique catalog identifiers with len(C200)<=len(C400)<=400 and exact full C200 ordered prefix",
+    "exact_repeat": "two fresh C400 trace bytes, hashes, record counts, ordered arrays, recall aggregates and inflation aggregates are equal; timing/RSS excluded",
+    "sealed_c200_sanity": "C10=1895, C20=1943, C50=1982, C100=1986, C200=1986 and C200 candidate cells=2425785",
+    "candidate_retention": "old candidate loss and candidate-level hit-to-miss are structurally zero",
+    "environment": {
+      "executable": "D:/450/conda/envs/tiktok/python.exe",
+      "python": "3.11.16",
+      "sqlite": "3.53.4",
+      "numpy": "2.4.6",
+      "pythonhashseed": "0",
+      "workers": 2,
+      "network_attempt_count": 0,
+      "gpu_peak_bytes": 0
+    }
+  },
+  "resource_budget": {
+    "total_wall_seconds_maximum": 3600,
+    "agent_respond_p95_milliseconds_maximum": 400,
+    "diagnostic_expansion_p95_milliseconds_maximum": 250,
+    "per_worker_peak_working_set_bytes_maximum": 2147483648,
+    "two_worker_peak_sum_bytes_maximum": 4294967296,
+    "candidate_cells_c400_over_c100_maximum": 4.0,
+    "candidate_cells_c400_over_c200_maximum": 3.3,
+    "trace_bytes_c400_over_c100_maximum": 4.1,
+    "trace_bytes_c400_over_c200_maximum": 3.4
+  },
+  "decision": {
+    "recall_go": "all hard/resource gates pass and C400 recall is strictly above sealed C200 with at least one incremental target cluster",
+    "recall_no_go": "all hard/resource gates pass and C400 recall equals sealed C200",
+    "training_evidence_gate": "positive target-uniform recall, at least two outer folds, no candidate loss, exact repeat and all budgets pass",
+    "next_stage": "record this unique result and continue to local-model inventory plus Frozen embedding E0, then deterministic GLoSS G0; C400 never directly controls Top10",
+    "fallback_order": ["SR-V2.12-FIXED-TWO-PAGE-GRACE", "v1.9", "P11", "R08"]
+  },
+  "checkpoint_choreography": {
+    "branch": "small-ranker-v2.17-c400-recall",
+    "remote": "origin",
+    "remote_url": "https://github.com/lamperriat/techjam-err402.git",
+    "preregistration_direct_parent": "c94747edd890c56d4bf6a30edf86777f5868ded8",
+    "preregistration_exact_changed_paths": ["configs/small_ranker_v2_17.c400_candidate_recall_preregistration.json"],
+    "implementation_direct_parent": "THIS_PREREGISTRATION_COMMIT",
+    "implementation_exact_changed_paths": [
+      "scripts/c400_candidate_worker.py",
+      "scripts/probe_c400_candidate_recall.py",
+      "tests/test_c400_candidate_recall.py"
+    ],
+    "must_push_preregistration_before_implementation": true,
+    "must_push_implementation_before_preflight_or_receipt": true,
+    "history_rewrite_or_old_artifact_overwrite": false
+  }
+}
