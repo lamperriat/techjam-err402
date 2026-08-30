@@ -1,0 +1,92 @@
+{
+  "schema_version": "small-ranker-focused-cache-manifest.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.5-FOCUSED-LAMBDAMART-CACHE",
+  "status": "FROZEN_FOR_STAGE_A",
+  "commits": {
+    "preregistration": "2ef6fd6",
+    "implementation_amendment": "63b2226",
+    "implementation": "f2d4a10"
+  },
+  "sources": {
+    "preregistration_sha256": "90dbfd3830a12083e781087e0329f9122b1818a56cb418da46f68d8f963fc3a4",
+    "implementation_amendment_sha256": "59b95ff450336aa060f462d7b2dc58907d65c6b6b79973d6373c87f775029244",
+    "builder_sha256": "834fa66f07c8be4f95ade04ca6c1014c01b9efe1b186242c21a518ac756ec676",
+    "feature_cache_sha256": "2b19835a1bced7f21322610296c712e3d06d915274719e11c268d31f7f596089",
+    "projected_features_sha256": "cd9b075b923c31afe10b9a9c6d720de22e221c93de961595ff484ea4f532b90a",
+    "label_cache_sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+    "current_oof_score_sha256": "5000deb9b77b3e7b326ccab6455222b291d2ec859ddab2043fe67d23a3217c5e",
+    "current_activation_sha256": "48ad9137cb3b99985d3d7e4035575bf06225d8c6b4f9f3c134a468f404d1c410",
+    "current_chosen_sha256": "229952c9ced7f6eec1ff1938480adc85ba5093ad865336465749029576e47051"
+  },
+  "result": {
+    "path": "experiments/fast_track/small_ranker_v2_5/focused_cache_20260830T1930/cache_result.json",
+    "sha256": "fd74bda490cdb0f8bbb29f21e6435221f37a149ea5255f6f5c001d9c79203317",
+    "wall_seconds": 7.101532
+  },
+  "files": {
+    "features": {
+      "path": "experiments/fast_track/small_ranker_v2_5/focused_cache_20260830T1930/focused_features.npy",
+      "sha256": "ca1bc24378e20cb2dc54258ad0d8fd50f433f77a7ced7f205a9c30a9bc0e3cb4",
+      "bytes": 30548100,
+      "shape": [631, 91, 133],
+      "dtype": "float32",
+      "asin_shape_matches": 0
+    },
+    "relevance": {
+      "path": "experiments/fast_track/small_ranker_v2_5/focused_cache_20260830T1930/focused_relevance.npy",
+      "sha256": "536bcaf535ff06dac39436c9916c7d655eacc4bdfdf6ae9939360a1420cf6993",
+      "bytes": 57549,
+      "shape": [631, 91],
+      "dtype": "uint8",
+      "asin_shape_matches": 0
+    },
+    "groups": {
+      "path": "experiments/fast_track/small_ranker_v2_5/focused_cache_20260830T1930/focused_groups.npz",
+      "sha256": "3559e4c46aab6eb94705f07f385ba1ae052cb593515e8237d1d6d82f240f55ed",
+      "bytes": 1823,
+      "shape": [631],
+      "dtype": "numeric npz",
+      "asin_shape_matches": 0
+    }
+  },
+  "cache": {
+    "feature_count": 133,
+    "candidates_per_group": 91,
+    "query_groups": 631,
+    "rows": 57421,
+    "one_positive_per_group": true,
+    "candidate_order": "incumbent,then_indices_10_through_99",
+    "feature_names_sha256": "92795134cc11cbe496cb63b3921b585d9f71028f75b39d9c6716a13c7e6608f8"
+  },
+  "cohorts": {
+    "hard": {
+      "sessions": 43,
+      "query_groups": 331,
+      "sessions_by_outer_fold": [16, 10, 7, 8, 2],
+      "groups_by_outer_fold": [128, 77, 64, 48, 14],
+      "unique_product_families": 17
+    },
+    "control": {
+      "sessions": 81,
+      "query_groups": 300,
+      "sessions_by_outer_fold": [12, 22, 13, 17, 17],
+      "groups_by_outer_fold": [51, 101, 28, 60, 60],
+      "unique_product_families": 30,
+      "matching_semantics": "behavioral rank-10 controls, not same-target-family matching"
+    }
+  },
+  "privacy": {
+    "numeric_arrays_only": true,
+    "identity_shape_matches": 0,
+    "target_used_as_training_label_only": true,
+    "target_or_current_score_or_rank_feature_columns": 0,
+    "runtime_features_target_blind": true
+  },
+  "scope": {
+    "cached_train_explore_only": true,
+    "agent_or_evaluator_started": false,
+    "held_out_splits_opened": false,
+    "external_data_downloaded": false
+  }
+}
