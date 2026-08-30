@@ -1,0 +1,202 @@
+{
+  "schema_version": "small-ranker-c200-candidate-recall-preregistration.v1",
+  "status": "PREREGISTERED_BEFORE_IMPLEMENTATION_CONTEXT_REBUILD_AND_C200_OUTCOME",
+  "recorded_on": "2026-08-31",
+  "experiment_id": "SR-V2.16-C200-CANDIDATE-RECALL",
+  "parent_commit": "ba52ed8baa8bc371f4c045bc06d3f1abbbeeddc6",
+  "evidence_scope": "full 2000-session train_explore shared-cohort diagnostic candidate-recall probe; target-cluster outer folds are diagnostics, not private or independent validation",
+  "global_incumbent_context": {
+    "experiment_id": "SR-V2.12-FIXED-TWO-PAGE-GRACE",
+    "commit": "7d08e144fe6f589d64fab21f1b68c3ec2feeb684",
+    "hit_rate_at_10": 0.991,
+    "mrr": 0.695795,
+    "mttc": 2.869,
+    "technical_score": 0.866858,
+    "remaining_misses": 18,
+    "remaining_misses_absent_at_c100": 14,
+    "interpretation": "comparable shared-cohort OOF incumbent; not a private score; this probe does not change or evaluate Top10"
+  },
+  "unique_mechanism": {
+    "name": "EXPOSE_EXISTING_R08_CANDIDATES_101_TO_200",
+    "capture_boundary": "inside a dedicated Agent subclass at _apply_p11 entry, snapshot rankings['final'] after the existing coverage cascade and before P11",
+    "c100": "r08_full[:100]",
+    "c200": "r08_full[:min(200,len(r08_full))] without padding, backfill, rewrite, rescore, or membership filtering",
+    "existing_upper_bound": "broad BM25 LIMIT 120 plus strict BM25 LIMIT 80 followed by stable union, frozen fusion, and coverage ordering yields at most 200 unique candidates",
+    "agent_configuration": {
+      "llm_client": null,
+      "question_policy": "fast",
+      "rerank_mode": "off",
+      "retrieval_mode": "coverage",
+      "p11_mode": "control",
+      "small_ranker_mode": "off",
+      "trace_sink": null
+    },
+    "unchanged": [
+      "retrieval SQL and LIMIT values",
+      "BM25 weights, fusion score, stable tie order, coverage cascade, state parsing, and question order",
+      "P11, v1.9, fixed-two-page grace, score-priority, and every Top10 output",
+      "catalog, proxy, folds, evaluator semantics, and all model parameters"
+    ],
+    "runtime_policy": "diagnostic-only and default off; C200 is never served and cannot directly control Top10",
+    "forbidden_runtime_inputs": [
+      "sample_id",
+      "scenario_type",
+      "ground_truth",
+      "target",
+      "eligible_from",
+      "outer_fold",
+      "family_index",
+      "future_turns",
+      "evaluator_metadata"
+    ]
+  },
+  "frozen_sources": {
+    "train_explore_proxy": {
+      "path": "D:/tiktok/techjam-err402-fast-track/experiments/fast_track/proxy_v1/proxy_train_explore.jsonl",
+      "rows": 2000,
+      "bytes": 1315338,
+      "sha256": "2175696171c0d874fca4b9aa456ff5fd7d570f2184f59ade6781198f6443198e",
+      "access": "first existence/stat/open/hash/read only after the durable experiment receipt"
+    },
+    "catalog": {
+      "path": "D:/tiktok/techjam-err402-fast-track/data/catalog.jsonl",
+      "rows": 50000,
+      "bytes": 60546327,
+      "sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67"
+    },
+    "label_archive": {
+      "path": "D:/tiktok/techjam-err402-fast-track/experiments/fast_track/small_ranker_v1/labels_v2.npz",
+      "bytes": 1702876,
+      "sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+      "allowed_members_in_order": ["outer_fold", "family_index"],
+      "access": "one same-handle open only after both isolated workers close and both candidate traces pass hash, schema, C100 identity, and exact-repeat gates"
+    },
+    "visible_context_reference": {
+      "generator": "scripts/build_small_ranker_cache.py::materialize_visible_context",
+      "schema": "small-ranker-visible-context.v1",
+      "rows": 2000,
+      "turns": 20000,
+      "bytes": 47168882,
+      "sha256": "f30a98700da5d480731fe7e82c87c40a22f06de290e069e20dc68f9fefecd20f",
+      "redacted_message_count": 8,
+      "policy": "rebuild once after receipt into a new ignored O_EXCL cache, close and verify exact reference identity before either worker starts; worker receives only this identifier-free cache and the catalog"
+    },
+    "frozen_c100_blind_trace": {
+      "root": "D:/tiktok/techjam-err402-fast-track/experiments/fast_track/action_oracle_v1",
+      "shard_rows": [5000, 5000, 5000, 5000],
+      "shard_sha256": [
+        "fac3bc71e6210d1a449de706d335cc5bb945d4d3daf01e8cbecbe15c0600bf1a",
+        "63812776b374fc0041871600a5781fbf1ea6046a3219334e7263338abbab6657",
+        "36a8706a2f8c51635e4feb4cde905a9789c7953ffeab25ae036ef824061f36b3",
+        "1f9968795ab5490968badcf82c39ec11bedd00f22797569dfec8c2ff3fb7ed99"
+      ],
+      "records": 20000,
+      "all_pool_lengths": 100,
+      "candidate_cells": 2000000,
+      "normalized_c100_record": "canonical JSON object {'c100':ordered_pool,'ordinal':global_1_based_ordinal,'turn':one_based_turn} plus one LF",
+      "normalized_c100_canonical_bytes": 26690930,
+      "normalized_c100_canonical_sha256": "b22b035cb7789570f36db6c52256e5deb67f593f90cbbc5c334d48f2f0a01a67"
+    },
+    "tracked_source_blobs_at_parent": {
+      "starter/agent.py": "421c6d43c598102b8fefb181b72bab5da4bf1294",
+      "starter/coverage.py": "59a6507fef63afa0d9761323f5771a52741c811a",
+      "scripts/build_small_ranker_cache.py": "8724f052155ae7405ecd675bdebd83df18685895",
+      "evaluator/local_evaluator.py": "7c808347b31ef3121a9cbc4810ac3eb325f950ba",
+      "configs/small_ranker_v1.cache.manifest.json": "0da6d6268c2042d9854f95c4227a224bfa6342da"
+    }
+  },
+  "formal_protocol": {
+    "preflight": "may hash target-free catalog, tracked sources, preregistration, frozen C100 blind traces, Git and environment; must not stat, open, hash, import from, or otherwise touch proxy or label archive paths",
+    "receipt": {
+      "fixed_output": "experiments/fast_track/small_ranker_v2_16_c200_candidate_recall_20260831.json",
+      "output_not_cli_overridable": true,
+      "prepared_real_parent_required": true,
+      "first_mutation": true,
+      "creation": "O_WRONLY|O_CREAT|O_EXCL plus O_BINARY when available; canonical pending marker plus LF then fsync",
+      "path_safety": "lexical in-repository regular parent with every existing component checked against symlink, junction, and Windows reparse-point escape; no mkdir before receipt",
+      "existing_receipt": "empty, partial, pending, invalid, or complete all permanently forbid another run",
+      "post_receipt_failure": "catch BaseException and overwrite only the same descriptor with aggregate INVALID_ONE_SHOT_CONSUMED, fsync, close, and never rerun"
+    },
+    "context_phase": "after receipt, rebuild the visible context once with the frozen official simulator boundary, close/fsync it, and require exact bytes/hash/rows/turns/redaction count before worker launch",
+    "worker_phase": "launch two fresh simultaneous isolated workers in the frozen offline environment; each independently constructs one control Agent, consumes the verified identifier-free context in ordinal/turn order, invokes ranking with only the current message and its own causal state, accumulates candidate lines privately, closes Agent and SQLite, then publishes its trace with O_EXCL and emits only an aggregate receipt",
+    "target_blind_boundary": "workers cannot access proxy, labels, sample identity, targets, folds, eligibility, or scenario; worker code is statically and synthetically gated against reading future rows into a ranking call, and context/candidate traces are recursively scanned for forbidden keys and catalog identifiers in visible text",
+    "join_phase": "only after both workers exit cleanly and both closed traces pass source, schema, exact C100, prefix, uniqueness, and repeat gates may the parent reopen train_explore for target/eligibility and open the numeric fold archive for evaluator-side aggregate membership",
+    "source_close": "proxy and label handles are rehashed and fstat-compared on the same open handles before close; all target-free sources are rehashed before final receipt",
+    "no_fit_or_selection": true,
+    "full_agent_evaluator_started": false,
+    "protected_splits_opened": false
+  },
+  "hard_identity_gates": {
+    "trace_schema": "exactly 20000 ordered records per worker, each containing only global ordinal, turn, and ordered C200",
+    "candidate_shape": "for every turn 100 <= len(C200) <= 200, every value is a unique non-empty catalog identifier, with no padding",
+    "prefix": "C100 is exactly C200[:100]",
+    "historical_reproduction": "each generated C200[:100] must equal the corresponding frozen old C100 byte-for-byte; mismatch, loss, duplicate, or reordering counts are all exactly zero and the normalized C100 digest equals b22b035cb7789570f36db6c52256e5deb67f593f90cbbc5c334d48f2f0a01a67",
+    "exact_repeat": "the two fresh workers' canonical trace bytes, SHA-256, record count, ordered C200 arrays, derived recall aggregates, and inflation aggregates are exactly equal; timing and RSS are excluded from trace identity",
+    "candidate_retention": "because old C100 is an exact ordered prefix of both C200 traces, every previous candidate hit is retained and candidate-level hit-to-miss is structurally zero",
+    "environment": {
+      "executable": "D:/450/conda/envs/tiktok/python.exe",
+      "python": "3.11.16",
+      "sqlite": "3.53.4",
+      "pythonhashseed": "0",
+      "workers": 2,
+      "network_attempt_count": 0,
+      "gpu_used": false,
+      "gpu_peak_bytes": 0
+    }
+  },
+  "recall_contract": {
+    "eligibility": "a session is recalled at cutoff K iff its target appears in any C200 prefix K at an eligible turn; intent-override eligibility begins at the frozen override turn",
+    "cutoffs": [10, 20, 50, 100, 200],
+    "frozen_c100_sanity_counts": {"c10": 1895, "c20": 1943, "c50": 1982, "c100": 1986},
+    "reported_views": [
+      "row-uniform all 2000 sessions",
+      "C100-absent 14-session frontier as an anonymous aggregate",
+      "five frozen product-family outer folds",
+      "target-uniform aggregate over exact target clusters",
+      "taxonomy aggregate"
+    ],
+    "increment": "C200 hit and C100 miss; report count/fraction, target-cluster count, outer-fold span, taxonomy span, and first frontier 101..200",
+    "forbidden_output": "no identifiers, per-session values, targets, ranks, membership vectors, messages, or arrays of length 2000 or 20000"
+  },
+  "resource_and_inflation_budget": {
+    "context_build_wall_seconds_maximum": 120,
+    "total_wall_seconds_maximum": 1800,
+    "agent_respond_latency_p95_milliseconds_maximum": 250,
+    "candidate_capture_latency_p95_microseconds_maximum": 5000,
+    "per_worker_lifetime_peak_working_set_bytes_maximum": 2147483648,
+    "conservative_two_worker_peak_sum_bytes_maximum": 4294967296,
+    "candidate_cell_ratio_c200_over_c100_maximum": 2.0,
+    "canonical_trace_bytes_over_reference_c100_bytes_maximum": 2.1,
+    "report": "per-turn C200 length min/p50/p95/max/mean, added-candidate min/p50/p95/max/mean, candidate-cell ratio, canonical trace-byte ratio, parent peak RSS, each worker lifetime peak RSS, conservative worker sum, P95s, GPU peak, and wall time"
+  },
+  "decision": {
+    "structural_or_resource_failure": "INVALID_IMPLEMENTATION_CONSUMED; not an algorithm No-Go and no target-derived result may be used",
+    "recall_go": "all hard gates pass and C200 recall is strictly above C100 with at least one incremental target cluster",
+    "recall_no_go": "all hard gates pass and C200 recall equals C100",
+    "training_evidence_gate": "C200 alone may support later training only if target-uniform recall is positive, incremental recall spans at least two frozen outer folds, no old candidate is lost, resources pass, and exact repeat holds",
+    "next_stage": "record this single fixed C200 result and immediately preregister an independent one-variable C400 LIMIT expansion; do not tune C200 or alter Top10",
+    "served_default": "off",
+    "fallback_order": ["SR-V2.12-FIXED-TWO-PAGE-GRACE", "v1.9", "P11", "R08"]
+  },
+  "checkpoint_choreography": {
+    "branch": "small-ranker-v2.16-c200-recall",
+    "remote": "origin",
+    "remote_url": "https://github.com/lamperriat/techjam-err402.git",
+    "preregistration_commit": {
+      "direct_parent": "ba52ed8baa8bc371f4c045bc06d3f1abbbeeddc6",
+      "exact_changed_paths": ["configs/small_ranker_v2_16.c200_candidate_recall_preregistration.json"],
+      "must_be_pushed_before_implementation": true
+    },
+    "implementation_commit": {
+      "direct_parent_rule": "exact pushed preregistration commit",
+      "exact_changed_paths": [
+        "scripts/c200_candidate_worker.py",
+        "scripts/probe_c200_candidate_recall.py",
+        "tests/test_c200_candidate_recall.py"
+      ],
+      "must_be_pushed_before_preflight_or_receipt": true
+    },
+    "formal_gate": "HEAD equals the remote implementation commit; worktree clean including untracked nonignored files; exact commit parent and changed-path sets; fixed receipt and cache paths absent; all target-free identities exact",
+    "history_rewrite_force_amend_old_artifact_overwrite": false
+  }
+}
