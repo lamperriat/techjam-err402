@@ -1,0 +1,60 @@
+{
+  "schema_version": "small-ranker-grace-miss-attribution-preregistration.v1",
+  "experiment_id": "SR-V2.14-GRACE-MISS-ATTRIBUTION",
+  "recorded_on": "2026-08-31",
+  "status": "PREREGISTERED_BEFORE_NEW_OUTCOME_ATTACH",
+  "parent_commit": "aec6a8acadedcee642e08ea9ce5c84b7dff4ccab",
+  "scope": {
+    "split": "train_explore",
+    "reference": "comparable fixed-two-page-grace incumbent",
+    "reference_commit": "7d08e144fe6f589d64fab21f1b68c3ec2feeb684",
+    "expected": {"sessions": 2000, "hits": 1982, "misses": 18, "hr_at_10": 0.991, "page_ascii_sha256": "6f84d2aa03d792027634a358bdcef9adf646717c94cc3ec0916e87e33410448a"},
+    "interpretation": "shared-cohort OOF evaluator-side attribution; not private or independent validation and not a new model score"
+  },
+  "frozen_sources": {
+    "projected_features_sha256": "cd9b075b923c31afe10b9a9c6d720de22e221c93de961595ff484ea4f532b90a",
+    "oof_scores_sha256": "5000deb9b77b3e7b326ccab6455222b291d2ec859ddab2043fe67d23a3217c5e",
+    "labels_sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+    "proxy_sha256": "2175696171c0d874fca4b9aa456ff5fd7d570f2184f59ade6781198f6443198e",
+    "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+    "blind_trace_aggregate_sha256": "11ad3e24aec412f6cb3b146d248aa7e2335a12dafccc20241eeb3301af97ca24",
+    "combined_blind_trace_sha256": "f9a441220926aebf49f4b4d54a0f50df99f72ad4f8c0342e5528517503473e7b",
+    "chosen_raw_sha256": "229952c9ced7f6eec1ff1938480adc85ba5093ad865336465749029576e47051",
+    "activation_raw_sha256": "48ad9137cb3b99985d3d7e4035575bf06225d8c6b4f9f3c134a468f404d1c410"
+  },
+  "outcome_protocol": {
+    "target_free_before_receipt": ["validate preregistration and source hashes", "load catalog, blind traces, projected features, OOF scores", "decode versions and reconstruct chosen", "create durable O_EXCL receipt marker"],
+    "single_post_receipt_attach": ["open the five pinned numeric label members once", "reproduce the frozen 60-fit/5-selection OOF activation", "reconstruct grace pages twice", "open the pinned train_explore proxy once only to bind absent-C100 targets to catalog metadata"],
+    "fixed_output": "experiments/fast_track/small_ranker_v2_14/grace_remaining_miss_attribution_20260831/result.json",
+    "output_not_cli_overridable": true,
+    "rerun_forbidden": true,
+    "no_evaluator_or_agent": true
+  },
+  "exclusive_primary_funnel_in_order": {
+    "candidate_absent_at_c100": "target is absent from raw C100 on every causally eligible turn",
+    "admission_grace_state_rejection": "target is C100-reachable and either the frozen ranker chooses it on an eligible turn that admission rejects, or it is excluded only by actual served-state/history while an eligibility-reset replay would expose it",
+    "candidate_present_but_ranker_failure": "target is C100-reachable but neither frozen admitted ranking nor grace state exposes it on an eligible page"
+  },
+  "candidate_frontier": {
+    "present_by_c200": {"count": null, "status": "pending_not_observed", "reason": "frozen blind trace ends at exact C100"},
+    "present_by_c400": {"count": null, "status": "pending_not_observed", "reason": "frozen blind trace ends at exact C100"},
+    "absent_at_c400": {"count": null, "status": "pending_not_observed", "reason": "frozen blind trace ends at exact C100"},
+    "rule": "do not infer C200/C400 from C100 or from unrelated adaptive-depth artifacts; resolve only in separately preregistered target-blind recall probes"
+  },
+  "nonexclusive_diagnostics": {
+    "old_intent_or_question_lifecycle": "target occurs in raw C100 or the grace page before eligible_from but is absent from raw C100 on every eligible turn",
+    "query_or_attribute_information_insufficient": "on every eligible turn query_specificity_fraction or active_constraint_count_fraction is zero, OR every reachable target row has zero compatible slot evidence and positive missing/unknown evidence",
+    "catalog_metadata_missing": "target catalog row is absent, title/categories are empty, all descriptive evidence fields are empty, or price is null; serialize aggregate field counts only"
+  },
+  "required_output": {
+    "anonymous_only": true,
+    "include": ["primary counts and fractions", "primary counts by outer fold", "C10/C20/C50/C100 recall for all sessions and the 18 misses", "candidate frontier pending states", "nonexclusive diagnostic counts", "exact repeat and reference identities", "wall time, P95 transform latency, RSS, GPU peak", "source, artifact, result and commit hashes"],
+    "forbid": ["session or sample identifiers", "product identifiers", "per-session vectors", "target strings", "positive_index", "eligible_from", "protected split data"]
+  },
+  "decision_rule": {
+    "largest_primary_count": "select the largest exclusive primary bottleneck; ties resolve candidate_absent_at_c100, then candidate_present_but_ranker_failure, then admission_grace_state_rejection",
+    "next_required_stage": "run the single preregistered fixed-two-page-grace plus frozen score-priority composition smoke; if it is No-Go, use the largest bottleneck to choose candidate recall versus ranking/state work",
+    "models_not_preselected": true
+  },
+  "safety": {"runtime_target_features": 0, "runtime_change": false, "default": "off", "protected_splits_opened": false, "downloads": false, "gpu_used": false, "resource_limits": {"wall_seconds": 120, "peak_working_set_bytes": 2147483648}}
+}
