@@ -1,0 +1,52 @@
+{
+  "schema_version": "small-ranker-pairwise-projection-preregistration.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.1-PAIRWISE-PROJECTION",
+  "parent_commit": "ccc749d",
+  "hypothesis": "the existing pairwise_d4_control ranker improves correct slot-10 proposal coverage on the 35 attributed ranker failures because its frozen raw-feature top1 accuracy is 0.796377 versus 0.777730 for ndcg_d4_lr003",
+  "unique_variable": "ranker objective/model changes from ndcg_d4_lr003 to the already-trained pairwise_d4_control outer-fold models",
+  "held_constant": [
+    "semantic-off projected feature tensor",
+    "C100 candidate universe",
+    "P11 ranks 1-9 protection and slot-10-only action",
+    "rescue plus reciprocal-rank-regret admission heads",
+    "RR multiplier 1.0",
+    "0/64 through 63/64 plus KEEP quantile grid",
+    "aggregate and every-inner-fold zero-harm/MRR/MTTC safety",
+    "outer product-family folds and inner folds",
+    "target-blind runtime feature schema"
+  ],
+  "frozen_pairwise_models": {
+    "fold_0": "bd28443e989f781fafe15853774cc59479eedf678833582061a3100efe49d26e",
+    "fold_1": "0ee45185c3bb98411cb212af2ba5a538481a6fdf20427e9913a9e8d001f480a6",
+    "fold_2": "2ace1279a863ece15f1021198fb3892fe68788df0e51ecf694a15ed4f0c27f71",
+    "fold_3": "d73c4339edac4cbac9ef25cc15d97553068767e09ec1ae01dc3aec3d059cbaf0",
+    "fold_4": "6b634f5aed8e21a39820b964bb1bfdb25787cf5e50b14971927599b9338422a5"
+  },
+  "repeat_protocol": {
+    "score_semantic_off_outer_oof_twice": true,
+    "require_score_files_byte_identical": true,
+    "run_nested_admission_twice": true,
+    "require_activation_and_canonical_metrics_identical": true,
+    "new_exclusive_outputs_only": true
+  },
+  "promotion_gate_against_current_0_9715_policy": {
+    "aggregate_hr_at_10_strictly_greater": true,
+    "hit_to_miss": 0,
+    "every_fold_net_hits_nonnegative": true,
+    "every_fold_mrr_delta_nonnegative": true,
+    "aggregate_mrr_delta_nonnegative": true,
+    "every_fold_mttc_delta_nonpositive": true,
+    "aggregate_mttc_delta_nonpositive": true,
+    "technical_score_delta_strictly_positive": true,
+    "target_blind_and_deployable": true
+  },
+  "execution_boundary": {
+    "ranker_retrained": false,
+    "agent_or_evaluator_started": false,
+    "held_out_split_opened": false,
+    "external_data_downloaded": false,
+    "full_model_or_artifact_only_if_promoted": true
+  },
+  "decision_rule": "Promote only if every gate passes; otherwise record No-Go and select a materially different ranker mechanism without tuning this objective or its admission thresholds"
+}
