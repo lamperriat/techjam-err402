@@ -1,0 +1,182 @@
+{
+  "schema_version": "small-ranker-benchmark-comparability.v1",
+  "recorded_on": "2026-08-31",
+  "comparison_id": "SR-GLOBAL-GRACE-VS-RANK1-20260831",
+  "status": "OFFICIAL_6DP_COMPARABLE_AFTER_COMPONENT_NORMALIZATION_SHARED_COHORT",
+  "comparison_base": "39f1618f59f89052c347438164a1d17f11355558",
+  "subjects": {
+    "global_incumbent": {
+      "experiment_id": "SR-V2.12-FIXED-TWO-PAGE-GRACE",
+      "manifest_commit": "7d08e144fe6f589d64fab21f1b68c3ec2feeb684",
+      "preregistration_commit": "6657a38cafb8f31a4e2244bf7157ffc96f59b532",
+      "implementation_commit": "e53c97629ade1cb97a66a40f7e9adb425a0b027f",
+      "manifest": {
+        "path": "configs/small_ranker_v2_12.fixed_two_page_grace.manifest.json",
+        "git_blob_oid_sha1": "55784a74f1896c790d3ff11138fe491fe9700c18",
+        "git_blob_raw_sha256": "9774509cb7922cb68a66aa4ea995a9f871d420b73b0365c33a01ada5ed955873",
+        "git_blob_bytes": 2992
+      },
+      "result": {
+        "path": "experiments/fast_track/small_ranker_v2_12/fixed_two_page_grace_20260831T0230/result.json",
+        "availability": "EXTERNAL_HASH_BOUND_BY_COMMITTED_MANIFEST",
+        "raw_sha256": "5035cf7823fd3f55138a1c224b4b124d67405a20aa5b15bf1b1601f016de8dbe",
+        "raw_bytes": 4916,
+        "replay_payload_canonical_sha256": "9377deb5f9f6f19fe4fb41077892613232b59e69d51bb7ad19a2ee0cc063486d",
+        "exact_repeat_equal": true
+      },
+      "official_6dp_metrics_after_component_normalization": {
+        "hit_rate_at_10": 0.991,
+        "mrr": 0.695795,
+        "mttc": 2.869,
+        "technical_score": 0.866858,
+        "miss_to_hit": 39,
+        "hit_to_miss": 0,
+        "fold_net_hits": [14, 8, 7, 8, 2],
+        "fold_mrr_delta": [0.019319, 0.007305, 0.036768, 0.004668, 0.026609],
+        "fold_mttc_delta": [-0.2825, -0.1825, -0.1425, -0.185, -0.1425],
+        "fold_technical_score_delta": [0.028946, 0.015842, 0.02263, 0.0151, 0.013333],
+        "normalization_audit": "global and all five fold baseline/policy TechnicalScore values recomputed from serialized official-6dp HR/MRR/MTTC equal the stored values"
+      },
+      "evidence_tier": "E2_PREREGISTERED_HASH_BOUND_CACHED_REPLAY",
+      "durable_exclusive_receipt_proven": false,
+      "served_default": "off"
+    },
+    "local_rank1_evidence": {
+      "experiment_id": "SR-V2.12-RANK1-SEEN-REPLACEMENT",
+      "manifest_commit": "ddc963d569b300c8e590272b9c4e65ad5164b670",
+      "implementation_commit": "4281142e6ab5548801f78ec25a57084965808731",
+      "manifest": {
+        "path": "configs/small_ranker_v2_12.rank1_seen_replacement.manifest.json",
+        "git_blob_oid_sha1": "6a62b1fa5309a3fa95a696b7fcfe5301770b3cdc",
+        "git_blob_raw_sha256": "1f95193572d777a29b49af5150c5b7cf0faf40c58efa5e4f4419b1003504e7c4",
+        "git_blob_bytes": 5465
+      },
+      "result": {
+        "path": "experiments/fast_track/small_ranker_v2_12/rank1_seen_replacement_one_shot_20260831/rank1_seen_replacement_result.json",
+        "git_blob_oid_sha1": "36d7005b526af8912a2db3a038120efad16f4a22",
+        "raw_sha256": "46561c7281f0b1cf39a37bfc598b18683ff07747969edc7b895019808b965525",
+        "raw_bytes": 16463,
+        "replay_identity_canonical_sha256": "272bc0cbabec7ecc77120cbe7db85d0e3635afb87d85cc66159f72fc917a3745",
+        "exact_repeat_equal": true
+      },
+      "official_6dp_metrics_after_mechanical_erratum": {
+        "hit_rate_at_10": 0.9765,
+        "mrr": 0.684856,
+        "mttc": 3.015,
+        "technical_score": 0.853407,
+        "miss_to_hit": 10,
+        "hit_to_miss": 0,
+        "fold_net_hits": [3, 0, 6, 0, 1]
+      },
+      "original_receipt_status": "INVALID_IMPLEMENTATION_NO_ALGORITHM_CONCLUSION",
+      "post_outcome_change": "MECHANICAL_INTERPRETATION_ONLY",
+      "fresh_attach_after_erratum": false,
+      "evidence_tier": "E3_DURABLE_GIT_BOUND_ONE_SHOT_WITH_STATIC_ERRATUM",
+      "served_default": "off"
+    }
+  },
+  "benchmark_contract": {
+    "split": "train_explore",
+    "session_count": 2000,
+    "turn_count": 10,
+    "session_order_and_ground_truth_source_raw_sha256": "2175696171c0d874fca4b9aa456ff5fd7d570f2184f59ade6781198f6443198e",
+    "session_target_set_sha256": "1dc8ca5190a3f4a28d9ef2cbbf79f8b4fef226edb68b28f38941a42ffafd1b5b",
+    "label_archive": {
+      "path": "experiments/fast_track/small_ranker_v1/labels_v2.npz",
+      "raw_sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+      "raw_bytes": 1702876,
+      "identity_proof": "the implementations use different committed loaders and both hard-gate the same whole-archive SHA256; rank1 additionally hard-gates byte count, while this manifest records the common expected byte count; grace uses shared _load_inputs and rank1 uses its durable one-shot loader"
+    },
+    "fold_assignment": {
+      "outer_fold_count": 5,
+      "outer_session_counts": [400, 400, 400, 400, 400],
+      "inner_fold_count": 5,
+      "outer_and_inner_member_raw_hashes": "NOT_SEPARATELY_SERIALIZED",
+      "content_identity": "MATCH_BY_SAME_WHOLE_ARCHIVE_SHA256_AND_TWO_HASH_GATED_LOADERS",
+      "grace_label_loader_git_blob_oid_sha1": "5a714ca8c6d2cf6403be89ae6e107a4d0e0b2512",
+      "grace_label_loader_git_blob_raw_sha256": "5115026c53b21d4d5930cb9af7783c0988b049a0e259f5a0a588901ad44f5e8b",
+      "rank1_label_loader_git_blob_oid_sha1": "f15c54aae4a3760d95afd366f07bdefd1ef34665",
+      "rank1_label_loader_git_blob_raw_sha256": "fbdabbbdfae388e6a5c1b3ca5d60dc20b35a885b1a2ace7a8cb2104d3b239652",
+      "cache_manifest_git_blob_oid_sha1": "0da6d6268c2042d9854f95c4227a224bfa6342da",
+      "cache_manifest_canonical_sha256": "9519c2e8bddae8d5bd283bd6f72c1a4074a44be384837d0ca5444fb0915011b9",
+      "family_rule_sha256": "51a6ab44518adc60177a3856e20f2642084c82aa118c3fb8d46790820b5f6a97",
+      "precision_limit": "historical grace fold metrics are OFFICIAL_6DP only; future exact gates must reconstruct grace and candidate inside the same frozen attach"
+    },
+    "catalog_raw_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+    "baseline_artifact": {
+      "path": "starter/assets/small_ranker_fold_safe_v1.json",
+      "role": "full-data deployable lineage and fallback; cached comparison identity is primarily the nested-OOF chosen and activation arrays below",
+      "git_blob_oid_sha1": "c62922bc7478c3a5b0d6df67c6372923630d8fb9",
+      "git_blob_raw_sha256": "f8d0b6c0e402edeb34b1e35119c5295449888bc1be713607e88337fa874d16dc",
+      "git_blob_bytes": 256639,
+      "canonical_json_sha256": "097b91a7b16fbdcf0e93f5c9d8aab0236662c00939d1bba10bd0b488fa0c0f09",
+      "windows_checkout_observation": {
+        "raw_sha256": "f2d0e381b2362613010f3c8f2eb36f84f47b7932ab439480c7045effe59ffc31",
+        "raw_bytes": 256640,
+        "cause": "core.autocrlf converts the single terminal LF to CRLF",
+        "not_a_distinct_artifact": true
+      }
+    },
+    "candidate_and_trace_sources": {
+      "feature_cache_raw_sha256": "2b19835a1bced7f21322610296c712e3d06d915274719e11c268d31f7f596089",
+      "projected_feature_raw_sha256": "cd9b075b923c31afe10b9a9c6d720de22e221c93de961595ff484ea4f532b90a",
+      "oof_score_raw_sha256": "5000deb9b77b3e7b326ccab6455222b291d2ec859ddab2043fe67d23a3217c5e",
+      "blind_trace_aggregate_sha256": "11ad3e24aec412f6cb3b146d248aa7e2335a12dafccc20241eeb3301af97ca24",
+      "combined_blind_trace_sha256": "f9a441220926aebf49f4b4d54a0f50df99f72ad4f8c0342e5528517503473e7b",
+      "trace_registry_sha256": "713a058b39c7fba7dc1775b48f852a0e28744e3702372e361733766c2de4bb8a",
+      "p11_sidecar_raw_sha256": "83b6d8c04be6666173806b6e9cb03301eecb8ca58a60272bfa719e6533380473",
+      "chosen_ndarray_raw_sha256": "229952c9ced7f6eec1ff1938480adc85ba5093ad865336465749029576e47051",
+      "activation_ndarray_raw_sha256": "48ad9137cb3b99985d3d7e4035575bf06225d8c6b4f9f3c134a468f404d1c410"
+    },
+    "evaluator": {
+      "source_path": "evaluator/local_evaluator.py",
+      "git_blob_oid_sha1": "7c808347b31ef3121a9cbc4810ac3eb325f950ba",
+      "git_blob_raw_sha256": "79a5ea06f9a1b8c5036f30efa85dc1f36b8f6b06eb8feb8f545dfa767bc45564",
+      "metric_bridge_path": "scripts/analyze_small_ranker_metric_gate.py",
+      "metric_bridge_git_blob_oid_sha1": "89b657e523f1feab7a9db4dce9ec9601912bc0c1",
+      "metric_bridge_git_blob_raw_sha256": "6af0e6249ca8c5bbeef5da29108995dc0f7b0621f53b3f99cc21da02c4b0cf0d",
+      "rank1_exact_metric_runner_path": "scripts/evaluate_rank1_seen_replacement.py",
+      "rank1_exact_metric_runner_git_blob_oid_sha1": "f15c54aae4a3760d95afd366f07bdefd1ef34665",
+      "rank1_exact_metric_runner_git_blob_raw_sha256": "fbdabbbdfae388e6a5c1b3ca5d60dc20b35a885b1a2ace7a8cb2104d3b239652",
+      "miss_first_hit_turn": 11,
+      "official_rounding": "round aggregate HR, MRR and MTTC to 6 decimals; derive efficiency from rounded MTTC; derive TechnicalScore as 0.50*rounded_HR + 0.30*rounded_MRR + 0.20*efficiency; round reported efficiency and TechnicalScore to 6 decimals",
+      "legacy_grace_runner_rounding": "the grace helper computes its stored TechnicalScore from unrounded components; this source pipeline is not bit-identical to the official order",
+      "normalization_result": "recomputing global and every-fold baseline/policy TechnicalScore from the serialized 6dp components under the official order reproduces all stored values exactly",
+      "historical_grace_precision": "OFFICIAL_6DP",
+      "rank1_receipt_precision": "EXACT_RATIONAL_AND_OFFICIAL_6DP"
+    }
+  },
+  "checks": [
+    {"dimension": "session_cohort_and_order", "status": "MATCH", "origin": "SERIALIZED_SOURCE_HASH"},
+    {"dimension": "ground_truth_archive", "status": "MATCH", "origin": "SOURCE_DERIVED_HASH_CHECK"},
+    {"dimension": "outer_inner_fold_content", "status": "MATCH_BY_SAME_WHOLE_ARCHIVE_SHA256_AND_TWO_HASH_GATED_LOADERS", "origin": "SOURCE_DERIVED"},
+    {"dimension": "proxy", "status": "MATCH", "origin": "SERIALIZED_SOURCE_HASH"},
+    {"dimension": "baseline_artifact", "status": "MATCH", "origin": "GIT_BLOB_IDENTITY"},
+    {"dimension": "official_evaluator_reference_source", "status": "MATCH", "origin": "GIT_BLOB_IDENTITY"},
+    {"dimension": "executed_cached_metric_contract", "status": "SEMANTIC_MATCH_AFTER_OFFICIAL_COMPONENT_NORMALIZATION; RUNNER_SOURCES_DIFFER", "origin": "BOTH_IMPLEMENTATION_SOURCES_PLUS_RESULT_RECOMPUTATION"},
+    {"dimension": "candidate_trace_sources", "status": "MATCH", "origin": "SERIALIZED_SOURCE_HASH"},
+    {"dimension": "historical_exact_unrounded_precision", "status": "UNVERIFIED_FOR_GRACE", "origin": "NOT_SERIALIZED"},
+    {"dimension": "resource_wall_time", "status": "NOT_COMPARABLE", "origin": "DIFFERENT_RUNNER_AND_TIMED_REGION"}
+  ],
+  "verdict": {
+    "global_metrics": "OFFICIAL_6DP_COMPARABLE_AFTER_COMPONENT_NORMALIZATION",
+    "fold_metrics": "OFFICIAL_6DP_COMPARABLE_AFTER_COMPONENT_NORMALIZATION_BY_SAME_ARCHIVE_AND_HASH_GATED_LOADERS",
+    "exact_unrounded_metrics": "RECONSTRUCT_BOTH_POLICIES_IN_THE_SAME_FUTURE_ONE_SHOT",
+    "statistical_independence": "SHARED_COHORT_NONINDEPENDENT",
+    "resource_comparison": "NOT_COMPARABLE_RESOURCE",
+    "global_incumbent_experiment_id": "SR-V2.12-FIXED-TWO-PAGE-GRACE",
+    "global_incumbent_hr_at_10": 0.991,
+    "allowed_claim": "0.9910 is the comparable shared-cohort OOF incumbent; it is not a private or independent-validation score",
+    "new_global_promotion_requires": {
+      "comparison_reference": "SR-V2.12-FIXED-TWO-PAGE-GRACE",
+      "precision": "OFFICIAL_6DP_UNTIL_SAME_ATTACH_EXACT_RECONSTRUCTION",
+      "hit_rate_at_10_strictly_greater_than": 0.991,
+      "hit_to_miss": 0,
+      "aggregate_mrr_minimum": 0.695795,
+      "aggregate_mttc_maximum": 2.869,
+      "aggregate_technical_score_strictly_greater_than": 0.866858,
+      "every_outer_fold_hr_mrr_mttc_technical_score_non_degradation": true,
+      "exact_repeat": true
+    }
+  }
+}
