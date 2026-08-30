@@ -1,0 +1,280 @@
+{
+  "schema_version": "small-ranker-rank1-seen-replacement-preregistration.v1",
+  "status": "PREREGISTERED_BEFORE_OUTCOME",
+  "recorded_on": "2026-08-31",
+  "experiment_id": "SR-V2.12-RANK1-SEEN-REPLACEMENT",
+  "parent_commit": "39f1618f59f89052c347438164a1d17f11355558",
+  "unique_mechanism": "within each target-blind intent version, replace rank 1 only when the current rank-1 product has already been served; use the highest-ranked unseen frozen-C100 tail product and leave ranks 2 through 10 byte-identical",
+  "preregistered_hypothesis": "v2.10 proves that version-scoped unseen exposure has enough membership capacity to reach HR@10 0.991 with zero hit-to-miss, while its MRR loss comes from moving new products into arbitrary lower ranks; restricting novelty to a previously served rank-1 slot makes every new first hit rank 1 and cannot remove an unserved eligible hit, so HR, reciprocal rank, and first-hit turn should be structurally non-decreasing",
+  "evidence_lineage": {
+    "v2_9_stage2": {
+      "commit": "f8fc90fb4f0b0aebae44ce6d11aa0225cc48bee3",
+      "branch": "small-ranker-v2.9-stage2-repair2",
+      "manifest_path": "configs/small_ranker_v2_9.top5_proposal_depth_stage2.manifest.json",
+      "manifest_git_blob_oid": "e91435e447f4cf22c19e551e9e38f43b9e1224b9",
+      "manifest_canonical_json_sha256": "85fc7eab5dfed909dfaadea926553b882347c0ac2657e23f613612fcc0fc3127",
+      "result_sha256": "da57c3fef7c6c4244eda4e6a07d4dfd9a1f43c78540de48e560850f5b046b66c",
+      "strict_decision_sha256": "7fbcb3ff1ac824265904199007953549e09dd6f4113f7ff614647ae6631f948a",
+      "status": "NO_GO_CLOSE_EXACT_K5_ROUTE",
+      "global_exact_k5_zero_harm_ceiling_hr_at_10": 0.989
+    },
+    "v2_10_unseen_pagination": {
+      "commit": "32a5aa65fba066a276ea9a9bcf407472d0104571",
+      "manifest_path": "configs/small_ranker_v2_10.versioned_unseen_pagination.manifest.json",
+      "manifest_git_blob_oid": "8ff65404878eec26df0c21146677af0c55f99eaf",
+      "manifest_canonical_json_sha256": "e31909f52b44dac00acb53fbd5a2296d9fab7f796e01d106bd189375dc1f4e0b",
+      "hit_rate_at_10": 0.991,
+      "miss_to_hit": 39,
+      "hit_to_miss": 0,
+      "fold_net_hits": [14, 8, 7, 8, 2],
+      "mrr_delta": -0.006082,
+      "mttc_delta": -0.259,
+      "status": "NO_GO_MRR_ONLY"
+    },
+    "v2_11_seen_hole": {
+      "commit": "39f1618f59f89052c347438164a1d17f11355558",
+      "manifest_path": "configs/small_ranker_v2_11.seen_hole_replacement.manifest.json",
+      "manifest_git_blob_oid": "dfcc7cd68cdb2d75c88837af38e95f14c4e65b0b",
+      "manifest_canonical_json_sha256": "926266ea0da25e2d3f67d05c33a29ec66424735afd551f02cab44254f321e2fa",
+      "hit_rate_at_10": 0.991,
+      "miss_to_hit": 39,
+      "hit_to_miss": 0,
+      "mrr_delta": -0.031519,
+      "status": "NO_GO_MRR"
+    }
+  },
+  "frozen_comparator": {
+    "policy": "v1.9 semantic-off nested-OOF ranker plus rescue/RR-regret admission",
+    "activation_sha256": "48ad9137cb3b99985d3d7e4035575bf06225d8c6b4f9f3c134a468f404d1c410",
+    "chosen_sha256": "229952c9ced7f6eec1ff1938480adc85ba5093ad865336465749029576e47051",
+    "hits": 1943,
+    "misses": 57,
+    "hit_rate_at_10": 0.9715,
+    "mrr": 0.676861,
+    "mttc": 3.056,
+    "technical_score": 0.847688
+  },
+  "frozen_inputs": {
+    "source_root": "D:/tiktok/techjam-err402-fast-track",
+    "projection_root": "D:/tiktok/techjam-v1-2-metric-gate",
+    "train_explore_proxy_sha256": "2175696171c0d874fca4b9aa456ff5fd7d570f2184f59ade6781198f6443198e",
+    "blind_trace_aggregate_sha256": "11ad3e24aec412f6cb3b146d248aa7e2335a12dafccc20241eeb3301af97ca24",
+    "combined_blind_trace_sha256": "f9a441220926aebf49f4b4d54a0f50df99f72ad4f8c0342e5528517503473e7b",
+    "feature_cache_sha256": "2b19835a1bced7f21322610296c712e3d06d915274719e11c268d31f7f596089",
+    "label_cache_sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+    "semantic_off_projected_features_sha256": "cd9b075b923c31afe10b9a9c6d720de22e221c93de961595ff484ea4f532b90a",
+    "semantic_off_oof_scores_sha256": "5000deb9b77b3e7b326ccab6455222b291d2ec859ddab2043fe67d23a3217c5e"
+  },
+  "causal_reset_contract": {
+    "online_signal": "starter.agent.SessionState.version from the current visible conversation state",
+    "online_rule": "before choosing the current page, clear only this mechanism's served-product set when this is the first response or state.version differs from the mechanism's last_version; after serving, record the actual returned Top10 and the current version",
+    "production_semantics": "SessionState.version starts at 1 and increments before ranking on a visible category change or parsed override; a new Agent session creates a new SessionState",
+    "offline_signal": {
+      "artifact": "D:/tiktok/techjam-v1-2-metric-gate/experiments/fast_track/small_ranker_fold_safe_projected_features.npy",
+      "artifact_sha256": "cd9b075b923c31afe10b9a9c6d720de22e221c93de961595ff484ea4f532b90a",
+      "shape": [2000, 10, 100, 133],
+      "dtype": "float32",
+      "feature_name": "goal_version_fraction",
+      "zero_based_feature_index": 126,
+      "formula": "min(SessionState.version,10)/10",
+      "decode": "round(10 * value)",
+      "reset": "turn 1 or decoded_version[current_turn] != decoded_version[previous_turn]",
+      "required_invariants": [
+        "all 100 candidate rows have the exact same feature bits on each session-turn",
+        "the decoded first-turn version equals 1",
+        "each adjacent decoded version is unchanged or increments by exactly 1",
+        "the encoded value exactly equals float32(min(decoded_version,10)/10)",
+        "every non-final turn has encoded version below 1.0 so feature clipping cannot hide a later reset",
+        "goal_age_fraction equals float32(0.1) on every detected reset"
+      ]
+    },
+    "target_free_precheck_observation": {
+      "candidate_invariant_max_spread": 0.0,
+      "goal_version_unique": [0.1, 0.2],
+      "maximum_goal_version_fraction": 0.2,
+      "non_final_saturation_count": 0,
+      "version_increment_boundaries": 300,
+      "version_decreases": 0,
+      "increment_without_current_turn_override": 0,
+      "current_turn_override_without_increment_after_turn_1": 0,
+      "reset_goal_age_mismatches": 0
+    },
+    "source_bindings_at_parent": {
+      "starter/agent.py": {
+        "git_blob_oid": "421c6d43c598102b8fefb181b72bab5da4bf1294",
+        "sha256": "d3ff7ff6d64de11c37c4cf2484b4f641ceec01cb9c187d76c66bc94ff57a4e9c"
+      },
+      "starter/small_ranker.py": {
+        "git_blob_oid": "131367324f389fafbfb7f647e4bcd03e3f98c20c",
+        "sha256": "10cf852e60a6a03d3c044c2db5d7c78b74dff69aedc5bfcd0d2fd310d34131df"
+      },
+      "scripts/build_small_ranker_cache.py": {
+        "git_blob_oid": "8724f052155ae7405ecd675bdebd83df18685895",
+        "sha256": "b80ffcb69ce577e6b9517907d62fb0dc1ad08a270060600e7165645335af77bc"
+      },
+      "scripts/train_small_ranker.py": {
+        "git_blob_oid": "1388e8746d002a850b54b08cac886f8ab4afddf0",
+        "sha256": "c67b25b92715cf7668079ee03bf1c716664f4e69b2fc76bf5ffd19073aabbad1"
+      }
+    },
+    "forbidden_reset_inputs": [
+      "sample_id",
+      "scenario_type",
+      "eligible_from",
+      "ground_truth",
+      "target",
+      "future turns",
+      "evaluator-only metadata"
+    ],
+    "state_isolation": "the mechanism must own a separate served-product set; starter.small_ranker._history is frozen ranker coverage history and must not be reused, cleared, or otherwise changed"
+  },
+  "target_blind_policy": {
+    "input_order": "reconstruct the frozen v1.9 full C100 order for the current turn",
+    "state": "one independently owned served-product set plus last_version, scoped by the current visible SessionState.version",
+    "reset": "apply causal_reset_contract before choosing the page; never call the offline proxy eligible-turn helper",
+    "identity_case": "if current rank 1 is not in the served set, return the unchanged current Top10",
+    "replacement_case": "if current rank 1 is already served, scan current C100 positions 11 through 100 and choose the first product that is both unseen in this intent version and absent from the current Top10",
+    "mutation": "replace rank 1 with that single product; preserve ranks 2 through 10 exactly",
+    "fallback": "if no legal replacement exists, return the unchanged current Top10",
+    "state_update": "after serving, add all ten returned products to the active-version served set",
+    "target_or_future_information": false,
+    "ranker_or_admission_change": false,
+    "model_training_or_threshold": false,
+    "k5_policy_reused": false,
+    "maximum_pool_depth": 100
+  },
+  "structural_safety_proof": {
+    "eligible_version_boundary": "the served set is empty on turn 1 and every runtime-visible SessionState.version change; labels never choose or alter this boundary, and outcome attachment may only audit that evaluator eligibility agrees with it",
+    "removed_item_cases": {
+      "previously_unchanged_rank_2_to_10": "candidate and comparator both returned the item at the same earlier turn and rank, so a later rank-1 removal cannot change either first hit",
+      "previously_inserted_by_novelty": "the candidate already returned the item at rank 1 on an earlier eligible turn, so its later removal cannot reduce candidate hit or reciprocal rank",
+      "previously_unchanged_rank_1": "candidate and comparator both already returned the item at rank 1 on an earlier eligible turn"
+    },
+    "removed_item_exhaustiveness": "replacement requires the removed rank-1 product to be in this version's actual-served set, so at least one of the three prior-serving cases applies and any one is sufficient",
+    "inserted_item": "an inserted target is returned at rank 1, so it cannot create a lower reciprocal-rank first hit",
+    "unchanged_items": "ranks 2 through 10 keep the same product and rank",
+    "expected_dominance": [
+      "candidate hit is a superset of comparator hit",
+      "candidate first-hit turn is no later",
+      "candidate first-hit reciprocal rank is no lower"
+    ],
+    "limitation": "the proof depends on the visible version boundary matching evaluator eligibility; any mismatch or observed per-session dominance violation is an implementation/protocol invalidation, not a parameter-tuning signal"
+  },
+  "required_target_free_checks": [
+    "v1.9 activation and chosen raw hashes reproduce before policy comparison",
+    "first and every reset page are byte-identical to the comparator page",
+    "each changed page differs only at rank 1",
+    "every removed rank-1 product is already served in the active version",
+    "every inserted product belongs to the current frozen C100, is outside current Top10, and is unserved in the active version",
+    "ranks 2 through 10 are byte-identical",
+    "every output page contains exactly ten unique products",
+    "two in-process replays have the same canonical result identity before timing",
+    "no individual session, target, product, or membership vector is serialized"
+  ],
+  "required_post_attach_integrity_checks": [
+    "the last target-free decoded reset turn equals evaluator eligible_from for all 2000 sessions; labels audit but never determine reset",
+    "candidate hit is a per-session superset of comparator hit",
+    "for every candidate hit, candidate first-hit turn is no later than comparator first-hit turn whenever the comparator hit",
+    "when candidate and comparator first-hit turns are equal, candidate first-hit rank is no larger",
+    "when candidate first-hit turn is earlier, candidate first-hit rank equals 1",
+    "only aggregate counts of integrity violations may be serialized; no per-session vector, identifier, target, rank, or turn may be written"
+  ],
+  "outcome_protocol": {
+    "precondition": "this preregistration and the separate implementation checkpoint must be committed and pushed before the cached outcome replay",
+    "attach_count": 1,
+    "completed_attach_count_before_run": 0,
+    "policy_frozen_before_target_metric": true,
+    "target_use": "after the irreversible receipt only: train_explore aggregate and outer-fold HR/MRR/MTTC/TechnicalScore plus a transient per-session dominance and reset-versus-eligibility audit; no target-derived value may enter policy state, reset, fit, selection, or a serialized per-session record",
+    "no_parameter_selection_after_attach": true,
+    "mechanical_failure_before_any_target_metric": "repair only the preregistered implementation mechanic",
+    "dominance_violation": "INVALID_IMPLEMENTATION_NO_ALGORITHM_CONCLUSION",
+    "valid_no_go": "record and close this exact rank-1 transform; do not add a threshold or sweep",
+    "one_shot_output": "experiments/fast_track/small_ranker_v2_12/rank1_seen_replacement_one_shot_20260831/rank1_seen_replacement_result.json",
+    "one_shot_receipt": "resolve the fixed non-overridable output below this worktree, reject every symlink component, create it with O_EXCL, write and flush+fsync a canonical durable CONSUMED_PENDING marker, and only then permit the first sealed-label open/hash/member access; any existing empty, partial, pending, invalid, or complete file permanently means consumed and forbids rerun; a caught post-receipt failure must overwrite, flush, and fsync canonical INVALID_ONE_SHOT_CONSUMED without deleting or replacing the path",
+    "result_schema_version": "small-ranker-rank1-seen-replacement-outcome.v1"
+  },
+  "checkpoint_choreography": {
+    "branch": "small-ranker-v2.12-rank1-seen-replacement",
+    "remote": "origin",
+    "remote_url": "https://github.com/lamperriat/techjam-err402.git",
+    "remote_tracking_ref": "refs/remotes/origin/small-ranker-v2.12-rank1-seen-replacement",
+    "preregistration_commit": {
+      "direct_parent": "39f1618f59f89052c347438164a1d17f11355558",
+      "changed_path_set_must_equal_allowed_paths": true,
+      "allowed_paths": [
+        "configs/small_ranker_v2_12.rank1_seen_replacement_preregistration.json"
+      ],
+      "must_be_pushed_before_implementation": true
+    },
+    "implementation_commit": {
+      "direct_parent_rule": "the exact pushed commit containing this preregistration and no other changed path",
+      "changed_path_set_must_equal_allowed_paths": true,
+      "allowed_paths": [
+        "scripts/evaluate_rank1_seen_replacement.py",
+        "tests/test_rank1_seen_replacement.py"
+      ],
+      "must_be_pushed_before_label_hash_open_or_metric": true
+    },
+    "formal_run": {
+      "head_equals_implementation_commit": true,
+      "head_equals_exact_remote_tracking_ref": true,
+      "git_status_porcelain_v1_untracked_files_all_is_empty": true,
+      "fixed_output_absent_before_run": true,
+      "fixed_output_must_not_be_cli_overridable": true,
+      "preflight_recomputes_both_direct_parent_and_exact_changed_path_sets": true,
+      "durable_consumed_marker_precedes_any_label_open_or_hash": true,
+      "forbidden_before_both_commits_are_pushed": [
+        "label archive open or hash",
+        "target or eligible_from access",
+        "outcome metric computation",
+        "per-session dominance audit"
+      ]
+    }
+  },
+  "promotion_gates": {
+    "comparison": "frozen v1.9 global comparator",
+    "rounding_contract": "every metric boundary must pass both the exact-unrounded value and the official value rounded to 6 decimal places; a pass on only one representation is a failure",
+    "aggregate_hr_at_10_exact_strictly_greater_than": 0.9715,
+    "aggregate_hr_at_10_official_6dp_strictly_greater_than": 0.9715,
+    "aggregate_miss_to_hit_minimum": 1,
+    "aggregate_hit_to_miss_equals": 0,
+    "every_outer_fold_hr_exact_delta_minimum": 0.0,
+    "every_outer_fold_hr_official_6dp_delta_minimum": 0.0,
+    "every_outer_fold_net_hits_minimum": 0,
+    "every_outer_fold_hit_to_miss_equals": 0,
+    "every_outer_fold_mrr_exact_delta_minimum": 0.0,
+    "every_outer_fold_mrr_official_6dp_delta_minimum": 0.0,
+    "every_outer_fold_mttc_exact_delta_maximum": 0.0,
+    "every_outer_fold_mttc_official_6dp_delta_maximum": 0.0,
+    "aggregate_mrr_exact_delta_minimum": 0.0,
+    "aggregate_mrr_official_6dp_delta_minimum": 0.0,
+    "aggregate_mttc_exact_delta_maximum": 0.0,
+    "aggregate_mttc_official_6dp_delta_maximum": 0.0,
+    "aggregate_technical_score_exact_delta_strictly_positive": true,
+    "aggregate_technical_score_official_6dp_delta_strictly_positive": true,
+    "exact_repeat_required": true,
+    "target_blind_structural_checks_required": true,
+    "project_goal_hr_at_10_report_only": 0.99
+  },
+  "resource_gates": {
+    "cached_replay_wall_seconds_maximum": 120,
+    "workers": 1,
+    "new_model_training_allowed": false,
+    "new_retrieval_queries_allowed": false,
+    "new_feature_or_candidate_cache_allowed": false,
+    "agent_or_full_evaluator_allowed": false,
+    "new_external_data_allowed": false
+  },
+  "privacy_and_fallback": {
+    "calibration_selection_confirmation_public_amazon_or_private_opened": false,
+    "target_runtime_features": 0,
+    "individual_identifier_serialization": false,
+    "served_default": "off",
+    "fallback": "complete frozen v1.9, P11, and R08 paths"
+  },
+  "decision_queue": {
+    "promote": "freeze a default-off runtime artifact only after every promotion and structural gate passes",
+    "no_go": "record this exact rank-1 transform and move to a different target-blind proposal/evidence mechanism",
+    "invalid": "repair only a demonstrable implementation mechanic without inspecting or tuning to per-session outcomes"
+  }
+}
