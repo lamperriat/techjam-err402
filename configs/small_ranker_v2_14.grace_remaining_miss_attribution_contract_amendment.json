@@ -1,0 +1,33 @@
+{
+  "schema_version": "small-ranker-grace-miss-attribution-contract-amendment.v1",
+  "experiment_id": "SR-V2.14-GRACE-MISS-ATTRIBUTION",
+  "status": "FROZEN_BEFORE_IMPLEMENTATION_AND_OUTCOME",
+  "direct_parent": "a07b22b3e343c9ea690c9fa9c942c2abc14628b9",
+  "amends": {"path": "configs/small_ranker_v2_14.grace_remaining_miss_attribution_implementation_contract.json", "git_blob_oid_sha1": "a9260df008a30f34a4d2f12af40dc603ef8dbc6a", "raw_sha256": "93fa610eccd620fde8a0df162d2c6aee26e6ad6d4b96739d5c6208f4f8feca34"},
+  "implementation_checkpoint": {"direct_parent_rule": "exact pushed amendment commit", "exact_paths": ["scripts/analyze_grace_remaining_misses.py", "tests/test_grace_remaining_miss_attribution.py"], "head_equals_origin_and_porcelain_including_untracked_empty_before_receipt": true},
+  "frozen_environment": {"python": "3.9.19", "numpy": "1.26.4", "scikit_learn": "1.1.3", "xgboost": "1.7.6", "workers": 1},
+  "comparator_reproduction": {"base_seed": 40220260830, "inner_fits": 50, "outer_fits": 10, "total_fits": 60, "quantile_selections": 5, "ordered_quantiles": [0.390625, 0.6875, 0.40625, 0.859375, 0.5], "constant_fits": 0, "outer_domain": [0, 1, 2, 3, 4], "outer_counts": [400, 400, 400, 400, 400], "inner_domain": [0, 1, 2, 3, 4], "global_inner_equal_counts_required": false, "activation_raw_sha256": "48ad9137cb3b99985d3d7e4035575bf06225d8c6b4f9f3c134a468f404d1c410"},
+  "physical_sources": {
+    "label": {"bytes": 1702876, "open_count": 1, "member_access_count": 5, "members": [{"name": "baseline_rank", "shape": [2000, 10], "dtype": "uint8"}, {"name": "positive_index", "shape": [2000, 10], "dtype": "int16"}, {"name": "eligible_from", "shape": [2000], "dtype": "uint8"}, {"name": "outer_fold", "shape": [2000], "dtype": "uint8"}, {"name": "inner_fold", "shape": [2000], "dtype": "uint8"}]},
+    "proxy": {"bytes": 1315338, "rows": 2000, "open_count": 1},
+    "catalog": {"bytes": 60546327, "rows": 50000},
+    "blind_aggregate": {"bytes": 23371},
+    "blind_shards": [{"name": "train_explore-full-blind-shard-01-of-04.jsonl", "bytes": 15939420, "rows": 5000, "sha256": "fac3bc71e6210d1a449de706d335cc5bb945d4d3daf01e8cbecbe15c0600bf1a"}, {"name": "train_explore-full-blind-shard-02-of-04.jsonl", "bytes": 15939420, "rows": 5000, "sha256": "63812776b374fc0041871600a5781fbf1ea6046a3219334e7263338abbab6657"}, {"name": "train_explore-full-blind-shard-03-of-04.jsonl", "bytes": 15939420, "rows": 5000, "sha256": "36a8706a2f8c51635e4feb4cde905a9789c7953ffeab25ae036ef824061f36b3"}, {"name": "train_explore-full-blind-shard-04-of-04.jsonl", "bytes": 15939420, "rows": 5000, "sha256": "1f9968795ab5490968badcf82c39ec11bedd00f22797569dfec8c2ff3fb7ed99"}]
+  },
+  "protected_access_order": [
+    "before receipt do not exists/is_file/stat/resolve-strict/read/hash/open label or proxy",
+    "reject every existing output state; validate parent components are non-symlinks",
+    "open O_WRONLY|O_CREAT|O_EXCL and fsync canonical CONSUMED_PENDING marker plus newline",
+    "open/hash/load label through one handle; reproduce comparator; fail closed before proxy on identity mismatch",
+    "only after comparator identity passes, open/hash proxy once and bind targets",
+    "before final write seek and rehash label through the same handle; verify label/proxy fstat identity and every target-free source snapshot",
+    "any post-receipt exception best-effort rewrites the same descriptor to INVALID_ATTRIBUTION_CONSUMED and never deletes or reruns"
+  ],
+  "proxy_binding": "for every session and turn, target position in raw C100 must equal positive_index exactly, using -1 when absent; only then may the ephemeral target join catalog metadata",
+  "state_counterfactual": "immediately before eligible_from clear served exactly once; preserve frozen versions and version-derived intent_age, do not grant new grace pages, and retain ordinary future version resets",
+  "feature_formula": {"query_columns_bit_identical_across_all_100_candidates": ["query_specificity_fraction", "active_constraint_count_fraction"], "slots": ["category", "material", "color", "size", "style", "brand", "price", "feature", "use_case"], "query_zero": "all eligible turns satisfy query==0 OR active==0", "attribute_missing": "reachable rows nonempty and every row has all nine compatible==0 and (missing_positive_evidence_fraction>0 or any nine unknown>0)"},
+  "catalog_flatten": {"none": "empty", "mapping": "sorted keys then values", "sequence": "original order", "scalar": "str(value).strip()", "field_flags": ["row_absent", "title_empty", "categories_empty", "descriptive_evidence_empty", "price_null", "any_missing"], "absent_row_only_sets": ["row_absent", "any_missing"]},
+  "reference_identity": {"baseline_ascii_page_sha256": "2d5fa0ea12ab02b74e2b6c3a3f92b3ba83191c35eb176f95aed9361f785496e9", "grace_ascii_page_sha256": "6f84d2aa03d792027634a358bdcef9adf646717c94cc3ec0916e87e33410448a", "fold_hits": [398, 395, 397, 395, 397], "fold_misses": [2, 5, 3, 5, 3], "first_repeat_arrays": ["baseline_pages", "candidate_pages", "changed", "last_reset_turn"], "aggregate_recomputed_twice_from_same_in_memory_signals": true},
+  "output_privacy": {"allowed": ["global aggregate counts and fractions", "five-fold by three-class count table", "C10/C20/C50/C100 counts and fractions", "diagnostic field counts", "null candidate-frontier states", "hash, resource, environment and Git audits"], "forbidden_keys_or_fragments": ["session", "sample", "product", "parent_asin", "target", "positive_index", "eligible_from", "message", "per_session", "outcome_by_session"], "forbid_ndarray": true, "forbid_list_length_at_least": 2000, "serialized_asin_shape_scan": true},
+  "resource_checks": ["memory before receipt", "P95 attribution latency", "memory before final write", "wall time", "GPU peak fixed zero"]
+}
