@@ -1,0 +1,193 @@
+{
+  "schema_version": "small-ranker-top5-proposal-depth-preregistration.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.9-STRICT-TOP5-PROPOSAL-DEPTH",
+  "parent_commit": "aa9cde1",
+  "status": "PREREGISTERED_NO_V2_9_OUTCOME_OPENED",
+  "objective": "test whether a fixed deeper target-blind proposal frontier supplies enough diverse rescue examples for the unchanged strict selector without sacrificing any current hit",
+  "hypothesis": "the strict top-1 cache froze a final policy identical to domain-local current across every held shard; exposing the first five ranked proposals from each already-frozen family may increase proposal reachability and training support while the unchanged nested safety rule controls harm",
+  "single_algorithmic_variable": {
+    "name": "proposal_depth_per_family",
+    "old": 1,
+    "new": 5,
+    "families": [
+      "pairwise_d4_control",
+      "rrf3",
+      "focused_ndcg_d3"
+    ],
+    "failure_closes": "this exact k=5 route; do not try k=2, k=3, k=10, refill variants, or a threshold adjustment after seeing any v2.9 outcome"
+  },
+  "frozen_inputs": {
+    "v2_8_stage1_result": {
+      "path": "experiments/fast_track/small_ranker_v2_8/stage1_20260830T1834/stage1_cache_result.json",
+      "sha256": "a683f50f6acdb2ee3cc0c88507e6f5ac4f46b2a6b0599acf2e6a4abdc3d17c97",
+      "bytes": 12963,
+      "exact_repeat_identity_sha256": "78e70b6211804e677c38db550bcf6c032834d7abcfd312ac0508f8db0db3a0b2"
+    },
+    "v2_8_stage1_manifest": {
+      "path": "configs/small_ranker_v2_8.strict_outer_restack_stage1.manifest.json",
+      "sha256": "c57c39d8220914dcab91717b9505f7734837aeca936178167f464ec33cbbcceb",
+      "status": "NO_GO_TARGET_FREE_POLICY_IDENTITY"
+    },
+    "raw_feature_sha256": "2b19835a1bced7f21322610296c712e3d06d915274719e11c268d31f7f596089",
+    "semantic_off_projected_feature_sha256": "cd9b075b923c31afe10b9a9c6d720de22e221c93de961595ff484ea4f532b90a",
+    "label_archive_sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+    "frozen_current_comparator": {
+      "runtime_projection_repeat_manifest_path": "configs/small_ranker_v1_7.runtime_projection_repeat.manifest.json",
+      "runtime_projection_repeat_manifest_sha256": "dcedd70bc8d905342e805c84b08ad3f375a28774fd44414b9a31025e343ceada",
+      "remaining_miss_manifest_path": "configs/small_ranker_v2_0.remaining_miss_attribution.manifest.json",
+      "remaining_miss_manifest_sha256": "a0f7041b9deea488e2a2b527308449146f1193fbbf055c748bdea72224add089",
+      "activation_array_sha256": "48ad9137cb3b99985d3d7e4035575bf06225d8c6b4f9f3c134a468f404d1c410",
+      "chosen_array_sha256": "229952c9ced7f6eec1ff1938480adc85ba5093ad865336465749029576e47051",
+      "expected_hits": 1943,
+      "expected_misses": 57,
+      "expected_hr_at_10": 0.9715,
+      "expected_mrr": 0.676861,
+      "expected_mttc": 3.056,
+      "expected_technical_score": 0.847688,
+      "reproduction_source_path": "scripts/analyze_small_ranker_remaining_misses.py",
+      "reproduction_source_sha256": "c080b66e94757d1865596af262ba456611490864c5169f024a1ecb1bbe0fca79"
+    },
+    "candidate_universe": "the existing frozen C100 only",
+    "upstream_xgboost_fits": "reuse the 300 already-frozen v2.8 first/repeat fits; train zero new upstream rankers"
+  },
+  "proposal_contract": {
+    "candidate_positions": "the frozen C100 ordinal space",
+    "raw_allowed_set": "positions 10..99 plus the P11 slot-10 incumbent; positions 0..9 remain protected except that incumbent is re-admitted exactly as in v2.8",
+    "stable_order": "descending family score, then lower candidate ordinal",
+    "raw_depth": 5,
+    "post_topk_exclusions": [
+      "the current served choice",
+      "the P11 slot-10 incumbent"
+    ],
+    "refill_after_exclusion": false,
+    "cross_family_deduplication": "merge equal candidate ordinals and bitwise-OR the three family support bits",
+    "serialized_order": "ascending candidate ordinal after deduplication",
+    "maximum_unique_actions_per_turn": 15,
+    "padding": "candidate=-1, source_mask=0, available=false",
+    "old_top1_action_subset_required": true,
+    "current_or_incumbent_action_forbidden": true,
+    "duplicates_within_turn_forbidden": true
+  },
+  "unchanged_selector": {
+    "runtime_feature_names_and_order": "the exact frozen v2.7 19-feature schema",
+    "induced_feature_semantics": "actionable_unique_count_fraction is unique_count/(3*k), which is /3 for the k=1 compatibility path and /15 for k=5; support bits mean membership anywhere in that family's raw top-k; these are deterministic consequences of the one depth change",
+    "heads": [
+      "rescue",
+      "composite reciprocal-rank/MTTC regret"
+    ],
+    "model": "two C=0.2 liblinear L2 logistic heads, fit_intercept=true, max_iter=300, random_state=20260830",
+    "weights": "the exact v2.7 session-normalized rescue and regret weights",
+    "utility": "P(rescue)-1.0*P(composite_regret)",
+    "minimum_distinct_rescue_sessions_per_fit": 5,
+    "minimum_distinct_rescue_families_per_fit": 5,
+    "quantiles": "0/64 through 63/64 plus KEEP=1.0",
+    "within_turn_tie_break": "utility, then greater family-support count, then lower candidate ordinal",
+    "session_policy": "chronological first-passing latch with at most one supplemental action per session",
+    "current_policy_fallback": "complete domain-local current policy; P11/R08 remains the complete deployment fallback",
+    "hyperparameter_weight_threshold_or_feature_tuning": false
+  },
+  "fold_and_label_boundary": {
+    "outer_folds": 5,
+    "inner_folds": 5,
+    "family_rule": "reuse the frozen product-family outer/inner assignments",
+    "surface_phase": "first construct and exact-repeat all top-5 runtime surfaces without opening the label archive; derive each H_o session order from the frozen v2.8 held/session_ordinal file and T_o as its ordered complement",
+    "training_phase": "for outer o, the sealed NPZ may then be opened and only T_o rows may be copied, retained, supplied to oof_T label attachment, inner selection, or outer selector fitting",
+    "compressed_npz_disclosure": "NumPy may physically decompress a complete compressed member containing H_o rows; those rows must never be copied, retained, supplied to a fit/selection/metric, or serialized before the one-shot H_o outcome attach",
+    "mapping_phase": "map the selected quantile on target-free T_o full-model reference utilities",
+    "held_phase": "apply once to H_o without passing H_o labels, state, outcome metrics, or oracle membership to any builder or selector API",
+    "target_runtime_feature": false,
+    "future_turn_feature": false,
+    "session_or_product_family_cross_fold_leakage": false
+  },
+  "execution": {
+    "stage_0": "outer 0 first/repeat target-free mechanical build only; no label archive may be opened and session order comes only from frozen v2.8 ordinal files",
+    "stage_0_gate": [
+      "the v2.8 result, source snapshot, and every reused file match the frozen physical audit",
+      "raw top-5 uses stable score/ordinal ordering over the exact allowed-91 set",
+      "the same enumerator at k=1 reproduces every v2.8 top-1 runtime surface field, including all 19 features, bit-exactly",
+      "old top-1 available actions are a subset of top-5 actions",
+      "deduplicated width is at most 15 with correct support bits and no current/incumbent/duplicate action",
+      "all 19-feature values on available rows are finite and unavailable rows are zero",
+      "first/repeat surface hashes are exact",
+      "KEEP composition is bit-exact to domain-local current",
+      "causal latch can select no more than one turn per session",
+      "label archive and outcome-member access counters are zero"
+    ],
+    "stage_1a": "only after Stage 0 passes, build all five outer top-5 oof_T/reference_T/held_H surfaces from first and repeat scores without labels and freeze their exact identity",
+    "stage_1b": "only after all Stage 1a surfaces are frozen, attach T_o labels to oof_T, run the unchanged inner/outer selector twice, freeze exact target-free H_o policies, and retain no H_o outcome value",
+    "pre_outcome_short_circuit": "if final chosen and activation are identical to domain-local current across all 2,000 sessions, record target-free No-Go and do not consume outcome attach",
+    "stage_2": "only for a non-identity frozen policy, commit a one-shot outcome protocol/evaluator before any H_o outcome row is first supplied to a metric, then semantically attach H_o outcomes exactly once",
+    "workers": 1,
+    "network": false,
+    "new_exclusive_outputs": true,
+    "agent_or_full_evaluator": false
+  },
+  "resource_budget": {
+    "new_xgboost_fits": 0,
+    "new_retrieval_queries": 0,
+    "new_full_agent_or_official_evaluator_runs": 0,
+    "offline_outcome_attach_runs_maximum": 1,
+    "new_133_feature_query_candidate_cache_builds": 0,
+    "first_plus_repeat_wall_seconds_maximum": 600,
+    "peak_working_set_bytes_maximum": 3289186304,
+    "new_cache_bytes_maximum": 1073741824,
+    "ordinary_frozen_selector_iteration_seconds_target": 60
+  },
+  "promotion_gate": {
+    "primary_relative_to_domain_local_current": {
+      "miss_to_hit_strictly_positive": true,
+      "hit_to_miss": 0,
+      "every_outer_fold_net_hits_nonnegative": true,
+      "every_outer_fold_mrr_delta_nonnegative_rounded_and_unrounded": true,
+      "aggregate_mrr_delta_nonnegative_rounded_and_unrounded": true,
+      "every_outer_fold_mttc_delta_nonpositive_rounded_and_unrounded": true,
+      "aggregate_mttc_delta_nonpositive_rounded_and_unrounded": true,
+      "technical_score_delta_strictly_positive": true
+    },
+    "secondary_relative_to_frozen_current_0_9715": {
+      "absolute_hr_at_10_strictly_greater_than": 0.9715,
+      "miss_to_hit_strictly_positive": true,
+      "hit_to_miss": 0,
+      "every_outer_fold_net_hits_nonnegative": true,
+      "every_outer_fold_mrr_delta_nonnegative_rounded_and_unrounded": true,
+      "aggregate_mrr_delta_nonnegative_rounded_and_unrounded": true,
+      "every_outer_fold_mttc_delta_nonpositive_rounded_and_unrounded": true,
+      "aggregate_mttc_delta_nonpositive_rounded_and_unrounded": true,
+      "technical_score_delta_strictly_positive": true
+    },
+    "required_for_both": [
+      "exact first/repeat identity",
+      "all lineage, source-hash, shape, dtype, privacy, and causal-policy checks",
+      "deployment resource budget remains practical"
+    ]
+  },
+  "report_only_after_policy_freeze_and_only_if_stage2_outcome_attach_runs": {
+    "top5_proposal_union_reachable_domain_local_current_misses": true,
+    "top5_proposal_union_reachable_frozen_current_57_misses": true,
+    "proposal_union_reachable_by_outer_fold_for_both_comparators": true,
+    "proposal_ceiling_reaches_37_additional_sessions_needed_for_0_99": true,
+    "domain_local_current_vs_frozen_current_drift": true,
+    "candidate_recall_C10_C20_C50_C100": "reuse the aggregate values pinned by the tracked v2.0 manifest; do not reopen labels merely to recompute them",
+    "oracle_must_not_select_k_threshold_feature_or_exclusion": true,
+    "identity_short_circuit": "if Stage 2 does not run because final equals current, all target-informed frontier/oracle fields remain unavailable rather than consuming labels for reporting"
+  },
+  "stop_rules": {
+    "mechanical_failure": "repair only the preregistered mechanic before any outcome",
+    "selector_identity": "close as target-free No-Go without opening held outcomes",
+    "outcome_failure": "close k=5 without changing proposal depth, refill, features, model, weights, utility, quantiles, or latch",
+    "outcome_pass": "authorize only a full-data artifact freeze and target-free parity/resource benchmark; do not open forbidden splits or run the full evaluator"
+  },
+  "forbidden": [
+    "calibration",
+    "selection",
+    "confirmation",
+    "released public",
+    "Amazon test or new external data",
+    "private-evaluation-shaped labels",
+    "full Agent or official evaluator",
+    "C200 reconstruction in this experiment",
+    "embedding as a Top10 reranker",
+    "post-outcome depth or threshold sweep"
+  ]
+}

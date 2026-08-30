@@ -12,6 +12,7 @@ configs/small_ranker_v2_8.strict_outer_restack_preregistration.json text eol=lf
 configs/small_ranker_v2_8.strict_outer_restack_stage0.manifest.json text eol=lf
 configs/small_ranker_v2_8.strict_outer_restack_stage1_implementation_amendment.json text eol=lf
 configs/small_ranker_v2_8.strict_outer_restack_stage1.manifest.json text eol=lf
+configs/small_ranker_v2_9.top5_proposal_depth_preregistration.json text eol=lf
 scripts/analyze_small_ranker_metric_gate.py text eol=lf
 scripts/analyze_small_ranker_rr_regret_gate.py text eol=lf
 scripts/build_small_ranker_strict_outer_restack.py text eol=lf
