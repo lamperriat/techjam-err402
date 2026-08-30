@@ -1,0 +1,46 @@
+{
+  "schema_version": "small-ranker-miss-attribution-preregistration.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.0-MISS-ATTRIBUTION",
+  "parent_commit": "688adf5",
+  "purpose": "classify all 57 misses remaining after the frozen semantic-off nested-OOF policy and estimate the next mechanism's oracle ceiling",
+  "policy_identity": {
+    "activation_sha256": "48ad9137cb3b99985d3d7e4035575bf06225d8c6b4f9f3c134a468f404d1c410",
+    "chosen_sha256": "229952c9ced7f6eec1ff1938480adc85ba5093ad865336465749029576e47051",
+    "expected_hits": 1943,
+    "expected_misses": 57
+  },
+  "exclusive_classes_in_order": {
+    "A_candidate_absent": "target is absent from the frozen C100 pool on every causally eligible turn",
+    "C_admission_failure": "target is C100-reachable and the frozen OOF ranker proposes it on at least one eligible turn, but the nested safe admission policy never activates that correct proposal",
+    "D_irrecoverable_ambiguous": "target is C100-reachable, never correctly proposed, and every reachable turn has a target-blind evidence collision under the preregistered non-positional evidence projection with an equal-score competitor",
+    "B_ranker_failure": "target is C100-reachable, is not an admission failure, and does not meet the strict ambiguity lower-bound definition"
+  },
+  "posthoc_boundary": {
+    "target_allowed": true,
+    "target_use": "labels, trace membership, class assignment, and aggregate oracle metrics only",
+    "target_written_to_feature_cache_or_runtime": false,
+    "individual_session_or_product_identifiers_in_output": false,
+    "held_out_splits_opened": false,
+    "agent_or_evaluator_started": false
+  },
+  "required_aggregates": [
+    "class count and fraction of 57",
+    "candidate recall C10/C20/C50/C100 and explicit C200 availability",
+    "mechanical C100 oracle HR@10",
+    "conservative distinguishable safe-repair upper bound",
+    "class by outer fold",
+    "class by clothing/jewelry/shoes/accessories-other",
+    "class by scenario/query type and difficulty",
+    "earliest reachable/correct-proposal turn depth",
+    "target candidate-source support",
+    "target attribute unknown/conflict evidence"
+  ],
+  "decision_rule": {
+    "candidate_absent_is_primary": "A is the largest class",
+    "ranker_failure_is_primary": "B is the largest class",
+    "admission_failure_is_primary": "C is the largest class",
+    "oracle_bound_stop": "C100 mechanical oracle or conservative distinguishable upper bound is below 0.99",
+    "next_experiment": "preregister exactly one mechanism for the largest actionable class"
+  }
+}
