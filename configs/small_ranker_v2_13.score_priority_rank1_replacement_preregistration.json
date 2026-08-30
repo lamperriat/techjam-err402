@@ -1,0 +1,350 @@
+{
+  "schema_version": "small-ranker-score-priority-rank1-preregistration.v1",
+  "status": "PREREGISTERED_BEFORE_IMPLEMENTATION_AND_OUTCOME",
+  "recorded_on": "2026-08-31",
+  "experiment_id": "SR-V2.13-SCORE-PRIORITY-RANK1",
+  "parent_commit": "fed015af46bdf20c4fe240fe7118af5cd55dc23f",
+  "lineage_base_commit": "ddc963d569b300c8e590272b9c4e65ad5164b670",
+  "unique_mechanism": "retain the v2.12 rank-1 seen-slot structural envelope, but choose the legal unseen reconstructed-C100 tail product by frozen semantic-off ranker score descending with original raw-C100 ordinal ascending as the exact tie-break",
+  "preregistered_hypothesis": "a frozen held-outer relevance score should select a more useful unseen rank-1 exposure than v2.12 tail order while preserving the same structural no-harm proof against v1.9; the experiment is globally useful only if it also strictly exceeds the comparable fixed-two-page-grace incumbent HR@10 0.9910 without any fold or metric regression",
+  "benchmark_comparability_checkpoint": {
+    "commit": "fed015af46bdf20c4fe240fe7118af5cd55dc23f",
+    "path": "configs/small_ranker_global_benchmark_comparability_v1.manifest.json",
+    "git_blob_oid_sha1": "344cc82b1ce06144a0a29c6754cfdb1c4859cfdb",
+    "git_blob_raw_sha256": "f2fff7144baf7c45200015ab1184060b8f51abdfe1db5a07bf9c40f665357884",
+    "canonical_json_sha256": "76a8e3047cb2f3737003ec208e06030fa3ad3054b82e3fa53ca1b0c0bc248091",
+    "verdict": "OFFICIAL_6DP_COMPARABLE_AFTER_COMPONENT_NORMALIZATION_SHARED_COHORT",
+    "scope": "shared-cohort OOF; not private and not independent validation"
+  },
+  "comparators": {
+    "global_incumbent": {
+      "experiment_id": "SR-V2.12-FIXED-TWO-PAGE-GRACE",
+      "evidence_commit": "7d08e144fe6f589d64fab21f1b68c3ec2feeb684",
+      "implementation_commit": "e53c97629ade1cb97a66a40f7e9adb425a0b027f",
+      "result_raw_sha256": "5035cf7823fd3f55138a1c224b4b124d67405a20aa5b15bf1b1601f016de8dbe",
+      "result_raw_bytes": 4916,
+      "baseline_output_sha256": "2d5fa0ea12ab02b74e2b6c3a3f92b3ba83191c35eb176f95aed9361f785496e9",
+      "candidate_output_sha256": "6f84d2aa03d792027634a358bdcef9adf646717c94cc3ec0916e87e33410448a",
+      "official_6dp": {
+        "hits": 1982,
+        "misses": 18,
+        "hit_rate_at_10": 0.991,
+        "mrr": 0.695795,
+        "mttc": 2.869,
+        "technical_score": 0.866858,
+        "fold_net_hits_vs_v1_9": [14, 8, 7, 8, 2],
+        "fold_policy_metrics": [
+          {"fold": 0, "hit_rate_at_10": 0.995, "mrr": 0.721803, "mttc": 2.7025, "technical_score": 0.879991},
+          {"fold": 1, "hit_rate_at_10": 0.9875, "mrr": 0.665996, "mttc": 2.9275, "technical_score": 0.854999},
+          {"fold": 2, "hit_rate_at_10": 0.9925, "mrr": 0.733901, "mttc": 2.9075, "technical_score": 0.87827},
+          {"fold": 3, "hit_rate_at_10": 0.9875, "mrr": 0.678388, "mttc": 2.925, "technical_score": 0.858766},
+          {"fold": 4, "hit_rate_at_10": 0.9925, "mrr": 0.678887, "mttc": 2.8825, "technical_score": 0.862266}
+        ]
+      },
+      "precision_boundary": "historical values are official-6dp only; exact rational grace metrics must be reconstructed inside the same frozen v2.13 attach before exact gates are evaluated"
+    },
+    "local_mechanism_incumbent": {
+      "experiment_id": "SR-V2.12-RANK1-SEEN-REPLACEMENT",
+      "evidence_commit": "ddc963d569b300c8e590272b9c4e65ad5164b670",
+      "manifest_path": "configs/small_ranker_v2_12.rank1_seen_replacement.manifest.json",
+      "manifest_git_blob_oid_sha1": "6a62b1fa5309a3fa95a696b7fcfe5301770b3cdc",
+      "manifest_raw_sha256": "1f95193572d777a29b49af5150c5b7cf0faf40c58efa5e4f4419b1003504e7c4",
+      "receipt_path": "experiments/fast_track/small_ranker_v2_12/rank1_seen_replacement_one_shot_20260831/rank1_seen_replacement_result.json",
+      "receipt_git_blob_oid_sha1": "36d7005b526af8912a2db3a038120efad16f4a22",
+      "receipt_raw_sha256": "46561c7281f0b1cf39a37bfc598b18683ff07747969edc7b895019808b965525",
+      "receipt_raw_bytes": 16463,
+      "replay_identity_sha256": "272bc0cbabec7ecc77120cbe7db85d0e3635afb87d85cc66159f72fc917a3745",
+      "candidate_pages_ndarray_raw_sha256": "c4041222828b0c9a8dbdf94857b333c93b731c249156cf78a6963c822c54046c",
+      "official_6dp": {
+        "hits": 1953,
+        "misses": 47,
+        "hit_rate_at_10": 0.9765,
+        "mrr": 0.684856,
+        "mttc": 3.015,
+        "technical_score": 0.853407,
+        "fold_net_hits_vs_v1_9": [3, 0, 6, 0, 1]
+      },
+      "evidence_boundary": "the immutable receipt was mechanically marked invalid by an incorrect global inner-fold balance predicate; the committed erratum did not reopen labels and changes no policy or metric"
+    },
+    "structural_comparator": {
+      "policy": "v1.9 semantic-off nested-OOF ranker plus rescue/RR-regret admission",
+      "activation_ndarray_raw_sha256": "48ad9137cb3b99985d3d7e4035575bf06225d8c6b4f9f3c134a468f404d1c410",
+      "chosen_ndarray_raw_sha256": "229952c9ced7f6eec1ff1938480adc85ba5093ad865336465749029576e47051",
+      "hits": 1943,
+      "misses": 57,
+      "official_6dp": {"hit_rate_at_10": 0.9715, "mrr": 0.676861, "mttc": 3.056, "technical_score": 0.847688}
+    }
+  },
+  "frozen_inputs": {
+    "source_root": "D:/tiktok/techjam-err402-fast-track",
+    "projection_root": "D:/tiktok/techjam-v1-2-metric-gate",
+    "split": "train_explore",
+    "session_count": 2000,
+    "turn_count": 10,
+    "candidate_count": 100,
+    "train_explore_proxy": {"raw_sha256": "2175696171c0d874fca4b9aa456ff5fd7d570f2184f59ade6781198f6443198e", "raw_bytes": 1315338},
+    "label_archive": {"path": "experiments/fast_track/small_ranker_v1/labels_v2.npz", "raw_sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb", "raw_bytes": 1702876},
+    "feature_cache": {"raw_sha256": "2b19835a1bced7f21322610296c712e3d06d915274719e11c268d31f7f596089", "raw_bytes": 1064000128, "shape": [2000, 10, 100, 133], "dtype": "float32"},
+    "semantic_off_projected_features": {"path": "experiments/fast_track/small_ranker_fold_safe_projected_features.npy", "raw_sha256": "cd9b075b923c31afe10b9a9c6d720de22e221c93de961595ff484ea4f532b90a", "raw_bytes": 1064000128, "shape": [2000, 10, 100, 133], "dtype": "float32"},
+    "semantic_off_oof_scores": {"path": "experiments/fast_track/small_ranker_v1/oof_batch_v1/oof_scores_runtime_projection_no_semantic.npy", "raw_sha256": "5000deb9b77b3e7b326ccab6455222b291d2ec859ddab2043fe67d23a3217c5e", "raw_bytes": 8000128, "shape": [2000, 10, 100], "dtype": "float32"},
+    "blind_trace_aggregate_sha256": "11ad3e24aec412f6cb3b146d248aa7e2335a12dafccc20241eeb3301af97ca24",
+    "combined_blind_trace_sha256": "f9a441220926aebf49f4b4d54a0f50df99f72ad4f8c0342e5528517503473e7b",
+    "trace_registry_sha256": "713a058b39c7fba7dc1775b48f852a0e28744e3702372e361733766c2de4bb8a",
+    "trace_shard_sha256": [
+      "fac3bc71e6210d1a449de706d335cc5bb945d4d3daf01e8cbecbe15c0600bf1a",
+      "63812776b374fc0041871600a5781fbf1ea6046a3219334e7263338abbab6657",
+      "36a8706a2f8c51635e4feb4cde905a9789c7953ffeab25ae036ef824061f36b3",
+      "1f9968795ab5490968badcf82c39ec11bedd00f22797569dfec8c2ff3fb7ed99"
+    ],
+    "catalog_raw_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67"
+  },
+  "pinned_source_blobs": {
+    "default_commit": "fed015af46bdf20c4fe240fe7118af5cd55dc23f",
+    "starter/agent.py": {"git_blob_oid_sha1": "421c6d43c598102b8fefb181b72bab5da4bf1294", "git_blob_raw_sha256": "1b843c1baf03bc89a6db7cf821b4215a19b7b56d34f2bd591b0a4a1d28e6108c"},
+    "starter/small_ranker.py": {"git_blob_oid_sha1": "131367324f389fafbfb7f647e4bcd03e3f98c20c", "git_blob_raw_sha256": "cdc3037e677cc6932803508af5643dd790de1d64f0ca329b3674d9e099dadb1d"},
+    "scripts/build_small_ranker_cache.py": {"git_blob_oid_sha1": "8724f052155ae7405ecd675bdebd83df18685895", "git_blob_raw_sha256": "1687e196973485918620daada4c7543930fb7e40fbdc111846d0cc6eeb5135d0"},
+    "scripts/train_small_ranker.py": {"git_blob_oid_sha1": "1388e8746d002a850b54b08cac886f8ab4afddf0", "git_blob_raw_sha256": "c67b25b92715cf7668079ee03bf1c716664f4e69b2fc76bf5ffd19073aabbad1"},
+    "scripts/export_small_ranker_fold_safe_artifact.py": {"git_blob_oid_sha1": "5a714ca8c6d2cf6403be89ae6e107a4d0e0b2512", "git_blob_raw_sha256": "5115026c53b21d4d5930cb9af7783c0988b049a0e259f5a0a588901ad44f5e8b"},
+    "scripts/evaluate_rank1_seen_replacement.py": {"git_blob_oid_sha1": "f15c54aae4a3760d95afd366f07bdefd1ef34665", "git_blob_raw_sha256": "fbdabbbdfae388e6a5c1b3ca5d60dc20b35a885b1a2ace7a8cb2104d3b239652"},
+    "scripts/evaluate_versioned_unseen_pagination.py@e53c976": {"commit": "e53c97629ade1cb97a66a40f7e9adb425a0b027f", "git_blob_oid_sha1": "cccf30faf051ae92762bd2a96aebf4655899621e", "git_blob_raw_sha256": "2b674539fe8ee904ad5b3024f905d786267f6516fcc3a5cbfbe4c8d5e2ec9e4a"},
+    "evaluator/local_evaluator.py": {"git_blob_oid_sha1": "7c808347b31ef3121a9cbc4810ac3eb325f950ba", "git_blob_raw_sha256": "79a5ea06f9a1b8c5036f30efa85dc1f36b8f6b06eb8feb8f545dfa767bc45564"}
+  },
+  "deployable_full_artifact": {
+    "path": "starter/assets/small_ranker_fold_safe_v1.json",
+    "source_commit": "ab3962cf7b12cf23d500d96e48392840924693f0",
+    "git_blob_oid_sha1": "c62922bc7478c3a5b0d6df67c6372923630d8fb9",
+    "git_blob_raw_sha256": "f8d0b6c0e402edeb34b1e35119c5295449888bc1be713607e88337fa874d16dc",
+    "git_blob_bytes": 256639,
+    "canonical_json_sha256": "097b91a7b16fbdcf0e93f5c9d8aab0236662c00939d1bba10bd0b488fa0c0f09",
+    "feature_schema_sha256": "92795134cc11cbe496cb63b3921b585d9f71028f75b39d9c6716a13c7e6608f8",
+    "ranker_config_id": "ndcg_d4_lr003",
+    "ranker_rounds": 273,
+    "semantic_route": "missing",
+    "mode_default": "off",
+    "fallback": "P11/R08",
+    "windows_checkout_raw_sha256": "f2d0e381b2362613010f3c8f2eb36f84f47b7932ab439480c7045effe59ffc31",
+    "windows_checkout_raw_bytes": 256640,
+    "checkout_difference": "terminal LF converted to CRLF by core.autocrlf; not a distinct model"
+  },
+  "score_priority_contract": {
+    "oof_surface": "use each held-outer session-turn's frozen float32 semantic-off score row aligned to the original blind-trace C100 ordinal",
+    "priority_order": "numpy.lexsort((original_raw_c100_ordinal, -float32_score)) without rounding, tolerance, normalization, softmax, blend, threshold, or refill",
+    "tie_break": "exactly equal float32 scores choose the lower original raw-C100 ordinal",
+    "target_free_priority_observation": {
+      "shape": [2000, 10, 100],
+      "dtype": "uint8",
+      "order": "C",
+      "ndarray_raw_sha256": "54bccc6f930a696f80cc754104efbbaecab96e15f3abc97534289c1f191e6505",
+      "rows_with_at_least_one_exact_score_tie": 18364,
+      "duplicate_score_excess": 630767,
+      "all_scores_finite": true,
+      "every_row_is_exact_permutation_of_uint8_0_through_99": true
+    },
+    "mapping": "build product-ID to original raw-C100 ordinal for the current trace row; reconstruct v1.9 order including the slot-10 swap; define the legal pool from reconstructed positions 11 through 100; fetch each legal product score by its raw-C100 ordinal",
+    "policy": "if reconstructed rank 1 is not in the active-version actual-served set, return current Top10 unchanged; otherwise choose the unserved legal-pool product minimizing (-score, raw_ordinal), replace rank 1 only, and preserve ranks 2 through 10 exactly",
+    "fallback": "if the legal unseen pool is empty, return current Top10 unchanged",
+    "state_update": "record all ten products actually returned by this policy after every turn",
+    "fail_closed": ["non-finite score", "score shape or dtype drift", "duplicate C100 ID", "reconstructed/raw C100 set mismatch", "missing ID-to-ordinal mapping", "invalid or duplicate output page"],
+    "target_or_future_information": false,
+    "new_model_fit_or_parameter_selection": false
+  },
+  "oof_to_runtime_evidence_boundary": {
+    "oof_efficacy": "uses frozen held-outer semantic-off OOF scores only",
+    "deployment_counterpart": "uses the same feature/scoring algorithm's frozen full-data tree already evaluated inside starter.small_ranker.apply, mapping each product ID to its current coverage-row full score",
+    "not_claimed": ["OOF and full-data per-item decisions are bit-exact", "OOF promotion is runtime outcome confirmation", "OOF 0.99 implies private 0.99"],
+    "future_runtime_requirement": "only a global GO may authorize a separate default-off runtime patch; pure-Python full-artifact score/order must match its own reference and complete exceptions fall back to the global incumbent, then v1.9/P11/R08"
+  },
+  "causal_state_contract": {
+    "online_signal": "starter.agent.SessionState.version from current visible state only",
+    "offline_signal": {"feature": "goal_version_fraction", "zero_based_index": 126, "formula": "min(SessionState.version,10)/10", "decode": "round(10*float32_value)"},
+    "reset": "before choosing the current page, clear only this policy's served set on the first response or a visible version change; record actual output after choosing",
+    "required_target_free_invariants": ["candidate-invariant version bits", "first version equals 1", "adjacent versions unchanged or increment exactly one", "no hidden saturation", "goal_age_fraction equals 0.1 on reset"],
+    "observed_target_free": {"version_increment_boundaries": 300, "version_decreases": 0, "non_final_saturation_count": 0, "reset_goal_age_mismatches": 0},
+    "forbidden_inputs": ["sample_id", "scenario_type", "eligible_from", "ground_truth", "target", "future turns", "evaluator-only metadata"],
+    "state_isolation": "do not reuse, clear, or mutate starter.small_ranker._history"
+  },
+  "structural_safety_against_v1_9": {
+    "removed_rank1": "replacement is allowed only after the exact rank-1 product has already been returned in this active version, so removing its later repeat cannot remove or delay the first hit",
+    "inserted_rank1": "a newly exposed target is returned at rank 1, so it cannot worsen reciprocal rank",
+    "unchanged_ranks": "ranks 2 through 10 are byte-identical",
+    "expected_dominance": ["hit superset", "first-hit turn no later", "same-turn first-hit rank no worse"],
+    "scope": "structural only against v1.9; no structural dominance is claimed against v2.12 rank1-tail-order or fixed-two-page grace"
+  },
+  "local_mechanism_incumbent_reconstruction": {
+    "policy": "use the same reconstructed v1.9 C100 and causal version-scoped served set; if rank 1 was already served, replace it with the first unserved product encountered in reconstructed positions 11 through 100; otherwise return current Top10 unchanged",
+    "state": "own actual-served set reset by the same decoded visible version signal",
+    "hard_identity_gates": {
+      "baseline_pages_ndarray_raw_sha256": "3b6dec60039b93f3b2704baf82fd16536e587f92a3ef113988ed66f383b5af8d",
+      "candidate_pages_ndarray_raw_sha256": "c4041222828b0c9a8dbdf94857b333c93b731c249156cf78a6963c822c54046c",
+      "changed_ndarray_raw_sha256": "27006b9ff7ed5ba7293cca9413fc7d0fb82db34056e5a477ac582c68038a5cab",
+      "last_reset_turn_ndarray_raw_sha256": "580a474cfb3031c138aa4908bb4195102e2a4d000509c20630cdc007acc5db34",
+      "replay_identity_canonical_sha256": "272bc0cbabec7ecc77120cbe7db85d0e3635afb87d85cc66159f72fc917a3745",
+      "official_global": {"hit_rate_at_10": 0.9765, "mrr": 0.684856, "mttc": 3.015, "technical_score": 0.853407},
+      "official_folds": [
+        {"fold": 0, "hit_rate_at_10": 0.9675, "mrr": 0.709984, "mttc": 2.9475, "technical_score": 0.857795},
+        {"fold": 1, "hit_rate_at_10": 0.9675, "mrr": 0.658691, "mttc": 3.09, "technical_score": 0.839557},
+        {"fold": 2, "hit_rate_at_10": 0.99, "mrr": 0.715605, "mttc": 2.9775, "technical_score": 0.870132},
+        {"fold": 3, "hit_rate_at_10": 0.9675, "mrr": 0.68047, "mttc": 3.0625, "technical_score": 0.846641},
+        {"fold": 4, "hit_rate_at_10": 0.99, "mrr": 0.659528, "mttc": 2.9975, "technical_score": 0.852908}
+      ]
+    },
+    "purpose": "derive exact rational local-incumbent metrics inside the same attach before any local delta is evaluated",
+    "ordering": "all page/replay identity and frozen official global/fold gates must pass before local pairwise metrics or promotion gates are computed",
+    "mismatch_status": "INVALID_ONE_SHOT_CONSUMED"
+  },
+  "global_incumbent_reconstruction": {
+    "policy": "for each decoded intent version, return frozen v1.9 current Top10 byte-identically at intent ages one and two; from age three use stable unseen-first over the reconstructed full C100, falling back to seen products only when required",
+    "state": "own served set and intent age, reset by the same causal version signal",
+    "hard_identity_gates": ["baseline ASCII page digest equals 2d5fa0ea12ab02b74e2b6c3a3f92b3ba83191c35eb176f95aed9361f785496e9", "grace candidate ASCII page digest equals 6f84d2aa03d792027634a358bdcef9adf646717c94cc3ec0916e87e33410448a", "official global and five-fold metrics equal the frozen values above"],
+    "purpose": "derive exact rational incumbent metrics within the same attach; this is comparator reconstruction, not a new grace evaluation or selection"
+  },
+  "label_and_partition_contract": {
+    "receipt_must_precede_any_label_stat_open_hash_or_member_access": true,
+    "archive_open_count": 1,
+    "allow_pickle": false,
+    "member_access_count": 5,
+    "member_access_order": ["baseline_rank", "positive_index", "eligible_from", "outer_fold", "inner_fold"],
+    "outer": {"shape": [2000], "dtype": "uint8", "domain": [0, 1, 2, 3, 4], "counts": [400, 400, 400, 400, 400]},
+    "inner": {"shape": [2000], "dtype": "uint8", "domain": [0, 1, 2, 3, 4], "global_equal_counts_required": false, "all_values_present": true},
+    "nested_validity": "for each held outer fold, all five inner values must have positive count within outer != held; every comparator action train/valid cell must be nonempty",
+    "aggregate_only_partition_report": ["outer counts", "inner counts", "five-by-five outer-train inner counts"],
+    "baseline_p11_hit_count_separate_gate": 1895,
+    "same_handle_start_end_identity": true,
+    "forbidden_old_predicate": "global count(inner_fold == fold) == 400"
+  },
+  "frozen_comparator_reproduction": {
+    "purpose": "mechanically reproduce the already-selected v1.9 activation; no v2.13 fit, threshold, or selection",
+    "outer_folds": 5,
+    "inner_folds": 5,
+    "heads": 2,
+    "fit_invocations_exact": 60,
+    "inner_fit_invocations_exact": 50,
+    "outer_fit_invocations_exact": 10,
+    "quantile_selection_invocations_exact": 5,
+    "base_seed": 40220260830,
+    "inner_seed_formula": "base_seed + head*10000 + outer_fold*31 + inner_fold",
+    "outer_seed_formula": "base_seed + head*10000 + outer_fold*101",
+    "library_seed_mapping": "seed modulo (2**32 - 1)",
+    "logistic_regression": {"C": 0.2, "penalty": "l2", "solver": "liblinear", "max_iter": 300},
+    "utility": "P(rescue) - 1.0*P(RR-regret)",
+    "quantile_registry": "k/64 for k=0..63 followed by KEEP=1.0",
+    "finite_threshold": "numpy.quantile(values, quantile, method='higher')",
+    "keep_threshold": "+infinity",
+    "inner_safety": "aggregate and every inner fold require hit_to_miss=0, MRR delta>=0, MTTC delta<=0",
+    "selection_tie_break_descending": ["technical_score_delta", "net_hits", "count(inner_fold_net_hits>0)", "negative activation_turns", "quantile"],
+    "expected_fold_quantiles": [0.390625, 0.6875, 0.40625, 0.859375, 0.5],
+    "expected_activation_ndarray_raw_sha256": "48ad9137cb3b99985d3d7e4035575bf06225d8c6b4f9f3c134a468f404d1c410",
+    "held_outer_rows_used_for_fit_or_selection": false
+  },
+  "required_target_free_preflight": [
+    "exact pushed Git chain, branch, remote tracking equality, clean including untracked, and fixed output absence",
+    "Git-blob rather than checkout-EOL identity for all pinned repository artifacts",
+    "projected feature and OOF score file path, bytes, SHA256, shape, dtype, read-only mapping, and finite scores",
+    "score-priority uint8 array raw hash and aggregate tie counts exactly reproduce",
+    "blind trace 2000x10 grid, C20/C50/C100 prefix nesting, P11/C100 membership, shard/registry/combined hashes",
+    "decoded version/reset invariants and frozen chosen hash reproduce",
+    "policy pure-function schema, tie, mapping, identity, mutation, reset, replay, privacy, and fixed-path synthetic tests pass",
+    "no label, target, proxy ground truth, outcome, old calibration, selection, confirmation, public, private, or heldout source is statted or opened"
+  ],
+  "outcome_protocol": {
+    "attach_count": 1,
+    "completed_attach_count_before_run": 0,
+    "policy_frozen_before_target_metric": true,
+    "precondition": "comparability, preregistration, and implementation checkpoints are exact, clean, and pushed before receipt creation",
+    "fixed_output": "experiments/fast_track/small_ranker_v2_13/score_priority_rank1_one_shot_20260831/score_priority_rank1_result.json",
+    "output_not_cli_overridable": true,
+    "receipt": "reject symlink components; create the fixed path with O_EXCL; write canonical CONSUMED_PENDING and flush+fsync before the first label existence check, stat, open, hash, or member access; any existing empty, partial, pending, invalid, or complete path means permanently consumed",
+    "post_receipt_failure": "write and fsync a canonical INVALID_ONE_SHOT_CONSUMED payload through the same descriptor when possible; never delete, replace, rename, truncate via a new path, or rerun",
+    "target_use_after_receipt_only": "reproduce the frozen comparator, audit reset/partition/dominance, reconstruct v2.12 and grace comparators, and compute exact plus official aggregate/fold metrics; target cannot influence score, pool, tie, state, policy, threshold, mechanism, or any post-outcome variant",
+    "post_activation_identity_check": "after frozen activation reproduction and before target metric computation, compare score-priority pages with v2.12 pages; exact identity is a valid consumed No-Go, not an implementation invalidation",
+    "exact_repeat": "two in-process policy replays and all canonical identities must match before timing is excluded",
+    "no_rerun_even_for_implementation_failure": true,
+    "result_schema_version": "small-ranker-score-priority-rank1-outcome.v1"
+  },
+  "metric_contract": {
+    "miss_first_hit_turn": 11,
+    "exact": "Fraction-based HR, reciprocal-rank mean, first-hit-turn mean, efficiency and TechnicalScore",
+    "official_6dp": "round HR, MRR and MTTC to six decimals first; derive efficiency from rounded MTTC; derive TechnicalScore from rounded HR/MRR and efficiency; round efficiency and TechnicalScore to six decimals",
+    "gate_rule": "every boundary must pass exact and official-6dp representations; a pass in only one representation fails",
+    "same_attach_comparison": {
+      "local_exact": "compare candidate exact metrics directly with same-attach reconstructed v2.12 rank1 exact metrics, aggregate and every fold",
+      "local_official": "compare candidate official-6dp metrics directly with same-attach reconstructed v2.12 rank1 official-6dp metrics and the frozen values above",
+      "global_exact": "compare candidate exact metrics directly with same-attach reconstructed fixed-two-page-grace exact metrics: aggregate HR strictly greater, MRR greater-or-equal, MTTC less-or-equal, TechnicalScore strictly greater, and every fold HR/MRR/TechnicalScore greater-or-equal plus MTTC less-or-equal",
+      "global_official": "compare normalized candidate official-6dp metrics with same-attach normalized grace official-6dp metrics and the frozen values above under the same directions",
+      "forbidden": "never compare an exact candidate Fraction only against a historical rounded decimal and call the exact gate passed"
+    }
+  },
+  "promotion_gates": {
+    "structural_vs_v1_9": {
+      "hit_to_miss": 0,
+      "later_first_hit": 0,
+      "same_turn_worse_rank": 0,
+      "new_or_earlier_hit_not_rank1": 0,
+      "reset_eligibility_mismatch": 0
+    },
+    "local_vs_v2_12_rank1_seen": {
+      "aggregate_hr_at_10_strictly_greater_than": 0.9765,
+      "miss_to_hit_minimum": 1,
+      "hit_to_miss": 0,
+      "every_fold_net_hits_minimum": 0,
+      "every_fold_hit_to_miss": 0,
+      "every_fold_hr_and_mrr_delta_minimum": 0.0,
+      "every_fold_mttc_delta_maximum": 0.0,
+      "every_fold_technical_score_delta_minimum": 0.0,
+      "aggregate_mrr_delta_minimum": 0.0,
+      "aggregate_mttc_delta_maximum": 0.0,
+      "aggregate_technical_score_delta_strictly_positive": true
+    },
+    "global_vs_fixed_two_page_grace": {
+      "comparison_reference": "SR-V2.12-FIXED-TWO-PAGE-GRACE",
+      "aggregate_hr_at_10_strictly_greater_than": 0.991,
+      "aggregate_hits_minimum": 1983,
+      "hit_to_miss": 0,
+      "every_fold_net_hits_minimum": 0,
+      "every_fold_hit_to_miss": 0,
+      "every_fold_hr_delta_minimum": 0.0,
+      "every_fold_mrr_delta_minimum": 0.0,
+      "every_fold_mttc_delta_maximum": 0.0,
+      "every_fold_technical_score_delta_minimum": 0.0,
+      "aggregate_mrr_minimum": 0.695795,
+      "aggregate_mttc_maximum": 2.869,
+      "aggregate_technical_score_strictly_greater_than": 0.866858,
+      "exact_repeat_required": true
+    }
+  },
+  "resource_and_privacy": {
+    "python": "3.9.19",
+    "numpy": "1.26.4",
+    "scikit_learn": "1.1.3",
+    "xgboost": "1.7.6",
+    "workers": 1,
+    "cached_replay_wall_seconds_maximum": 120,
+    "peak_working_set_bytes_maximum": 2147483648,
+    "new_v2_13_fit_or_selection_allowed": false,
+    "frozen_comparator_fits_allowed_exact": 60,
+    "new_retrieval_or_feature_cache_allowed": false,
+    "agent_or_full_evaluator_allowed": false,
+    "external_data_dependency_model_or_network_allowed": false,
+    "individual_identifier_target_rank_turn_score_or_membership_serialization": false,
+    "served_default": "off",
+    "fallback_order": ["SR-V2.12-FIXED-TWO-PAGE-GRACE", "v1.9", "P11", "R08"]
+  },
+  "checkpoint_choreography": {
+    "branch": "small-ranker-v2.13-score-priority-rank1",
+    "remote": "origin",
+    "remote_url": "https://github.com/lamperriat/techjam-err402.git",
+    "remote_tracking_ref": "refs/remotes/origin/small-ranker-v2.13-score-priority-rank1",
+    "comparability_commit": {"commit": "fed015af46bdf20c4fe240fe7118af5cd55dc23f", "direct_parent": "ddc963d569b300c8e590272b9c4e65ad5164b670", "exact_changed_paths": ["configs/small_ranker_global_benchmark_comparability_v1.manifest.json"], "pushed": true},
+    "preregistration_commit": {"direct_parent": "fed015af46bdf20c4fe240fe7118af5cd55dc23f", "exact_changed_paths": ["configs/small_ranker_v2_13.score_priority_rank1_replacement_preregistration.json"], "must_be_pushed_before_implementation": true},
+    "implementation_commit": {"direct_parent_rule": "exact pushed preregistration commit", "exact_changed_paths": ["scripts/evaluate_rank1_score_priority_replacement.py", "tests/test_rank1_score_priority_replacement.py"], "must_be_pushed_before_receipt_or_label_access": true},
+    "formal_run": ["HEAD equals exact implementation commit and remote tracking ref", "status porcelain including untracked is empty", "fixed output absent", "all parent and exact path sets reproduce", "receipt precedes label stat/open/hash/member access"],
+    "history_rewrite_amend_force_or_old_artifact_overwrite": false
+  },
+  "decision_queue": {
+    "global_go": "record and commit the immutable receipt/manifest; authorize only a separate default-off runtime integration/parity checkpoint with global-incumbent then v1.9/P11/R08 fallback",
+    "local_go_global_no_go": "retain as local mechanism evidence but do not replace the global incumbent; commit the immutable receipt/manifest and immediately continue to incumbent-relative miss attribution",
+    "no_go": "close this exact score-priority rank1 mechanism without threshold, tie, pool, grace, or score variants; commit evidence and immediately continue",
+    "invalid": "retain the consumed receipt, make no rerun or policy repair, record implementation invalidity, and continue with a new preregistered mechanism",
+    "next_stage": "anonymous remaining-miss attribution relative to SR-V2.12-FIXED-TWO-PAGE-GRACE"
+  }
+}
