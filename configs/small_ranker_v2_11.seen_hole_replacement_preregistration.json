@@ -1,0 +1,55 @@
+{
+  "schema_version": "small-ranker-seen-hole-replacement-preregistration.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.11-SEEN-HOLE-REPLACEMENT",
+  "parent_commit": "32a5aa6",
+  "unique_hypothesis": "v2.10 already has the correct zero-loss exposure set, but stable compaction lowers MRR by changing the ranks of first hits; preserving every unseen current-Top10 product at its original rank and filling only already-seen holes with the same unseen tail will keep HR 0.991 and restore MRR safety",
+  "frozen_sources": {
+    "v2_10_manifest_sha256": "df9abfaac1c3bdc2aea156f86b969ab9590f325ca82b89bdd2d9f0c02b2c2127",
+    "v2_10_exact_repeat_sha256": "527cb1cddced65c5cd15f96847d8976d4631a18d28c626109e190d6d79379a91",
+    "v1_9_activation_sha256": "48ad9137cb3b99985d3d7e4035575bf06225d8c6b4f9f3c134a468f404d1c410",
+    "v1_9_chosen_sha256": "229952c9ced7f6eec1ff1938480adc85ba5093ad865336465749029576e47051",
+    "proxy_sha256": "2175696171c0d874fca4b9aa456ff5fd7d570f2184f59ade6781198f6443198e",
+    "combined_blind_trace_sha256": "f9a441220926aebf49f4b4d54a0f50df99f72ad4f8c0342e5528517503473e7b"
+  },
+  "target_blind_transform": {
+    "step_1": "start from the frozen v1.9 full C100 order for the turn",
+    "step_2": "keep every current-Top10 identifier not yet served in the active intent version at its exact current rank",
+    "step_3": "scan already-served current-Top10 positions from rank 1 to rank 10 and fill them, in that order, with the highest-ranked unseen C100-tail identifiers",
+    "step_4": "if the unseen tail is exhausted, retain the original seen identifier as fallback",
+    "step_5": "record the final page after serving and clear the served set before an explicit override/category version begins",
+    "target_or_future_information": false,
+    "model_or_admission_change": false
+  },
+  "required_structural_identity": {
+    "per_turn_product_set_exactly_equals_v2_10": true,
+    "session_hit_vector_exactly_equals_v2_10": true,
+    "session_first_hit_turn_exactly_equals_v2_10": true,
+    "hr_at_10_exactly_equals": 0.991,
+    "miss_to_hit_exactly_equals": 39,
+    "hit_to_miss_exactly_equals": 0,
+    "mttc_exactly_equals": 2.797,
+    "mean_distinct_products_exactly_equals": 97.4115,
+    "same_version_repeat_slots_exactly_equals": 0
+  },
+  "promotion_gates": {
+    "aggregate_mrr_minimum": 0.676861,
+    "every_outer_fold_mrr_delta_minimum": 0.0,
+    "every_outer_fold_net_hits_minimum": 0,
+    "every_outer_fold_mttc_delta_maximum": 0.0,
+    "aggregate_technical_score_delta_strictly_positive": true,
+    "exact_repeat_required": true
+  },
+  "resource_and_privacy": {
+    "cached_replay_wall_seconds_maximum": 120,
+    "train_explore_target_use": "aggregate metrics and structural identity only after this commit",
+    "individual_identifier_serialization": false,
+    "agent_or_full_evaluator_allowed": false,
+    "held_out_split_or_external_data_allowed": false,
+    "served_default": "off"
+  },
+  "decision_queue": {
+    "go": "integrate version-scoped seen-hole replacement behind an explicit default-off Agent mode with v1.9/P11/R08 fallback and focused state/reset tests",
+    "no_go": "retain v2.10 as an HR oracle diagnostic only and investigate a preregistered rank-one novelty schedule"
+  }
+}
