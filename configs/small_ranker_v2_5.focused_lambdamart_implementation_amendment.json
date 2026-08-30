@@ -1,0 +1,70 @@
+{
+  "schema_version": "small-ranker-focused-lambdamart-implementation-amendment.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.5-FOCUSED-LAMBDAMART",
+  "parent_preregistration_commit": "2ef6fd6",
+  "reason": "bind deterministic cache, training, projection, and Stage-A evaluation mechanics before any focused-cache outcome is observed",
+  "hypothesis_or_gate_changed": false,
+  "cache_contract": {
+    "candidate_order": "P11 slot-10 incumbent first, then C100 indices 10 through 99 in ascending index order",
+    "rows_per_query": 91,
+    "feature_dtype": "float32",
+    "label_dtype": "uint8",
+    "metadata": "numeric session ordinal, turn index, hard/control cohort flag, outer fold, and inner fold are grouping/training-label metadata only and are never model features",
+    "identity_scan": "all cache files must contain zero complete ASIN-shaped tokens",
+    "write_policy": "new local ignored output directory; exclusive writes; tracked manifest contains paths, shapes, byte counts, and hashes only"
+  },
+  "cohort_contract": {
+    "eligible_turn_index": "zero-based turn >= eligible_from minus one",
+    "target_allowed": "positive_index is nonnegative and is either the incumbent index or in [10,99]",
+    "hard_session": "frozen current policy miss with at least one eligible target-allowed turn",
+    "hard_groups": "all eligible target-allowed turns from each hard session",
+    "control_session": "frozen current policy hit whose first hit rank is exactly 10 and with at least one eligible target-allowed turn no later than the frozen current first-hit turn",
+    "control_groups": "all eligible target-allowed turns through and including the frozen current first-hit turn",
+    "expected_hard_sessions": 43
+  },
+  "training_contract": {
+    "seed": 40220260830,
+    "library": "xgboost 1.7.6 native Booster API",
+    "matrix": "DMatrix with one binary relevance label per candidate row, 91-row query groups, and one weight per query group",
+    "parameters": {
+      "objective": "rank:ndcg",
+      "eval_metric": "ndcg@10",
+      "tree_method": "hist",
+      "max_bin": 256,
+      "max_depth": 3,
+      "eta": 0.03,
+      "min_child_weight": 8.0,
+      "subsample": 1.0,
+      "colsample_bytree": 0.8,
+      "alpha": 0.1,
+      "lambda": 4.0,
+      "nthread": 1,
+      "verbosity": 0
+    },
+    "boosting_rounds": 300,
+    "outer_model_seed": "seed plus outer fold",
+    "prediction": "output_margin true over all 100 candidates for every held-out session and turn",
+    "repeat": "retrain all five outer models from scratch with identical inputs; require byte-identical float32 OOF score tensors and slot-10 proposal decisions"
+  },
+  "partition_weight_contract": {
+    "session_base": "each selected session contributes total pre-cohort weight one across its selected query groups",
+    "cohort_balance": "when both cohorts exist in a training partition, hard and control groups each contribute exactly one half of total weight",
+    "final_scale": "multiply all selected query-group weights so their arithmetic mean is one",
+    "failure": "fail closed if either cohort is absent, any session total is nonpositive, or final weights are nonfinite"
+  },
+  "stage_a_contract": {
+    "proposal_action": "focused slot-10 choice differs from the frozen current served choice and from the P11 incumbent",
+    "reachable_current_miss": "on at least one eligible turn, proposal_action is true and the focused choice equals positive_index",
+    "reachable_fold_count": "number of outer folds containing at least one reachable current-miss session",
+    "ungated_policy": "apply every proposal_action as a supplement to the frozen current policy; this is diagnostic only and cannot be promoted without Stage B",
+    "gate": "continue only when reachable current-miss sessions >=14 and reachable fold count >=3",
+    "target_boundary": "positive_index is read only by cache-label construction and evaluator-side posthoc analysis, never by score projection or runtime features"
+  },
+  "environment_contract": {
+    "cache_builder_and_evaluator": "Python 3.11 environment because the frozen attribution module uses dataclass slots",
+    "xgboost_trainer": "Python 3.9 environment with xgboost 1.7.6",
+    "agent_or_official_evaluator_started": false,
+    "forbidden_splits_opened": false
+  }
+}
