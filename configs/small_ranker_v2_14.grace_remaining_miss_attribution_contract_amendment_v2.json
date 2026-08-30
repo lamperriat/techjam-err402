@@ -1,0 +1,13 @@
+{
+  "schema_version": "small-ranker-grace-miss-attribution-contract-amendment.v2",
+  "experiment_id": "SR-V2.14-GRACE-MISS-ATTRIBUTION",
+  "status": "FROZEN_BEFORE_IMPLEMENTATION_AND_OUTCOME",
+  "direct_parent": "4f015f6cbb867a60e6d56cd17aa127931885a4b1",
+  "amends": {"path": "configs/small_ranker_v2_14.grace_remaining_miss_attribution_contract_amendment.json", "git_blob_oid_sha1": "88df562b1d463f00f89b79b48266d2da6ab8cd83", "raw_sha256": "28921c699ab057468bf06e5b60bf2d55e44bd43d27f7b21d2239cfd71e5aafce"},
+  "corrections": {
+    "admission_rejected": "any eligible turn where surface.action is true, positive_index is nonnegative, frozen chosen equals positive_index, and frozen activation is false; activation=false with surface.action=false is not an admission rejection",
+    "largest_bottleneck_tie_order": ["candidate_absent_at_c100", "candidate_present_but_ranker_failure", "admission_grace_state_rejection"]
+  },
+  "implementation_checkpoint": {"direct_parent_rule": "exact pushed v2 amendment commit", "exact_paths": ["scripts/analyze_grace_remaining_misses.py", "tests/test_grace_remaining_miss_attribution.py"]},
+  "outcome_access_before_this_checkpoint": false
+}
