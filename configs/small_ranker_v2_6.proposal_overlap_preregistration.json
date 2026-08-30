@@ -1,0 +1,66 @@
+{
+  "schema_version": "small-ranker-proposal-overlap-preregistration.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.6-PROPOSAL-OVERLAP-DIAGNOSTIC",
+  "parent_commit": "8da70c5",
+  "purpose": "measure whether already-frozen proposal families contain complementary correct actions before preregistering another ranker or admission mechanism",
+  "algorithm_claim": false,
+  "fixed_surfaces": {
+    "pairwise": {
+      "path": "experiments/fast_track/small_ranker_v2_1/pairwise_projection_20260830T1530/pairwise_semantic_off_oof.npy",
+      "sha256": "1765f60c3f111f751e8d0c133bbbd93d2a1e174db24b2c4c64c80aea66a4778b",
+      "expected_reachable_current_misses": 13
+    },
+    "rrf3": {
+      "members": [
+        "current semantic-off ndcg_d4_lr003",
+        "experiments/fast_track/small_ranker_v2_4/rrf3_projection_20260830T1810/ndcg_d6_lr006_semantic_off_oof.npy",
+        "experiments/fast_track/small_ranker_v2_4/rrf3_projection_20260830T1810/ndcg_d4_regularized_semantic_off_oof.npy"
+      ],
+      "member_sha256": [
+        "5000deb9b77b3e7b326ccab6455222b291d2ec859ddab2043fe67d23a3217c5e",
+        "655d2296ed8c73643ccebd3e8600fca9a6579c4e920e97870adc546e15dd25cf",
+        "11c495747101937b349856873183e8903fe8f2d67abc58928fca42056b246987"
+      ],
+      "k": 60.0,
+      "combined_score_sha256": "61e072d3c9e6cf5ef59534c817ec87b62ae4342044871fa7f803700d65e7ad3c",
+      "expected_reachable_current_misses": 11
+    },
+    "focused_lambdamart": {
+      "path": "experiments/fast_track/small_ranker_v2_5/focused_outer_oof_20260830T1945/focused_outer_oof.npy",
+      "sha256": "a77bde22c17a57b44a737ef397615e59012fbe999e46e7cbc6e4ba9d1159b776",
+      "expected_reachable_current_misses": 11
+    }
+  },
+  "oracle_definition": {
+    "current_miss_only": true,
+    "eligible_turn_only": true,
+    "supplemental_action": "proposal slot-10 choice differs from frozen current served choice and from P11 incumbent",
+    "correct": "proposal choice equals positive_index",
+    "session_counted_once": true,
+    "target_access": "posthoc evaluator-side membership label only",
+    "serialized_identifiers": false
+  },
+  "reports": [
+    "all seven nonempty proposal-family membership-pattern counts",
+    "each family's reachable sessions and outer-fold distribution",
+    "union sessions and outer-fold distribution",
+    "unique contribution of each family over the other two",
+    "pairwise intersections and three-way intersection",
+    "union maximum zero-harm HR@10"
+  ],
+  "direction_rule": {
+    "portfolio_candidate_only_if": "union reaches at least 14 current misses, spans at least three folds, and strictly exceeds the best single-family oracle of 13",
+    "otherwise": "close selector/fusion over these existing proposal families and preregister a materially new proposal signal",
+    "no_router_training_in_this_diagnostic": true,
+    "no_threshold_or_weight_selection": true
+  },
+  "execution_boundary": {
+    "cached_train_explore_only": true,
+    "ranker_or_gate_trained": false,
+    "agent_or_evaluator_started": false,
+    "held_out_splits_opened": false,
+    "external_data_downloaded": false,
+    "full_model_or_runtime_artifact_trained": false
+  }
+}
