@@ -1,0 +1,87 @@
+{
+  "schema_version": "small-ranker-focused-outer-oof-manifest.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.5-FOCUSED-LAMBDAMART-STAGE-A-TRAIN",
+  "status": "FROZEN_FOR_STAGE_A_POSTHOC",
+  "commits": {
+    "preregistration": "2ef6fd6",
+    "implementation_amendment": "63b2226",
+    "implementation": "f2d4a10",
+    "focused_cache": "199671a"
+  },
+  "sources": {
+    "cache_manifest_sha256": "fcb7430d0fe9c2d0f661e74f5eab7b81e43b7f326aaf35fd6324224f4f0b34ba",
+    "cache_result_sha256": "fd74bda490cdb0f8bbb29f21e6435221f37a149ea5255f6f5c001d9c79203317",
+    "trainer_sha256": "8fbf05d6225e04e3f76db7e65a91160394f11316ac90b416b6cf53b0b2ba497c",
+    "projected_features_sha256": "cd9b075b923c31afe10b9a9c6d720de22e221c93de961595ff484ea4f532b90a",
+    "label_cache_sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb"
+  },
+  "result": {
+    "path": "experiments/fast_track/small_ranker_v2_5/focused_outer_oof_20260830T1945/training_result.json",
+    "sha256": "de1ba52cb71386000f84b161cfce22ca1b03164efde418c59e562a70771cf114",
+    "wall_seconds": 60.783718
+  },
+  "files": {
+    "scores": {
+      "first": {
+        "path": "experiments/fast_track/small_ranker_v2_5/focused_outer_oof_20260830T1945/focused_outer_oof.npy",
+        "sha256": "a77bde22c17a57b44a737ef397615e59012fbe999e46e7cbc6e4ba9d1159b776",
+        "bytes": 8000128
+      },
+      "repeat": {
+        "path": "experiments/fast_track/small_ranker_v2_5/focused_outer_oof_20260830T1945/focused_outer_oof.repeat.npy",
+        "sha256": "a77bde22c17a57b44a737ef397615e59012fbe999e46e7cbc6e4ba9d1159b776",
+        "bytes": 8000128
+      }
+    },
+    "models": [
+      {"pass": "first", "fold": 0, "path": "experiments/fast_track/small_ranker_v2_5/focused_outer_oof_20260830T1945/models/first/fold_0.json", "sha256": "c7fc52796aa9de84fbf1560afcec75a0de8d925558bd5cb2fcd276cd77b81a83"},
+      {"pass": "first", "fold": 1, "path": "experiments/fast_track/small_ranker_v2_5/focused_outer_oof_20260830T1945/models/first/fold_1.json", "sha256": "c04d7c278a7b914068ea680c63a3206a9a4517a7c2f0b1e19de30f41b7f87d33"},
+      {"pass": "first", "fold": 2, "path": "experiments/fast_track/small_ranker_v2_5/focused_outer_oof_20260830T1945/models/first/fold_2.json", "sha256": "0ad52661ebfcd13dbe382c8a2b62e72e8cc259eab06923617a51f0957a881e2a"},
+      {"pass": "first", "fold": 3, "path": "experiments/fast_track/small_ranker_v2_5/focused_outer_oof_20260830T1945/models/first/fold_3.json", "sha256": "a140e6d9181e19c76c48d70ffd095eb0b8459368dcd5f5053931c189e33f9ace"},
+      {"pass": "first", "fold": 4, "path": "experiments/fast_track/small_ranker_v2_5/focused_outer_oof_20260830T1945/models/first/fold_4.json", "sha256": "a16171c9ecb2a48547c92537dce8f7b4430b1f346c96ed61116191c7e47cd367"},
+      {"pass": "repeat", "fold": 0, "path": "experiments/fast_track/small_ranker_v2_5/focused_outer_oof_20260830T1945/models/repeat/fold_0.json", "sha256": "c7fc52796aa9de84fbf1560afcec75a0de8d925558bd5cb2fcd276cd77b81a83"},
+      {"pass": "repeat", "fold": 1, "path": "experiments/fast_track/small_ranker_v2_5/focused_outer_oof_20260830T1945/models/repeat/fold_1.json", "sha256": "c04d7c278a7b914068ea680c63a3206a9a4517a7c2f0b1e19de30f41b7f87d33"},
+      {"pass": "repeat", "fold": 2, "path": "experiments/fast_track/small_ranker_v2_5/focused_outer_oof_20260830T1945/models/repeat/fold_2.json", "sha256": "0ad52661ebfcd13dbe382c8a2b62e72e8cc259eab06923617a51f0957a881e2a"},
+      {"pass": "repeat", "fold": 3, "path": "experiments/fast_track/small_ranker_v2_5/focused_outer_oof_20260830T1945/models/repeat/fold_3.json", "sha256": "a140e6d9181e19c76c48d70ffd095eb0b8459368dcd5f5053931c189e33f9ace"},
+      {"pass": "repeat", "fold": 4, "path": "experiments/fast_track/small_ranker_v2_5/focused_outer_oof_20260830T1945/models/repeat/fold_4.json", "sha256": "a16171c9ecb2a48547c92537dce8f7b4430b1f346c96ed61116191c7e47cd367"}
+    ]
+  },
+  "training": {
+    "xgboost_version": "1.7.6",
+    "python_version": "3.9.19",
+    "parameters_sha256": "3c17eca9987bb8390cda8298791d38bf0658c3c485dcff30594e2231d45a59af",
+    "rounds": 300,
+    "seed": 40220260830,
+    "query_groups": 631,
+    "rows": 57421,
+    "outer_folds": 5,
+    "held_sessions_per_fold": 400,
+    "held_fold_overlap": 0,
+    "weight_unit": "query_group",
+    "hard_and_control_weight_share_each": 0.5
+  },
+  "repeat": {
+    "score_bytes_identical": true,
+    "proposal_decisions_identical": true,
+    "proposal_decision_sha256": "453a49b6e19b4702b5ec354ff34e1610cea2034444cbaa24c1c31afe38cd4b9f",
+    "all_fold_model_hashes_identical": true,
+    "all_serialized_model_sample_errors_zero": true,
+    "all_serialized_model_c100_orders_exact": true
+  },
+  "resource": {
+    "first_seconds": 30.867505,
+    "repeat_seconds": 28.061748,
+    "prediction_ms_per_session_p50": 5.63807,
+    "prediction_ms_per_session_p95": 6.278764,
+    "peak_working_set_bytes": 1338449920
+  },
+  "scope": {
+    "cached_train_explore_only": true,
+    "target_used_as_training_relevance_only": true,
+    "score_projection_target_free": true,
+    "agent_or_evaluator_started": false,
+    "held_out_splits_opened": false,
+    "external_data_downloaded": false
+  }
+}
