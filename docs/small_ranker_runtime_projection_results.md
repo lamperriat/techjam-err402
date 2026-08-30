@@ -25,7 +25,22 @@ took `11.825018` seconds.
 97.15% result depended on the unavailable semantic route is rejected. The
 candidate remains OOF-only and is not yet one full-data artifact.
 
-The next checkpoint is an exact repeat of this projected experiment. Only then
-may the preregistered full-data ranker and rescue/RR-regret heads be exported,
-using the cross-fitted activation quantile and unlabeled full-model quantile
-mapping. P11/R08 fallback and the served default remain unchanged.
+## Exact repeat
+
+The projection was repeated from `d8b3acd` on a new branch with new scratch and
+result paths. The repeat preserved every deterministic field after removing the
+three timing measurements. Its canonical payload SHA-256 was
+`279f2086a4d7cc92e6c6c7abb6eaeef84463d89224a44948c9137206e99d6b8c`, exactly
+matching the first run. The regenerated 1,064,000,128-byte projected feature
+array also exactly matched SHA-256
+`cd9b075b923c31afe10b9a9c6d720de22e221c93de961595ff484ea4f532b90a`.
+
+The repeat took `11.927536` seconds. Timing is evidence for the bounded runtime
+only and is deliberately excluded from the identity comparison.
+
+## Next checkpoint
+
+The exact-repeat gate has passed. The next bounded task is to export the
+preregistered full-data ranker and rescue/RR-regret heads as one artifact, using
+the cross-fitted activation quantile and unlabeled full-model quantile mapping.
+P11/R08 fallback and the served default remain unchanged.
