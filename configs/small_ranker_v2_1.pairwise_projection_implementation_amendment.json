@@ -1,0 +1,16 @@
+{
+  "schema_version": "small-ranker-pairwise-projection-implementation-amendment.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.1-PAIRWISE-PROJECTION",
+  "failed_commit": "a37af1a",
+  "status": "IMPLEMENTATION_FAILURE_BEFORE_OUTPUT",
+  "reason": "direct Booster prediction used every tree stored after early stopping and therefore failed parity with the frozen XGBRanker OOF predictions",
+  "algorithm_changed": false,
+  "fix": {
+    "fold_best_iterations_zero_based": [465, 308, 442, 396, 372],
+    "prediction_iteration_range": "[0, best_iteration + 1)",
+    "source": "frozen oof_results.json fold_models records",
+    "metric_or_target_observed_before_fix": false
+  },
+  "retry": "use the same exclusive output path because the failed preflight created no directory or file"
+}

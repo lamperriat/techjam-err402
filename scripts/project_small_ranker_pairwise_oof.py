@@ -39,6 +39,7 @@ MODEL_HASHES = (
     "d73c4339edac4cbac9ef25cc15d97553068767e09ec1ae01dc3aec3d059cbaf0",
     "6b634f5aed8e21a39820b964bb1bfdb25787cf5e50b14971927599b9338422a5",
 )
+BEST_ITERATIONS = (465, 308, 442, 396, 372)
 
 
 class PairwiseProjectionError(RuntimeError):
@@ -94,6 +95,7 @@ def _score_once(
             prediction = booster.predict(
                 xgb.DMatrix(block.reshape(-1, base.FEATURE_COUNT)),
                 output_margin=True,
+                iteration_range=(0, BEST_ITERATIONS[fold] + 1),
             )
             scores[selected] = np.asarray(prediction, dtype=np.float32).reshape(
                 len(selected), base.TURN_COUNT, base.CANDIDATE_COUNT
@@ -139,7 +141,13 @@ def _raw_reference_audit(
         expected.append(np.asarray(reference[session, turn], dtype=np.float32))
         actual.append(
             np.asarray(
-                booster.predict(xgb.DMatrix(matrix), output_margin=True),
+                # Match XGBRanker's early-stopping-aware ``predict`` call used
+                # to create the frozen OOF reference.
+                booster.predict(
+                    xgb.DMatrix(matrix),
+                    output_margin=True,
+                    iteration_range=(0, BEST_ITERATIONS[fold] + 1),
+                ),
                 dtype=np.float32,
             )
         )
@@ -219,6 +227,7 @@ def run(source_root: Path, projection_root: Path, output_dir: Path) -> dict[str,
             "projected_feature_sha256": PROJECTED_FEATURE_SHA256,
             "label_cache_sha256": LABEL_SHA256,
             "model_sha256": list(MODEL_HASHES),
+            "best_iterations_zero_based": list(BEST_ITERATIONS),
             "script_sha256": _sha256(Path(__file__).resolve()),
         },
         "raw_model_reference_parity": raw_audit,
