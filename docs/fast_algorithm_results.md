@@ -581,3 +581,26 @@ and `4.786s`.  No Agent/full evaluator, calibration, selection, confirmation,
 public split, external download, full model, or runtime artifact was opened.  The
 aggregate evidence is tracked in
 `configs/small_ranker_v2_5.focused_lambdamart.manifest.json`.
+
+## SR-v2.6 frozen proposal-overlap diagnostic
+
+A target-informed posthoc diagnostic compared only the already-frozen pairwise,
+RRF-3, and focused LambdaMART proposal decisions under the identical supplemental
+action definition.  It trained no ranker or gate and serialized no session or
+product identifier.  Each individual oracle was reproduced exactly at `13`, `11`,
+and `11` current misses.
+
+The families are materially complementary.  Pairwise, RRF-3, and focused have
+`5`, `3`, and `4` unique rescue sessions; seven sessions are shared by all three
+and only one is shared by pairwise/RRF without focused.  Their union reaches `20`
+misses across folds `9/2/7/1/1`, raising the target-informed zero-harm ceiling to
+HR `0.9815`.  This exceeds the preregistered 14-session/three-fold direction gate,
+so a discrete proposal selector is justified even though score fusion was closed.
+
+The result repeated canonically and completed in `6.603s`.  The next single
+mechanism is a target-blind nested rescue-versus-regret selector over deduplicated
+proposal actions, with at most one supplemental action per session.  It is not a
+claim that `0.9815` is achievable, and this existing proposal portfolio still
+cannot reach `0.99` even with a perfect target-informed selector.  Aggregate
+evidence is tracked in
+`configs/small_ranker_v2_6.proposal_overlap.manifest.json`.

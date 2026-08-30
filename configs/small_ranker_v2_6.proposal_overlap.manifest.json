@@ -1,0 +1,70 @@
+{
+  "schema_version": "small-ranker-proposal-overlap-manifest.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.6-PROPOSAL-OVERLAP-DIAGNOSTIC",
+  "status": "PORTFOLIO_SIGNAL",
+  "commits": {
+    "preregistration": "04915fc",
+    "implementation": "6f90417"
+  },
+  "result": {
+    "path": "experiments/fast_track/small_ranker_v2_6/proposal_overlap_20260830T2010.json",
+    "sha256": "6b0717fad6c23d0c1ec853e499b85fcd3ae0fee7eeb2f87ce5f4f6da869542da",
+    "wall_seconds": 6.603002
+  },
+  "surfaces": {
+    "pairwise": {
+      "score_sha256": "1765f60c3f111f751e8d0c133bbbd93d2a1e174db24b2c4c64c80aea66a4778b",
+      "reachable_sessions": 13,
+      "by_outer_fold": [5, 0, 6, 1, 1],
+      "unique_over_other_two": 5
+    },
+    "rrf3": {
+      "score_sha256": "61e072d3c9e6cf5ef59534c817ec87b62ae4342044871fa7f803700d65e7ad3c",
+      "reachable_sessions": 11,
+      "by_outer_fold": [2, 2, 6, 1, 0],
+      "unique_over_other_two": 3
+    },
+    "focused_lambdamart": {
+      "score_sha256": "a77bde22c17a57b44a737ef397615e59012fbe999e46e7cbc6e4ba9d1159b776",
+      "reachable_sessions": 11,
+      "by_outer_fold": [3, 0, 7, 1, 0],
+      "unique_over_other_two": 4
+    }
+  },
+  "overlap": {
+    "membership_patterns": {
+      "pairwise_only": 5,
+      "rrf3_only": 3,
+      "focused_only": 4,
+      "pairwise_and_rrf3_only": 1,
+      "pairwise_and_focused_only": 0,
+      "rrf3_and_focused_only": 0,
+      "all_three": 7
+    },
+    "union_sessions": 20,
+    "union_by_outer_fold": [9, 2, 7, 1, 1],
+    "union_outer_folds": 5,
+    "maximum_zero_harm_hr_at_10": 0.9815,
+    "membership_code_sha256": "7ffcf674b96cb0bc724b78c3d23518a8301754870775987197f2777632c01dce"
+  },
+  "repeat": {
+    "exact": true,
+    "canonical_sha256": "75dc2739f7e44fb55358e0bfddf2bd9b8d82b62dbefd8b21d91105875bf2e964"
+  },
+  "tests": "1 passed",
+  "scope": {
+    "cached_frozen_surfaces_only": true,
+    "target_posthoc_membership_only": true,
+    "identifiers_serialized": false,
+    "ranker_or_gate_trained": false,
+    "agent_or_evaluator_started": false,
+    "held_out_splits_opened": false,
+    "external_data_downloaded": false
+  },
+  "decision": {
+    "portfolio_direction_gate_passed": true,
+    "reason": "the 20-session union strictly exceeds the best single-surface oracle of 13 and spans all five outer folds",
+    "next": "preregister one target-blind, one-action-per-session nested selector over deduplicated frozen proposals"
+  }
+}
