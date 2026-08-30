@@ -1,0 +1,80 @@
+{
+  "schema_version": "small-ranker-supplemental-pairwise-manifest.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.3-SUPPLEMENTAL-PAIRWISE",
+  "status": "NO_GO",
+  "commits": {
+    "preregistration": "7e6eaef",
+    "implementation_amendment": "59e3df8",
+    "implementation": "863e365"
+  },
+  "result": {
+    "path": "experiments/fast_track/small_ranker_v2_3/supplemental_pairwise_20260830T1700.json",
+    "sha256": "d2ed3e8dc8d66bf11e41403c2919aed2ceaa4bdeaa6dd10896da1f715126eaee",
+    "schema_version": "small-ranker-supplemental-pairwise-evaluation.v1"
+  },
+  "surface": {
+    "target_blind_feature_count": 8,
+    "feature_schema_sha256": "c2164cd7f0f22ebd6fee7f07064ebf974c3a2be23b5c5f2aac2453a50de3ab17",
+    "action_rows": 13926,
+    "action_sessions": 1999,
+    "rescue_label_rows": 105,
+    "regret_label_rows": 458,
+    "session_normalized_weights": true
+  },
+  "nested_oof_relative_to_current": {
+    "baseline_hr_at_10": 0.9715,
+    "candidate_hr_at_10": 0.9715,
+    "miss_to_hit": 0,
+    "hit_to_miss": 0,
+    "mrr_delta": 0.0,
+    "mttc_delta": 0.0,
+    "technical_score_delta": 0.0,
+    "supplemental_activation_sessions": 32,
+    "supplemental_activation_turns": 124,
+    "fold_net": [0, 0, 0, 0, 0],
+    "fold_activation_sessions": [0, 32, 0, 0, 0]
+  },
+  "repeat": {
+    "exact": true,
+    "supplemental_activation_sha256": "80115cde27f65ae9e993da433742591ed05b1af553a32c224194fd109b9d074a",
+    "final_activation_sha256": "48ad9137cb3b99985d3d7e4035575bf06225d8c6b4f9f3c134a468f404d1c410",
+    "selection_canonical_sha256": "dc0870e9d7df8837802994b1d647680a6a98720164cb2a3a4c4f2bd2b6b20fba"
+  },
+  "posthoc_oracle": {
+    "target_informed_not_runtime": true,
+    "reachable_current_miss_sessions": 13,
+    "correct_action_turns": 105,
+    "reachable_by_fold": [5, 0, 6, 1, 1],
+    "maximum_zero_harm_hr_at_10": 0.978,
+    "cannot_reach_0_99": true
+  },
+  "timing_seconds": {
+    "surface_and_labels": 0.115023,
+    "first_nested_oof": 1.100421,
+    "repeat_nested_oof": 1.010322,
+    "total": 8.657385
+  },
+  "privacy_and_scope": {
+    "cached_train_explore_only": true,
+    "runtime_features_target_blind": true,
+    "target_is_training_or_posthoc_label_only": true,
+    "agent_or_evaluator_started": false,
+    "held_out_splits_opened": false,
+    "full_model_or_artifact_trained": false,
+    "method_claim": "nested admission over two frozen OOF ranker surfaces, not end-to-end nested stacking"
+  },
+  "tests": "13 passed",
+  "decision": {
+    "promotion_gate_passed": false,
+    "reasons": [
+      "no current miss becomes a hit",
+      "all 124 supplemental activations are metric-neutral",
+      "only one outer fold activates",
+      "the action-family oracle ceiling is 0.978 and cannot reach 0.99"
+    ],
+    "feature_weight_multiplier_and_threshold_tuning_closed": true,
+    "full_artifact_authorized": false,
+    "next": "use a materially new proposal mechanism capable of addressing the 43 current misses whose targets are already reachable within C100"
+  }
+}

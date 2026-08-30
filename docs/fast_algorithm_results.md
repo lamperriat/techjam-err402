@@ -495,3 +495,33 @@ aggregate manifest is `configs/small_ranker_v2_2.hardcase_residual.manifest.json
 This residual formulation is closed without tuning. The next mechanism must preserve the
 current policy by default and treat the complementary pairwise proposal only as a
 supplemental action behind a session-aware rescue-versus-regret gate.
+
+## SR-v2.3 supplemental pairwise disagreement gate
+
+Before opening metrics, an independent static review reduced the gate from 31 features
+to eight bounded disagreement features, removed cross-objective raw scores, fixed both
+cross-ranks as stable rank/91 over the valid slot-10 action set, and normalized each
+head's training weight per session. The two fixed logistic heads learn isolated rescue
+and composite RR/MTTC regret relative to the complete current `0.9715` trace. KEEP is an
+exact current-policy fallback, and all threshold candidates are scored by simulating the
+combined ten-turn policy.
+
+The exact repeated nested OOF result is a No-Go. Only fold 1 selects a finite threshold,
+activating `124` turns in `32` sessions; all activations are metric-neutral. Relative to
+the current policy the result is `0/0` rescue/harm, HR `0.9715`, MRR delta `0`, MTTC
+delta `0`, and fold net `0/0/0/0/0`. Four folds select KEEP. Both passes reproduce the
+same decisions and selection hash, and the full run takes `8.657s`. No Agent, evaluator,
+held-out split, full pairwise model, or runtime artifact was opened.
+
+The posthoc action-family oracle is decisive for scope: pairwise offers an eligible,
+non-P11 supplemental target choice in only 13 of the 57 current misses, distributed
+`5/0/6/1/1` by fold. Even a perfect target-informed zero-harm router therefore tops out
+at HR `0.9780`; it cannot reach `0.99`. This closes feature, weight, multiplier, and
+threshold tuning for this proposal family. The next proposal mechanism must address the
+broader set of 43 current misses whose targets are already reachable within C100.
+
+The local result is
+`experiments/fast_track/small_ranker_v2_3/supplemental_pairwise_20260830T1700.json`,
+SHA-256 `d2ed3e8dc8d66bf11e41403c2919aed2ceaa4bdeaa6dd10896da1f715126eaee`;
+the tracked aggregate evidence is
+`configs/small_ranker_v2_3.supplemental_pairwise.manifest.json`.

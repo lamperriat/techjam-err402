@@ -1255,6 +1255,12 @@ IntentGraph target architecture.
   48 current rescues, so the formulation was closed without a sweep.
 - All three analyses used only the frozen train/explore cache; no Agent, full evaluator,
   held-out split, or runtime artifact was opened after the v1.9 checkpoint.
+- Added a current-relative supplemental pairwise gate with eight bounded disagreement
+  features, per-session weighted preprocessing, isolated rescue/composite-regret labels,
+  full-session policy composition, and exact nested-repeat evidence.
+- Rejected that gate after `124` supplemental activations produced no metric transition.
+  Its target-informed action oracle is only HR `0.978`, so this pairwise proposal family
+  is now closed rather than tuned.
 
 ## Competition boundary
 
