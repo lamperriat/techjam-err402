@@ -1,0 +1,164 @@
+{
+  "schema_version": "small-ranker-grace-score-tail-smoke-preregistration.v1",
+  "status": "PREREGISTERED_BEFORE_IMPLEMENTATION_AND_OUTCOME",
+  "recorded_on": "2026-08-31",
+  "experiment_id": "SR-V2.15-GRACE-SCORE-TAIL-SMOKE",
+  "parent_commit": "11d248ca6ff32b602bfad661711da94cb5e5235c",
+  "evidence_scope": "fixed train_explore sessions 1..100 cached smoke on a shared cohort; not private, not independent validation, not the 2000-session promotion test",
+  "hypothesis": "preserving the incumbent's first two pages and ordering only the post-grace unseen legal tail by the already-frozen held-outer score can rescue at least one smoke miss without harming an incumbent hit or any aggregate metric",
+  "global_incumbent": {
+    "experiment_id": "SR-V2.12-FIXED-TWO-PAGE-GRACE",
+    "commit": "7d08e144fe6f589d64fab21f1b68c3ec2feeb684",
+    "hit_rate_at_10": 0.991,
+    "mrr": 0.695795,
+    "mttc": 2.869,
+    "technical_score": 0.866858,
+    "interpretation": "comparable shared-cohort OOF incumbent; not a private score"
+  },
+  "unique_mechanism": {
+    "O": "the frozen reconstructed v1.9 C100 order after the frozen chosen/activation slot-10 action",
+    "raw": "the original blind-trace C100, with each product's immutable raw ordinal 0..99",
+    "score": "the frozen held-outer float32 semantic-off score aligned to raw ordinal",
+    "reset": "before selecting a page, on the first response or a visible decoded intent-version change, clear only this policy's served set and set intent age to one",
+    "age_1_or_2": "return O[0:10] byte-identically",
+    "age_3_plus_H": "unserved products from O[0:10] in O order",
+    "age_3_plus_T": "unserved products belonging to O[10:100], ordered by numpy.lexsort((raw_ordinal,-float32_score)); no rounding, tolerance, normalization, blend, threshold, or refill",
+    "age_3_plus_F": "served products from O[0:100] in O order",
+    "age_3_plus_page": "first ten products of H+T+F",
+    "state_update": "after selection, add exactly the ten actually returned products to the active-version served set and increment age only within that visible version",
+    "invariants": [
+      "first two pages of every intent version equal fixed-two-page grace byte-for-byte",
+      "unseen head order is unchanged; only unseen legal-tail internal order uses score priority",
+      "seen candidates remain the final fallback",
+      "each output has ten unique members drawn from the same current raw C100",
+      "retrieval, P11, v1.9, grace page count, question order, scores, folds, and model parameters are unchanged"
+    ],
+    "forbidden_runtime_inputs": ["sample_id", "scenario_type", "eligible_from", "ground_truth", "target", "positive_index", "outer_fold", "inner_fold", "future_turns", "evaluator_metadata"]
+  },
+  "frozen_smoke_cohort": {
+    "split": "train_explore",
+    "canonical_session_ordinals": "1..100 inclusive, equivalent to array rows 0:100",
+    "turns_per_session": 10,
+    "trace_rows": 1000,
+    "trace_source": "experiments/fast_track/action_oracle_v1/train_explore-full-blind-shard-01-of-04.jsonl",
+    "trace_source_bytes": 15939420,
+    "trace_source_rows": 5000,
+    "trace_source_raw_sha256": "fac3bc71e6210d1a449de706d335cc5bb945d4d3daf01e8cbecbe15c0600bf1a",
+    "prefix_canonicalization": "parse each of the first 1000 physical rows; normalize ordinal as (shard_number-1)*500+ordinal; json.dumps full object with sort_keys=true,separators=(',',':'),ensure_ascii=false,allow_nan=false; append one LF",
+    "prefix_canonical_bytes": 3187020,
+    "prefix_canonical_sha256": "96e2976eb40e8bf693e433d457d1dbc9b6115439f7a52876c374121523960554"
+  },
+  "frozen_target_free_inputs": {
+    "projected_features": {
+      "path": "D:/tiktok/techjam-v1-2-metric-gate/experiments/fast_track/small_ranker_fold_safe_projected_features.npy",
+      "shape": [2000, 10, 100, 133], "dtype": "float32", "raw_bytes": 1064000128,
+      "raw_sha256": "cd9b075b923c31afe10b9a9c6d720de22e221c93de961595ff484ea4f532b90a",
+      "prefix_ndarray_bytes": 53200000, "prefix_ndarray_sha256": "91a1f6c839e008a589e2e2abd0111e07929b5361348c5edb519056ba7d884159"
+    },
+    "oof_scores": {
+      "path": "D:/tiktok/techjam-err402-fast-track/experiments/fast_track/small_ranker_v1/oof_batch_v1/oof_scores_runtime_projection_no_semantic.npy",
+      "shape": [2000, 10, 100], "dtype": "float32", "raw_bytes": 8000128,
+      "raw_sha256": "5000deb9b77b3e7b326ccab6455222b291d2ec859ddab2043fe67d23a3217c5e",
+      "prefix_ndarray_bytes": 400000, "prefix_ndarray_sha256": "48bc950685e7c09db97507ae411c22aaff2537be748580c0b197f0df2222f90d"
+    },
+    "priority_prefix": {"shape": [100, 10, 100], "dtype": "uint8", "bytes": 100000, "ndarray_sha256": "cd33b8d6c124f41c6d493b4d99caed9f7b7c10a3048cd2efaa3fbc0b31bac155"},
+    "decoded_version_prefix_sha256": "f2e5477907877660a61b910376a7f8140852265619762bdc1626056aee5474c6",
+    "chosen_prefix_sha256": "b5b8e0e2fcadacb96e873bf724f03e957785ee3b8f7957481d4aa0ef219c1bfe",
+    "grace_mask": {"grace_turns": 230, "post_grace_turns": 770, "resets": 115, "ndarray_sha256": "8c92cd2e82968e40382e26c27d497b259c681b08060afc8f2ab590dba10fe1df"},
+    "full_chosen_sha256": "229952c9ced7f6eec1ff1938480adc85ba5093ad865336465749029576e47051",
+    "full_activation_sha256": "48ad9137cb3b99985d3d7e4035575bf06225d8c6b4f9f3c134a468f404d1c410",
+    "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67"
+  },
+  "label_attach": {
+    "path": "D:/tiktok/techjam-err402-fast-track/experiments/fast_track/small_ranker_v1/labels_v2.npz",
+    "raw_bytes": 1702876,
+    "raw_sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+    "receipt_precedes_any_label_path_stat_open_hash_or_member_access": true,
+    "archive_open_count": 1,
+    "allow_pickle": false,
+    "member_access_order": ["baseline_rank", "positive_index", "eligible_from", "outer_fold", "inner_fold"],
+    "purpose": "reproduce the already-frozen comparator and compute metrics for rows 0:100 only; targets are evaluator-side labels and never runtime features",
+    "proxy_open_allowed": false,
+    "new_fit_or_selection": false,
+    "frozen_comparator_fit_invocations_exact": 60
+  },
+  "same_attach_identity_gates": {
+    "baseline_ascii_page_sha256_full_reference": "2d5fa0ea12ab02b74e2b6c3a3f92b3ba83191c35eb176f95aed9361f785496e9",
+    "grace_ascii_page_sha256_full_reference": "6f84d2aa03d792027634a358bdcef9adf646717c94cc3ec0916e87e33410448a",
+    "grace_prefix_and_combo_grace_mask_pages_array_equal": true,
+    "grace_prefix_and_combo_grace_mask_raw_bytes_equal": true,
+    "reset_pages_equal_O_top10": true,
+    "actual_output_drives_served_state": true,
+    "exact_repeat_all_arrays_and_metrics": true
+  },
+  "metric_contract": {
+    "population": "the fixed 100 sessions only; all ten turns retained",
+    "eligibility": "one-based turn >= sealed eligible_from; miss first-hit turn is 11",
+    "hit_rate_at_10": "mean session membership hit",
+    "mrr": "mean reciprocal rank at the first eligible hit, zero for miss",
+    "mttc": "mean first-hit turn, using 11 for miss",
+    "official_rounding": "round HR, MRR and MTTC to 6 decimals; efficiency=max(0,1-(rounded_MTTC-1)/10); TechnicalScore=0.50*rounded_HR+0.30*rounded_MRR+0.20*efficiency; round reported efficiency and TechnicalScore to 6 decimals",
+    "comparison_precision": "all directional gates must pass both exact rational metrics and official-6dp metrics"
+  },
+  "smoke_promotion_gates": {
+    "miss_to_hit_minimum": 1,
+    "hit_to_miss_exact": 0,
+    "net_hits_minimum": 1,
+    "hit_rate_strictly_greater_than_same_attach_grace": true,
+    "mrr_delta_minimum": 0.0,
+    "mttc_delta_maximum": 0.0,
+    "technical_score_delta_strictly_greater_than": 0.0,
+    "exact_repeat": true,
+    "all_identity_and_resource_gates": true
+  },
+  "required_aggregate_result_fields": [
+    "same-attach grace and candidate HR/MRR/MTTC/TechnicalScore in exact and official-6dp form",
+    "miss-to-hit, hit-to-miss, net hits, changed sessions, changed turns, and activation",
+    "per-outer-fold baseline/candidate metrics and transitions as diagnostics; smoke promotion does not add an unpreregistered fold gate",
+    "prefix C10/C20/C50/C100 candidate recall context",
+    "policy P95, peak RSS, GPU peak, wall time, environment, source hashes, receipt hash omission, and implementation commit"
+  ],
+  "resource_budget": {
+    "environment": {"python": "3.9.19", "numpy": "1.26.4", "scikit_learn": "1.1.3", "xgboost": "1.7.6"},
+    "workers": 1,
+    "wall_seconds_maximum": 120,
+    "peak_working_set_bytes_maximum": 2147483648,
+    "policy_latency_p95_microseconds_maximum": 5000,
+    "gpu_used": false,
+    "gpu_peak_bytes": 0,
+    "agent_or_full_evaluator_allowed": false,
+    "network_download_dependency_or_model_change_allowed": false
+  },
+  "outcome_protocol": {
+    "attach_count": 1,
+    "fixed_output": "experiments/fast_track/small_ranker_v2_15/grace_score_tail_smoke_20260831/result.json",
+    "output_not_cli_overridable": true,
+    "prepared_real_parent_required": true,
+    "receipt": "O_WRONLY|O_CREAT|O_EXCL plus O_BINARY when available; write canonical pending marker and fsync before label access",
+    "post_receipt_failure": "catch BaseException, overwrite the same descriptor with aggregate INVALID_ONE_SHOT_CONSUMED, fsync, and forbid rerun",
+    "result": "aggregate-only JSON; no session/product identifiers, target/rank vectors, or per-session membership",
+    "source_rehash_and_same-handle_label_rehash_before_final": true
+  },
+  "checkpoint_choreography": {
+    "branch": "small-ranker-v2.15-grace-score-combo",
+    "remote": "origin",
+    "remote_url": "https://github.com/lamperriat/techjam-err402.git",
+    "remote_tracking_ref": "refs/remotes/origin/small-ranker-v2.15-grace-score-combo",
+    "preregistration_commit": {"direct_parent": "11d248ca6ff32b602bfad661711da94cb5e5235c", "exact_changed_paths": ["configs/small_ranker_v2_15.grace_score_tail_smoke_preregistration.json"], "must_be_pushed_before_implementation": true},
+    "implementation_commit": {"direct_parent_rule": "exact pushed preregistration commit", "exact_changed_paths": ["scripts/evaluate_grace_score_tail_smoke.py", "tests/test_grace_score_tail_smoke.py"], "must_be_pushed_before_preflight_or_receipt": true},
+    "formal_gate": "HEAD equals remote implementation commit; worktree clean including untracked; exact parents and path sets; fixed result absent; protocol/source/blob/environment identities exact",
+    "history_rewrite_force_amend_old_artifact_overwrite": false
+  },
+  "pinned_git_blobs": {
+    "score_runner": "efe5646d5164f8fe2f952d308d489b957c7a4bb6",
+    "rank1_runner": "f15c54aae4a3760d95afd366f07bdefd1ef34665",
+    "comparability_manifest": "344cc82b1ce06144a0a29c6754cfdb1c4859cfdb",
+    "deployable_fallback_artifact": "c62922bc7478c3a5b0d6df67c6372923630d8fb9"
+  },
+  "decision": {
+    "go": "only all smoke gates authorize a separately preregistered one-time cached 2000-session nested-OOF exact-repeat comparison; smoke is not deployment evidence",
+    "no_go": "record and close this exact combination without variants; do not open the 2000-session outcome; continue immediately to clause-isolated target-blind C200 then C400 candidate-recall probes",
+    "served_default": "off",
+    "fallback_order": ["SR-V2.12-FIXED-TWO-PAGE-GRACE", "v1.9", "P11", "R08"]
+  }
+}
