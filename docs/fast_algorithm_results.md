@@ -1,6 +1,6 @@
 # Fast Algorithm Results
 
-Last updated: 2026-08-29 SGT. This aggregate-only registry prevents exact-repeat runs; it
+Last updated: 2026-08-30 SGT. This aggregate-only registry prevents exact-repeat runs; it
 contains no blind trace, public-session row, target/ASIN, or confirmation result.
 
 ## Old matrix identity
@@ -638,3 +638,15 @@ authorized.  The next experiment must regenerate all upstream proposals inside e
 meta outer/inner training domain and apply the frozen v2.7 selector without tuning.
 The proposal union's target-informed ceiling remains HR `0.9815`, so even a successful
 strict restack will not by itself reach the project-level `0.99` objective.
+
+## SR-V2.8 strict outer restack — Stage 0 mechanics pass
+
+- Frozen protocol: `23db8ee`; implementation checkpoint: `eef6efd`.
+- Unique mechanism remains unchanged: rebuild every upstream current/proposal/focused/selector component without the evaluated outer product-family fold.
+- Stage 0 rebuilt 9 rankers twice over outer 0: five `A_0j -> V_0j` current models plus A00 pairwise, d6, regularized, and focused models.
+- Exact repeat passed across model JSON, semantic-off scores, slot-10 choices, current gate/state, focused cohort/cache, and RRF-3. Identity SHA-256: `f3f1c23b10d3126e7cc31b26d384e40a4d4d7e36c0681bc48a455db538655bf2`.
+- T0 contained 1,600 sessions, 596,880 selected rows, and 14,922 query groups; H0 contributed zero training rows. A00 focused training contained 19 hard and 54 control sessions (306 query groups).
+- First/repeat passes took 424.064/424.823 seconds; total wall time was 851.514 seconds and peak working set was 2,940,833,792 bytes.
+- Targeted verification: 19 tests passed. All serialized-model reload predictions were exact; finite, identity-shape, lineage, and supervision-scope checks passed.
+- No proposal/selector or H0 outcome metric was computed. This is `IMPLEMENTATION_PASS_STAGE0`, not an HR@10 result and not artifact authorization.
+- Next single step: build and exactly repeat the full five-outer strict cache, then attach held labels for the preregistered outcome exactly once.
