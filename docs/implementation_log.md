@@ -1243,6 +1243,19 @@ IntentGraph target architecture.
 - The checkpoint does not claim OOF `0.99` or private generalization; work continues with
   structural attribution of the remaining 57 OOF misses.
 
+### 2026-08-30 - remaining-miss mechanisms v2.0-v2.2
+
+- Attributed the 57 remaining OOF misses to 14 C100-recall, 35 ranker, and 8 admission
+  failures; C100 reachability is `0.993`, so candidate depth is not yet an oracle stop.
+- Reprojected the existing pairwise ranker exactly. It reached `0.9735` against P11 but
+  was rejected relative to the current policy because it traded 9 rescues for 5 harms,
+  regressed three folds, and increased aggregate MTTC.
+- Implemented the preregistered hard-case residual pair-cache and full nested cross-fit.
+  Its deterministic result offered only one correct remaining-miss proposal and lost all
+  48 current rescues, so the formulation was closed without a sweep.
+- All three analyses used only the frozen train/explore cache; no Agent, full evaluator,
+  held-out split, or runtime artifact was opened after the v1.9 checkpoint.
+
 ## Competition boundary
 
 The Devpost Rules and event pages were checked on 2026-08-27 SGT. The submission window begins on 2026-08-29 at 12:00 SGT. This integration is a pre-window technical baseline and does not by itself prove the required significant post-start update. After the window opens, substantial code work must have clear commits, tests, results, and documentation.

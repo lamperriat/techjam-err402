@@ -468,3 +468,30 @@ The useful evidence is proposal complementarity: it proposes a correct candidate
 of the current 57 misses. The next materially different mechanism is a hard-case residual
 ranker trained from OOF-derived target-versus-current-chosen pairs under full outer/inner
 product-family cross-fitting; the current fold-safe admission protocol remains unchanged.
+
+## SR-v2.2 hard-case residual ranker
+
+The preregistered residual model used OOF-derived target-versus-current-choice pairs,
+full product-family outer/inner cross-fitting, fixed hard/control weights `10/1`, and four
+fixed extra hard negatives. Its local pair cache contains `7,098` rows, `134` target-blind
+features, `1,019` sessions, and `35` current ranker-failure sessions (`3,898,802` bytes).
+The complete nested run repeated exactly: activation SHA-256
+`bb745e4f7e83f7e7393ced83c1a51f012e3b9f6ca834dd081a82beed785e8931` and chosen-order
+SHA-256 `f9ff3ce77f2a58ed0a0165066bd946677ddce7df7e43b31faae4ffeb45052694`.
+
+The formulation is a clear No-Go. It proposes the correct candidate in only one of the
+57 current misses. Against P11 it activates `1,949` turns in `380` sessions but changes
+no session outcome: HR `0.9475`, `0/0` rescue/harm, MRR `0.674928`, and MTTC `3.1605`.
+Relative to the current `0.9715` policy it removes all 48 existing rescues, yielding
+HR `-0.024`, MRR `-0.001933`, MTTC `+0.1045`, and fold net
+`-7/-13/-8/-7/-13`. The run took `16.516s`, including two exact nested-OOF passes of
+`5.349s` and `5.478s`; no Agent, evaluator, held-out split, sweep, or deployable artifact
+was opened.
+
+The result is retained locally at
+`experiments/fast_track/small_ranker_v2_2/hardcase_residual_20260830T1615.json`, SHA-256
+`08796b01cada715e2339f1eecfb34c066dd43379ad1869cf0af4f5a9a514b818`; the tracked
+aggregate manifest is `configs/small_ranker_v2_2.hardcase_residual.manifest.json`.
+This residual formulation is closed without tuning. The next mechanism must preserve the
+current policy by default and treat the complementary pairwise proposal only as a
+supplemental action behind a session-aware rescue-versus-regret gate.

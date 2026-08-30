@@ -1,0 +1,83 @@
+{
+  "schema_version": "small-ranker-hardcase-residual-manifest.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.2-HARDCASE-RESIDUAL",
+  "status": "NO_GO",
+  "commits": {
+    "preregistration": "0cc6932",
+    "implementation": "86b3d1a"
+  },
+  "result": {
+    "path": "experiments/fast_track/small_ranker_v2_2/hardcase_residual_20260830T1615.json",
+    "sha256": "08796b01cada715e2339f1eecfb34c066dd43379ad1869cf0af4f5a9a514b818",
+    "schema_version": "small-ranker-hardcase-residual-evaluation.v1"
+  },
+  "pair_cache": {
+    "rows": 7098,
+    "features": 134,
+    "sessions": 1019,
+    "hard_sessions": 35,
+    "positive_rows": 3549,
+    "bytes": 3898802,
+    "hard_case_weight": 10.0,
+    "control_weight": 1.0,
+    "extra_hard_negatives": 4
+  },
+  "nested_oof": {
+    "activation_repeat_exact": true,
+    "chosen_repeat_exact": true,
+    "activation_sha256": "bb745e4f7e83f7e7393ced83c1a51f012e3b9f6ca834dd081a82beed785e8931",
+    "chosen_sha256": "f9ff3ce77f2a58ed0a0165066bd946677ddce7df7e43b31faae4ffeb45052694",
+    "records_canonical_sha256": "09165b2cff8ee726162601223af5e0c9c75dd329c840141110ac8e76fcac4f18",
+    "baseline_hr_at_10": 0.9475,
+    "candidate_hr_at_10": 0.9475,
+    "miss_to_hit_vs_p11": 0,
+    "hit_to_miss_vs_p11": 0,
+    "candidate_mrr": 0.674928,
+    "candidate_mttc": 3.1605,
+    "candidate_technical_score": 0.833018,
+    "activation_sessions": 380,
+    "activation_turns": 1949
+  },
+  "relative_to_current_0_9715": {
+    "miss_to_hit": 0,
+    "hit_to_miss": 48,
+    "net_hits": -48,
+    "hr_delta": -0.024,
+    "mrr_delta": -0.001933,
+    "mttc_delta": 0.1045,
+    "technical_score_delta": -0.01467,
+    "fold_net": [-7, -13, -8, -7, -13]
+  },
+  "ranker_proposal_evidence": {
+    "current_remaining_miss_sessions": 57,
+    "correct_proposal_remaining_miss_sessions": 1,
+    "correct_proposal_remaining_miss_turns": 1
+  },
+  "timing_seconds": {
+    "pair_cache": 0.058602,
+    "first_nested_oof": 5.349359,
+    "repeat_nested_oof": 5.477658,
+    "total": 16.516022
+  },
+  "privacy_and_scope": {
+    "runtime_features_target_blind": true,
+    "target_is_training_label_only": true,
+    "hyperparameter_sweep": false,
+    "agent_or_evaluator_started": false,
+    "held_out_splits_opened": false,
+    "full_model_or_artifact_trained": false
+  },
+  "tests": "2 passed",
+  "decision": {
+    "promotion_gate_passed": false,
+    "reasons": [
+      "only one of the 57 current misses receives a correct residual proposal",
+      "the challenger produces zero rescue versus P11",
+      "the challenger removes all 48 rescues from the current policy",
+      "all five folds regress relative to the current policy"
+    ],
+    "residual_formulation_closed": true,
+    "next": "preserve the current policy and test pairwise only as a supplemental disagreement action behind a nested rescue-versus-regret gate"
+  }
+}
