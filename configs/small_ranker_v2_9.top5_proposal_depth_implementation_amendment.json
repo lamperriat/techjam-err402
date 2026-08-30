@@ -1,0 +1,74 @@
+{
+  "schema_version": "small-ranker-top5-proposal-depth-implementation-amendment.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.9-STRICT-TOP5-PROPOSAL-DEPTH",
+  "parent_preregistration_commit": "6ad3518",
+  "timing": "recorded with the Stage-0 implementation and before any v2.9 label archive or outcome access",
+  "purpose": "make the frozen-score reuse, row-order recovery, K=1 compatibility oracle, and label-free Stage-0 mechanics machine-auditable without changing the preregistered algorithm",
+  "source_binding": {
+    "preregistration_sha256": "51c0a9d909e7e8d21604ff29981c8a35ca217b94e0ec9d6f8c98ca12d700cebb",
+    "v2_8_stage1_result_sha256": "a683f50f6acdb2ee3cc0c88507e6f5ac4f46b2a6b0599acf2e6a4abdc3d17c97",
+    "v2_8_stage1_manifest_sha256": "c57c39d8220914dcab91717b9505f7734837aeca936178167f464ec33cbbcceb",
+    "projected_feature_sha256": "cd9b075b923c31afe10b9a9c6d720de22e221c93de961595ff484ea4f532b90a"
+  },
+  "stage0_scope": {
+    "outer_fold": 0,
+    "passes": ["first", "repeat"],
+    "phases": ["oof_T", "reference_T", "held_H"],
+    "label_archive_opened": false,
+    "outcome_member_accesses": 0,
+    "xgboost_fits": 0,
+    "selector_fits": 0,
+    "outcome_metrics": 0,
+    "writes": "new exclusive files below experiments/fast_track/small_ranker_v2_9 only"
+  },
+  "row_order": {
+    "held": "load and validate the physically audited v2.8 held/session_ordinal array",
+    "training": "ascending complement of held ordinals in range(0,2000)",
+    "oof_score_order": "the recovered ascending T_o order",
+    "full_score_order": "global session ordinal 0..1999",
+    "label_archive_needed": false
+  },
+  "enumerator": {
+    "stable_tie_break": "numpy stable descending score order preserves lower candidate ordinal",
+    "allowed_mask": "positions 10..99 plus incumbent",
+    "topk_before_exclusion": true,
+    "exclude_current_and_incumbent": true,
+    "refill": false,
+    "deduplicate_across_family": true,
+    "support": "three-bit OR mask",
+    "serialized_candidate_order": "ascending ordinal"
+  },
+  "compatibility_oracle": {
+    "k": 1,
+    "required_equal_fields": [
+      "current_chosen",
+      "current_activation",
+      "current_choice",
+      "incumbent",
+      "family_choices",
+      "candidates",
+      "source_mask",
+      "available",
+      "features"
+    ],
+    "float_comparison": "np.array_equal; no tolerance",
+    "feature_denominator": "3*k",
+    "reason": "a K=1 mismatch is an implementation failure, not evidence about proposal depth"
+  },
+  "stage0_identity": {
+    "pass_neutral": true,
+    "includes": "all three phase array hashes, action counts, K=1 parity, source outer identity, source result identity, and row-order hashes",
+    "excludes": ["pass name", "source path containing first/repeat", "wall time", "process memory"],
+    "first_repeat_must_equal": true
+  },
+  "unchanged": {
+    "candidate_universe": "C100",
+    "upstream_scores": true,
+    "feature_names_and_order": true,
+    "current_policy": true,
+    "selector_model_weights_utility_readiness_quantiles_and_latch": true,
+    "promotion_gate": true,
+    "no_post_outcome_tuning": true
+  }
+}
