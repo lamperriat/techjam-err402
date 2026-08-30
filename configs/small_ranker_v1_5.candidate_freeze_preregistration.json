@@ -1,0 +1,89 @@
+{
+  "schema_version": "small-ranker-candidate-freeze-preregistration.v1",
+  "recorded_on": "2026-08-30",
+  "status": "PREREGISTERED_NOT_EXECUTED",
+  "source_checkpoint": "edafad2",
+  "oof_candidate": {
+    "canonical_sha256_excluding_timing": "ac2a14b0f27a5e972c0a12ed0b5dabadd5b6a2d8fc6b0b873b10ad11e7955fbe",
+    "ranker_spec": "ndcg_d4_lr003",
+    "effective_heads": ["rescue", "reciprocal_rank_regret"],
+    "drop_head": "direct_hit_loss",
+    "drop_reason": "zero isolated positive labels; outer hit losses were a joint-action effect",
+    "rr_multiplier_rule": "lock to 1.0, the inner-selected value in four of five outer folds",
+    "threshold_rule": "select an activation quantile using only cross-fitted train_explore utilities under every-fold safety; map that fixed quantile to the unlabeled full-model train_explore utility distribution, because raw probability scales differ across fitted models",
+    "served_default": "off",
+    "fallback": "P11/R08"
+  },
+  "freeze_requirements": {
+    "target_blind": true,
+    "causal_per_turn": true,
+    "full_data_models_trained_once": true,
+    "cross_fitted_activation_quantile_only": true,
+    "full_model_quantile_mapping_must_not_read_outcomes": true,
+    "exact_repeat_required": true,
+    "artifact_identity_and_source_hashes_required": true,
+    "offline_runtime_parity_required": true,
+    "no_agent_or_full_evaluator_during_freeze": true,
+    "forbidden_inputs": [
+      "proxy_calibration",
+      "proxy_selection",
+      "proxy_confirmation",
+      "released_public",
+      "amazon_test"
+    ]
+  },
+  "fresh_validation_source": {
+    "dataset": "McAuley-Lab/Amazon-Reviews-2023",
+    "domain": "Clothing_Shoes_and_Jewelry",
+    "required_split": "train",
+    "required_revision": "2aa726ef444e72c6a1364c4baa0bcdfb1de55db6",
+    "source_identity_status": "MISSING_NOT_PINNED",
+    "test_split_forbidden": true,
+    "selection_rows": 2000,
+    "confirmation_rows": 2000,
+    "target_rule": "catalog target must occur in train source and must not occur anywhere in the pinned validation CSV",
+    "family_rule": "catalog family signature must not occur among any catalog target in the pinned validation CSV; fresh selection and confirmation must also be mutually family-disjoint",
+    "reason": "excluding the entire validation-source target/family universe guarantees disjointness from all old proxy splits, including sealed confirmation, without reading the sealed file"
+  },
+  "compact_cache": {
+    "worker_receives_labels": false,
+    "worker_output": [
+      "baseline_top10",
+      "chosen_slot10_candidate",
+      "frozen_ranker_score",
+      "rescue_probability",
+      "rr_regret_probability",
+      "frozen_activation_decision"
+    ],
+    "store_full_c100_feature_tensor": false,
+    "label_join_after_worker_close": true,
+    "goal": "one expensive target-blind pass, then sub-second metric and gate audits"
+  },
+  "gates": {
+    "selection": {
+      "minimum_hr_delta": 0.01,
+      "minimum_net_hits": 20,
+      "maximum_hit_to_miss": 0,
+      "minimum_mrr_delta": 0.0,
+      "maximum_mttc_delta": 0.0,
+      "minimum_positive_net_taxonomies": 3
+    },
+    "confirmation": {
+      "minimum_hr_delta": 0.01,
+      "minimum_net_hits": 20,
+      "maximum_hit_to_miss": 0,
+      "minimum_mrr_delta": 0.0,
+      "maximum_mttc_delta": 0.0,
+      "minimum_positive_net_taxonomies": 3,
+      "selection_exact_repeat_required": true
+    }
+  },
+  "authorization": {
+    "download_source": false,
+    "train_full_candidate": false,
+    "build_fresh_cache": false,
+    "open_fresh_selection": false,
+    "open_fresh_confirmation": false,
+    "open_old_heldouts": false
+  }
+}
