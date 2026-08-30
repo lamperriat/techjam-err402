@@ -1,0 +1,76 @@
+{
+  "schema_version": "small-ranker-top5-proposal-depth-stage1a-implementation-amendment.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.9-STRICT-TOP5-PROPOSAL-DEPTH-STAGE1A",
+  "parent_stage0_evidence_commit": "6f3765f4671deba04bde792b35f7df7c8db3536b",
+  "timing": "recorded with the Stage-1a implementation and before any v2.9 label archive, selector fit, or held outcome access",
+  "purpose": "build and exact-repeat all five target-free outer top-5 runtime surfaces before any supervised selector phase",
+  "source_binding": {
+    "preregistration_sha256": "51c0a9d909e7e8d21604ff29981c8a35ca217b94e0ec9d6f8c98ca12d700cebb",
+    "stage0_implementation_amendment_sha256": "3058bd3b009bc8079478d0a0c95df5d02b2691b66b40ef322d80bc3a61c3b505",
+    "stage0_probe_sha256": "6ca765d0df519da789ebbeecf82b9629ac32298b41180e1ca951d769f1a94e64",
+    "stage0_manifest_sha256": "88b3f59d0580e8e3ded22159fcd7367c33c3313d0534dafce20115593b932886",
+    "stage0_result_sha256": "1ccb96454936c58f28cf096f2e864b4e5dd874e46afe4de3bec15a0704e113e3",
+    "stage0_identity_sha256": "41e5cd8563ec38e78c3c279c27937721c8e2b0c8cfa960139e28af278bc1a27a",
+    "v2_8_stage1_result_sha256": "a683f50f6acdb2ee3cc0c88507e6f5ac4f46b2a6b0599acf2e6a4abdc3d17c97"
+  },
+  "safe_reuse_contract": {
+    "module": "scripts/probe_small_ranker_top5_proposal_depth.py",
+    "module_hash_checked_before_import": true,
+    "transitive_imports": "stdlib plus NumPy only",
+    "builder": "reuse the exact Stage-0 _build_pass implementation without changing enumeration, exclusions, features, K1 parity, KEEP, latch, or source audits",
+    "new_algorithmic_variable": false
+  },
+  "stage1a_scope": {
+    "outer_folds": [0, 1, 2, 3, 4],
+    "passes": ["first", "repeat"],
+    "phases": ["oof_T", "reference_T", "held_H"],
+    "surface_files_per_outer_pass": 27,
+    "label_archive_opened": false,
+    "outcome_member_accesses": 0,
+    "xgboost_fits": 0,
+    "selector_fits": 0,
+    "outcome_metrics": 0,
+    "writes": "new exclusive files below experiments/fast_track/small_ranker_v2_9 only"
+  },
+  "held_coverage_contract": {
+    "source": "the physically audited held/session_ordinal record for each v2.8 outer worker",
+    "per_fold_sessions": 400,
+    "global_sessions": 2000,
+    "first_repeat_order_bit_exact_per_fold": true,
+    "each_global_session_exactly_once": true,
+    "serialized_identifiers": false,
+    "coverage_evidence": "only counts and a numeric fold-owner array hash are retained in the result"
+  },
+  "exact_repeat_contract": {
+    "per_outer_identity": "the pass-neutral Stage-0 identity must match",
+    "per_surface_file": "array SHA, file SHA, bytes, shape, dtype, and identity-scan count must match while paths may differ by pass",
+    "aggregate_identity": "ordered outer identities, held fold-owner hash, coverage counts, and frozen v2.8 identity",
+    "source_paths_wall_time_and_memory_excluded": true
+  },
+  "resource_gate": {
+    "first_plus_repeat_wall_seconds_maximum": 600,
+    "peak_working_set_bytes_maximum": 3289186304,
+    "new_cache_bytes_maximum": 1073741824,
+    "workers": 1,
+    "failure_authorizes_stage1b": false
+  },
+  "privacy_gate": {
+    "label_archive_opened": false,
+    "outcome_member_accesses": 0,
+    "held_state_or_metric_computed": false,
+    "agent_or_full_evaluator_started": false,
+    "forbidden_split_or_external_data_opened": false
+  },
+  "decision_boundary": {
+    "pass_authorizes": "preparation of Stage 1b only; T_o-only label attachment requires both a committed tracked Stage-1a evidence manifest and a separate committed Stage-1b implementation checkpoint",
+    "ignored_stage1a_result_alone_authorizes_label_archive_open": false,
+    "pass_does_not_authorize": [
+      "held H_o outcome access",
+      "HR/MRR/MTTC/TechnicalScore claims",
+      "runtime artifact",
+      "Agent or evaluator run"
+    ],
+    "mechanical_failure": "repair only the preregistered Stage-1a mechanics before any supervised or outcome phase"
+  }
+}
