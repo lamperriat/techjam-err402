@@ -85,10 +85,10 @@
     "result": "2 passed in 0.13s"
   },
   "decision": {
-    "status": "PROMISING_OOF_REPRODUCED_CALIBRATION_ELIGIBLE",
-    "reason": "the frozen nested-OOF result reproduced exactly except wall time, but one fold still regressed MRR, one fold made no rescue, and only nine harm positives exist",
+    "status": "PROMISING_OOF_REPRODUCED_FRESH_VALIDATION_REQUIRED",
+    "reason": "the frozen nested-OOF result reproduced exactly except wall time, but the existing calibration split was opened before this design and its observed MRR regression directly motivated the harm head, so it is not untouched evidence for v1.3",
     "promote": false,
     "served_default": "off",
-    "next_algorithm": "freeze the admission policy and run exactly one untouched calibration evaluation; do not start selection, confirmation, public, or runtime integration"
+    "next_algorithm": "use a newly frozen product-family-disjoint validation split; never rerun or relabel the already observed calibration as untouched"
   }
 }

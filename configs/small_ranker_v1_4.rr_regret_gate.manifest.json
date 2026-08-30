@@ -1,0 +1,83 @@
+{
+  "schema_version": "small-ranker-rr-regret-gate-manifest.v1",
+  "recorded_on": "2026-08-30",
+  "branch": "small-ranker-v1.4-rr-regret",
+  "parent_checkpoint": "c2ea9e8",
+  "scope": {
+    "split": "train_explore",
+    "ranker_retrained": false,
+    "agent_or_runtime_started": false,
+    "known_calibration_reused": false,
+    "selection_opened": false,
+    "confirmation_opened": false,
+    "public_opened": false
+  },
+  "protocol": {
+    "ranker": "frozen ndcg_d4_lr003 outer-OOF scores",
+    "gate_model": "nested target-blind logistic rescue head minus lambda times reciprocal-rank-regret head",
+    "regret_label": "isolated slot-10 action lowers session reciprocal rank, including an early rank-10 hit preempting a later better-ranked hit",
+    "regret_multipliers": [0.5, 1.0, 2.0, 5.0, 10.0],
+    "challenger_threshold_rule": "inner-OOF zero hit-to-miss, nonnegative MRR delta, nonpositive MTTC delta, then maximum TechnicalScore",
+    "outer_folds": 5,
+    "inner_folds": 5,
+    "target_blind_runtime_features": true
+  },
+  "sources": {
+    "feature_cache_sha256": "2b19835a1bced7f21322610296c712e3d06d915274719e11c268d31f7f596089",
+    "label_cache_sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+    "oof_score_sha256": "ef9f53ec46e6b18626329d612abbab342b0714dd0ad83c7e6b06040028fe75aa",
+    "analyzer": {
+      "path": "scripts/analyze_small_ranker_rr_regret_gate.py",
+      "sha256": "97355f82d550820a124a81a6a49e572f5e7d0bacab986727ffa91aa7ba973111"
+    },
+    "ignored_result": {
+      "path": "experiments/fast_track/small_ranker_rr_regret_gate_v1.json",
+      "bytes": 20426,
+      "sha256": "e556d1e74860223b9c03f8fc2c5851f56528eb5aa4939c0bafb62e7073601c54"
+    }
+  },
+  "label_counts": {
+    "rescue": 409,
+    "rr_regret": 412,
+    "rr_regret_magnitude_sum": 280.813904,
+    "direct_risk": 40,
+    "activated_rr_regret": 7
+  },
+  "outer_oof": {
+    "baseline_hr_at_10": 0.9475,
+    "challenger_hr_at_10": 0.97,
+    "miss_to_hit": 48,
+    "hit_to_miss": 3,
+    "net_hits": 45,
+    "fold_net_hits": [7, 13, 5, 7, 13],
+    "fold_hit_to_miss": [0, 0, 3, 0, 0],
+    "fold_mrr_delta": [0.00175, 0.00225, 0.00125, 0.00175, -0.001083],
+    "hr_delta": 0.0225,
+    "mrr_delta": 0.001183,
+    "mttc_delta": -0.116,
+    "technical_score_delta": 0.013925,
+    "activation_sessions": 1450,
+    "activation_turns": 8802,
+    "wall_seconds": 3.541212
+  },
+  "reference_v1_3": {
+    "miss_to_hit": 34,
+    "hit_to_miss": 0,
+    "net_hits": 34,
+    "hr_delta": 0.017,
+    "mrr_delta": 0.00049,
+    "mttc_delta": -0.0625,
+    "technical_score_delta": 0.009898
+  },
+  "test_evidence": {
+    "command": "C:\\Users\\danie\\anaconda3\\python.exe -m pytest tests/test_small_ranker_rr_regret_gate.py -q",
+    "result": "3 passed in 0.10s"
+  },
+  "decision": {
+    "status": "NO_GO",
+    "reason": "the correct regret label improved aggregate HR, MRR, MTTC, and TechnicalScore, but outer OOF produced three hit-to-miss regressions and one negative-MRR fold",
+    "promote": false,
+    "served_default": "off",
+    "next_algorithm": "combine the reciprocal-rank-regret head with a separate direct hit-loss head and nested safety admission; do not continue scalar threshold tuning"
+  }
+}

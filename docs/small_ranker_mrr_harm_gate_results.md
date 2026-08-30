@@ -48,9 +48,12 @@ hit-to-miss, fold net `0/12/7/6/9`, HR delta `+0.0170`, MRR delta
 `+0.000490`, MTTC delta `-0.0625`, and TechnicalScore delta `+0.009898`.
 The repeat took `3.402735` seconds.
 
-The status is now **calibration-eligible, not promoted**. The next iteration may
-run exactly one frozen untouched-calibration evaluation. Selection,
-confirmation, public, and runtime integration remain closed.
+The exact OOF result is reproducible, but the repository's existing calibration
+split is **not untouched for this design**: it was opened for v1 and its observed
+MRR regression directly motivated the harm head. It must not be rerun or renamed
+as independent evidence. The next legitimate validation must be a newly frozen,
+product-family-disjoint source split. Selection, confirmation, public, and
+runtime integration remain closed.
 
 The complete ignored artifact is
 `experiments/fast_track/small_ranker_mrr_harm_gate_v1.json`; the tracked evidence
