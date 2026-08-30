@@ -745,3 +745,37 @@ current across all 2,000 sessions, the preregistered target-free No-Go short-cir
 must stop the experiment. Only a non-identity policy may proceed, after a separately
 committed one-shot Stage 2 outcome protocol, to the single allowed held-out outcome
 attachment.
+
+## SR-V2.9 fixed top-5 proposal depth — Stage 1b T-only selector freeze
+
+The committed Stage 1b implementation attached only each outer fold's 1,600 `T_o`
+rows from the five-member sealed label allow-list. It opened the archive once per
+outer fold (five opens and 25 fixed member accesses), retained one immutable `T_o`
+bundle at a time, and never copied, retained, serialized, or supplied an `H_o`
+outcome row. The selector was independently rebuilt for first and repeat, producing
+exactly equal identities and all 13 physical arrays in every outer shard.
+
+Folds 0, 2, and 3 selected KEEP. Fold 1 selected quantile `0.171875` and produced
+400 target-free supplements; fold 4 selected `0.890625` and produced 298. Across
+the stitched 2,000-session policy, 698 sessions received one proposed supplement.
+Relative to domain-local current, the frozen policy changes the chosen ordinal in
+689 sessions/turns and the activation bit in 471 sessions/turns; no session changes
+either field more than once. These are target-free structural differences, not
+rescue, harm, HR, MRR, MTTC, or TechnicalScore evidence.
+
+The unique run completed in `65.229s` (`47.179s` in the ten selector workers), with
+108 logistic fits, zero new XGBoost fits or retrieval queries, and an observed Stage
+1b peak working set of `300,855,296` bytes. It wrote 134 arrays plus one result JSON;
+incremental cache usage is `58,092,083` bytes and cumulative Stage 0+1a+1b usage is
+`584,999,861` bytes. All source, Git, dependency, input/output physical, repeat,
+privacy, and resource gates passed. Aggregate identity is
+`91fedb662eef097fc76ff9dde6e9c4f5b8d46535a421aa14ba3c981e4f852cfa`;
+the ignored result JSON is 194,931 bytes with SHA-256
+`04fc8551ccc90d56546c8525df943cc6a7fc9497f9bcda5351b08205f525f642`.
+
+This is `TARGET_FREE_NON_IDENTITY_POLICY_FROZEN`. It does not claim any metric gain
+and does not authorize held-out outcome access by itself. Evidence is pinned in
+`configs/small_ranker_v2_9.top5_proposal_depth_stage1b.manifest.json`. Only after
+that manifest is committed may a separately committed one-shot Stage 2 protocol
+and implementation be prepared; `H_o` outcomes, Agent/evaluator runs, and runtime
+artifact construction remain unauthorized until those gates are complete.
