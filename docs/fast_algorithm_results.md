@@ -604,3 +604,37 @@ claim that `0.9815` is achievable, and this existing proposal portfolio still
 cannot reach `0.99` even with a perfect target-informed selector.  Aggregate
 evidence is tracked in
 `configs/small_ranker_v2_6.proposal_overlap.manifest.json`.
+
+## SR-v2.7 causal portfolio selector
+
+The three frozen proposal surfaces were expanded into `41,437` raw family actions
+and deduplicated to `30,647` `(session, turn, candidate)` rows over all 2,000
+sessions.  Runtime construction is structurally label-free: the 19 features and
+family-support masks are frozen before isolated rescue/regret labels are attached.
+Within each turn, ties resolve by utility, family-support count, and lower candidate
+ordinal.  The deployed decision simulation scans turns chronologically and locks the
+session after the first passing action, so it cannot use a future-turn maximum and
+cannot take more than one supplement per session.
+
+The fixed two-head L2 logistic selector passes its conditional direction gate.  Relative
+to the current policy it rescues `2` sessions and harms `0`, moving HR@10 from `0.9715`
+to `0.9725`, MRR from `0.676861` to `0.676961`, MTTC from `3.056` to `3.052`, and
+TechnicalScore from `0.847688` to `0.848298`.  Fold net hits are `0/0/0/1/1`; every
+fold has zero hit-to-miss, nonnegative rounded and unrounded MRR change, and nonpositive
+MTTC change.  Folds 0 and 2 fail the preregistered independent-positive readiness check
+and correctly KEEP.  Folds 1, 3, and 4 select quantiles `0.8125/0.453125/0.46875`,
+producing exactly one supplemental action in each of `934` sessions.
+
+Both complete nested passes are exact (`3.309s` and `3.330s`), and the total cached run
+takes `14.502s`.  The result is
+`experiments/fast_track/small_ranker_v2_7/portfolio_selector_20260830T1625.json`,
+SHA-256 `e63008a1305e6b35555d8f9658c19f198c137d24a487da7b50d651688bab47bd`;
+tracked evidence is `configs/small_ranker_v2_7.portfolio_selector.manifest.json`.
+
+This is not yet a deployable gain.  The selector is nested only conditional on three
+already-frozen OOF proposal surfaces; meta-training rows can contain upstream models
+that saw a meta-held family.  Therefore no full model, artifact, or evaluator run is
+authorized.  The next experiment must regenerate all upstream proposals inside each
+meta outer/inner training domain and apply the frozen v2.7 selector without tuning.
+The proposal union's target-informed ceiling remains HR `0.9815`, so even a successful
+strict restack will not by itself reach the project-level `0.99` objective.
