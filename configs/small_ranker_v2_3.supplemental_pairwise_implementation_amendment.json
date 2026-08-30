@@ -1,0 +1,55 @@
+{
+  "schema_version": "small-ranker-supplemental-pairwise-implementation-amendment.v1",
+  "recorded_on": "2026-08-30",
+  "experiment_id": "SR-V2.3-SUPPLEMENTAL-PAIRWISE",
+  "preregistration_commit": "7e6eaef",
+  "timing": "committed before any v2.3 metric or label-summary execution",
+  "reason": "independent static review found that 31 features are excessive for at most 13 rescue sessions and that raw scores from different ranker objectives need not share a deployable scale",
+  "superseded_fields": [
+    "runtime_feature_contract",
+    "per-row interpretation of training_labels rescue_head_weights and regret_head_weights"
+  ],
+  "runtime_feature_contract": {
+    "feature_count": 8,
+    "feature_names": [
+      "current_policy_active",
+      "current_choice_rank_fraction_under_pairwise_ranker",
+      "pairwise_choice_rank_fraction_under_current_ranker",
+      "pairwise_choice_coverage_rank_fraction",
+      "pairwise_minus_current_top10_route_agreement",
+      "pairwise_minus_current_active_token_recall",
+      "pairwise_minus_current_hard_clause_coverage",
+      "pairwise_minus_current_constraint_conflict_sum"
+    ],
+    "rank_fraction_definition": "stable one-based rank divided by 91 over the P11 incumbent plus C100 indices 10 through 99; equal scores break toward lower candidate index",
+    "raw_cross_objective_scores_or_margins": false,
+    "target_feature": false,
+    "identity_feature": false,
+    "future_turn_feature": false
+  },
+  "training_weight_amendment": {
+    "raw_rescue_weight": "1.0 rescue, 5.0 regret, 0.05 otherwise",
+    "raw_regret_weight": "5 + 20*reciprocal_rank_loss + 0.2*mttc_loss for regret, 0.2 rescue, 0.05 otherwise",
+    "normalization": "for each head and session, divide action-row raw weights by their within-session action-row sum so every session contributes total weight one",
+    "reason": "repeated eligible turns in one session are correlated and must not inflate effective sample size"
+  },
+  "method_boundary": {
+    "claim": "nested admission on two frozen OOF ranker surfaces",
+    "not_claimed": "end-to-end nested stacking",
+    "reason": "a meta outer-train row's frozen base OOF model can have used another meta fold; each evaluated row remains OOF with respect to its own label, but the two-stage stack is not regenerated inside every meta outer fold"
+  },
+  "deployment_boundary": {
+    "pairwise_full_model_currently_available": false,
+    "if_promoted": "separately preregister fixed full-pairwise rounds, export/parity checks, semantic-off parity, admission export, and a target-free two-ranker resource benchmark"
+  },
+  "unchanged": [
+    "supplemental action and KEEP semantics",
+    "isolated current-relative rescue and composite-regret labels",
+    "two fixed C=0.2 logistic heads",
+    "utility multiplier 1.0",
+    "64 quantiles plus KEEP",
+    "outer/inner folds",
+    "all promotion gates",
+    "no sweep and cached train_explore-only boundary"
+  ]
+}
