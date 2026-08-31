@@ -1,0 +1,484 @@
+{
+  "schema_version": "small-ranker-v2.23-oov-chargram-lexicon-bridge-g0-preregistration.v1",
+  "status": "PREREGISTERED_BEFORE_IMPLEMENTATION_AND_OUTCOME",
+  "experiment_id": "SR-V2.23-TARGET-BLIND-OOV-CHARGRAM-LEXICON-BRIDGE-G0",
+  "recorded_on": "2026-08-31",
+  "branch": "small-ranker-v2.23-oov-chargram-bridge",
+  "parent_commit": "e6907aa322d5ae9b3a51341cc01c5b67fbd1b2fd",
+  "evidence_scope": "Shared 2000-session diagnostic candidate membership only; not private validation and not served HR@10.",
+  "incumbent": {
+    "comparable_cached_nested_oof": {
+      "hr_at_10": 0.991,
+      "mrr": 0.695795,
+      "mttc": 2.869,
+      "technical_score": 0.866858,
+      "hit_to_miss": 0
+    },
+    "candidate_recall_baselines": {
+      "complete_variable_c200": 1986,
+      "complete_variable_c400": 1986,
+      "session_count": 2000
+    },
+    "promotion_requires_separate_served_policy_preregistration": true
+  },
+  "prior_experiment_boundary": {
+    "experiment": "v2.22b multiview sparse RRF G0",
+    "status": "INVALID_ONE_SHOT_CONSUMED",
+    "classification": "Implementation/harness failure after preflight claim; not an algorithm No-Go and no candidate-recall outcome exists.",
+    "claim": {
+      "bytes": 706,
+      "sha256": "2e09bcab9e539aaf520733ae7e3f4d71e3ca5d8ee9e57d2fed0eee19dbf6d834"
+    },
+    "outer": {
+      "bytes": 620,
+      "sha256": "34ba8afac714808431355c8a1d040e7063778fc67331eb0b9455fe31704587d8"
+    },
+    "terminal": {
+      "bytes": 521,
+      "sha256": "9b556e6b4c9d5938fa368e19eddb88d0cc60cb22688aa65b14ae7586e2fb9171"
+    },
+    "candidate_claim_existed": false,
+    "candidate_outer_existed": false,
+    "candidate_terminal_existed": false,
+    "proxy_or_labels_opened": false,
+    "rerun_v2_22b_forbidden": true,
+    "formal_namespace_denial": "No v2.22/v2.22b claim, outer, terminal, runtime, trace, cache, result, or worktree artifact may be opened by v2.23 formal code."
+  },
+  "hypothesis": {
+    "claim": "Some targets absent from complete variable-C200 are caused by misspelling, inflection, or compound-token mismatch. Bridging only visible positive OOV tokens to existing catalog FTS vocabulary may add orthogonal candidates while preserving the complete C200 prefix.",
+    "distinct_from_v2_22b": [
+      "No full-positive, exact-active, category-only, or title/store-exact route is executed.",
+      "No RRF or four-route fusion is executed.",
+      "Only an OOV-to-existing-lexicon character/edit bridge supplies one sparse route.",
+      "The frozen complete variable-C200 prefix is the sole retrieval baseline and remains byte-for-byte ordered."
+    ]
+  },
+  "frozen_inputs": {
+    "catalog": {
+      "path": "D:/tiktok/techjam-err402-fast-track/data/catalog.jsonl",
+      "bytes": 60546327,
+      "rows": 50000,
+      "sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "access": "target-free"
+    },
+    "visible_context": {
+      "path": "D:/tiktok/techjam-v2-16-c200-recall/experiments/fast_track/c200_candidate_recall_cache_20260831/visible_context.jsonl",
+      "bytes": 47168882,
+      "rows": 2000,
+      "sha256": "f30a98700da5d480731fe7e82c87c40a22f06de290e069e20dc68f9fefecd20f",
+      "access": "target-free"
+    },
+    "sealed_c200_each_replica": {
+      "paths": [
+        "D:/tiktok/techjam-v2-16-c200-recall/experiments/fast_track/c200_candidate_recall_cache_20260831/replica_a.jsonl",
+        "D:/tiktok/techjam-v2-16-c200-recall/experiments/fast_track/c200_candidate_recall_cache_20260831/replica_b.jsonl"
+      ],
+      "bytes": 32226135,
+      "rows": 20000,
+      "candidate_cells": 2425785,
+      "sha256": "a8589749376f48f019997a618481578dde36be4ca1fc723e8ed00056c23e40dc",
+      "access": "target-free"
+    },
+    "proxy": {
+      "path": "D:/tiktok/techjam-err402-fast-track/experiments/fast_track/proxy_v1/proxy_train_explore.jsonl",
+      "bytes": 1315338,
+      "rows": 2000,
+      "sha256": "2175696171c0d874fca4b9aa456ff5fd7d570f2184f59ade6781198f6443198e",
+      "access": "evaluator-side only after every pre-target gate passes; no earlier stat, hash, open, or read"
+    },
+    "label_archive": {
+      "path": "D:/tiktok/techjam-err402-fast-track/experiments/fast_track/small_ranker_v1/labels_v2.npz",
+      "bytes": 1702876,
+      "sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+      "allowed_members_in_order": ["outer_fold", "family_index", "taxonomy_code"],
+      "access": "evaluator-side only after every pre-target gate passes; no enumeration or access to other members"
+    }
+  },
+  "visible_runtime_inputs": {
+    "allowed": [
+      "complete ordered variable-C200 prefix",
+      "category_text",
+      "active_terms",
+      "excluded_terms",
+      "current intent version",
+      "current-version active slot-ledger records",
+      "catalog metadata and the in-memory SQLite FTS index"
+    ],
+    "unavailable_and_not_reconstructed": [
+      "target",
+      "outcome",
+      "session identifier",
+      "protected split membership",
+      "v2.22b formal artifacts"
+    ],
+    "target_blind": true,
+    "causal": true,
+    "default_off": true,
+    "fallback": "On any exception, validation failure, resource failure, or no activation, return the complete ordered C200 prefix unchanged."
+  },
+  "source_term_contract": {
+    "view": "starter.attributes.build_conversation_constraint_view over visible active state only",
+    "sources": [
+      "Every eligible token obtained from ConversationConstraintView.exact_terms.",
+      "Every eligible token obtained from ConversationConstraintView.category_terms that is not registry-consumed."
+    ],
+    "canonical_tokenizer": "For each source phrase in its tuple order, apply frozen starter.attributes.normalize_value, then use Python re.finditer('[a-z0-9]+', normalized, flags=re.ASCII) from left to right. Preserve each matched token exactly; no stemming, singularization, aliasing beyond normalize_value, diacritic recovery, concatenation, or phrase-level comparison is permitted.",
+    "token_regex_fullmatch": "[a-z][a-z0-9]{3,23}",
+    "positive_only": "ConversationConstraintView.negative, excluded_exact_terms, and every polarity=-1 record are excluded before tokenization.",
+    "registry_consumed_exclusion": "Construct one immutable consumed-token set by applying canonical_tokenizer to every normalized surface key and canonical value in CATEGORIES and every SLOT_VOCABULARIES mapping. Exclude a source token when that individual token is in the consumed-token set, even when it came from a mixed known-plus-OOV phrase.",
+    "frozen_stopword_tokens": ["all", "and", "available", "budget", "color", "colors", "dollar", "dollars", "fabric", "heather", "heathers", "imported", "looking", "made", "need", "or", "other", "over", "please", "price", "something", "under", "want", "with"],
+    "additional_exclusions": [
+      "tokens failing token_regex_fullmatch",
+      "tokens in frozen_stopword_tokens",
+      "tokens already present in any relevant field vocabulary for their source route"
+    ],
+    "source_fields": {
+      "unknown_category_token": ["title", "categories"],
+      "exact_active_token": ["title", "features", "details", "store", "description"]
+    },
+    "dedupe_before_mapping": "Deduplicate by exact (source_kind, token). A token present in both source kinds remains two distinct records. Candidate mapping occurs before the source cap because quality is part of the cap order.",
+    "maximum_sources_per_turn": 6,
+    "source_identity": "A source is the pair (source_kind, normalized token). If the same token occurs in both kinds, both field-isolated sources remain distinct.",
+    "source_kind_tie_order": ["unknown_category_token", "exact_active_token"],
+    "source_order": "Best available bridge quality first, then normalized source token lexical ascending, then source_kind_tie_order."
+  },
+  "constraint_and_mask_semantics": {
+    "frozen_source_blobs": {
+      "starter/attributes.py": "92260323f077c9861aa4edd5242aff772c875760",
+      "starter/p8_negative.py": "719078234dba297ce59f68d8a2b1734ec53c9c63",
+      "starter/slot_ledger.py": "72975cff12af59e4044e52911c58294cd74a785a",
+      "parent_reference_only_starter/sparse_multiview_g0.py": "fcc1c98aadbd0b9f94fd3dcfdd5f9bff61cb2d25"
+    },
+    "source_functions": [
+      "normalize_value",
+      "build_conversation_constraint_view",
+      "build_product_attribute_view",
+      "product_slot",
+      "classify_candidate"
+    ],
+    "current_record_filter": "Only records with status exactly ACTIVE and version exactly current_version are visible. polarity must be -1 or +1 and hardness hard or soft.",
+    "supported_positive_slots": ["category", "audience", "material", "color", "closure", "style", "use_case", "size", "width"],
+    "allowed_negative_slots": ["audience", "material", "color", "closure", "style", "use_case"],
+    "positive_mask": "Execute only current-version ACTIVE hard polarity=+1 registry-canonical records, plus canonical category values from category_text. Drop only when reliable known catalog values for that slot are nonempty and disjoint from requested values.",
+    "negative_mask": "Execute only current-version ACTIVE hard polarity=-1 records in allowed_negative_slots whose registry-canonical value is the same visible ConversationConstraintView negative value. Drop only an explicit_violation from frozen classify_candidate.",
+    "reliable_catalog_sources": ["categories", "title", "features", "details", "store"],
+    "minimum_evidence_confidence_inclusive": 0.9,
+    "description_is_not_reliable_for_masking": true,
+    "unknown_metadata_policy": "Keep candidate.",
+    "parent_oracle": {
+      "blob": "fcc1c98aadbd0b9f94fd3dcfdd5f9bff61cb2d25",
+      "named_callables": ["compile_hard_conflict_rules", "apply_hard_conflict_mask"],
+      "compile_arguments": "Pass category_text, materialized active_terms, materialized excluded_terms, positive integer current_version, and materialized active-record objects exactly as received by the new expand call, using keyword arguments matching the oracle signature.",
+      "view_arguments": "For each ordered novel identifier, parse its exact raw catalog row and call frozen starter.attributes.build_product_attribute_view. Supply the resulting identifier-to-ProductAttributeView mapping. If a row/view is unavailable, supply no mapping entry so the oracle uses ProductAttributeView(parent_asin=identifier).",
+      "apply_arguments": "Pass the ordered unique novel identifiers, the view mapping, and the exact HardConflictRules returned by compile_hard_conflict_rules.",
+      "required_equivalence": "The new implementation's ordered kept identifiers, ordered dropped identifiers, negative_violation_count, and positive_conflict_count must equal the oracle apply_hard_conflict_mask result exactly for every preclaim synthetic fixture and every formal turn invariant checked without importing the oracle at formal runtime. Unknown evidence therefore keeps the candidate exactly as the oracle does."
+    },
+    "preclaim_oracle_test": "Before any claim, the source-only harness extracts the exact parent oracle blob plus its pinned dependency blobs from Git into an isolated reference namespace, executes compile_hard_conflict_rules and apply_hard_conflict_mask on a frozen matrix covering every slot, positive/negative polarity, hard/soft, stale/current version, reliable/unknown/disjoint evidence, duplicate/invalid input, and compares the new named mask functions field-for-field. Any mismatch blocks claim.",
+    "implementation_independence": "The new formal runtime implements the proven-equivalent frozen mask semantics without importing or executing starter.sparse_multiview_g0, its routes, or its RRF. The parent module is reference-oracle evidence used only in preclaim synthetic differential tests."
+  },
+  "lexicon_bridge": {
+    "fts_schema": "CREATE VIRTUAL TABLE products USING fts5(parent_asin UNINDEXED, title, categories, features, details, store, description, tokenize='unicode61 remove_diacritics 2')",
+    "fts_columns_in_order": ["parent_asin", "title", "categories", "features", "details", "store", "description"],
+    "initialization_order": [
+      "Build the Agent in-memory products FTS table.",
+      "Create products_vocab_col using fts5vocab(products,'col') and products_vocab_row using fts5vocab(products,'row').",
+      "Validate products_vocab_col columns exactly term,col,doc,cnt and products_vocab_row columns exactly term,doc,cnt.",
+      "Materialize immutable Python lexicon/DF/posting structures and build the compact character-gram inverted index.",
+      "Only after every vocab virtual table and immutable structure exists, set PRAGMA query_only=ON, read it back exactly as integer 1, and run the frozen controlled write-negative test."
+    ],
+    "column_and_global_df": "Select products_vocab_col rows in (term,col) lexical order. For each (term,col), exactly one row with nonnegative integer doc/cnt must exist; duplicate pairs are INVALID. Build per-column token presence and column DF from that row only. Select products_vocab_row in term lexical order; each term must have exactly one row with nonnegative integer doc/cnt. Every admitted column token must join exactly one products_vocab_row.term; missing/duplicate global row is INVALID. Never SUM products_vocab_col.doc across columns.",
+    "lexicon_tokens": "DISTINCT products_vocab_col.term values that fullmatch [a-z][a-z0-9]{3,23}; token ids follow token lexical ascending order and each token's ranking DF is the exactly joined products_vocab_row.doc.",
+    "character_grams": "Take every contiguous length-3 substring of the exact ASCII string '^' + token + '$', deduplicate, and sort lexically. Intersection and counts use these unique grams, not occurrence multiplicity.",
+    "index_representation": "Compact gram-to-sorted-token-id postings; per-token gram counts are integers. Per-turn full lexicon scans and Python frozenset-per-token storage are forbidden.",
+    "candidate_generation": "Read the source's unique boundary grams in gram lexical order. Each posting is token-id ascending. Form the exact set union of unique token ids and count it before scoring. If its cardinality exceeds 8192, raise LEXICON_RESOURCE before truncation or scoring; the pure expander falls back to unchanged C200 while the formal worker marks the claimed one-shot INVALID. Otherwise scan the union in token-id order, then apply frozen length and similarity gates before ranking. No truncation and no per-turn full lexicon scan is permitted.",
+    "similarity": {
+      "dice": "Exact Fraction 2*intersection/(source_gram_count+candidate_gram_count), minimum inclusive 2/3.",
+      "levenshtein": "Use exact unit-cost insertion/deletion/substitution distance. The maximum is selected from the OOV source-token length: 1 for source length 4-7 and 2 for source length 8-24. Absolute source/candidate length difference cannot exceed that same maximum before distance evaluation."
+    },
+    "token_rank": [
+      "Levenshtein edit distance ascending",
+      "exact Fraction Dice descending",
+      "products_vocab_row global document frequency descending",
+      "candidate token lexical ascending"
+    ],
+    "maximum_bridge_tokens_per_source": 4,
+    "source_quality": "The rank tuple of the best admitted bridge token, followed by source token lexical order.",
+    "cache": {
+      "oov_bridge_lru": 4096,
+      "fts_route_lru": 512,
+      "product_view_lru": 4096,
+      "mask_decision_lru": 16384,
+      "key_rule": "Keys contain source_kind, normalized OOV token, relevant field tuple, and immutable database-generation identity only; deterministic LRU eviction."
+    },
+    "query_only_contract": "After query_only readback=1, execute exactly CREATE TABLE v223_query_only_negative(x INTEGER) and require sqlite3.OperationalError whose sqlite error code is SQLITE_READONLY; immediately re-read PRAGMA query_only as 1 and confirm schema_version/total_changes unchanged. The exception message is never serialized. Thereafter CREATE/DROP/INSERT/UPDATE/DELETE, temp schema writes, extension loading, ATTACH, and PRAGMA writes are forbidden. Receipt records only booleans query_only_readback_one and controlled_write_rejected plus the unchanged numeric schema_version/total_changes equality."
+  },
+  "retrieval_and_admission": {
+    "single_route_only": true,
+    "field_order_by_source_kind": {
+      "unknown_category_token": ["title", "categories"],
+      "exact_active_token": ["title", "features", "details", "store", "description"]
+    },
+    "bridge_term_order": "Use the frozen token_rank order; maximum four. Do not lexical-resort after ranking.",
+    "fts_quote": "Serialize a bridge token as one ASCII double quote, the token with each embedded double quote doubled, then one ASCII double quote. Eligible tokens cannot contain a double quote, but the generic escape remains mandatory.",
+    "match_expression_exact": "'{' + ' '.join(field_order_by_source_kind[kind]) + '} : (' + ' OR '.join(fts_quote(token) for token in bridge_term_order) + ')'. There is exactly one ASCII space before and after ':', no space immediately after '(' or before ')', and one ASCII space on each side of OR. The frozen shape is {fields} : (\"token\" OR \"token\"). No source OOV token, AND, prefix wildcard, NEAR, column outside the kind field list, or additional parenthesis is allowed.",
+    "query": "For every selected source, execute exactly one match_expression_exact using only that source's admitted bridge tokens. The original OOV source token is not queried.",
+    "fts_sql_exact": "SELECT rowid,parent_asin FROM products WHERE products MATCH ? ORDER BY bm25(products,0.0,6.0,4.0,2.5,2.5,1.5,1.0),parent_asin ASC LIMIT 32",
+    "bm25_column_weights_in_schema_order": [0.0, 6.0, 4.0, 2.5, 2.5, 1.5, 1.0],
+    "maximum_hits_per_source_route": 32,
+    "stable_union_order": [
+      "source quality ascending",
+      "source token lexical ascending",
+      "source kind by source_kind_tie_order",
+      "one-based FTS BM25 rank ascending",
+      "parent_asin lexical ascending"
+    ],
+    "fusion": "Stable deduplicating union only; no RRF, learned score, dense score, or cross-source score addition.",
+    "mask": "Apply the same frozen target-blind hard-conflict semantics as the parent implementation to novel candidates before admission; unknown catalog evidence keeps the candidate.",
+    "seen_semantics": "Exclude every identifier already present in the complete current C200 prefix. No stronger global previously-shown exclusion is claimed because no separate causal seen_ids input exists.",
+    "prefix_semantics": "The entire sealed variable-length C200 sequence is unchanged in membership, byte identity, and order.",
+    "tail_limit": "min(192, 400 - len(complete ordered C200 prefix)); this nonnegative integer is computed before stable union and no later backfill exceeds it",
+    "candidate_cap": 400,
+    "served_semantics": "Top10 and pages 1-2 are unchanged; this diagnostic only appends candidates after the full C200 prefix, so any future page3+ served policy requires a separate preregistration.",
+    "forbidden": [
+      "v2.22 four-route execution or RRF",
+      "hand-written synonyms or unit rules",
+      "dense retrieval or embedding",
+      "training or target-derived rewrite",
+      "relax-one-clause logic",
+      "changing or truncating the C200 prefix"
+    ]
+  },
+  "device_policy": {
+    "selected_device": "CPU",
+    "reason": "SQLite FTS, character-posting intersection, edit distance, branch-heavy masks, and stable admission do not have a locally equivalent preregistered GPU backend. No GPU benchmark is performed because result/hash equivalence cannot first be established for the same implementation.",
+    "network": "disabled",
+    "gpu_use": "zero",
+    "future_policy": "A later independently preregistered mechanism may benchmark 100-1000 identical queries on CPU and GPU and use GPU only when outputs/order/hash are equivalent, repeat is exact, VRAM<=11GB, GPU is idle, and wall time is at least 1.5x faster."
+  },
+  "resource_gates": {
+    "rss_peak_bytes_max": 1610612736,
+    "lookup_or_route_p95_ms_max": 25,
+    "hard_mask_p95_ms_max": 50,
+    "all_extra_work_p95_ms_max": 100,
+    "turn_p95_ms_max": 400,
+    "preflight_cached_pair_wall_seconds_max": 60,
+    "full_single_run_wall_seconds_max": 1800,
+    "minimum_throughput_turns_per_second": 10,
+    "candidate_cell_ratio_max": 2.0,
+    "trace_byte_ratio_max": 2.1,
+    "bridge_candidate_posting_cap_per_source": 8192,
+    "pure_function_fallback": "The expander catches no internal invariant silently. Its public safe wrapper may return unchanged C200 and an explicit fallback flag/code for deployment isolation.",
+    "formal_policy": "Any exception, fallback flag, posting-cap breach, latency/RSS/wall/throughput/ratio breach, schema failure, or incomplete receipt after a claim makes the one-shot INVALID_ONE_SHOT_CONSUMED. Resource failure is never an algorithm No-Go. Only a complete error-free candidate outcome may be Go or No-Go. Thresholds cannot change after outcome."
+  },
+  "harness_failure_propagation": {
+    "purpose": "Repair observability only; never convert an implementation failure into an algorithm conclusion.",
+    "stage_id_allowlist": [
+      "preflight_20_uncached_direct",
+      "preflight_20_cached_direct",
+      "preflight_20_cached_module",
+      "preflight_100_uncached_direct",
+      "preflight_100_cached_direct",
+      "preflight_100_cached_module",
+      "candidate_2000_cached_direct",
+      "candidate_2000_cached_module",
+      "preclaim_synthetic"
+    ],
+    "worker_phase_allowlist": ["ARGUMENT_VALIDATION", "ENVIRONMENT_AUDIT", "SOURCE_VALIDATION", "TRACE_PREPARATION", "SEALED_SOURCE_VALIDATION", "LEXICON_INITIALIZATION", "TRAJECTORY", "SQLITE_CLOSE", "SOURCE_REVALIDATION", "RESOURCE_VALIDATION", "TRACE_PUBLICATION", "UNKNOWN"],
+    "worker_error_code_allowlist": ["ARGUMENT_INVALID", "ENVIRONMENT_INVALID", "SOURCE_IDENTITY", "SOURCE_IMPORT", "TRACE_PATH", "SEALED_SOURCE_SCHEMA", "SEALED_SOURCE_IDENTITY", "LEXICON_SCHEMA", "LEXICON_RESOURCE", "QUERY_ONLY_CONTRACT", "CONTEXT_SCHEMA", "C200_SCHEMA", "EXPANSION_CONTRACT", "CACHE_CONTRACT", "RESOURCE_GATE", "NETWORK_ATTEMPT", "GPU_RUNTIME_PRESENT", "SQLITE_CLOSE", "TRACE_PUBLICATION", "PRIVACY_SCAN", "INTERNAL_INVARIANT", "UNCLASSIFIED", "UNAVAILABLE"],
+    "runner_error_code_allowlist": ["WORKER_FAILURE", "WORKER_EXIT_UNVALIDATED", "WORKER_STDERR", "WORKER_TIMEOUT", "WORKER_RECEIPT_SCHEMA", "WORKER_TRACE", "REPEAT_MISMATCH", "RESOURCE_GATE", "SOURCE_IDENTITY", "GIT_IDENTITY", "PREFLIGHT_NO_INFORMATION", "TARGET_ATTACH", "AGGREGATE_SCHEMA", "PRIVACY_SCAN", "INTERNAL_INVARIANT", "UNCLASSIFIED"],
+    "powershell_error_code_allowlist": ["BOOTSTRAP_FAILURE", "RUNNER_FAILURE", "OUTER_CAPTURE_FAILURE", "OUTER_SCHEMA_FAILURE", "TRANSACTION_FAILURE", "UNCLASSIFIED"],
+    "progress_bucket": {"NONE": "last_completed_session=0", "PARTIAL": "1<=last_completed_session<session_limit", "COMPLETE": "last_completed_session=session_limit", "UNKNOWN": "no validated finite value"},
+    "wall_time_bucket": {"LT_1S": "0<=seconds<1", "1_TO_10S": "1<=seconds<10", "10_TO_60S": "10<=seconds<60", "60_TO_300S": "60<=seconds<300", "GE_300S": "seconds>=300", "UNKNOWN": "no validated finite value"},
+    "rss_bucket": {"LE_256M": "0<bytes<=268435456", "LE_512M": "268435456<bytes<=536870912", "LE_1G": "536870912<bytes<=1073741824", "LE_1_5G": "1073741824<bytes<=1610612736", "GT_1_5G": "bytes>1610612736", "UNKNOWN": "no validated positive integer"},
+    "failure_site_and_stack": "failure_site_id is exactly SITE_0000 for unknown or SITE_0001..SITE_0099 from a frozen source-role/function allowlist in the candidate code. stack_hash is exactly 64 lowercase hex characters equal to SHA-256 of canonical JSON over only ordered (source_role, allowlisted_function, positive_line_integer) triples; raw path, module path, source line text, exception type/message, locals, and traceback are excluded. When unavailable use SITE_0000 and 64 zeroes.",
+    "worker_failure_exact_schema": {
+      "schema_version": "literal small-ranker-v2.23-oov-chargram-worker-failure.v1",
+      "exact_keys_sorted": ["child_exit_code", "failure_origin", "failure_site_id", "kind", "progress_bucket", "rss_bucket", "schema_version", "stack_hash", "stage_id", "status", "stderr_nonempty", "wall_time_bucket", "worker_error_code", "worker_phase"],
+      "fixed_values": {"status": "ERROR", "kind": "failure", "failure_origin": "worker", "child_exit_code": 1, "stderr_nonempty": false},
+      "enum_fields": "stage_id, worker_phase, worker_error_code, progress_bucket, wall_time_bucket, rss_bucket must use their exact allowlists; no nulls or extra keys"
+    },
+    "runner_failure_exact_schema": {
+      "schema_version": "literal small-ranker-v2.23-oov-chargram-runner-failure.v1",
+      "exact_keys_sorted": ["canonical_failure_receipt", "child_exit_code", "failure_origin", "failure_site_id", "kind", "progress_bucket", "rss_bucket", "runner_error_code", "schema_version", "stack_hash", "stage_id", "status", "stderr_nonempty", "wall_time_bucket", "worker_error_code", "worker_phase"],
+      "fixed_values": {"status": "ERROR", "kind": "failure"},
+      "types": "canonical_failure_receipt and stderr_nonempty are booleans; child_exit_code is an integer in -1..255; failure_origin is worker or runner; all other non-hash values are exact allowlisted strings; no nulls or extra keys",
+      "propagation": "When the worker receipt validates, copy only its allowlisted stage/phase/code/buckets/site/hash, set canonical_failure_receipt=true, and preserve the finite code. Otherwise discard all child payload, set canonical_failure_receipt=false and worker fields to UNKNOWN/UNAVAILABLE/SITE_0000/zero-hash, then use WORKER_EXIT_UNVALIDATED, WORKER_STDERR, or WORKER_TIMEOUT."
+    },
+    "powershell_invalid_terminal_exact_schema": {
+      "schema_version": "literal small-ranker-v2.23-oov-chargram-terminal-invalid.v1",
+      "exact_keys_sorted": ["candidate_commit", "canonical_failure_receipt", "claim_sha256", "error_code", "mode", "outer_sha256", "process_exit_code", "root_error_code", "root_failure_origin", "root_stage_id", "schema_version", "status", "stderr_nonempty", "stdout_bytes_bucket"],
+      "fixed_values": {"status": "INVALID_ONE_SHOT_CONSUMED"},
+      "types": "candidate_commit, claim_sha256, outer_sha256 are exact 40/64/64 lowercase hex; canonical_failure_receipt and stderr_nonempty are booleans; mode is preflight or candidate; process_exit_code is integer -1..255; error_code uses powershell_error_code_allowlist; root_failure_origin is worker, runner, bootstrap, powershell, or unknown; root_stage_id/root_error_code are copied only after exact validation or become UNKNOWN/UNCLASSIFIED; stdout_bytes_bucket is ZERO, LE_1K, LE_16K, or GT_16K; no extra keys",
+      "preservation": "A validated runner/worker root code is copied into root_error_code and never replaced by OUTER_JSON_SCHEMA. error_code describes only the PowerShell layer."
+    },
+    "worker_nonzero_exit": "Validate canonical stdout against worker_failure_exact_schema before propagation. Generic unvalidated codes are allowed only after discarding the child payload.",
+    "forbidden_failure_payload": [
+      "nonce",
+      "filesystem path",
+      "exception message",
+      "query text",
+      "ASIN or candidate identifier",
+      "session identifier",
+      "partial trace hash",
+      "raw traceback",
+      "stderr bytes"
+    ],
+    "validation": "All three schemas require canonical UTF-8 JSON with LF, no duplicate keys/NaN/BOM, exact sorted key set, finite allowlisted enums, bounded integers, fixed-length lowercase hashes, no extra keys, and recursive privacy scan. Malformed, extra-key, or identifier-injected receipts fail closed.",
+    "outer_behavior": "PowerShell validates separate success and failure envelope schemas and preserves the validated root cause; it must not overwrite a valid child failure with OUTER_JSON_SCHEMA.",
+    "preclaim_tests": "Direct-script and python -m source-only synthetic success/failure propagation, malformed schema, extra key, identifier injection, stderr suppression, and exact-repeat checks must pass before any claim."
+  },
+  "git_and_source_identity": {
+    "worktree": "D:/tiktok/techjam-v2-23-oov-chargram-bridge",
+    "git_executable": "C:/Program Files/Git/mingw64/bin/git.exe",
+    "base_commit": "e6907aa322d5ae9b3a51341cc01c5b67fbd1b2fd",
+    "preregistration_commit_rule": "This JSON is the only path in one ordinary direct-child commit, pushed before any implementation path is added.",
+    "implementation_exact_new_paths": [
+      "scripts/probe_oov_chargram_bridge_g0.py",
+      "scripts/run_v223_preflight.ps1",
+      "scripts/oov_chargram_bridge_g0_worker.py",
+      "scripts/v223_safe_bootstrap.py",
+      "starter/oov_chargram_bridge_g0.py",
+      "tests/test_oov_chargram_bridge_g0.py"
+    ],
+    "common_config_nonbranch_projection": {
+      "lines": 10,
+      "bytes_lf": 403,
+      "sha256": "b01fd6e872247b479dd0523a4901c710114a94bdf05333cd6afb34cebae4aaf0",
+      "exact_sorted_lines": ["core.bare=false", "core.filemode=false", "core.ignorecase=true", "core.logallrefupdates=true", "core.repositoryformatversion=0", "core.symlinks=false", "remote.origin.fetch=+refs/heads/*:refs/remotes/origin/*", "remote.origin.url=https://github.com/lamperriat/techjam-err402.git", "remote.upstream.fetch=+refs/heads/*:refs/remotes/upstream/*", "remote.upstream.url=https://github.com/TechJam2026/techjam-conversational-search.git"],
+      "rule": "Sorted canonical key=value LF lines for core and remote sections only; reject includes and every non-core/non-remote/non-branch section. Branch sections may vary only as expected for ordinary local branches."
+    },
+    "git_control_files_at_prereg": {
+      "common_config": {
+        "bytes": 3267,
+        "sha256": "13a2efcabcda2ab3e7ce75bfc886fdf70ac4aaf0a7589ec19a422e51fbc26b9b"
+      },
+      "worktree_gitdir": {
+        "bytes": 49,
+        "sha256": "a66dda9b3a46f0841f772867c30df2bbac07b8bde0fecedfab129c0756cb421b"
+      },
+      "worktree_commondir": {
+        "bytes": 6,
+        "sha256": "340ddcb67a6204f742cd1e28e5b462622dde7daaa8ee36001897196aacdc6d47"
+      },
+      "worktree_HEAD": {
+        "bytes": 55,
+        "sha256": "986e4bd7ff8eb41c11fe49e77c277e605cbaf2c7b34f3d27b546f8dd90d777c1"
+      }
+    },
+    "formal_executable_identities": {
+      "git": {"path": "C:/Program Files/Git/mingw64/bin/git.exe", "bytes": 4018680, "sha256": "3fe4878d8399f6fb7632b9325559d1bb38c3a17aac7a60f667c1e5f90b865248", "version": "git version 2.45.2.windows.1"},
+      "powershell": {"path": "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe", "bytes": 454656, "sha256": "7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5", "version": "5.1.26100.9168"},
+      "python": {"path": "D:/450/conda/envs/tiktok/python.exe", "bytes": 93184, "sha256": "7819c841b9a6457da034e567563de1283dbc0b86482fd83d62b5d982d2a83a63", "version": "3.11.16", "sqlite_version": "3.53.4"},
+      "python311_dll": {"path": "D:/450/conda/envs/tiktok/python311.dll", "bytes": 6193152, "sha256": "08701864dea4e08c077c1c5bc6cb208d5628dba9473a318fa6ce3796a86806c5"},
+      "sqlite_pyd": {"path": "D:/450/conda/envs/tiktok/DLLs/_sqlite3.pyd", "bytes": 99328, "sha256": "67858a7dcbce3abef73328276c19dc06abe2515ab01d7cbc7fc7ad7bd3e2114c"},
+      "sqlite_dll": {"path": "D:/450/conda/envs/tiktok/Library/bin/sqlite3.dll", "bytes": 3239936, "sha256": "9519340d2ede13b05cd889605e3a46cc6bde702f266061266e22c18a0951a04e"}
+    },
+    "formal_argv": {
+      "powershell_prefix": ["-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", "<candidate-blob-verified scripts/run_v223_preflight.ps1>"],
+      "powershell_suffix": ["-Mode", "preflight|candidate", "-ImplementationCommit", "<pinned lowercase 40hex>"],
+      "python_flags": ["-P", "-S", "-s", "-B", "-X", "pycache_prefix=<fresh-v223-nonce-pycache>"],
+      "entrypoints": ["verified direct script", "literal python -m from a fresh module root containing only verified source blobs"]
+    },
+    "formal_python_environment": {
+      "exact_keys_direct": ["COMSPEC", "CUDA_VISIBLE_DEVICES", "HF_HUB_OFFLINE", "MKL_NUM_THREADS", "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "PATH", "PATHEXT", "PYTHONDONTWRITEBYTECODE", "PYTHONHASHSEED", "PYTHONNOUSERSITE", "SYSTEMDRIVE", "SYSTEMROOT", "TEMP", "TMP", "TOKENIZERS_PARALLELISM", "WINDIR"],
+      "literal_module_additional_key": "PYTHONPATH",
+      "values": "Clear the child environment. PATH=SYSTEMROOT/System32; TEMP=TMP=fresh nonce temp; CUDA_VISIBLE_DEVICES is empty; HF_HUB_OFFLINE=1; MKL_NUM_THREADS=OMP_NUM_THREADS=OPENBLAS_NUM_THREADS=1; PYTHONDONTWRITEBYTECODE=1; PYTHONHASHSEED=0; PYTHONNOUSERSITE=1; TOKENIZERS_PARALLELISM=false. PYTHONPATH is absent in direct mode and equals only the fresh verified module root in literal-module mode."
+    },
+    "formal_git_isolation": {
+      "git_dir": "D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-23-oov-chargram-bridge",
+      "work_tree": "D:/tiktok/techjam-v2-23-oov-chargram-bridge",
+      "cwd": "C:/Windows/System32",
+      "environment_after_clear": {"GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "NUL", "GIT_CONFIG_COUNT": "0", "GIT_NO_REPLACE_OBJECTS": "1", "GIT_OPTIONAL_LOCKS": "0", "GIT_ATTR_NOSYSTEM": "1", "GIT_PAGER": "cat", "GIT_TERMINAL_PROMPT": "0", "LANG": "C", "LC_ALL": "C", "PAGER": "cat"},
+      "fixed_prefix_argv": ["--no-pager", "--no-replace-objects", "--no-optional-locks", "--git-dir=D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-23-oov-chargram-bridge", "--work-tree=D:/tiktok/techjam-v2-23-oov-chargram-bridge", "-c", "core.hooksPath=NUL", "-c", "core.attributesFile=NUL", "-c", "include.path=/dev/null"],
+      "allowed_operations": ["--version", "rev-parse --verify pinned^{commit}", "rev-parse --verify local/ref^{commit}", "rev-parse --verify remote/ref^{commit}", "merge-base --is-ancestor prereg candidate", "rev-list --min-parents=2 prereg..candidate", "diff-tree --no-commit-id --name-only --no-renames -r prereg candidate", "cat-file -t object", "cat-file blob commit:exact-allowlisted-path"],
+      "control_policy": "Before and after every Git cell, the three worktree control files must retain their raw prereg identities. The common config raw identity is recorded before/after the cell but cross-stage acceptance is based on the exact 10-line nonbranch projection; only ordinary branch sections may differ. Reject include/includeIf and every non-core/non-remote/non-branch section."
+    },
+    "formal_runtime_source_manifest_at_parent": {
+      "evaluator/__init__.py": "36ae92f27844cf6288fd433bdb4b21ca4b2a6b07",
+      "evaluator/local_evaluator.py": "7c808347b31ef3121a9cbc4810ac3eb325f950ba",
+      "scripts/__init__.py": "3571b1ee55a368c944442b55d00adc4aa8d0ebfd",
+      "scripts/c200_candidate_worker.py": "b94fddcf5a9b20ddde540f3f43ea9962982cb096",
+      "starter/__init__.py": "f4cea264f261c96c4ff2166ad00b28a8025a55e3",
+      "starter/agent.py": "421c6d43c598102b8fefb181b72bab5da4bf1294",
+      "starter/attributes.py": "92260323f077c9861aa4edd5242aff772c875760",
+      "starter/clarification.py": "b648571dc873cb790455898a2ae3077cc9760c45",
+      "starter/coverage.py": "59a6507fef63afa0d9761323f5771a52741c811a",
+      "starter/p8_negative.py": "719078234dba297ce59f68d8a2b1734ec53c9c63",
+      "starter/reranker.py": "f179e7c75d4c0c5189f3a62139de5f51c8ec231a",
+      "starter/slot_ledger.py": "72975cff12af59e4044e52911c58294cd74a785a"
+    },
+    "source_origin_policy": "Source-only bootstrap loads exactly formal_runtime_source_manifest_at_parent plus the six candidate implementation blobs. Every local module origin/raw Git blob/import allowlist is checked. Dirty bytes, project path discovery, pyc, namespace packages, shadow modules, alternate extractors, starter.sparse_multiview_g0 runtime import, and every other local import fail closed.",
+    "forbidden_git": ["force push", "rebase", "reset --hard", "history rewrite", "deleting or overwriting prior artifacts", "push -u"]
+  },
+  "durable_one_shot_protocol": {
+    "runtime_base": "D:/tiktok/.v223_runtime",
+    "preflight_claim": "experiments/fast_track/small_ranker_v2_23_oov_chargram_bridge_g0_preflight_claim_20260831.json",
+    "preflight_outer": "experiments/fast_track/small_ranker_v2_23_oov_chargram_bridge_g0_preflight_outer_20260831.json",
+    "preflight_terminal": "experiments/fast_track/small_ranker_v2_23_oov_chargram_bridge_g0_preflight_20260831.json",
+    "candidate_claim": "experiments/fast_track/small_ranker_v2_23_oov_chargram_bridge_g0_candidate_recall_claim_20260831.json",
+    "candidate_outer": "experiments/fast_track/small_ranker_v2_23_oov_chargram_bridge_g0_candidate_recall_outer_20260831.json",
+    "candidate_terminal": "experiments/fast_track/small_ranker_v2_23_oov_chargram_bridge_g0_candidate_recall_20260831.json",
+    "namespace_rule": "All six artifact paths and runtime_base are distinct from every earlier experiment. Formal guards deny every .v219-.v222b runtime and v2.19-v2.22b artifact/worktree namespace.",
+    "transaction": "Create each claim with O_EXCL/create-new and fsync before launching. After process close, create the exact raw outer with O_EXCL and fsync, validate the appropriate success/failure schema, then create exactly one COMPLETE or INVALID terminal with O_EXCL and fsync. Never truncate, overwrite, replace, unlink, or retry after claim creation.",
+    "runtime_cleanup": "Each launch owns one fresh nonce directory below runtime_base with exact module, pycache, temp, and declared trace children. Recursive cleanup is allowed only after resolved-parent, identity, reparse, and child-allowlist validation and is tested direct/module before claim. Never delete runtime_base or another experiment directory.",
+    "formal_cwd": "PowerShell and runner project cwd are exactly D:/tiktok/techjam-v2-23-oov-chargram-bridge; only isolated Git subprocess cwd is C:/Windows/System32.",
+    "irreversible_lock": "Before first stat/open/hash/read of catalog, visible_context, either C200 replica, proxy, or labels, bind one pushed candidate commit, its six candidate blobs, prereg blob, local ref, and remote-tracking ref. No later code change is part of v2.23.",
+    "invalid": "Any failure after claim is INVALID_ONE_SHOT_CONSUMED, never algorithm No-Go, and that v2.23 mode is never rerun."
+  },
+  "formal_choreography": {
+    "before_any_claim": [
+      "Validate prereg Git-LF identity and implementation exact path/blob closure from an isolated Git cwd.",
+      "Validate direct-script and python -m under the formal interpreter and project cwd using source-only loading.",
+      "Pass synthetic algorithm, FTS schema, cache, resource, privacy, failure propagation, and runtime cleanup tests.",
+      "Verify old protected namespace denial and zero proxy/label access."
+    ],
+    "preflight_claim": "Create one independent O_EXCL v2.23 preflight claim. Once created, the preflight one-shot is consumed whether COMPLETE, INVALID, timeout, or crash.",
+    "preflight_runs_in_order": [
+      "limit=20 uncached direct",
+      "limit=20 cached direct",
+      "limit=20 cached module",
+      "limit=100 uncached direct",
+      "limit=100 cached direct",
+      "limit=100 cached module"
+    ],
+    "preflight_gates": [
+      "At least one valid OOV source, bridge mapping, FTS route, novel candidate, and cache hit.",
+      "Complete C200 prefix identity, cap, dedup, zero hard conflict, exact semantic repeat, direct/module equality, and all resource gates.",
+      "No proxy, label, target, outcome, protected namespace, network, or GPU access."
+    ],
+    "candidate_claim": "Only after a COMPLETE preflight terminal and all pre-target gates, create one independent O_EXCL candidate claim.",
+    "candidate_runs": ["2000-session cached direct", "2000-session cached module exact repeat"],
+    "target_attach": "Only after both full target-free traces and resource/identity/repeat gates pass may evaluator-side code read the frozen proxy and three allowed numeric label members.",
+    "no_retry": "Neither preflight nor candidate one-shot may be rerun after its claim exists."
+  },
+  "decision_rule": {
+    "proxy_field_allowlist": {
+      "top_level": ["ground_truth", "scenario_type", "behavior"],
+      "ground_truth": ["parent_asin"],
+      "behavior_when_scenario_type_is_intent_override": ["override"],
+      "override": ["turn"],
+      "access_rule": "ground_truth must be a mapping and ground_truth.parent_asin a catalog identifier; scenario_type must be a string. behavior, override, and turn may be accessed only when scenario_type is exactly intent_override. behavior and override must then be mappings if present, and override.turn is null or the exact integer visible_context eligibility boundary. All other proxy keys and nested values are ignored, never accessed, and never serialized."
+    },
+    "eligibility_boundary": "For non-intent_override sessions the evaluator-eligible first turn is exactly 1. For intent_override sessions it is derived only from the already sealed target-free visible_context current-version transition. proxy behavior.override.turn is consistency-only and must equal that boundary when non-null; it never creates or changes eligibility.",
+    "membership_unit": "For each of the fixed 2000 sessions and a view V, membership is true iff the evaluator-side target occurs in V at any evaluator-eligible turn under the frozen intent-override boundary.",
+    "exact_target_cluster_uniform_formula": "Only after both full traces and every pre-target gate pass, group all 2000 membership values by the exact proxy ground_truth.parent_asin; family_index is audit-only and never the grouping key. For every unique target cluster, compute arithmetic mean membership separately for SEALED_VARIABLE_C200 and C400_COMPLETE_UNION, including clusters whose mean is zero and with no empty clusters possible. Take the unweighted arithmetic mean across all unique clusters, then candidate minus baseline. The Go gate is strictly >0 using exact Fraction arithmetic; identifiers and per-cluster values are never emitted.",
+    "incremental_session": "C400_COMPLETE_UNION membership true and SEALED_VARIABLE_C200 membership false for the same session.",
+    "outer_fold_span": "Cardinality of outer_fold codes among incremental sessions.",
+    "taxonomy_codebook": {"accessories-other": 0, "clothing": 1, "jewelry": 2, "shoes": 3},
+    "non_clothing": "Incremental session taxonomy_code in {0,2,3}.",
+    "Go": [
+      "candidate recall at C400 is at least 1988/2000 and strictly greater than 1986/2000",
+      "at least 2 incremental recovered sessions",
+      "incremental recoveries span at least 2 outer folds",
+      "at least 1 incremental recovery is outside clothing taxonomy",
+      "uniform target-cluster candidate-recall delta is positive",
+      "baseline candidate loss is 0",
+      "hard-conflict admission is 0",
+      "all target-free identity, exact-repeat, privacy, and resource gates pass"
+    ],
+    "No-Go": "Any valid candidate outcome that fails a Go condition freezes this mechanism without threshold, depth, source, or spelling-rule tuning.",
+    "Invalid": "Any harness, source, privacy, identity, schema, or resource failure is an implementation failure and not an algorithm No-Go; the consumed one-shot is never rerun.",
+    "after_Go": "Only create a separate default-off served-policy preregistration; do not claim HR@10 improvement from candidate recall."
+  },
+  "next_action_if_no_go": "Return to the remaining-miss bottleneck audit and select a genuinely distinct target-blind candidate-recall mechanism; do not add hand-written bridge thresholds or synonyms."
+}
