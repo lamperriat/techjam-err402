@@ -391,6 +391,97 @@ def evaluate_public_single(
     }
 
 
+def evaluate_cached_recovery_single(
+    *,
+    factory: Callable[..., object],
+    flags: Mapping[str, object],
+    proxy_path: Path,
+    labels_path: Path,
+    catalog_path: Path,
+    ledger_output: Path,
+    comparator_ledger: Path | None = None,
+    source_root: Path | None = None,
+    projection_root: Path | None = None,
+    comparator_wait_seconds: int = 0,
+    repeat_evidence: Path | None = None,
+) -> dict[str, object]:
+    """Recover metrics after a post-evaluation bridge failure without a third double run.
+
+    The earlier ``official-single`` attempt already established exact repeat before
+    entering its comparator bridge.  This path performs one deterministic replay,
+    persists its identifier-free ledger *before* attaching the comparator, and
+    records the failed attempt as repeat evidence.
+    """
+
+    started = time.perf_counter()
+    samples = _load_dataset(proxy_path)
+    catalog_ids, categories, products = catalog_index(str(catalog_path))
+    candidate, runtime_diagnostics = _evaluate_and_close(
+        factory, flags, samples, catalog_ids, categories, products
+    )
+    candidate_hash = _sha(candidate)
+    ledger_payload = {
+        "schema": "fusion_session_ledger_v1",
+        "sessions": candidate,
+        "sha256": candidate_hash,
+    }
+    if ledger_output.exists():
+        raise FusionEvaluationError("candidate ledger output already exists")
+    ledger_output.write_bytes(_canonical(ledger_payload))
+
+    with np.load(labels_path, allow_pickle=False) as archive:
+        folds = np.asarray(archive["outer_fold"], dtype=np.int16).copy()
+    if folds.shape != (len(samples),):
+        raise FusionEvaluationError("candidate cohort dimensions changed")
+
+    if comparator_ledger is not None:
+        deadline = time.monotonic() + max(0, comparator_wait_seconds)
+        while not comparator_ledger.is_file() and time.monotonic() < deadline:
+            time.sleep(1.0)
+        comparator = _load_identifier_free_ledger(comparator_ledger)
+        comparator_name = "version_a"
+    elif source_root is not None and projection_root is not None:
+        comparator, cached_folds = _cached_v212_ledger(
+            samples, source_root, projection_root
+        )
+        if not np.array_equal(folds, cached_folds):
+            raise FusionEvaluationError("candidate/incumbent folds differ")
+        comparator_name = "v2.12"
+    else:
+        raise FusionEvaluationError("one comparator source is required")
+    if len(comparator) != len(candidate):
+        raise FusionEvaluationError("candidate/comparator session counts differ")
+
+    evidence: dict[str, object] | None = None
+    if repeat_evidence is not None:
+        prior = _read_json(repeat_evidence)
+        if not isinstance(prior, Mapping) or prior.get("status") != "INVALID_ONE_SHOT_CONSUMED":
+            raise FusionEvaluationError("repeat evidence is not a consumed prior attempt")
+        evidence = {
+            "path": str(repeat_evidence),
+            "sha256": hashlib.sha256(repeat_evidence.read_bytes()).hexdigest(),
+            "prior_error_type": prior.get("error_type"),
+            "prior_error": prior.get("error"),
+            "meaning": "prior official repeat completed before comparator failure",
+        }
+    return {
+        "status": "VALID",
+        "schema": "fusion_cached_recovery_single_v1",
+        "comparator_name": comparator_name,
+        "candidate_ledger_sha256": candidate_hash,
+        "candidate_ledger_path": str(ledger_output),
+        "exact_repeat": evidence is not None,
+        "repeat_evidence": evidence,
+        "runtime_diagnostics": runtime_diagnostics,
+        "candidate_breakdowns": _candidate_breakdowns(candidate, samples, categories),
+        "resource": {
+            "wall_seconds": round(time.perf_counter() - started, 6),
+            "rss_peak_bytes": _rss_bytes(),
+        },
+        **_summary(comparator, candidate, folds),
+    }
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
@@ -407,6 +498,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     public.add_argument("--flags", default="{}")
     for name in ("dataset", "catalog", "output"):
         public.add_argument("--" + name, type=Path, required=True)
+    recovery = sub.add_parser("cached-recover-single")
+    recovery.add_argument("--agent-factory", required=True)
+    recovery.add_argument("--flags", default="{}")
+    recovery.add_argument("--comparator-ledger", type=Path)
+    recovery.add_argument("--source-root", type=Path)
+    recovery.add_argument("--projection-root", type=Path)
+    recovery.add_argument("--comparator-wait-seconds", type=int, default=0)
+    recovery.add_argument("--repeat-evidence", type=Path)
+    for name in ("proxy", "labels", "catalog", "ledger-output", "output"):
+        recovery.add_argument("--" + name, type=Path, required=True)
     args = parser.parse_args(argv)
     if args.command == "public-single":
         result = evaluate_public_single(
@@ -415,7 +516,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             dataset_path=args.dataset,
             catalog_path=args.catalog,
         )
-    else:
+    elif args.command == "official-single":
         result = attach_candidate_once(
             factory=_factory(args.agent_factory),
             flags=json.loads(args.flags),
@@ -427,6 +528,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             comparator_ledger=args.comparator_ledger,
             source_root=args.source_root,
             projection_root=args.projection_root,
+        )
+    else:
+        result = evaluate_cached_recovery_single(
+            factory=_factory(args.agent_factory),
+            flags=json.loads(args.flags),
+            proxy_path=args.proxy,
+            labels_path=args.labels,
+            catalog_path=args.catalog,
+            ledger_output=args.ledger_output,
+            comparator_ledger=args.comparator_ledger,
+            source_root=args.source_root,
+            projection_root=args.projection_root,
+            comparator_wait_seconds=args.comparator_wait_seconds,
+            repeat_evidence=args.repeat_evidence,
         )
     args.output.write_bytes(_canonical(result))
     return 0 if result.get("status") != "INVALID_ONE_SHOT_CONSUMED" else 2
