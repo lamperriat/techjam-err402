@@ -194,6 +194,30 @@ def _parallel_chunk_worker(
     return start, ledger, diagnostics
 
 
+def _merge_generic_diagnostic_values(values: Sequence[object], path: str) -> object:
+    if all(isinstance(value, Mapping) for value in values):
+        mappings = [value for value in values if isinstance(value, Mapping)]
+        key_sets = [set(value) for value in mappings]
+        if any(keys != key_sets[0] for keys in key_sets[1:]):
+            raise FusionEvaluationError(f"parallel diagnostics keys differ at {path}")
+        return {
+            key: _merge_generic_diagnostic_values(
+                [value[key] for value in mappings], f"{path}.{key}"
+            )
+            for key in sorted(key_sets[0])
+        }
+    first = values[0]
+    if path.endswith(".schema_version") or isinstance(first, (str, bool)) or first is None:
+        if any(value != first for value in values[1:]):
+            raise FusionEvaluationError(f"parallel diagnostics values differ at {path}")
+        return first
+    if all(isinstance(value, (int, float)) and not isinstance(value, bool) for value in values):
+        return sum(values)
+    if any(value != first for value in values[1:]):
+        raise FusionEvaluationError(f"unsupported parallel diagnostics value at {path}")
+    return first
+
+
 def _merge_diagnostics(parts: Sequence[Mapping[str, object]]) -> dict[str, object]:
     """Merge the two supported observation-only diagnostics schemas."""
 
@@ -201,6 +225,10 @@ def _merge_diagnostics(parts: Sequence[Mapping[str, object]]) -> dict[str, objec
         return {}
     if len(parts) == 1:
         return dict(parts[0])
+    if all(not part for part in parts):
+        return {}
+    if any(not part for part in parts):
+        raise FusionEvaluationError("parallel diagnostics presence differs")
     schemas = {part.get("schema_version") for part in parts}
     if len(schemas) != 1:
         raise FusionEvaluationError("parallel diagnostics schemas differ")
@@ -248,9 +276,10 @@ def _merge_diagnostics(parts: Sequence[Mapping[str, object]]) -> dict[str, objec
                 for key in additive
             },
         }
-    raise FusionEvaluationError(
-        f"unsupported parallel diagnostics schema: {schema!r}"
-    )
+    merged = _merge_generic_diagnostic_values(parts, "diagnostics")
+    if not isinstance(merged, Mapping):
+        raise FusionEvaluationError("parallel diagnostics merge is not a mapping")
+    return dict(merged)
 
 
 def _assemble_parallel_chunks(
@@ -304,6 +333,33 @@ def _parallel_official_repeat(
     if first_hash != repeat_hash:
         raise FusionEvaluationError("parallel official evaluator exact repeat mismatch")
     return first, _sha(first), first_diagnostics
+
+
+def _parallel_official_once(
+    factory_spec: str,
+    flags: Mapping[str, object],
+    samples: list[dict],
+    catalog_path: Path,
+    workers: int,
+) -> tuple[list[dict[str, object]], str, dict[str, object]]:
+    """Run one replica with deterministic session sharding."""
+
+    chunks = _sample_chunks(samples, workers)
+    with ProcessPoolExecutor(max_workers=workers) as pool:
+        pending = [
+            pool.submit(
+                _parallel_chunk_worker,
+                factory_spec,
+                dict(flags),
+                str(catalog_path),
+                start,
+                chunk,
+            )
+            for start, chunk in chunks
+        ]
+        completed = [future.result() for future in pending]
+    ledger, diagnostics = _assemble_parallel_chunks(completed)
+    return ledger, _sha(ledger), diagnostics
 
 
 def _cached_v212_ledger(
@@ -519,6 +575,83 @@ def _load_dataset(path: Path) -> list[dict[str, object]]:
     return [dict(row) for row in payload]
 
 
+def evaluate_paired_panel(
+    *,
+    factory: Callable[..., object],
+    flags: Mapping[str, object],
+    proxy_path: Path,
+    labels_path: Path,
+    catalog_path: Path,
+    ledger_output: Path,
+    comparator_ledger: Path | None = None,
+    factory_spec: str | None = None,
+    workers: int = 1,
+) -> dict[str, object]:
+    """Evaluate one aligned panel once and optionally compare its session ledger."""
+
+    started = time.perf_counter()
+    if ledger_output.exists():
+        raise FusionEvaluationError("candidate ledger output already exists")
+    with proxy_path.open("r", encoding="utf-8") as handle:
+        samples = [json.loads(line) for line in handle if line.strip()]
+    if workers == 1:
+        catalog_ids, categories, products = catalog_index(str(catalog_path))
+        candidate, runtime_diagnostics = _evaluate_and_close(
+            factory, flags, samples, catalog_ids, categories, products
+        )
+        candidate_hash = _sha(candidate)
+    else:
+        if factory_spec is None:
+            raise FusionEvaluationError(
+                "parallel evaluation requires an importable factory spec"
+            )
+        candidate, candidate_hash, runtime_diagnostics = _parallel_official_once(
+            factory_spec, flags, samples, catalog_path, workers
+        )
+    with np.load(labels_path, allow_pickle=False) as archive:
+        folds = np.asarray(archive["outer_fold"], dtype=np.int16).copy()
+    if folds.shape != (len(samples),) or len(candidate) != len(samples):
+        raise FusionEvaluationError("panel cohort dimensions changed")
+
+    result: dict[str, object] = {
+        "status": "VALID",
+        "schema": "fusion_paired_panel_v1",
+        "candidate_ledger_sha256": candidate_hash,
+        "candidate_ledger_path": str(ledger_output),
+        "exact_repeat": False,
+        "activation": int(runtime_diagnostics.get("activations", 0)),
+        "runtime_diagnostics": runtime_diagnostics,
+        "resource": {
+            "wall_seconds": round(time.perf_counter() - started, 6),
+            "rss_peak_bytes": _rss_bytes(),
+            "workers": workers,
+            "replicas": 1,
+        },
+    }
+    if comparator_ledger is not None:
+        comparator = _load_identifier_free_ledger(comparator_ledger)
+        if len(comparator) != len(candidate):
+            raise FusionEvaluationError("candidate/comparator session counts differ")
+        result.update(_summary(comparator, candidate, folds))
+    else:
+        result["b"] = rebuild_official_metrics(candidate)
+        result["per_fold"] = [
+            {
+                "outer_fold": fold,
+                "b": rebuild_official_metrics(
+                    [candidate[index] for index in np.flatnonzero(folds == fold)]
+                ),
+            }
+            for fold in sorted(int(value) for value in np.unique(folds))
+        ]
+    ledger_output.write_bytes(_canonical({
+        "schema": "fusion_session_ledger_v1",
+        "sessions": candidate,
+        "sha256": candidate_hash,
+    }))
+    return result
+
+
 def evaluate_public_single(
     *,
     factory: Callable[..., object],
@@ -587,6 +720,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                         help="total process budget across both exact replicas")
     for name in ("dataset", "catalog", "output"):
         public.add_argument("--" + name, type=Path, required=True)
+    panel = sub.add_parser("paired-panel")
+    panel.add_argument("--agent-factory", required=True)
+    panel.add_argument("--flags", default="{}")
+    panel.add_argument("--workers", type=int, choices=(1, 2, 4, 8), default=4)
+    panel.add_argument("--comparator-ledger", type=Path)
+    for name in ("proxy", "labels", "catalog", "ledger-output", "output"):
+        panel.add_argument("--" + name, type=Path, required=True)
     args = parser.parse_args(argv)
     if args.command == "public-single":
         result = evaluate_public_single(
@@ -594,6 +734,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             flags=json.loads(args.flags),
             dataset_path=args.dataset,
             catalog_path=args.catalog,
+            factory_spec=args.agent_factory,
+            workers=args.workers,
+        )
+    elif args.command == "paired-panel":
+        result = evaluate_paired_panel(
+            factory=_factory(args.agent_factory),
+            flags=json.loads(args.flags),
+            proxy_path=args.proxy,
+            labels_path=args.labels,
+            catalog_path=args.catalog,
+            ledger_output=args.ledger_output,
+            comparator_ledger=args.comparator_ledger,
             factory_spec=args.agent_factory,
             workers=args.workers,
         )
