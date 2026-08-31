@@ -1,0 +1,257 @@
+{
+  "schema_version": "small-ranker-v2.20b-sparse-route-cache-preregistration.v1",
+  "status": "PREREGISTERED_TARGET_FREE_ONLY",
+  "experiment_id": "SR-V2.20B-SPARSE-ROUTE-CACHE",
+  "recorded_on": "2026-08-31",
+  "purpose": "Requalify the already implemented deterministic sparse-route semantic cache under a protected-data-safe execution-surface checkpoint. This target-free stage cannot compute candidate recall, served metrics, or an algorithm Go/No-Go.",
+  "parent_evidence": {
+    "branch": "small-ranker-v2.20b-sparse-cache",
+    "direct_parent": "546d9dfdd4ba6df92d901b33973527c61e335bfb",
+    "v2_20_preregistration": "2a1aa5d51da4b9d621687b9101c26bafcac82ccb",
+    "v2_20_implementation": "d9e04b1ccb73bbbe132d3b5673931c6a40a279a4",
+    "v2_20_blocker": "546d9dfdd4ba6df92d901b33973527c61e335bfb",
+    "v2_20_status": "TARGET_FREE_PREREGISTRATION_CONSTRAINT_CONFLICT_BLOCKER",
+    "reuse_qualification": "No v2.20 formal preflight, sealed-source access, candidate recall, target access, or outcome access occurred. The cache implementation may be frozen by blob before this corrected target-free run."
+  },
+  "frozen_cache_algorithm": {
+    "default": "cache_enabled=False",
+    "scope": "Exact memoization only; query construction, FTS SQL/ranking, hard-conflict decisions, stable append, C200 prefix, served Top10, question order, and all fallback behavior remain unchanged.",
+    "layers": {
+      "fts_route": {
+        "key": "exact canonical FTS expression",
+        "value": "ordered immutable (rowid, parent_asin) tuple",
+        "capacity": 256
+      },
+      "product_view": {
+        "key": "exact (rowid, parent_asin)",
+        "value": "immutable ProductAttributeView",
+        "capacity": 4096
+      },
+      "mask_decision": {
+        "key": "exact (HardConflictRules, rowid, parent_asin)",
+        "value": "exact immutable negative/positive conflict decision",
+        "capacity": 16384
+      }
+    },
+    "eviction": "Deterministic per-layer LRU; exact hits move to most-recently-used; capacity cannot adapt to data, latency, targets, or outcomes.",
+    "transactionality": "A layer is populated only after its full uncached operation validates successfully. Partial rows, partial views, partial mask decisions, exceptions, drift, and failed validation populate nothing for that invocation.",
+    "generation": "Bind cache lifetime to the validated read-only in-memory SQLite generation, including schema, tokenizer/SQL constants, row counts, identifier counts, schema_version, and total_changes. Any drift clears all layers, permanently closes/detaches the runtime, and makes all future expand/validate calls fail.",
+    "close": "close is idempotent, clears all entries once, preserves aggregate counters, reports size zero/closed true, and closes the Agent connection.",
+    "privacy": "Diagnostics contain only aggregate integer counters, capacities, enabled/closed state, and clear count. No query, candidate, identifier, session, turn, rule, slot, target, label, fold, or outcome may appear.",
+    "full_semantic_identity": "Uncached control and cached workers must match byte-for-byte candidate trace plus a canonical LF stream digest of every complete ExpansionResult.as_dict() in ordinal/turn order."
+  },
+  "frozen_existing_blobs": {
+    "scripts/probe_sparse_multiview_cache_preflight.py": "35110d5bb65c5b3d6f58fe303bd2bf7d9cc4e591",
+    "scripts/sparse_multiview_candidate_worker.py": "b44a0c2cbb4c9b4d34aedd6795dbed1ff24a5020",
+    "starter/sparse_multiview.py": "4adf065b0384ab5d45f7bd4582bf7aaf217348a5",
+    "tests/test_sparse_multiview_cache.py": "15dc470bc799d4fe4b96179c26185781e635ff69"
+  },
+  "two_layer_identity_binding": "The unchanged worker keeps the original v2.20 preregistration blob 3cad1aba4f92d1107dd5179c24861d370d8e321b as its cache-semantic baseline. The v2.20b runner separately binds this new orchestration preregistration, the unchanged worker/core blobs, and the pushed implementation commit. The old semantic baseline is not relabeled as the new orchestration preregistration.",
+  "frozen_local_import_blobs": {
+    "evaluator/__init__.py": "36ae92f27844cf6288fd433bdb4b21ca4b2a6b07",
+    "evaluator/local_evaluator.py": "7c808347b31ef3121a9cbc4810ac3eb325f950ba",
+    "scripts/__init__.py": "3571b1ee55a368c944442b55d00adc4aa8d0ebfd",
+    "scripts/c200_candidate_worker.py": "b94fddcf5a9b20ddde540f3f43ea9962982cb096",
+    "starter/__init__.py": "f4cea264f261c96c4ff2166ad00b28a8025a55e3",
+    "starter/agent.py": "421c6d43c598102b8fefb181b72bab5da4bf1294",
+    "starter/attributes.py": "92260323f077c9861aa4edd5242aff772c875760",
+    "starter/clarification.py": "b648571dc873cb790455898a2ae3077cc9760c45",
+    "starter/coverage.py": "59a6507fef63afa0d9761323f5771a52741c811a",
+    "starter/p8_negative.py": "719078234dba297ce59f68d8a2b1734ec53c9c63",
+    "starter/reranker.py": "f179e7c75d4c0c5189f3a62139de5f51c8ec231a",
+    "starter/slot_ledger.py": "72975cff12af59e4044e52911c58294cd74a785a",
+    "starter/sparse_multiview.py": "4adf065b0384ab5d45f7bd4582bf7aaf217348a5"
+  },
+  "frozen_worker_semantic_dependency_blobs": {
+    "configs/small_ranker_v2_20.sparse_route_cache_preregistration.json": "3cad1aba4f92d1107dd5179c24861d370d8e321b",
+    "evaluator/local_evaluator.py": "7c808347b31ef3121a9cbc4810ac3eb325f950ba",
+    "scripts/c200_candidate_worker.py": "b94fddcf5a9b20ddde540f3f43ea9962982cb096",
+    "scripts/probe_c200_candidate_recall.py": "0a57f63866683b476b9f49184673cf3154531911",
+    "scripts/probe_e0_embedding_candidate_recall.py": "5bb9ec7f38f90d814d0c121c9f8992267d3491d5",
+    "starter/agent.py": "421c6d43c598102b8fefb181b72bab5da4bf1294",
+    "starter/architecture_lab.py": "8d340d0dce3fc2f1bb987a5dd632444776a05667",
+    "starter/attributes.py": "92260323f077c9861aa4edd5242aff772c875760",
+    "starter/p8_negative.py": "719078234dba297ce59f68d8a2b1734ec53c9c63",
+    "starter/slot_ledger.py": "72975cff12af59e4044e52911c58294cd74a785a"
+  },
+  "allowed_implementation_changes_after_preregistration": [
+    "scripts/v220b_safe_bootstrap.py",
+    "scripts/probe_sparse_multiview_cache_preflight.py",
+    "tests/test_sparse_multiview_cache.py"
+  ],
+  "allowed_change_scope": "A source-only safe bootstrap, runner identity/protected-safe Git/source gates, formal fail-closed removal, compact result schema, and synthetic tests only. starter/sparse_multiview.py, scripts/sparse_multiview_candidate_worker.py, and every cache/algorithm decision are frozen byte-identical.",
+  "protected_data_boundary": {
+    "target_proxy_label_fold_taxonomy_or_outcome_access": false,
+    "forbidden": [
+      "train_explore proxy or any target/identifier/counterfactual oracle",
+      "labels_v2.npz or any fold/taxonomy/outcome archive",
+      "old calibration",
+      "opened selection",
+      "sealed confirmation",
+      "released public",
+      "Amazon test or heldout",
+      "D:/tiktok/techjam-v2-20b-sparse-cache/experiments/fast_track/small_ranker_v2_19_registry_ca_g0_20260831.json",
+      "D:/tiktok/techjam-v2-20b-sparse-cache/experiments/fast_track/small_ranker_v2_19_registry_ca_g0_cache_20260831"
+    ],
+    "v2_19_zero_probe": "The bootstrap is the only repository source allowed to execute first, and its exact bytes are externally matched to the pushed blob before Python starts. Before it reads or executes any other repository source, it installs a lexical guard that rejects case-insensitively every path in any D:/tiktok worktree whose experiments/fast_track suffix is the exact v2.19 result basename or cache-root basename, plus every cache-root descendant. This covers v2.20b, the old v2.20 worktree, and another workspace spelling. No code or external child may resolve, stat, list-parent-for-discovery, open, hash, read, create, rename, delete, or otherwise probe them. Enforcing the lexical deny must not query filesystem state.",
+    "no_worktree_wide_probe": "Formal code must not execute git status, git diff against the worktree, git ls-files --others, filesystem walk/glob/rglob, or any positive pathspec/directory scan covering experiments or another protected artifact tree.",
+    "git_object_only_operations": [
+      "rev-parse of commits, refs, and commit:path blobs",
+      "diff-tree of committed objects for exact changed paths",
+      "symbolic-ref --short HEAD",
+      "config --local --no-includes --get-all remote.origin.url",
+      "cat-file/object reads that do not inspect a worktree path"
+    ],
+    "allowlisted_worktree_reads": "Only this preregistration, the three allowed implementation files, the frozen cache core/worker, the original v2.20 cache-semantic preregistration, the worker's exact frozen semantic dependencies, and the exact frozen local-import files may be opened/hashed for execution identity before source access.",
+    "execution_surface_definition": "Reproducibility is proven by a sterile source-only bootstrap, exact pushed commit/ref/ancestry/changed paths, exact Git blobs, exact allowlisted worktree bytes, and deny-by-default local imports. Unrelated/protected worktree files are intentionally neither inspected nor claimed clean.",
+    "known_prior_incident": "PRE_PREREG_PROTECTED_PATH_ACCESS_INCIDENT_RECORDED",
+    "qualification": "This corrected preregistration does not erase or relabel the earlier incident or v2.20 blocker."
+  },
+  "safe_interpreter_contract": {
+    "formal_parent": "With cwd exactly D:/tiktok/techjam-v2-20b-sparse-cache, after an external exact pushed-blob check and creation of a fresh empty pycache directory: D:/450/conda/envs/tiktok/python.exe -P -S -s -B -X pycache_prefix=<fresh-empty-absolute-dir> D:/tiktok/techjam-v2-20b-sparse-cache/scripts/v220b_safe_bootstrap.py --mode direct --target-path D:/tiktok/techjam-v2-20b-sparse-cache/scripts/probe_sparse_multiview_cache_preflight.py --target-module scripts.probe_sparse_multiview_cache_preflight --target-blob <pushed-runner-blob> --bootstrap-blob <pushed-bootstrap-blob> -- --run --implementation-commit <full-sha>",
+    "formal_parent_flags": {
+      "safe_path": true,
+      "no_site": 1,
+      "no_user_site": 1,
+      "dont_write_bytecode": 1
+    },
+    "python_runtime": {
+      "executable": "D:/450/conda/envs/tiktok/python.exe",
+      "sha256": "7819c841b9a6457da034e567563de1283dbc0b86482fd83d62b5d982d2a83a63",
+      "bytes": 93184,
+      "version": "3.11.16",
+      "sqlite": "3.53.4",
+      "sterile_sys_path": [
+        "D:/450/conda/envs/tiktok/python311.zip",
+        "D:/450/conda/envs/tiktok/DLLs",
+        "D:/450/conda/envs/tiktok/Lib",
+        "D:/450/conda/envs/tiktok"
+      ],
+      "dll_policy": "Before target execution, set Windows default DLL directories to system/default/user-dir search, add only D:/450/conda/envs/tiktok/DLLs, reject cwd/project/script DLL search, and retain the directory handle for process lifetime."
+    },
+    "hash_seed": "PYTHONHASHSEED=0 must remain honored; isolated -I is therefore not used because it would ignore PYTHONHASHSEED.",
+    "fresh_runtime_base": "All ephemeral bootstrap-module and pycache directories are exclusive random plain descendants of D:/tiktok/.v220b_runtime, never a reparse point, never reused, and never placed in or below a Git worktree. Every process cwd remains exactly D:/tiktok/techjam-v2-20b-sparse-cache. Cleanup may remove only the identity-checked fresh descendant allocated to that process.",
+    "fresh_pycache": "Every parent/child process receives a newly created empty, plain, non-reparse absolute -X pycache_prefix under the frozen runtime base. -B prevents writes; the empty prefix prevents reads of repository or stale pyc. The external pre-launch gate proves the parent prefix fresh; the runner creates each child prefix with exclusive random naming; bootstrap snapshots and revalidates it.",
+    "environment": "Use a freshly constructed environment allowlist, clear every inherited PYTHON* and GIT_* variable, disable site with -S and user-site with -s, then set only PYTHONHASHSEED=0/PYTHONDONTWRITEBYTECODE=1/PYTHONNOUSERSITE=1 as Python controls. A module child may additionally receive PYTHONPATH equal only to its fresh exact bootstrap-module root; it must never contain the project root.",
+    "source_only_bootstrap": {
+      "startup": "The bootstrap is invoked by absolute path under -P -S -s before the project root can enter sys.path. Its worktree bytes must equal the pushed implementation blob supplied by the pre-launch check.",
+      "target_manifest": "Before any target Path construction, stat, resolve, or open, case-insensitively match the raw CLI tuple (mode, target-path text, target fullname, target blob) against an internal frozen manifest containing only: the exact v2.20b runner absolute path/fullname/final implementation blob for direct or module mode, and the exact frozen worker absolute path/fullname/blob b44a0c2cbb4c9b4d34aedd6795dbed1ff24a5020 for direct or module mode. The project root is the bootstrap's hardcoded v2.20b root and cannot be supplied, derived from target, or overridden. Reject every other tuple lexically before filesystem access.",
+      "stdlib": "Preload every standard-library module needed by bootstrap, runner, worker, and frozen local modules while cwd/project/script directories are absent from sys.path.",
+      "guarded_path": "Replace sys.path with a mutation-guarded list whose membership reports the exact project root as present so frozen code does not insert it, while iteration/indexing never exposes root/cwd/script/site-packages. Reject every mutator (insert, append, extend, assignment, deletion, in-place add, sort, reverse, clear, pop, remove).",
+      "finder": "Install a first-position MetaPathFinder/Loader mapping every allowed local fullname to one exact plain non-reparse .py path and Git blob. For each execution, read through one descriptor with fstat-before/after, verify raw/normalized blob, compile those exact source bytes directly, set exact __file__/__spec__.origin/loader/package metadata, and never call SourceFileLoader/get_code. Package __path__ is one exact frozen directory. For every unlisted starter/scripts/evaluator fullname raise immediately rather than return None; reject pyc, pyd, extension, namespace, and filesystem fallback.",
+      "target": "Verify the exact target source/blob. Direct mode compile/execs the verified bytes with frozen __name__='__main__', absolute __file__, __package__=None, __spec__=None and sys.argv[0]. Module mode uses the custom finder plus runpy.run_module(..., run_name='__main__', alter_sys=true) with frozen module metadata. Neither exposes project root to ordinary import resolution.",
+      "attestation": "Expose an in-process immutable bootstrap attestation containing mode, bootstrap blob, target blob, source-only=true, guarded-path=true, and pycache-prefix identity. Capture the frozen target's canonical stdout without changing the frozen worker, reject raw stderr/noncanonical output, and emit one canonical outer envelope {bootstrap, target_exit_code, target_receipt}. For child workers/self-checks the runner validates the outer envelope and unchanged nested target receipt. For the formal parent runner, the external pre-launch/orchestrator validates the outer envelope. The frozen worker and the runner do not claim to validate their own outer envelope."
+    },
+    "direct_children": "With cwd exactly the frozen project root, invoke the absolute safe bootstrap under -P -S -s -B with fresh pycache and a manifest-approved mode=direct tuple; never invoke the raw worktree worker directly.",
+    "module_children": "With cwd exactly the frozen project root, create a fresh module root under D:/tiktok/.v220b_runtime containing only a byte-identical v220b_safe_bootstrap module, validate its exact entries/bytes, and invoke literal python -m v220b_safe_bootstrap under -P -S -s -B with PYTHONPATH equal only to that temp root and a manifest-approved mode=module tuple. The bootstrap then uses source-only runpy module semantics for the frozen target. The project root is never in PYTHONPATH.",
+    "entrypoint_regression": "Before any sealed source, runner and worker safe direct, literal python -m safe-bootstrap plus target module semantics, direct outside repository cwd, and missing-module failure must all pass with empty stderr and canonical receipts. Missing module must fail nonzero without traceback/stderr, then result absence is rechecked."
+  },
+  "target_free_sources": {
+    "catalog": {
+      "path": "D:/tiktok/techjam-err402-fast-track/data/catalog.jsonl",
+      "rows": 50000,
+      "bytes": 60546327,
+      "sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67"
+    },
+    "visible_context": {
+      "path": "D:/tiktok/techjam-v2-16-c200-recall/experiments/fast_track/c200_candidate_recall_cache_20260831/visible_context.jsonl",
+      "rows": 2000,
+      "turns": 20000,
+      "bytes": 47168882,
+      "sha256": "f30a98700da5d480731fe7e82c87c40a22f06de290e069e20dc68f9fefecd20f"
+    },
+    "c200_reference": {
+      "replicas": 2,
+      "rows_each": 20000,
+      "bytes_each": 32226135,
+      "sha256": "a8589749376f48f019997a618481578dde36be4ca1fc723e8ed00056c23e40dc",
+      "candidate_cells": 2425785
+    },
+    "attribute_registry_sha256": "1d85fc42f49fd9374238d98b8feaeab8d76269b0987740256fe60e666757d2ca"
+  },
+  "git_protocol": {
+    "worktree": "D:/tiktok/techjam-v2-20b-sparse-cache",
+    "branch": "small-ranker-v2.20b-sparse-cache",
+    "remote": "origin",
+    "remote_url": "https://github.com/lamperriat/techjam-err402.git",
+    "preregistration_commit": "to be filled by committed identity in runner; this file is the only preregistration-commit path",
+    "implementation_parent": "the full preregistration commit",
+    "preregistration_parent": "546d9dfdd4ba6df92d901b33973527c61e335bfb",
+    "implementation_exact_changed_paths": [
+      "scripts/v220b_safe_bootstrap.py",
+      "scripts/probe_sparse_multiview_cache_preflight.py",
+      "tests/test_sparse_multiview_cache.py"
+    ],
+    "must_push_before_source_access": true,
+    "preregistration_commit_protocol": "This preregistration commit changes exactly this JSON, is pushed before implementation begins, is not amended, and has parent 546d9dfdd4ba6df92d901b33973527c61e335bfb. The later implementation commit is ordinary, changes exactly the three predeclared files, is pushed before any source access, and is never amended/rebased/force-pushed.",
+    "git_runtime": {
+      "executable": "C:/Program Files/Git/mingw64/bin/git.exe",
+      "sha256": "3fe4878d8399f6fb7632b9325559d1bb38c3a17aac7a60f667c1e5f90b865248",
+      "version": "git version 2.45.2.windows.1",
+      "environment": "Use a strict allowlist; remove all inherited GIT_*; set GIT_CONFIG_NOSYSTEM=1, GIT_CONFIG_GLOBAL=NUL, GIT_ATTR_NOSYSTEM=1, GIT_NO_REPLACE_OBJECTS=1, GIT_OPTIONAL_LOCKS=0, GIT_TERMINAL_PROMPT=0 and deterministic locale. Validate repository/worktree control files and reject config include/includeIf, fsmonitor, hooks, alternates, grafts, replace refs, shallow indirection, or unexpected gitdir.",
+      "command_policy": "Absolute git.exe only; prepend --no-replace-objects and explicit safe.directory/-C exact root; require empty stderr and exact-shaped stdout. Allow only rev-parse full commit/ref/commit:path, diff-tree committed objects, symbolic-ref --short HEAD, config --local --no-includes --get-all remote.origin.url with exactly one literal URL, and cat-file object reads. No alias, status, worktree diff, ls-files, clean, fetch, network, hook, global insteadOf, or external helper."
+    },
+    "prelaunch": "Before Python starts, use the frozen absolute git.exe/object-only policy to prove the implementation commit and bootstrap/runner blobs equal the pushed branch, independently hash the two absolute worktree sources, create the fresh empty pycache directory, and record a compact target-free attestation. This step must not enumerate the worktree or protected trees.",
+    "pre_source_gate": "HEAD equals supplied implementation commit and local origin branch ref with a retained successful push receipt; HEAD^ is preregistration; preregistration^ is blocker; exact diff-tree paths and every committed/worktree allowlisted blob match; bootstrap attestation and deny-by-default local import map match; no forbidden worktree probe is used.",
+    "recheck": "Repeat commit/ref/ancestry/diff-tree, exact worktree blobs, imported origins, input file identities, and no-network counters after stage 20 and stage 100."
+  },
+  "device_selection": {
+    "selected": "CPU",
+    "reason": "The isolated variable is deterministic memoization around SQLite FTS5, Python product-view construction, branch-heavy hard-conflict decisions, dedupe, and stable append. There is no semantically identical frozen GPU backend.",
+    "same_query_cpu_gpu_benchmark": "NOT_APPLICABLE_NO_EQUIVALENT_BACKEND",
+    "gpu_used": false,
+    "future_policy": "A later mechanism with equivalent CPU/GPU implementations must benchmark the same 100-1000 target-free queries. GPU is allowed only if idle, local stack needs no install/download, no process is stopped, no OOM/NaN, peak VRAM <=11GB, candidate set/order/hash and exact repeat match, and wall time is at least 1.5x faster."
+  },
+  "preflight": {
+    "synthetic_security_gates_before_commit": [
+      "sitecustomize.py in project root is never executed",
+      "json.py and ctypes.py worktree shadows are never imported",
+      "valid malicious pyc cannot replace an allowlisted source module",
+      "same-name package, pyd, namespace, and unlisted local module are rejected before execution",
+      "GuardedPath cannot expose or add project/cwd/script roots through any list mutator",
+      "PATH git.exe and inherited GIT_DIR/GIT_WORK_TREE/GIT_OBJECT_DIRECTORY/GIT_ALTERNATE_OBJECT_DIRECTORIES/GIT_CONFIG variables cannot redirect a Git check",
+      "v2.19 result/cache spelling variants are denied lexically without filesystem probes"
+    ],
+    "stages": [
+      {
+        "sessions": 20,
+        "workers": ["uncached control", "cached direct", "cached module"],
+        "frozen_trace_rows": 200,
+        "frozen_trace_bytes": 441241,
+        "frozen_trace_sha256": "e5177f1a69fe1e79d5d9d4729952c9dfcfac0325689aa13e31dc860fbf38e45a",
+        "frozen_activated_records": 116
+      },
+      {
+        "sessions": 100,
+        "workers": ["uncached control", "cached direct", "cached module"],
+        "cached_pair_parent_wall_seconds_max": 60.0
+      }
+    ],
+    "exactness": "Within each stage all three candidate traces, complete semantic-stream digests, aggregate activation/conflict/pool summaries, and cached direct/module before/after-close diagnostics must match exactly. Cached workers must have a hit in every layer.",
+    "resources": {
+      "formal_parent_wall_seconds_max": 1800.0,
+      "per_worker_peak_rss_bytes_max": 1610612736,
+      "extra_route_p95_ms_max": 100.0,
+      "per_turn_p95_ms_max": 400.0,
+      "candidate_cell_ratio_over_c200_max": 2.0,
+      "trace_byte_ratio_over_c200_max": 2.1,
+      "free_disk_bytes_min": 536870912,
+      "network_attempts": 0,
+      "gpu_runtime_loaded": false,
+      "exact_repeat": true
+    },
+    "wall_timer_semantics": "Each worker's unrounded parent timer starts before creation/materialization of that worker's fresh pycache, bootstrap/module root, and command; it stops only after subprocess completion, outer bootstrap attestation validation, nested target receipt validation, source revalidation, and cleanup of the worker's fresh directories. Stage-100 cached_pair_parent_wall_seconds is math.fsum of the two unrounded cached worker timers; uncached control is excluded. No bootstrap or cleanup cost may be subtracted.",
+    "formal_result": "experiments/fast_track/small_ranker_v2_20b_sparse_cache_preflight_20260831.json",
+    "result_creation": "Canonical LF JSON, <=24KB, O_EXCL, file fsync, post-write reread/hash identity, POSIX parent fsync where available; only after all gates pass.",
+    "failure": "Freeze v2.20b as TARGET_FREE_SEMANTIC_OR_RESOURCE_NO_GO_OR_IMPLEMENTATION_BLOCKER. Do not create candidate-recall receipt and do not access target/outcome.",
+    "pass": "Only authorizes a separate v2.21 preregistration and namespace using the unchanged cache algorithm. It is not candidate-recall or served-ranking evidence."
+  },
+  "claims_forbidden": [
+    "candidate recall",
+    "algorithm Go or No-Go",
+    "HR@10, MRR, MTTC, TechnicalScore, miss-to-hit, or hit-to-miss",
+    "private performance",
+    "clean entire worktree",
+    "clean overall orchestration"
+  ]
+}
