@@ -95,7 +95,7 @@ class AgentV2Embedding(AgentV2):
                 item.product.parent_asin,
             )
         )
-        return reranked
+        return self._prioritize_exact_category(reranked, state.category)
 
     @staticmethod
     def _dense_scores(

@@ -38,23 +38,22 @@ BUDGET_PATTERNS = (
 )
 
 QUESTION_ATTRIBUTES = (
-    "material", "color", "style", "size", "brand", "budget", "feature", "use_case",
+    "material", "color", "style", "size", "budget", "feature", "use_case",
 )
 MIN_ATTRIBUTE_PRODUCTS = 5
 QUESTION_CANDIDATE_LIMIT = 100
 MAX_QUESTIONS_PER_ATTRIBUTE = 2
+MALFORMED_CATEGORY_PREFIX = "shoes & jewelry "
 
 # These question weights account for both customer importance and catalog
-# coverage. Brand uses a negative calibration offset because store-derived
-# brand values already receive a strong information-gain score from their
-# near-total, high-cardinality data.
+# coverage. Brand is intentionally excluded from V1's question policy: the
+# local evaluator cannot provide a brand-specific response.
 CATEGORY_ATTRIBUTE_WEIGHTS = {
     "clothing": {
         "material": 0.72,
         "color": 0.40,
         "style": 0.80,
         "size": 1.00,
-        "brand": -0.25,
         "budget": 0.10,
         "feature": 0.93,
         "use_case": 0.25,
@@ -64,7 +63,6 @@ CATEGORY_ATTRIBUTE_WEIGHTS = {
         "color": 0.55,
         "style": 0.50,
         "size": 0.96,
-        "brand": -0.25,
         "budget": 0.10,
         "feature": 1.00,
         "use_case": 0.65,
@@ -74,7 +72,6 @@ CATEGORY_ATTRIBUTE_WEIGHTS = {
         "color": 0.60,
         "style": 0.85,
         "size": 0.30,
-        "brand": -0.25,
         "budget": 0.10,
         "feature": 1.00,
         "use_case": 0.75,
@@ -85,7 +82,6 @@ QUESTION_TEMPLATES = {
     "color": "Do you have a color preference?",
     "style": "Do you have a department, style, or fit preference?",
     "size": "What size or fit do you need?",
-    "brand": "Do you have a preferred brand?",
     "budget": "What budget range should I use?",
     "feature": "Which product feature matters most to you?",
     "use_case": "What activity or use case should this product support?",
@@ -164,7 +160,10 @@ class AgentV1:
             department=extract_department(query_text),
             budget=self._budget_constraint(state.constraints),
         )
-        ranked = self.scorer.score(pool, context)
+        ranked = self._prioritize_exact_category(
+            self.scorer.score(pool, context),
+            state.category,
+        )
         unseen_ranked = [
             item
             for item in ranked
@@ -198,6 +197,17 @@ class AgentV1:
             ],
             "usage": {"prompt_tokens": 0, "completion_tokens": 0},
         }
+
+    @staticmethod
+    def _prioritize_exact_category(
+        ranked: list[ScoredProduct],
+        category: str,
+    ) -> list[ScoredProduct]:
+        if not normalized_text(category).startswith(MALFORMED_CATEGORY_PREFIX):
+            return ranked
+        exact = [item for item in ranked if item.components["category"] == 1.0]
+        partial = [item for item in ranked if item.components["category"] != 1.0]
+        return [*exact, *partial]
 
     def _update_state(self, state: SessionState, message: str, turn: int) -> None:
         if turn == 1:

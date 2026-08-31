@@ -350,7 +350,10 @@ class AgentV2(AgentV1):
     def _rank_products(self, state: V2SessionState) -> list[ScoredProduct]:
         query_text = self._query_text(state)
         pool = self.catalog.candidates(state.category, query_text)
-        return self._score_pool(state, pool)
+        return self._prioritize_exact_category(
+            self._score_pool(state, pool),
+            state.category,
+        )
 
     def _select_fine_question(
         self,
