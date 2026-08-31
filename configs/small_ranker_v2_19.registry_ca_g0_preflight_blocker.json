@@ -1,0 +1,62 @@
+{
+  "schema_version": "small-ranker-registry-ca-g0-preflight-blocker.v1",
+  "status": "PRE_RECEIPT_RESOURCE_BLOCKER",
+  "recorded_on": "2026-08-31",
+  "experiment_id": "SR-V2.19-REGISTRY-CA-G0",
+  "preregistration_commit": "c4e89db7a64b71e15aeab51049670de0bb8f8e6e",
+  "implementation_commit": "a572a2d5798277072132f4dcace3863c69919cfd",
+  "implementation_remote_equal_before_preflight": true,
+  "formal_one_shot": {
+    "receipt_created": false,
+    "cache_created": false,
+    "candidate_recall_computed": false,
+    "proxy_opened": false,
+    "fold_labels_opened": false,
+    "algorithm_interpretation": "UNKNOWN_NOT_AN_ALGORITHM_NO_GO"
+  },
+  "verification": {
+    "targeted_tests_passed": 177,
+    "direct_module_entrypoints_passed": true,
+    "direct_outside_repository_cwd_passed": true,
+    "missing_module_failed_nonzero_without_stderr_or_receipt": true,
+    "independent_final_reviews": 2,
+    "fatal_or_high_review_findings_remaining": 0
+  },
+  "target_free_20_session_diagnostic": {
+    "sessions": 20,
+    "turns": 200,
+    "activated_turns": 116,
+    "inactive_turns": 84,
+    "tail_explicit_conflict_count": 0,
+    "extra_route_and_mask_p95_milliseconds": 90.9441,
+    "per_turn_p95_milliseconds": 91.47475,
+    "peak_working_set_bytes": 148185088,
+    "candidate_cell_ratio_over_c200": 1.37752,
+    "trace_byte_ratio_over_c200": 1.373581,
+    "worker_wall_seconds": 17.85119,
+    "canonical_trace": {
+      "bytes": 441241,
+      "rows": 200,
+      "sha256": "e5177f1a69fe1e79d5d9d4729952c9dfcfac0325689aa13e31dc860fbf38e45a"
+    },
+    "target_or_outcome_used": false
+  },
+  "preflight_result": {
+    "final_error_code": "RESOURCE_GATE",
+    "completed_beyond_prior_20_session_failure_point": true,
+    "observed_behavior": "the full 20-to-100 target-free preflight ran to the frozen resource gate and returned no formal receipt",
+    "bounded_inference": "the observed duration and worker-local passing resource summaries are consistent with the preregistered 100-session pair wall x20 x1.5 extrapolation exceeding 1800 seconds; the compact CLI intentionally emitted no internal per-stage array"
+  },
+  "decision": {
+    "v2_19_route_status": "FROZEN_PRE_RECEIPT_IMPLEMENTATION_RESOURCE_BLOCKER",
+    "formal_v2_19_rerun": false,
+    "threshold_tuning": false,
+    "next_action": "create an isolated preregistered target-free performance experiment that memoizes identical FTS query results while requiring byte-identical 20-session trace identity before any new recall receipt"
+  },
+  "compliance": {
+    "overall_orchestration_clean": false,
+    "pre_preregistration_boundary_event": "PRE_PREREG_PROTECTED_PATH_ACCESS_INCIDENT_RECORDED",
+    "qualification_does_not_erase_prior_incident": true,
+    "oof_or_private_claim_made": false
+  }
+}
