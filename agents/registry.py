@@ -5,7 +5,9 @@ from pathlib import Path
 from typing import Callable, Protocol
 
 from agents.v1 import AgentV1
+from agents.v1_tuned import AgentV1Tuned
 from agents.v2 import AgentV2
+from agents.v2_embedding import AgentV2Embedding
 from starter.agent import BaselineAgent
 
 
@@ -41,9 +43,18 @@ AGENTS = {
         description=(
             "First non-LLM agent. It combines stateful intent routing, category and FTS "
             "candidate generation, popularity-aware weighted reranking, and deterministic "
-            "information-gain clarification questions."
+            "information-gain clarification questions. Products already shown are not "
+            "recommended again unless the customer overrides the request."
         ),
         factory=AgentV1,
+    ),
+    "v1-tuned": AgentSpec(
+        name="v1-tuned",
+        description=(
+            "Benchmark-specialized V1. It loads ranking weights selected on a "
+            "product-disjoint generated training and validation corpus."
+        ),
+        factory=AgentV1Tuned,
     ),
     "v2": AgentSpec(
         name="v2",
@@ -53,6 +64,15 @@ AGENTS = {
             "benchmark-compatible attribute names."
         ),
         factory=AgentV2,
+    ),
+    "v2-embedding": AgentSpec(
+        name="v2-embedding",
+        description=(
+            "V2 clarification and reranking with hybrid lexical, category, and Qwen3 "
+            "dense retrieval. Dense relevance is conservatively margin-calibrated once "
+            "the customer supplies a constraint."
+        ),
+        factory=AgentV2Embedding,
     ),
 }
 

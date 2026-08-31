@@ -6,9 +6,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-from agents.v1 import AgentV1, SessionState
+from agents.v1 import OVERRIDE_RE, AgentV1, SessionState
 from retrieval.attributes import ExtractedAttributeIndex
-from retrieval.catalog import extract_department, normalized_text
+from retrieval.catalog import (
+    CandidatePool,
+    extract_department,
+    fine_category_group,
+    normalized_text,
+    terms,
+)
 from retrieval.scoring import QueryContext, ScoredProduct
 
 
@@ -38,11 +44,21 @@ class QuestionUtility:
     expected_answerability: float
     recurring_value_count: int
     cardinality_penalty: float
+    recurring_values: frozenset[str]
+
+
+@dataclass(frozen=True)
+class FacetEvaluation:
+    facet: QuestionFacet
+    utility: QuestionUtility
+    answerable_products: frozenset[str]
+    category_novelty: float
 
 
 @dataclass
 class V2SessionState(SessionState):
     asked_public_attributes: set[str] = field(default_factory=set)
+    last_asked_public_attribute: str | None = None
 
 
 FAMILY_PRIORS = {
@@ -84,6 +100,16 @@ FAMILY_PRIORS = {
         "brand": -0.25,
         "budget": 0.10,
     },
+    "other": {
+        "size_fit": 0.50,
+        "feature": 0.50,
+        "style": 0.50,
+        "material": 0.50,
+        "color": 0.50,
+        "use_case": 0.50,
+        "brand": -0.25,
+        "budget": 0.10,
+    },
 }
 
 
@@ -112,6 +138,15 @@ COMMON_FACETS = {
         QuestionFacet("style", "design_style", "core", "style"),
         QuestionFacet("size_fit", "ring_size", "core", "size"),
         QuestionFacet("use_case", "occasion", "core", "use_case"),
+        QuestionFacet("brand", "brand", "catalog", "brand"),
+        QuestionFacet("budget", "budget", "catalog", "budget"),
+    ),
+    "other": (
+        QuestionFacet("size_fit", "size_fit", "core", "size"),
+        QuestionFacet("style", "style", "core", "style"),
+        QuestionFacet("material", "material", "core", "material"),
+        QuestionFacet("color", "color", "core", "color"),
+        QuestionFacet("use_case", "use_case", "core", "use_case"),
         QuestionFacet("brand", "brand", "catalog", "brand"),
         QuestionFacet("budget", "budget", "catalog", "budget"),
     ),
@@ -166,6 +201,17 @@ SPECIFIC_FACETS = {
         "construction": ("handmade", "handcrafted", "setting", "stone_setting"),
         "ring_size": ("ring_size",),
     },
+    "other": {
+        "feature": (
+            "closure",
+            "water_resistance",
+            "construction",
+            "movement",
+            "capacity",
+            "uv_protection",
+            "polarization",
+        ),
+    },
 }
 
 
@@ -178,6 +224,7 @@ PROFILE_FAMILIES = {
     "performance": {"functional_purpose"},
     "comfort": {"comfort"},
     "durability": {"durability"},
+    "feature": {"feature"},
 }
 
 
@@ -216,17 +263,12 @@ class AgentV2(AgentV1):
             raise RuntimeError("V2 session state was not initialized correctly")
 
         self._update_state(state, user_message, turn)
-        constraint_texts = tuple(constraint.text for constraint in state.constraints)
-        query_text = " ".join((state.category, *constraint_texts))
-        pool = self.catalog.candidates(state.category, query_text)
-        context = QueryContext(
-            intent=state.intent,
-            category=state.category,
-            constraints=constraint_texts,
-            department=extract_department(query_text),
-            budget=self._budget_constraint(state.constraints),
-        )
-        ranked = self.scorer.score(pool, context)
+        ranked = self._rank_products(state)
+        unseen_ranked = [
+            item
+            for item in ranked
+            if item.product.parent_asin not in state.shown_product_ids
+        ]
         question = self._select_fine_question(
             state,
             ranked[:QUESTION_CANDIDATE_LIMIT],
@@ -239,10 +281,19 @@ class AgentV2(AgentV1):
                 else question.facet
             )
             state.last_asked_attribute = question.facet
+            state.last_asked_public_attribute = public_attribute
             state.asked_attributes.add(question.facet)
             state.asked_public_attributes.add(public_attribute)
+            state.follow_up_attributes.discard(question.facet)
+            state.question_counts[question.facet] += 1
         else:
             state.last_asked_attribute = None
+            state.last_asked_public_attribute = None
+
+        recommendations = unseen_ranked[:top_k]
+        state.shown_product_ids.update(
+            item.product.parent_asin for item in recommendations
+        )
 
         return {
             "message": (
@@ -256,47 +307,145 @@ class AgentV2(AgentV1):
                     "parent_asin": item.product.parent_asin,
                     "score": round(item.score, 6),
                 }
-                for item in ranked[:top_k]
+                for item in recommendations
             ],
             "usage": {"prompt_tokens": 0, "completion_tokens": 0},
         }
+
+    def _update_state(self, state: SessionState, message: str, turn: int) -> None:
+        pending_public_attribute = (
+            state.last_asked_public_attribute
+            if isinstance(state, V2SessionState)
+            else None
+        )
+        super()._update_state(state, message, turn)
+        if (
+            isinstance(state, V2SessionState)
+            and pending_public_attribute
+            and OVERRIDE_RE.match(message)
+        ):
+            state.asked_public_attributes.discard(pending_public_attribute)
+
+    @staticmethod
+    def _query_text(state: V2SessionState) -> str:
+        constraint_texts = tuple(constraint.text for constraint in state.constraints)
+        return " ".join((state.category, *constraint_texts))
+
+    def _score_pool(
+        self,
+        state: V2SessionState,
+        pool: CandidatePool,
+    ) -> list[ScoredProduct]:
+        constraint_texts = tuple(constraint.text for constraint in state.constraints)
+        query_text = self._query_text(state)
+        context = QueryContext(
+            intent=state.intent,
+            category=state.category,
+            constraints=constraint_texts,
+            department=extract_department(query_text),
+            budget=self._budget_constraint(state.constraints),
+        )
+        return self.scorer.score(pool, context)
+
+    def _rank_products(self, state: V2SessionState) -> list[ScoredProduct]:
+        query_text = self._query_text(state)
+        pool = self.catalog.candidates(state.category, query_text)
+        return self._score_pool(state, pool)
 
     def _select_fine_question(
         self,
         state: V2SessionState,
         candidates: list[ScoredProduct],
     ) -> QuestionFacet | None:
-        group = self.catalog.question_category(state.category)
+        if not candidates:
+            return None
+        group = self._question_group(candidates)
         facets = self._question_facets(group)
         profile_families = self._profile_families(state.user_profile)
-        scores: dict[QuestionFacet, float] = {}
+        fresh_evaluations: list[FacetEvaluation] = []
+        follow_up_evaluations: list[FacetEvaluation] = []
         for facet in facets:
-            if facet.facet in state.asked_attributes | state.no_preference_attributes:
+            if facet.facet in state.no_preference_attributes:
                 continue
-            if (
+            is_follow_up = facet.facet in state.follow_up_attributes
+            is_fresh = facet.facet not in state.asked_attributes and not (
                 self.question_mode == "benchmark"
                 and facet.benchmark_attribute in state.asked_public_attributes
-            ):
+            )
+            if not is_fresh and not is_follow_up:
                 continue
-            values = [
-                value
+            product_values = [
+                (candidate.product.parent_asin, value)
                 for candidate in candidates
                 if (value := self._facet_value(candidate, facet)) is not None
             ]
-            if len(values) < MIN_ATTRIBUTE_PRODUCTS:
+            if len(product_values) < MIN_ATTRIBUTE_PRODUCTS:
+                continue
+            values = [value for _, value in product_values]
+            if not is_follow_up and self._facet_is_disclosed(state, facet, values):
                 continue
             utility = self._question_utility(values, len(candidates))
             if utility is None:
                 continue
-            scores[facet] = (
-                0.50 * utility.discrimination
-                + 0.15 * utility.expected_answerability
-                + 0.30 * FAMILY_PRIORS[group][facet.family]
-                + 0.05 * float(facet.family in profile_families)
+            novelty = self._category_novelty(
+                values,
+                utility.recurring_values,
+                state.category,
             )
-        if not scores:
+            if novelty <= 0:
+                continue
+            answerable_products = frozenset(
+                parent_asin
+                for parent_asin, value in product_values
+                if normalized_text(value) in utility.recurring_values
+            )
+            evaluation = FacetEvaluation(facet, utility, answerable_products, novelty)
+            if is_fresh:
+                fresh_evaluations.append(evaluation)
+            else:
+                follow_up_evaluations.append(evaluation)
+        evaluations = fresh_evaluations or follow_up_evaluations
+        if not evaluations:
             return None
-        return max(scores, key=lambda facet: (scores[facet], -facets.index(facet)))
+
+        by_family: dict[str, list[FacetEvaluation]] = {}
+        for evaluation in evaluations:
+            by_family.setdefault(evaluation.facet.family, []).append(evaluation)
+
+        family_scores: dict[str, tuple[float, FacetEvaluation]] = {}
+        for family, members in by_family.items():
+            best_leaf = max(
+                members,
+                key=lambda item: (
+                    self._leaf_data_utility(item),
+                    -facets.index(item.facet),
+                ),
+            )
+            family_answerable = len(
+                set().union(*(member.answerable_products for member in members))
+            ) / len(candidates)
+            score = best_leaf.category_novelty * (
+                0.50 * best_leaf.utility.discrimination
+                + 0.15 * family_answerable
+                + 0.30 * FAMILY_PRIORS[group][family]
+                + 0.05 * float(family in profile_families)
+            )
+            family_scores[family] = (score, best_leaf)
+
+        return max(
+            family_scores.values(),
+            key=lambda result: (
+                result[0],
+                -facets.index(result[1].facet),
+            ),
+        )[1].facet
+
+    @staticmethod
+    def _leaf_data_utility(evaluation: FacetEvaluation) -> float:
+        return evaluation.category_novelty * (
+            0.50 * evaluation.utility.discrimination
+            + 0.15 * evaluation.utility.expected_answerability
+        )
 
     @staticmethod
     def _question_utility(
@@ -327,7 +476,59 @@ class AgentV2(AgentV1):
             expected_answerability=expected_answerability,
             recurring_value_count=len(recurring),
             cardinality_penalty=cardinality_penalty,
+            recurring_values=frozenset(recurring),
         )
+
+    @staticmethod
+    def _question_group(candidates: list[ScoredProduct]) -> str:
+        counts = Counter(
+            fine_category_group(list(candidate.product.category_path))
+            for candidate in candidates
+        )
+        return counts.most_common(1)[0][0]
+
+    @classmethod
+    def _facet_is_disclosed(
+        cls,
+        state: V2SessionState,
+        facet: QuestionFacet,
+        values: list[str],
+    ) -> bool:
+        if facet.facet == "budget" and cls._budget_constraint(state.constraints):
+            return True
+        for constraint in state.constraints:
+            constraint_terms = set(terms(constraint.text))
+            if not constraint_terms:
+                continue
+            for value in values:
+                value_terms = set(terms(value))
+                if value_terms and (
+                    value_terms <= constraint_terms
+                    or constraint_terms <= value_terms
+                ):
+                    return True
+        return False
+
+    @staticmethod
+    def _category_novelty(
+        values: list[str],
+        recurring_values: frozenset[str],
+        category: str,
+    ) -> float:
+        category_terms = set(terms(category))
+        recurring = [
+            value
+            for value in values
+            if normalized_text(value) in recurring_values
+        ]
+        if not category_terms or not recurring:
+            return 1.0
+        implied = sum(
+            bool(value_terms := set(terms(value)))
+            and value_terms <= category_terms
+            for value in recurring
+        )
+        return 1.0 - implied / len(recurring)
 
     @staticmethod
     def _question_facets(group: str) -> tuple[QuestionFacet, ...]:

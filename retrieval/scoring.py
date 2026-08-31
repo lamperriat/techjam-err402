@@ -54,6 +54,85 @@ INTENT_WEIGHTS: dict[Intent, dict[str, float]] = {
     },
 }
 PRICE_WEIGHT = 0.15
+SCORING_COMPONENTS = (
+    "lexical",
+    "category",
+    "constraint",
+    "department",
+    "bayesian_rating",
+    "popularity",
+)
+
+
+@dataclass(frozen=True)
+class ScoringConfig:
+    """Validated, serializable parameters for the deterministic V1 reranker."""
+
+    intent_weights: dict[Intent, dict[str, float]]
+    price_weight: float
+    bayesian_confidence_scale: float
+
+    def __post_init__(self) -> None:
+        if set(self.intent_weights) != {"buying", "browsing"}:
+            raise ValueError("intent weights must define buying and browsing")
+        for intent, weights in self.intent_weights.items():
+            if set(weights) != set(SCORING_COMPONENTS):
+                raise ValueError(
+                    f"{intent} weights must define: {', '.join(SCORING_COMPONENTS)}"
+                )
+            if any(not math.isfinite(value) or value < 0.0 for value in weights.values()):
+                raise ValueError(f"{intent} weights must be finite and non-negative")
+            if sum(weights.values()) <= 0.0:
+                raise ValueError(f"{intent} weights must contain a positive value")
+        if not math.isfinite(self.price_weight) or not 0.0 <= self.price_weight < 1.0:
+            raise ValueError("price_weight must be finite and in [0, 1)")
+        if (
+            not math.isfinite(self.bayesian_confidence_scale)
+            or self.bayesian_confidence_scale <= 0.0
+        ):
+            raise ValueError("bayesian_confidence_scale must be finite and positive")
+
+    @classmethod
+    def default(cls) -> ScoringConfig:
+        return cls(
+            intent_weights={
+                intent: dict(weights) for intent, weights in INTENT_WEIGHTS.items()
+            },
+            price_weight=PRICE_WEIGHT,
+            bayesian_confidence_scale=1.0,
+        )
+
+    @classmethod
+    def from_dict(cls, value: dict) -> ScoringConfig:
+        weights = value.get("intent_weights")
+        if not isinstance(weights, dict):
+            raise ValueError("scoring config must contain intent_weights")
+        try:
+            normalized_weights = {
+                intent: {
+                    component: float(weight)
+                    for component, weight in weights[intent].items()
+                }
+                for intent in ("buying", "browsing")
+            }
+            price_weight = float(value["price_weight"])
+            confidence_scale = float(value["bayesian_confidence_scale"])
+        except (AttributeError, KeyError, TypeError, ValueError) as error:
+            raise ValueError("invalid scoring config") from error
+        return cls(
+            intent_weights=normalized_weights,
+            price_weight=price_weight,
+            bayesian_confidence_scale=confidence_scale,
+        )
+
+    def to_dict(self) -> dict:
+        return {
+            "intent_weights": {
+                intent: dict(weights) for intent, weights in self.intent_weights.items()
+            },
+            "price_weight": self.price_weight,
+            "bayesian_confidence_scale": self.bayesian_confidence_scale,
+        }
 
 
 class ProductScorer:
@@ -64,18 +143,23 @@ class ProductScorer:
     - category: query-category token recall, with exact coarse matches set to one.
     - constraint: mean token recall for accumulated customer constraints.
     - department: exact explicit-audience match, contradiction, or neutral unknown.
-    - bayesian_rating: rating shrunk toward the catalog mean using the catalog
-      median rating count as the confidence parameter.
+    - bayesian_rating: rating shrunk toward the catalog mean using a configurable
+      multiple of the catalog median rating count as the confidence parameter.
     - popularity: globally normalized log1p(rating_number).
     - price: budget compliance, activated only when the customer gives a budget.
     """
 
-    def __init__(self, catalog: CatalogIndex) -> None:
+    def __init__(
+        self,
+        catalog: CatalogIndex,
+        config: ScoringConfig | None = None,
+    ) -> None:
         self.catalog = catalog
+        self.config = config or ScoringConfig.default()
 
     def score(self, pool: CandidatePool, context: QueryContext) -> list[ScoredProduct]:
         lexical_count = len(pool.lexical_ranks)
-        active_weights = dict(INTENT_WEIGHTS[context.intent])
+        active_weights = dict(self.config.intent_weights[context.intent])
         if not context.constraints:
             active_weights.pop("constraint")
         if not context.department:
@@ -100,7 +184,10 @@ class ProductScorer:
             ) / weight_total
             if context.budget:
                 components["price"] = self._price_score(product, context.budget)
-                final_score = (1.0 - PRICE_WEIGHT) * ordinary_score + PRICE_WEIGHT * components["price"]
+                final_score = (
+                    (1.0 - self.config.price_weight) * ordinary_score
+                    + self.config.price_weight * components["price"]
+                )
             else:
                 final_score = ordinary_score
             scored.append(ScoredProduct(product, final_score, components))
@@ -155,7 +242,10 @@ class ProductScorer:
         return float(product.department == department)
 
     def _bayesian_rating_score(self, product: ProductRecord) -> float:
-        confidence = self.catalog.median_rating_number
+        confidence = (
+            self.catalog.median_rating_number
+            * self.config.bayesian_confidence_scale
+        )
         count = product.rating_number
         adjusted = (
             count / (count + confidence) * product.average_rating

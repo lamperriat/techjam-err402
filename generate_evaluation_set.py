@@ -16,6 +16,8 @@ import random
 from collections import Counter, defaultdict
 from pathlib import Path
 
+from tqdm.auto import tqdm
+
 
 SCENARIO_PROPORTIONS = {
     "buying": 0.40,
@@ -73,6 +75,7 @@ def load_record_groups(
     path: Path,
     catalog_asins: set[str],
     excluded_asins: set[str],
+    show_progress: bool = False,
 ) -> dict[str, list[dict[str, str]]]:
     groups: dict[str, list[dict[str, str]]] = defaultdict(list)
     with path.open(encoding="utf-8", newline="") as handle:
@@ -80,7 +83,12 @@ def load_record_groups(
         required = {"parent_asin", "rating", "history"}
         if not reader.fieldnames or not required.issubset(reader.fieldnames):
             raise ValueError(f"records CSV must contain columns: {sorted(required)}")
-        for row in reader:
+        for row in tqdm(
+            reader,
+            desc="Reading purchase records",
+            unit="record",
+            disable=not show_progress,
+        ):
             asin = row["parent_asin"]
             if asin in catalog_asins and asin not in excluded_asins:
                 groups[asin].append(row)
@@ -178,6 +186,7 @@ def generate_samples(
     public_set_path: Path,
     sample_count: int,
     seed: int,
+    show_progress: bool = False,
 ) -> list[dict]:
     if sample_count <= 0:
         raise ValueError("sample count must be positive")
@@ -188,15 +197,20 @@ def generate_samples(
         records_path,
         set(catalog_categories),
         excluded_asins,
+        show_progress=show_progress,
     )
     rng = random.Random(seed)
     selected_asins = weighted_unique_sample(groups, sample_count, rng)
     scenarios = scenario_labels(sample_count, rng)
 
     samples: list[dict] = []
-    for index, (asin, scenario) in enumerate(
-        zip(selected_asins, scenarios, strict=True),
-        start=1,
+    selected = enumerate(zip(selected_asins, scenarios, strict=True), start=1)
+    for index, (asin, scenario) in tqdm(
+        selected,
+        total=sample_count,
+        desc="Generating sessions",
+        unit="session",
+        disable=not show_progress,
     ):
         record = rng.choice(groups[asin])
         samples.append(
@@ -259,6 +273,7 @@ def main() -> None:
     )
     parser.add_argument("--samples", type=int, default=1000)
     parser.add_argument("--seed", type=int, default=20260829)
+    parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
 
     samples = generate_samples(
@@ -267,6 +282,7 @@ def main() -> None:
         public_set_path=args.public_set,
         sample_count=args.samples,
         seed=args.seed,
+        show_progress=not args.quiet,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(

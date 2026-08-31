@@ -94,6 +94,27 @@ def category_group(values: list[str]) -> str:
     return "clothing"
 
 
+def fine_category_group(values: list[str]) -> str:
+    """Route V2 priors without treating every non-shoe item as clothing."""
+    nodes = [normalized_text(value) for value in values[1:]]
+    node_terms = [set(terms(node)) for node in nodes]
+    if (
+        "shoes" in nodes
+        or "boot shop" in nodes
+        or any(tokens & SHOE_CATEGORY_TERMS for tokens in node_terms)
+    ):
+        return "shoes"
+    if "jewelry" in nodes or any(
+        node != "jewelry watch accessories"
+        and tokens & JEWELRY_CATEGORY_TERMS
+        for node, tokens in zip(nodes, node_terms)
+    ):
+        return "jewelry"
+    if "clothing" in nodes:
+        return "clothing"
+    return "other"
+
+
 def normalize_price(value: object) -> tuple[float | None, bool]:
     """Return a usable price and whether it represents a lower bound."""
     if isinstance(value, (int, float)) and not isinstance(value, bool):

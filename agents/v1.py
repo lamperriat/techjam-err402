@@ -7,7 +7,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from retrieval.catalog import CatalogIndex, extract_department, normalized_text
-from retrieval.scoring import BudgetConstraint, Intent, ProductScorer, QueryContext, ScoredProduct
+from retrieval.scoring import (
+    BudgetConstraint,
+    Intent,
+    ProductScorer,
+    QueryContext,
+    ScoredProduct,
+    ScoringConfig,
+)
 
 
 BUYING_INITIAL_RE = re.compile(
@@ -35,6 +42,7 @@ QUESTION_ATTRIBUTES = (
 )
 MIN_ATTRIBUTE_PRODUCTS = 5
 QUESTION_CANDIDATE_LIMIT = 100
+MAX_QUESTIONS_PER_ATTRIBUTE = 2
 
 # These question weights account for both customer importance and catalog
 # coverage. Brand uses a negative calibration offset because store-derived
@@ -111,14 +119,21 @@ class SessionState:
     asked_attributes: set[str] = field(default_factory=set)
     no_preference_attributes: set[str] = field(default_factory=set)
     last_asked_attribute: str | None = None
+    question_counts: Counter[str] = field(default_factory=Counter)
+    follow_up_attributes: set[str] = field(default_factory=set)
+    shown_product_ids: set[str] = field(default_factory=set)
 
 
 class AgentV1:
     """First non-LLM agent with stateful weighted retrieval and clarification."""
 
-    def __init__(self, catalog_path: str | Path = "data/catalog.jsonl") -> None:
+    def __init__(
+        self,
+        catalog_path: str | Path = "data/catalog.jsonl",
+        scoring_config: ScoringConfig | None = None,
+    ) -> None:
         self.catalog = CatalogIndex(catalog_path)
-        self.scorer = ProductScorer(self.catalog)
+        self.scorer = ProductScorer(self.catalog, scoring_config)
         self._sessions: dict[str, SessionState] = {}
 
     def reset(self, session_id: str, user_profile: dict) -> None:
@@ -150,10 +165,22 @@ class AgentV1:
             budget=self._budget_constraint(state.constraints),
         )
         ranked = self.scorer.score(pool, context)
+        unseen_ranked = [
+            item
+            for item in ranked
+            if item.product.parent_asin not in state.shown_product_ids
+        ]
         ask_attribute = self._select_question(state, ranked[:QUESTION_CANDIDATE_LIMIT])
         state.last_asked_attribute = ask_attribute
         if ask_attribute:
             state.asked_attributes.add(ask_attribute)
+            state.follow_up_attributes.discard(ask_attribute)
+            state.question_counts[ask_attribute] += 1
+
+        recommendations = unseen_ranked[:top_k]
+        state.shown_product_ids.update(
+            item.product.parent_asin for item in recommendations
+        )
 
         return {
             "message": (
@@ -167,7 +194,7 @@ class AgentV1:
                     "parent_asin": item.product.parent_asin,
                     "score": round(item.score, 6),
                 }
-                for item in ranked[:top_k]
+                for item in recommendations
             ],
             "usage": {"prompt_tokens": 0, "completion_tokens": 0},
         }
@@ -179,6 +206,9 @@ class AgentV1:
 
         override = OVERRIDE_RE.match(message)
         if override:
+            if state.last_asked_attribute:
+                state.asked_attributes.discard(state.last_asked_attribute)
+                state.follow_up_attributes.discard(state.last_asked_attribute)
             if state.overridable_preference:
                 old_value = normalized_text(state.overridable_preference)
                 state.constraints = [
@@ -188,6 +218,7 @@ class AgentV1:
                 ]
             state.overridable_preference = None
             state.intent = "buying"
+            state.shown_product_ids.clear()
             self._add_constraint(state, override.group(1), hard=True, source="override")
             return
 
@@ -200,10 +231,17 @@ class AgentV1:
                     hard=state.intent == "buying",
                     source="clarification",
                 )
+            if (
+                state.last_asked_attribute
+                and state.question_counts[state.last_asked_attribute]
+                < MAX_QUESTIONS_PER_ATTRIBUTE
+            ):
+                state.follow_up_attributes.add(state.last_asked_attribute)
             return
 
         if message.startswith("I don't have") and state.last_asked_attribute:
             state.no_preference_attributes.add(state.last_asked_attribute)
+            state.follow_up_attributes.discard(state.last_asked_attribute)
 
     def _parse_initial_message(self, state: SessionState, message: str) -> None:
         buying = BUYING_INITIAL_RE.match(message)
@@ -269,37 +307,49 @@ class AgentV1:
         state: SessionState,
         candidates: list[ScoredProduct],
     ) -> str | None:
-        excluded = state.asked_attributes | state.no_preference_attributes
         profile_attributes = self._profile_attributes(state.user_profile)
         attribute_weights = CATEGORY_ATTRIBUTE_WEIGHTS[
             self.catalog.question_category(state.category)
         ]
-        scores: dict[str, float] = {}
+        fresh_attributes = [
+            attribute
+            for attribute in QUESTION_ATTRIBUTES
+            if attribute not in state.asked_attributes
+            and attribute not in state.no_preference_attributes
+        ]
+        follow_up_attributes = [
+            attribute
+            for attribute in QUESTION_ATTRIBUTES
+            if attribute in state.follow_up_attributes
+            and attribute not in state.no_preference_attributes
+        ]
 
-        for attribute in QUESTION_ATTRIBUTES:
-            if attribute in excluded:
-                continue
-            values = [
-                value
-                for candidate in candidates
-                if (value := candidate.product.attribute_value(attribute)) is not None
-            ]
-            if len(values) < MIN_ATTRIBUTE_PRODUCTS:
-                continue
-            information_gain = self._information_gain(values, len(candidates))
-            profile_relevance = float(attribute in profile_attributes)
-            scores[attribute] = (
-                0.65 * information_gain
-                + 0.30 * attribute_weights[attribute]
-                + 0.05 * profile_relevance
-            )
-
-        if not scores:
-            return None
-        return max(
-            scores,
-            key=lambda attribute: (scores[attribute], -QUESTION_ATTRIBUTES.index(attribute)),
-        )
+        for attributes in (fresh_attributes, follow_up_attributes):
+            scores: dict[str, float] = {}
+            for attribute in attributes:
+                values = [
+                    value
+                    for candidate in candidates
+                    if (value := candidate.product.attribute_value(attribute)) is not None
+                ]
+                if len(values) < MIN_ATTRIBUTE_PRODUCTS:
+                    continue
+                information_gain = self._information_gain(values, len(candidates))
+                profile_relevance = float(attribute in profile_attributes)
+                scores[attribute] = (
+                    0.65 * information_gain
+                    + 0.30 * attribute_weights[attribute]
+                    + 0.05 * profile_relevance
+                )
+            if scores:
+                return max(
+                    scores,
+                    key=lambda attribute: (
+                        scores[attribute],
+                        -QUESTION_ATTRIBUTES.index(attribute),
+                    ),
+                )
+        return None
 
     @staticmethod
     def _normalized_entropy(values: list[str]) -> float:

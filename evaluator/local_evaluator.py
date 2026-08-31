@@ -231,6 +231,9 @@ def evaluate(
     categories: dict[str, list[str]],
     products: dict[str, dict],
     show_progress: bool = False,
+    progress_description: str = "Evaluating",
+    progress_position: int = 0,
+    progress_leave: bool = True,
 ) -> dict:
     sessions: list[dict] = []
     total_prompt_tokens = 0
@@ -238,9 +241,11 @@ def evaluate(
     progress = tqdm(
         samples,
         total=len(samples),
-        desc="Evaluating",
+        desc=progress_description,
         unit="session",
         disable=not show_progress,
+        position=progress_position,
+        leave=progress_leave,
     )
     for sample in progress:
         session_id = f"public_{uuid.uuid4().hex}"
