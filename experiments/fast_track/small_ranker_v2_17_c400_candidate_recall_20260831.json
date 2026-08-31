@@ -1,0 +1,1 @@
+{"error_class":"ModuleNotFoundError","experiment_id":"SR-V2.17-C400-CANDIDATE-RECALL","implementation_commit":"6f9c085fe290203ada4d34e6ebe5c739f78157af","phase":"evaluator_side_proxy_then_numeric_fold_attach","rerun_forbidden":true,"schema_version":"small-ranker-c400-candidate-recall-outcome.v1","self_hash_omitted":true,"status":"INVALID_ONE_SHOT_CONSUMED"}
