@@ -1,0 +1,72 @@
+{
+  "schema_version": "small-ranker-frozen-embedding-e0-invalid-manifest.v1",
+  "experiment_id": "SR-V2.18-FROZEN-EMBEDDING-E0-DENSE400",
+  "status": "INVALID_ONE_SHOT_CONSUMED",
+  "algorithm_interpretation": "implementation_or_runtime_gate_failure; Dense400 candidate recall is unknown; neither Go nor algorithm No-Go",
+  "preregistration_commit": "63fbff0143eee14e6a86da5d4dbc759b7874243a",
+  "initial_implementation_commit": "8c79831f59b1e2f893e2529cdb3306b7dccaaf51",
+  "formal_implementation_commit": "ca5b2944c13365fe4a4c0b4eeca6171facc66efd",
+  "target_free_preflight": {
+    "status": "PASS",
+    "direct_script_and_python_module_import": true,
+    "worker_smoke_sessions": 2,
+    "worker_smoke_turns": 20,
+    "worker_smoke_exact_repeat": true,
+    "receipt_created": false,
+    "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+    "sealed_c200_trace_sha256": "a8589749376f48f019997a618481578dde36be4ca1fc723e8ed00056c23e40dc",
+    "asset_manifest_sha256": "324f3d0fef284c1419c0353a3fc0ec2f8456890904726fbcf2cd8d8d5e751d1"
+  },
+  "formal_failure": {
+    "phase": "exclusive_cache_and_two_fresh_full_workers",
+    "observed_parent_error": "module E0 worker failed",
+    "root_cause": "not recoverable from the sealed aggregate receipt; child stderr was intentionally not persisted",
+    "receipt_created_at": "2026-08-31T09:35:04.8949458+08:00",
+    "receipt_sealed_at": "2026-08-31T10:14:29.9496708+08:00",
+    "post_receipt_wall_seconds": 2365.054725,
+    "published_trace_count": 0,
+    "cache_file_count": 0,
+    "proxy_opened": false,
+    "numeric_fold_archive_opened": false,
+    "outcome_opened": false,
+    "rerun_forbidden": true
+  },
+  "receipt": {
+    "path": "experiments/fast_track/small_ranker_v2_18_frozen_embedding_e0_20260831.json",
+    "bytes": 513,
+    "sha256": "c41ef771c814cdad638b01c54b6f63afbc582a74139a172cc040c96fa2ef81c7"
+  },
+  "metrics": {
+    "baseline_candidate_recall": 1986,
+    "candidate_recall": null,
+    "recall_increment": null,
+    "hit_rate_at_10": null,
+    "miss_to_hit": null,
+    "hit_to_miss": null,
+    "mrr": null,
+    "mttc": null,
+    "technical_score": null
+  },
+  "resources": {
+    "provider": "CPUExecutionProvider",
+    "gpu_used": false,
+    "gpu_peak_bytes": 0,
+    "final_worker_p95_and_peak_rss": null
+  },
+  "validation": {
+    "targeted_and_related_tests": "126 passed",
+    "diff_check": "PASS"
+  },
+  "decision": {
+    "e0": "INVALID_DO_NOT_RERUN",
+    "embedding_adapter_e1_authorized": false,
+    "top10_promotion_authorized": false,
+    "next_stage": "independent deterministic G0 / clause-isolated multi-view sparse query union",
+    "fallback_order": [
+      "SR-V2.12-FIXED-TWO-PAGE-GRACE",
+      "v1.9",
+      "P11",
+      "R08"
+    ]
+  }
+}
