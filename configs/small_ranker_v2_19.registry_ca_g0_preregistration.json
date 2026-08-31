@@ -1,0 +1,235 @@
+{
+  "schema_version": "small-ranker-registry-ca-g0-preregistration.v1",
+  "status": "PREREGISTERED_BEFORE_IMPLEMENTATION_AND_OUTCOME",
+  "recorded_on": "2026-08-31",
+  "experiment_id": "SR-V2.19-REGISTRY-CA-G0",
+  "branch": "small-ranker-v2.19-sparse-multiview",
+  "parent_commit": "f810642c1dd805df6543ce152904892207164c95",
+  "evidence_scope": "full 2000-session train_explore shared-cohort diagnostic candidate-recall probe; outer-fold and taxonomy views are diagnostics, not private or independent validation",
+  "global_incumbent": {
+    "experiment_id": "SR-V2.12-FIXED-TWO-PAGE-GRACE",
+    "commit": "7d08e144fe6f589d64fab21f1b68c3ec2feeb684",
+    "hit_rate_at_10": 0.991,
+    "mrr": 0.695795,
+    "mttc": 2.869,
+    "technical_score": 0.866858,
+    "miss_to_hit": 39,
+    "hit_to_miss": 0,
+    "fold_net": [14, 8, 7, 8, 2],
+    "interpretation": "comparable cached nested-OOF incumbent; not a private score; this probe cannot change or evaluate served Top10"
+  },
+  "prior_candidate_frontier": {
+    "sealed_c200_status": "RECALL_NO_GO",
+    "candidate_recall": {"c10": 1895, "c20": 1943, "c50": 1982, "c100": 1986, "c200": 1986},
+    "remaining_c100_absent_sessions": 14,
+    "c400_status": "INVALID_ONE_SHOT_CONSUMED",
+    "frozen_embedding_e0_status": "INVALID_ONE_SHOT_CONSUMED",
+    "interpretation": "C400 and E0 are implementation/runtime failures with unknown recall, not algorithm No-Go evidence, and are never rerun"
+  },
+  "pre_preregistration_boundary_event": {
+    "event": "a read-only external hash-location Select-String command was scoped too broadly and necessarily opened files under protected experiment directories",
+    "confirmed_returned_paths": [
+      "D:/tiktok/techjam-err402-fast-track/experiments/fast_track/action_oracle_v1/calibration-full-aggregate.json",
+      "D:/tiktok/techjam-err402-fast-track/experiments/fast_track/action_oracle_v1/train_explore-full-aggregate.json",
+      "D:/tiktok/techjam-err402-fast-track/experiments/fast_track/action_oracle_v1/train_explore-smoke-10-aggregate.json",
+      "seven additional train_explore smoke aggregate paths under the same action_oracle_v1 directory whose basenames were truncated by the shell formatter"
+    ],
+    "unknown_access_scope": "Select-String may also have opened earlier enumerated nonmatching files before the pipeline stopped at ten matches; OS-level file-open telemetry was not recorded, so the access scope cannot be narrowed after the fact",
+    "observed_output": "only matching file paths were returned; no protected file bytes, labels, metrics, targets, or aggregate values were displayed to or used by the orchestration model",
+    "timing": "before this preregistration, before implementation, before any receipt, and before any v2.19 outcome",
+    "decision_independence": "the sole mechanism below was selected from target-free source, catalog schema, sealed identifier-free visible context, and sealed C200 shape only",
+    "mitigation": "all v2.19 pre-target code uses explicit file allowlists plus protected-path deny checks; no recursive external scan is permitted; the event is retained for audit rather than hidden",
+    "compliance_status": "PRE_PREREG_PROTECTED_PATH_ACCESS_INCIDENT_RECORDED; this is a real violation of the no-old-calibration access rule and is not erased by later isolation",
+    "formal_result_qualification": "a fresh no-history implementation/review agent plus the formal runner must prove zero protected-path access before the durable receipt; that separately qualifies the formal run but must never be represented as making the overall orchestration clean"
+  },
+  "sole_hypothesis": {
+    "name": "REGISTRY_CATEGORY_AND_CORE_ATTRIBUTE_REWRITE_TAIL",
+    "claim": "one field-isolated category AND canonical material/style/use-case sparse route can recover targets buried by the flattened broad/strict query without changing the frozen C200 prefix",
+    "activation": "the current visible goal version has at least one canonical category and at least one active current-version positive material, style, or use_case constraint; otherwise the route is empty",
+    "category_terms": "canonical category values from build_conversation_constraint_view(category_text, active_terms, excluded_terms), restricted to values represented by the frozen attributes.CATEGORIES registry and expanded only to registry surfaces mapping back to those canonical values; unknown categories do not activate and never fall back to raw terms",
+    "attribute_terms": "status=active, polarity=+1, record.version=context.version records in exactly material/style/use_case; values are canonicalized by the corresponding frozen SLOT_VOCABULARIES registry and expanded only to registry surfaces mapping back to those canonical values",
+    "term_order": "canonical plus reverse-registry surfaces, normalized, deduplicated, lexicographically sorted, and truncated to 24 terms independently per clause",
+    "category_clause": "{title categories} : (quoted_category_term_1 OR ...)",
+    "attribute_clause": "{title features details description} : (quoted_attribute_term_1 OR ...)",
+    "fts_expression": "(category_clause) AND (attribute_clause)",
+    "query": "SELECT rowid,parent_asin FROM products WHERE products MATCH ? ORDER BY bm25(products,0.0,6.0,4.0,2.5,2.5,1.5,1.0),parent_asin ASC LIMIT 120",
+    "tokenizer": "fts5 unicode61 remove_diacritics 2",
+    "route_limit": 120,
+    "tail": "discard identifiers already in the complete sealed variable-length C200, apply the frozen hard-conflict mask to novel identifiers, preserve remaining route order, then append",
+    "candidate_surface": "complete sealed ordered variable-length C200 prefix plus the filtered rewrite tail, capped at 400; because the sole route is LIMIT 120, the structural per-turn maximum is 320",
+    "fusion": "none; there is one new route and no RRF, score fusion, learned weight, or whole-union reranking",
+    "served_top10": "unchanged and never read from the expanded tail; C200[:10] remains byte-identical",
+    "runtime": "target-blind, causal, deterministic, local-only, diagnostic-only, default off"
+  },
+  "hard_conflict_mask": {
+    "scope": "novel rewrite tail only; never filter, reorder, truncate, or reinterpret the sealed C200 prefix",
+    "current_goal_only": "only status=active records whose version equals context.version are executable; retired and stale-version records are ignored",
+    "negative": "intersect current-version hard negative ledger slot/value pairs with negative constraints reconstructed by build_conversation_constraint_view; accept only frozen P8 slots audience/material/color/closure/style/use_case and single-token canonical values; classify reliable catalog evidence with p8_negative.classify_candidate and drop only EXPLICIT_VIOLATION",
+    "positive": "for current-version hard positive records in registry-backed category/audience/material/color/closure/style/use_case/size/width slots, drop only when reliable canonical catalog evidence exists for that slot and is disjoint from every requested value; missing or unrecognized metadata is UNKNOWN and retained",
+    "category": "canonical category is treated as hard; disjoint reliable canonical category evidence is an explicit conflict, while missing/unrecognized category evidence is UNKNOWN and retained",
+    "reliable_evidence": "ProductAttributeView values from categories/title/features/details/store or details.* with confidence >=0.90; description text and substring absence are never conflict evidence",
+    "budget": "not executable here because visible_context budget_upper does not preserve hard/soft/range provenance; price retrieval or masking would be a second mechanism",
+    "expected_tail_explicit_conflicts": 0,
+    "no_backfill": true
+  },
+  "explicitly_excluded_variables": [
+    "raw current-turn retrieval, because it can reintroduce negation and override wrapper text",
+    "brand rewrite, because the current dialogue parser does not reliably emit a dedicated brand slot",
+    "price/unit rewrite or price filtering",
+    "generic feature-record expansion",
+    "character n-gram or word n-gram indexes",
+    "leave-one-out or unconfirmed-clause relaxation",
+    "multiple rewrite routes, RRF, score normalization, learned fusion, reranking, training, embeddings, or LLMs",
+    "cross-turn seen exclusion in this diagnostic, because sealed C200 is a pre-P11 candidate trace rather than the v2.12 actual served-page trace"
+  ],
+  "sealed_target_free_sources": {
+    "catalog": {
+      "path": "D:/tiktok/techjam-err402-fast-track/data/catalog.jsonl",
+      "rows": 50000,
+      "bytes": 60546327,
+      "sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67"
+    },
+    "visible_context": {
+      "path": "D:/tiktok/techjam-v2-16-c200-recall/experiments/fast_track/c200_candidate_recall_cache_20260831/visible_context.jsonl",
+      "schema": "small-ranker-visible-context.v1",
+      "rows": 2000,
+      "turns": 20000,
+      "bytes": 47168882,
+      "sha256": "f30a98700da5d480731fe7e82c87c40a22f06de290e069e20dc68f9fefecd20f",
+      "redacted_message_count": 8
+    },
+    "c200_reference_traces": [
+      {
+        "path": "D:/tiktok/techjam-v2-16-c200-recall/experiments/fast_track/c200_candidate_recall_cache_20260831/replica_a.jsonl",
+        "rows": 20000,
+        "bytes": 32226135,
+        "sha256": "a8589749376f48f019997a618481578dde36be4ca1fc723e8ed00056c23e40dc"
+      },
+      {
+        "path": "D:/tiktok/techjam-v2-16-c200-recall/experiments/fast_track/c200_candidate_recall_cache_20260831/replica_b.jsonl",
+        "rows": 20000,
+        "bytes": 32226135,
+        "sha256": "a8589749376f48f019997a618481578dde36be4ca1fc723e8ed00056c23e40dc"
+      }
+    ],
+    "c200_candidate_cells": 2425785,
+    "normalized_c100_bytes": 26690930,
+    "normalized_c100_sha256": "b22b035cb7789570f36db6c52256e5deb67f593f90cbbc5c334d48f2f0a01a67",
+    "attribute_registry_sha256": "1d85fc42f49fd9374238d98b8feaeab8d76269b0987740256fe60e666757d2ca"
+  },
+  "post_receipt_evaluator_sources": {
+    "train_explore_proxy": {
+      "path": "D:/tiktok/techjam-err402-fast-track/experiments/fast_track/proxy_v1/proxy_train_explore.jsonl",
+      "rows": 2000,
+      "bytes": 1315338,
+      "sha256": "2175696171c0d874fca4b9aa456ff5fd7d570f2184f59ade6781198f6443198e",
+      "access": "first stat/open/hash/read only after two closed candidate traces pass exact-repeat, prefix, source, schema, mask, and resource gates"
+    },
+    "label_archive": {
+      "path": "D:/tiktok/techjam-err402-fast-track/experiments/fast_track/small_ranker_v1/labels_v2.npz",
+      "bytes": 1702876,
+      "sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+      "allowed_members_in_order": ["outer_fold", "family_index", "taxonomy_code"],
+      "access": "one same-handle open after target-free trace gates and proxy join; no inner_fold, training arrays, baseline outcomes, or identifiers"
+    }
+  },
+  "target_free_smoke_protocol": {
+    "stage_20_sessions": "formal interpreter and cwd; direct-script worker and python -m worker on the same first 20 sealed sessions; exact canonical trace bytes/hash and source identities",
+    "stage_100_sessions": "only after stage 20 passes; direct-script and python -m workers on the same first 100 sealed sessions; exact repeat and resource extrapolation",
+    "required_gates": [
+      "activation_count > 0",
+      "complete variable-C200 is an exact ordered prefix on every turn",
+      "C200 loss/reorder/duplicate counts are all zero and C200[:10] is unchanged",
+      "tail duplicate count and tail explicit-hard-conflict count are zero",
+      "candidate length is between len(C200) and min(400,len(C200)+120)",
+      "network attempts and GPU bytes are zero",
+      "source/config hashes are unchanged before and after",
+      "100-session linear wall extrapolation times 1.5 is within the formal wall budget"
+    ],
+    "failure": "PRE_RECEIPT_NO_GO_OR_IMPLEMENTATION_BLOCKER; no formal receipt and no label/outcome access"
+  },
+  "device_selection": {
+    "selected": "CPU",
+    "reason": "this experiment is SQLite FTS5 query parsing, branch-heavy hard masking, dedupe, and stable append; the frozen local stack has no semantically equivalent GPU FTS5 backend",
+    "cpu_gpu_same_query_benchmark": "NOT_APPLICABLE_NO_LOCAL_EQUIVALENT_GPU_BACKEND",
+    "why_no_gpu_backend_is_added": "installing, downloading, changing tokenizer/index semantics, or building a second index is forbidden and would add another experimental variable",
+    "gpu_used": false,
+    "gpu_peak_bytes": 0,
+    "future_rule": "a later dense or training experiment must benchmark the same 100-1000 target-free queries on an idle local GPU and CPU; GPU is selected only with identical candidate/order/hash, exact repeat, <=11GB VRAM, no OOM/NaN, and >=1.5x wall speedup"
+  },
+  "formal_protocol": {
+    "preflight_data_input_allowlist": "the only experiment-data inputs are the preregistration, tracked implementation, catalog, sealed visible_context, and two sealed C200 references; Python/stdlib/runtime DLLs, Git object reads, nonce-scoped temporary smoke outputs, and the fixed formal receipt parent are runtime infrastructure governed by separate ancestry/type checks rather than experiment-data inputs; recursive external scans are forbidden",
+    "protected_path_deny": "before receipt the runner must fail on any stat/open/hash/import/read event under proxy, label, calibration, opened selection, sealed confirmation, released public, Amazon test/heldout, or unrelated experiment result paths",
+    "entrypoints": "with D:/450/conda/envs/tiktok/python.exe and repository cwd, runner and worker direct-script plus python -m self-checks must import evaluator.local_evaluator; an intentionally absent required module must fail nonzero without creating a receipt; direct-script is also checked from a non-repository cwd",
+    "receipt": {
+      "fixed_output": "experiments/fast_track/small_ranker_v2_19_registry_ca_g0_20260831.json",
+      "creation": "prepared real parent, O_WRONLY|O_CREAT|O_EXCL, canonical pending marker plus LF and fsync",
+      "existing_state": "any existing empty, partial, pending, invalid, or complete receipt permanently forbids another run",
+      "post_receipt_failure": "catch BaseException, write only a compact sanitized INVALID_ONE_SHOT_CONSUMED result through the same descriptor, fsync, close, and never rerun"
+    },
+    "workers": "two fresh sequential isolated CPU workers, replica A by direct script and replica B by python -m; each streams its trace to a nonce partial file, fsyncs, then publishes exclusively; no Agent.respond or full evaluator is run",
+    "diagnostics": "each worker emits one compact enum phase/error_code receipt, sanitized traceback hash, stderr bytes/hash, last completed session, partial trace bytes/hash, P95, RSS, wall, and source hashes; no exception text, identifier, message, target, or per-session result is surfaced",
+    "join": "only after both closed traces pass full exact-repeat and all pre-target gates may the parent open the frozen proxy and numeric fold archive and compute anonymous aggregate membership",
+    "result_privacy": "no identifiers, targets, messages, per-session values, membership vectors, or arrays of length 2000/20000",
+    "no_fit_or_selection": true,
+    "full_agent_evaluator_started": false,
+    "protected_splits_opened_by_formal_runner": false
+  },
+  "resource_budget": {
+    "formal_total_wall_seconds_maximum": 1800,
+    "extra_route_and_mask_p95_milliseconds_maximum": 100,
+    "per_turn_p95_milliseconds_maximum": 400,
+    "per_worker_peak_working_set_bytes_maximum": 1610612736,
+    "candidate_cells_union_over_c200_maximum": 2.0,
+    "canonical_trace_bytes_union_over_c200_maximum": 2.1,
+    "formal_free_disk_bytes_minimum": 536870912,
+    "network_attempt_count_maximum": 0,
+    "gpu_peak_bytes_maximum": 0
+  },
+  "candidate_recall_contract": {
+    "eligibility": "a session is recalled at cutoff K iff its target appears in any expanded candidate prefix K at an eligible turn; intent-override eligibility uses the frozen evaluator-side boundary",
+    "cutoffs": [10, 20, 50, 100, 200, 320],
+    "primary_expanded_cutoff": "C320_COMPLETE_UNION; every turn has at most len(C200)+120 <=320 candidates, so a nominal C400 view would be exactly identical and is not separately selectable",
+    "baseline_sanity": {"c10": 1895, "c20": 1943, "c50": 1982, "c100": 1986, "c200": 1986},
+    "reported_views": ["all 2000 sessions", "C200-absent frontier", "five outer folds", "exact-target-cluster uniform", "taxonomy aggregate"],
+    "target_uniform_formula": "after receipt only, group the 2000 sessions by exact proxy ground-truth parent_asin without emitting identifiers; for each cluster compute mean session-recall at sealed C200 and at C320_COMPLETE_UNION, then take the unweighted arithmetic mean across unique clusters; report baseline, candidate, and candidate-minus-baseline, and require the delta to be strictly positive",
+    "candidate_loss": "structurally zero because the complete C200 is an exact ordered prefix",
+    "forbidden_claim": "candidate-recall gain is not served HR, MRR, MTTC, TechnicalScore, private score, or deployment evidence"
+  },
+  "decision": {
+    "promotion_gate": "all integrity/resource gates pass, C320_COMPLETE_UNION recall is at least 1988/2000, incremental targets span at least two outer folds and at least one non-clothing taxonomy, the frozen exact-target-cluster-uniform C320-minus-C200 delta is strictly positive, exact repeat holds, and tail explicit-hard-conflict count is zero",
+    "positive_but_insufficient": "one recovered session or gains confined to one fold/single clothing subtype are recorded but do not authorize policy smoke or training",
+    "no_go": "valid completed probe with expanded recall <=1987 or any promotion-distribution gate failure; freeze this route and preregister the next independent multi-view sparse mechanism without tuning this route",
+    "invalid": "receipt-time structural/runtime/source/resource failure; implementation failure only, never algorithm No-Go, never rerun",
+    "after_promotion": "separate preregistered 100-session end-to-end v2.12 paging smoke: first two pages byte-identical per intent version, new tail only at intent-age >=3, real served seen exclusion, h-to-m=0, net>=1, MRR non-regression, MTTC non-regression, TechnicalScore positive, exact repeat",
+    "global_promotion": "never from this probe; any later 2k policy candidate must strictly exceed HR 0.991 and all global incumbent fold/aggregate safety gates",
+    "fallback_order": ["SR-V2.12-FIXED-TWO-PAGE-GRACE", "v1.9", "P11", "R08"]
+  },
+  "frozen_tracked_blobs_at_parent": {
+    "starter/agent.py": "421c6d43c598102b8fefb181b72bab5da4bf1294",
+    "starter/architecture_lab.py": "8d340d0dce3fc2f1bb987a5dd632444776a05667",
+    "starter/attributes.py": "92260323f077c9861aa4edd5242aff772c875760",
+    "starter/p8_negative.py": "719078234dba297ce59f68d8a2b1734ec53c9c63",
+    "starter/slot_ledger.py": "72975cff12af59e4044e52911c58294cd74a785a",
+    "scripts/c200_candidate_worker.py": "b94fddcf5a9b20ddde540f3f43ea9962982cb096",
+    "scripts/probe_c200_candidate_recall.py": "0a57f63866683b476b9f49184673cf3154531911",
+    "scripts/probe_e0_embedding_candidate_recall.py": "5bb9ec7f38f90d814d0c121c9f8992267d3491d5",
+    "evaluator/local_evaluator.py": "7c808347b31ef3121a9cbc4810ac3eb325f950ba"
+  },
+  "checkpoint_choreography": {
+    "remote": "origin",
+    "remote_url": "https://github.com/lamperriat/techjam-err402.git",
+    "preregistration_direct_parent": "f810642c1dd805df6543ce152904892207164c95",
+    "preregistration_exact_changed_paths": ["configs/small_ranker_v2_19.registry_ca_g0_preregistration.json"],
+    "implementation_direct_parent": "THIS_PREREGISTRATION_COMMIT",
+    "implementation_exact_changed_paths": [
+      "starter/sparse_multiview.py",
+      "scripts/sparse_multiview_candidate_worker.py",
+      "scripts/probe_sparse_multiview_candidate_recall.py",
+      "tests/test_sparse_multiview_candidate_recall.py"
+    ],
+    "must_push_preregistration_before_implementation": true,
+    "must_push_implementation_before_smoke_or_receipt": true,
+    "history_rewrite_force_amend_old_artifact_overwrite": false
+  }
+}
