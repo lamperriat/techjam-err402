@@ -232,11 +232,14 @@
   },
   "target_free_preflight": {
     "formal_source_limits": [20, 100],
+    "source_prefix_definition": "Run limit 20 first and limit 100 second. For limit N, consume visible_context records with strict ordinal 1..N and exactly the first N*10 sealed-C200 rows with coordinates ordinal 1..N, turn 1..10. No sample, shuffle, skip, replacement, fold/taxonomy filtering, or alternate reference replica is allowed.",
     "workers_each_limit": [
       "cache-disabled direct",
       "cache-enabled direct",
       "cache-enabled literal python -m"
     ],
+    "worker_schedule_and_clock": "Within each stage the three workers run strictly sequentially in the listed order. Each gets a distinct fresh nonce runtime with empty pycache/temp and no state inherited from another worker. cached direct+module parent wall is math.fsum of their two unrounded per-worker parent clocks; each clock starts immediately before subprocess creation and ends after process exit, stdout/stderr closure, receipt parse, and exclusive trace publication verification. Inter-worker orchestration and later nonce cleanup are excluded from this specific <=60s pair metric and separately reported in stage wall.",
+    "linear_extrapolation_formula": "At each stage report max(unrounded cached-direct parent wall, unrounded cached-module parent wall) * (2000 / N) * 1.5. The binding <=1800s gate uses N=100 only; N=20 is diagnostic and cannot substitute. No rounding occurs before comparison.",
     "required": [
       "runner and worker direct/module import evaluator.local_evaluator",
       "corrected cleanup lifecycle exact repeat",
@@ -330,7 +333,15 @@
     "workers": ["fresh cached direct full-2000", "fresh cached literal-module full-2000"],
     "exact_repeat_required_before_target_attach": true,
     "pre_target_attach_gate": "Before the first proxy or label stat/open/hash/read: both full workers must exit zero; both partial traces must be fsynced, exclusively published, closed, and canonical; both in-process worker receipts must be fully captured and closed; trace bytes and semantic digests must exactly repeat; all executable source blobs plus catalog, visible_context, and both sealed-C200 identities/hashes must match; every record must preserve the complete ordered C200 prefix; loss, duplicate, reorder, explicit-hard-conflict, legacy-route, schema, and privacy violations must all equal zero; and every key named in resource_gates.candidate_pre_target_gates must pass independently for both workers and the parent. The experiment-level outer capture is deliberately not a pre-target condition because the outer PowerShell writes it only after the runner exits. Any pre-target failure becomes implementation INVALID without target attach.",
-    "target_source_open_sequence": "After and only after pre_target_attach_gate passes, enter a one-way target-attach phase: stat/open/read raw proxy bytes, verify exact bytes/rows/SHA-256 before parsing only the target and frozen eligibility fields; then stat/open/read raw label archive bytes, verify exact bytes/SHA-256 before requesting exactly outer_fold, family_index, taxonomy_code in order. A proxy/label identity or parse failure is INVALID_AFTER_TARGET_ATTACH, consumes v2.22, and is never retried.",
+    "target_source_open_sequence": "After and only after pre_target_attach_gate passes, enter a one-way target-attach phase: stat/open/read raw proxy bytes, verify exact bytes/rows/SHA-256 before parsing only the frozen proxy field allowlist; then stat/open/read raw label archive bytes, verify exact bytes/SHA-256 before requesting exactly outer_fold, family_index, taxonomy_code in order. A proxy/label identity or parse failure is INVALID_AFTER_TARGET_ATTACH, consumes v2.22, and is never retried.",
+    "proxy_field_allowlist": {
+      "top_level": ["ground_truth", "scenario_type", "behavior"],
+      "ground_truth": ["parent_asin"],
+      "behavior_when_scenario_type_is_intent_override": ["override"],
+      "override": ["turn"],
+      "schema": "ground_truth must be a mapping and ground_truth.parent_asin a catalog identifier; scenario_type must be a string. behavior/override/turn may be accessed only when scenario_type=='intent_override'; behavior and override must then be mappings if present, and override.turn is either null or the exact integer visible_context eligibility boundary. For non-override sessions visible_context eligibility must equal 1. All other proxy keys and nested values are ignored and never serialized.",
+      "eligibility_source": "Eligibility is derived from the already sealed target-free visible_context current-version transition, never inferred from target membership. Proxy override.turn is consistency-only."
+    },
     "membership_views": [
       "SEALED_K10",
       "SEALED_K20",
@@ -397,11 +408,40 @@
     ],
     "no_recursive_scan": true,
     "formal_git_executable": {
-      "path": "C:/Program Files/Git/cmd/git.exe",
-      "sha256": "5385ff9ae361ca41e7a31b335fc0d81f2de9c35fc62a165c5e34850d837b59cc",
+      "path": "C:/Program Files/Git/mingw64/bin/git.exe",
+      "bytes": 4018680,
+      "sha256": "3fe4878d8399f6fb7632b9325559d1bb38c3a17aac7a60f667c1e5f90b865248",
       "version": "git version 2.45.2.windows.1"
     },
-    "formal_git_environment": "Clear every inherited environment variable whose name starts with GIT_ before launching pinned Git. Set only explicit cwd and deterministic locale variables required by the harness.",
+    "formal_host_executables": {
+      "powershell": {
+        "path": "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+        "bytes": 454656,
+        "sha256": "7600ffe12da441fe89d035b13801e8e91d064bc544a27b19a5cf49f6ab8b18f5",
+        "version": "5.1.26100.9168",
+        "exact_argv_prefix": ["-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", "<candidate-blob-verified scripts/run_v222_preflight.ps1>"]
+      },
+      "python": {
+        "path": "D:/450/conda/envs/tiktok/python.exe",
+        "bytes": 93184,
+        "sha256": "7819c841b9a6457da034e567563de1283dbc0b86482fd83d62b5d982d2a83a63",
+        "version": "3.11.16",
+        "sqlite_version": "3.53.4",
+        "exact_flags": ["-P", "-S", "-s", "-B", "-X", "pycache_prefix=<fresh-v222-nonce-pycache>"],
+        "critical_binary_dependencies": {
+          "D:/450/conda/envs/tiktok/python311.dll": {"bytes": 6193152, "sha256": "08701864dea4e08c077c1c5bc6cb208d5628dba9473a318fa6ce3796a86806c5"},
+          "D:/450/conda/envs/tiktok/DLLs/_sqlite3.pyd": {"bytes": 99328, "sha256": "67858a7dcbce3abef73328276c19dc06abe2515ab01d7cbc7fc7ad7bd3e2114c"},
+          "D:/450/conda/envs/tiktok/Library/bin/sqlite3.dll": {"bytes": 3239936, "sha256": "9519340d2ede13b05cd889605e3a46cc6bde702f266061266e22c18a0951a04e"}
+        }
+      }
+    },
+    "formal_host_launch_contract": "Before PowerShell parses the formal script, the caller verifies the exact candidate commit/ref and extracts/verifies the PowerShell raw blob using pinned mingw64/bin/git.exe; direct worktree bytes must have the same Git blob. PowerShell is then invoked only by the pinned absolute host and exact argv prefix, with -Mode preflight|candidate and the single pinned 40-hex implementation commit. The script rechecks itself, Git, Python, critical Python/SQLite binaries, commit/ref/source blobs and environment before the immutable claim.",
+    "formal_python_environment_exact_keys": {
+      "direct": ["COMSPEC", "CUDA_VISIBLE_DEVICES", "HF_HUB_OFFLINE", "MKL_NUM_THREADS", "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "PATH", "PATHEXT", "PYTHONDONTWRITEBYTECODE", "PYTHONHASHSEED", "PYTHONNOUSERSITE", "SYSTEMDRIVE", "SYSTEMROOT", "TEMP", "TMP", "TOKENIZERS_PARALLELISM", "WINDIR"],
+      "literal_module_entrypoint_only": ["COMSPEC", "CUDA_VISIBLE_DEVICES", "HF_HUB_OFFLINE", "MKL_NUM_THREADS", "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "PATH", "PATHEXT", "PYTHONDONTWRITEBYTECODE", "PYTHONHASHSEED", "PYTHONNOUSERSITE", "PYTHONPATH", "SYSTEMDRIVE", "SYSTEMROOT", "TEMP", "TMP", "TOKENIZERS_PARALLELISM", "WINDIR"]
+    },
+    "formal_python_environment_values": "Child environment is cleared first. PATH is exactly SYSTEMROOT/System32; TEMP/TMP are the fresh nonce temp; CUDA_VISIBLE_DEVICES='', HF_HUB_OFFLINE=1, MKL_NUM_THREADS=OMP_NUM_THREADS=OPENBLAS_NUM_THREADS=1, PYTHONDONTWRITEBYTECODE=1, PYTHONHASHSEED=0, PYTHONNOUSERSITE=1, TOKENIZERS_PARALLELISM=false. Direct formal mode has no PYTHONPATH. Literal-module entrypoint checks add only PYTHONPATH=<fresh nonce module root> containing exactly the verified bootstrap blob. -S prevents site/sitecustomize, -P prevents unsafe cwd/script prepending, -B plus the nonce pycache prevents inherited pyc, and every local module is source-blob loaded by the bootstrap. The five Windows bootstrap variables are copied only from the pinned host process and recorded as hashes, not project search paths.",
+    "formal_git_environment": "Clear the entire child environment, then set exactly the Windows bootstrap keys plus the GIT_/locale/pager keys listed in formal_git_isolation.environment_after_clear. Git cwd is exactly C:/Windows/System32. No inherited GIT_* or project PATH is retained.",
     "formal_git_isolation": {
       "git_dir": "D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-22-sparse-multiview",
       "work_tree": "D:/tiktok/techjam-v2-22-sparse-multiview",
@@ -417,10 +457,15 @@
         "GIT_CONFIG_COUNT": "0",
         "GIT_NO_REPLACE_OBJECTS": "1",
         "GIT_OPTIONAL_LOCKS": "0",
-        "GIT_ATTR_NOSYSTEM": "1"
+        "GIT_ATTR_NOSYSTEM": "1",
+        "GIT_PAGER": "cat",
+        "GIT_TERMINAL_PROMPT": "0",
+        "LANG": "C",
+        "LC_ALL": "C",
+        "PAGER": "cat"
       },
-      "fixed_prefix_argv": ["--no-replace-objects", "--no-optional-locks", "--git-dir=D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-22-sparse-multiview", "--work-tree=D:/tiktok/techjam-v2-22-sparse-multiview", "-c", "core.hooksPath=NUL", "-c", "core.attributesFile=NUL", "-c", "include.path=NUL"],
-      "config_and_replace_policy": "The repository-local config and three worktree control files must match the pinned raw identities before and after every Git cell and contain no include/includeIf section. No system/global/includes/replace refs, hooks, attributes, aliases, pager, optional locks, or environment-supplied object directory/index/worktree are honored."
+      "fixed_prefix_argv": ["--no-pager", "--no-replace-objects", "--no-optional-locks", "--git-dir=D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-22-sparse-multiview", "--work-tree=D:/tiktok/techjam-v2-22-sparse-multiview", "-c", "core.hooksPath=NUL", "-c", "core.attributesFile=NUL", "-c", "include.path=NUL"],
+      "config_and_replace_policy": "C:/Program Files/Git/mingw64/bin/git.exe is the real pinned PE executable, not cmd/git.exe or a shell wrapper. The repository-local config and three worktree control files must match the pinned raw identities before and after every Git cell and contain no include/includeIf section. No system/global/includes/replace refs, hooks, attributes, aliases, pager, optional locks, or environment-supplied object directory/index/worktree are honored."
     },
     "formal_git_exact_operation_shapes": [
       "--version",
