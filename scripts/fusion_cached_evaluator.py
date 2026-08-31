@@ -15,6 +15,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import time
 from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
@@ -24,6 +25,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.official_metric_bridge import rebuild_official_metrics
+from scripts.smoke_fusion_core import _rss_bytes
 from evaluator.local_evaluator import catalog_index, evaluate
 
 
@@ -61,6 +63,54 @@ def _summary(a: list[dict[str, object]], b: list[dict[str, object]], folds: np.n
         indices = np.flatnonzero(folds == fold).tolist()
         per_fold.append({"outer_fold": fold, "a": metrics(a, indices), "b": metrics(b, indices)})
     return {"a": metrics(a, all_indices), "b": metrics(b, all_indices), "transitions": transitions, "per_fold": per_fold}
+
+
+def _candidate_breakdowns(
+    ledger: list[dict[str, object]],
+    samples: Sequence[Mapping[str, object]],
+    categories: Mapping[str, Sequence[str]],
+) -> dict[str, object]:
+    def grouped_metrics(groups: Mapping[str, list[int]]) -> dict[str, object]:
+        return {
+            name: rebuild_official_metrics([ledger[index] for index in indices])
+            for name, indices in sorted(groups.items())
+            if indices
+        }
+
+    scenario: dict[str, list[int]] = {}
+    taxonomy: dict[str, list[int]] = {}
+    for index, sample in enumerate(samples):
+        scenario.setdefault(str(sample.get("scenario_type", "unknown")), []).append(index)
+        ground_truth = sample.get("ground_truth")
+        target = ground_truth.get("parent_asin") if isinstance(ground_truth, Mapping) else None
+        nodes = " ".join(categories.get(str(target), ())).lower()
+        if "jewelry" in nodes:
+            group = "jewelry"
+        elif "shoe" in nodes or "boot" in nodes:
+            group = "shoes"
+        elif "clothing" in nodes:
+            group = "clothing"
+        else:
+            group = "accessories-other"
+        taxonomy.setdefault(group, []).append(index)
+    cumulative = {
+        str(turn): round(
+            sum(
+                row["first_hit_turn"] is not None
+                and int(row["first_hit_turn"]) <= turn
+                for row in ledger
+            )
+            / len(ledger),
+            6,
+        )
+        for turn in range(1, 11)
+    }
+    return {
+        "first_turn_hr": cumulative["1"],
+        "cumulative_hit_rate_by_turn": cumulative,
+        "scenario": grouped_metrics(scenario),
+        "taxonomy": grouped_metrics(taxonomy),
+    }
 
 
 def _normalized_sessions(result: Mapping[str, object]) -> list[dict[str, object]]:
@@ -217,6 +267,7 @@ def attach_candidate_once(
 ) -> dict[str, object]:
     """Evaluate one frozen candidate twice and compare to one frozen ledger."""
 
+    started = time.perf_counter()
     try:
         descriptor = os.open(claim_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
@@ -260,6 +311,13 @@ def attach_candidate_once(
             "comparator_name": comparator_name,
             "candidate_ledger_sha256": candidate_hash,
             "candidate_ledger_path": str(ledger_output),
+            "candidate_breakdowns": _candidate_breakdowns(
+                candidate, samples, categories
+            ),
+            "resource": {
+                "wall_seconds": round(time.perf_counter() - started, 6),
+                "rss_peak_bytes": _rss_bytes(),
+            },
             **_summary(comparator, candidate, folds),
         }
     except FileExistsError:
