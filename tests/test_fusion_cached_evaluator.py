@@ -50,7 +50,7 @@ class FusionCachedEvaluatorTests(unittest.TestCase):
                 ),
                 mock.patch.object(
                     ev,
-                    "_official_repeat",
+                    "_parallel_official_repeat",
                     return_value=(ledger, ev._sha(ledger), diagnostics),
                 ) as repeat,
             ):
@@ -68,8 +68,106 @@ class FusionCachedEvaluatorTests(unittest.TestCase):
             self.assertIn("scenario", payload["breakdowns"])
             self.assertIn("taxonomy", payload["breakdowns"])
             self.assertNotIn("sessions", payload)
-            self.assertEqual(repeat.call_args.args[0], factory)
+            self.assertEqual(repeat.call_args.args[0], "fake:Agent")
             self.assertEqual(repeat.call_args.args[1], {"mode": "active"})
+            self.assertEqual(repeat.call_args.args[4], 4)
+
+    def test_parallel_helpers_preserve_order_and_merge_core_diagnostics(self) -> None:
+        samples = [{"sample_id": str(index)} for index in range(5)]
+        self.assertEqual(
+            [(start, len(rows)) for start, rows in ev._sample_chunks(samples, 2)],
+            [(0, 3), (3, 2)],
+        )
+        diagnostics = [{
+            "schema_version": "fusion-core-evaluation-diagnostics.v1",
+            "turns": 2,
+            "fusion_active_turns": 2,
+            "fallback_turns": 0,
+            "same_version_repeat_slots": 0,
+            "hard_conflicts": 1,
+            "parent_route_added": 2,
+            "candidate_count": 20,
+            "sessions": 1,
+            "mean_distinct_served": 10.0,
+            "mean_candidate_count": 10.0,
+        }, {
+            "schema_version": "fusion-core-evaluation-diagnostics.v1",
+            "turns": 4,
+            "fusion_active_turns": 3,
+            "fallback_turns": 1,
+            "same_version_repeat_slots": 0,
+            "hard_conflicts": 2,
+            "parent_route_added": 3,
+            "candidate_count": 32,
+            "sessions": 2,
+            "mean_distinct_served": 8.0,
+            "mean_candidate_count": 8.0,
+        }]
+        merged = ev._merge_diagnostics(diagnostics)
+        self.assertEqual(merged["turns"], 6)
+        self.assertEqual(merged["sessions"], 3)
+        self.assertEqual(merged["hard_conflicts"], 3)
+        self.assertEqual(merged["mean_distinct_served"], 8.666667)
+        self.assertEqual(merged["mean_candidate_count"], 8.666667)
+
+    def test_parallel_repeat_runs_two_replicas_with_fixed_process_budget(self) -> None:
+        class ImmediateFuture:
+            def __init__(self, value: object) -> None:
+                self.value = value
+
+            def result(self) -> object:
+                return self.value
+
+        budgets: list[int] = []
+
+        class ImmediatePool:
+            def __init__(self, max_workers: int) -> None:
+                budgets.append(max_workers)
+
+            def __enter__(self) -> "ImmediatePool":
+                return self
+
+            def __exit__(self, *_: object) -> None:
+                return None
+
+            def submit(self, fn: object, *args: object) -> ImmediateFuture:
+                return ImmediateFuture(fn(*args))
+
+        def worker(
+            _factory_spec: str,
+            _flags: object,
+            _catalog_path: str,
+            start: int,
+            rows: list[dict],
+        ) -> tuple[int, list[dict[str, object]], dict[str, object]]:
+            ledger = [dict(HIT[0]) for _ in rows]
+            diagnostics = {
+                "schema_version": "fusion-core-evaluation-diagnostics.v1",
+                "turns": len(rows),
+                "fusion_active_turns": len(rows),
+                "fallback_turns": 0,
+                "same_version_repeat_slots": 0,
+                "hard_conflicts": 0,
+                "parent_route_added": 0,
+                "candidate_count": 10 * len(rows),
+                "sessions": len(rows),
+                "mean_distinct_served": 10.0,
+                "mean_candidate_count": 10.0,
+            }
+            return start, ledger, diagnostics
+
+        samples = [{"sample_id": str(index)} for index in range(4)]
+        with (
+            mock.patch.object(ev, "ProcessPoolExecutor", ImmediatePool),
+            mock.patch.object(ev, "_parallel_chunk_worker", side_effect=worker),
+        ):
+            ledger, digest, diagnostics = ev._parallel_official_repeat(
+                "fake:Agent", {}, samples, Path("catalog"), 4
+            )
+        self.assertEqual(budgets, [4])
+        self.assertEqual(len(ledger), 4)
+        self.assertEqual(digest, ev._sha(ledger))
+        self.assertEqual(diagnostics["sessions"], 4)
 
     def test_official_repeat_reuses_samples_and_closes_agents(self) -> None:
         seen: list[int] = []

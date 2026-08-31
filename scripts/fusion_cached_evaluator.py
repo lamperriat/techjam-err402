@@ -9,6 +9,7 @@ a public corpus and accepts every data path explicitly.
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ProcessPoolExecutor
 import hashlib
 import importlib
 import json
@@ -160,6 +161,151 @@ def _official_repeat(factory: Callable[..., object], flags: Mapping[str, object]
     return first, _sha(first), first_diagnostics
 
 
+def _sample_chunks(samples: list[dict], count: int) -> list[tuple[int, list[dict]]]:
+    """Split sessions into deterministic contiguous chunks."""
+
+    if count < 1:
+        raise FusionEvaluationError("parallel chunk count must be positive")
+    if not samples:
+        return [(0, [])]
+    width = (len(samples) + count - 1) // count
+    return [
+        (start, samples[start:start + width])
+        for start in range(0, len(samples), width)
+    ]
+
+
+def _parallel_chunk_worker(
+    factory_spec: str,
+    flags: Mapping[str, object],
+    catalog_path: str,
+    start: int,
+    samples: list[dict],
+) -> tuple[int, list[dict[str, object]], dict[str, object]]:
+    """Evaluate one independent session chunk in a spawned process."""
+
+    factory = _factory(factory_spec)
+    catalog_ids, categories, products = catalog_index(catalog_path)
+    ledger, diagnostics = _evaluate_and_close(
+        factory, flags, samples, catalog_ids, categories, products
+    )
+    if len(ledger) != len(samples):
+        raise FusionEvaluationError("parallel worker returned incomplete cohort")
+    return start, ledger, diagnostics
+
+
+def _merge_diagnostics(parts: Sequence[Mapping[str, object]]) -> dict[str, object]:
+    """Merge the two supported observation-only diagnostics schemas."""
+
+    if not parts:
+        return {}
+    if len(parts) == 1:
+        return dict(parts[0])
+    schemas = {part.get("schema_version") for part in parts}
+    if len(schemas) != 1:
+        raise FusionEvaluationError("parallel diagnostics schemas differ")
+    schema = next(iter(schemas))
+    if schema == "fusion-core-evaluation-diagnostics.v1":
+        additive = (
+            "turns", "fusion_active_turns", "fallback_turns",
+            "same_version_repeat_slots", "hard_conflicts",
+            "parent_route_added", "candidate_count", "sessions",
+        )
+        merged = {
+            key: sum(int(part.get(key, 0)) for part in parts)
+            for key in additive
+        }
+        sessions = int(merged["sessions"])
+        distinct_total = sum(
+            float(part.get("mean_distinct_served", 0.0))
+            * int(part.get("sessions", 0))
+            for part in parts
+        )
+        turns = int(merged["turns"])
+        return {
+            "schema_version": schema,
+            **merged,
+            "mean_distinct_served": round(distinct_total / sessions, 6)
+            if sessions else 0.0,
+            "mean_candidate_count": round(
+                int(merged["candidate_count"]) / turns, 6
+            ) if turns else 0.0,
+        }
+    if schema == "fusion-other-evaluation-diagnostics.v1":
+        core_parts = [part.get("fusion_core") for part in parts]
+        if not all(isinstance(value, Mapping) for value in core_parts):
+            raise FusionEvaluationError("parallel other diagnostics omitted fusion core")
+        additive = (
+            "other_activation_sessions", "other_activation_turns",
+            "other_informative_replies", "other_boundary_sentinel_replies",
+            "other_exhausted_replies", "other_disclosed_constraints",
+        )
+        return {
+            "schema_version": schema,
+            "fusion_core": _merge_diagnostics(core_parts),
+            **{
+                key: sum(int(part.get(key, 0)) for part in parts)
+                for key in additive
+            },
+        }
+    raise FusionEvaluationError(
+        f"unsupported parallel diagnostics schema: {schema!r}"
+    )
+
+
+def _assemble_parallel_chunks(
+    chunks: Sequence[tuple[int, list[dict[str, object]], Mapping[str, object]]],
+) -> tuple[list[dict[str, object]], dict[str, object]]:
+    ledger: list[dict[str, object]] = []
+    diagnostics: list[Mapping[str, object]] = []
+    cursor = 0
+    for start, rows, chunk_diagnostics in sorted(chunks, key=lambda item: item[0]):
+        if start != cursor:
+            raise FusionEvaluationError("parallel worker chunks are not contiguous")
+        ledger.extend(rows)
+        diagnostics.append(chunk_diagnostics)
+        cursor += len(rows)
+    return ledger, _merge_diagnostics(diagnostics)
+
+
+def _parallel_official_repeat(
+    factory_spec: str,
+    flags: Mapping[str, object],
+    samples: list[dict],
+    catalog_path: Path,
+    workers: int,
+) -> tuple[list[dict[str, object]], str, dict[str, object]]:
+    """Run two replicas concurrently with deterministic session sharding."""
+
+    if workers < 2 or workers % 2:
+        raise FusionEvaluationError("parallel workers must be a positive even value")
+    workers_per_replica = workers // 2
+    sample_chunks = _sample_chunks(samples, workers_per_replica)
+    replica_results: list[list[tuple[int, list[dict[str, object]], dict[str, object]]]] = [[], []]
+    with ProcessPoolExecutor(max_workers=workers) as pool:
+        pending = []
+        for replica in range(2):
+            for start, chunk in sample_chunks:
+                future = pool.submit(
+                    _parallel_chunk_worker,
+                    factory_spec,
+                    dict(flags),
+                    str(catalog_path),
+                    start,
+                    chunk,
+                )
+                pending.append((replica, future))
+        for replica, future in pending:
+            replica_results[replica].append(future.result())
+    first, first_diagnostics = _assemble_parallel_chunks(replica_results[0])
+    repeat, repeat_diagnostics = _assemble_parallel_chunks(replica_results[1])
+    first_hash = _sha({"ledger": first, "diagnostics": first_diagnostics})
+    repeat_hash = _sha({"ledger": repeat, "diagnostics": repeat_diagnostics})
+    if first_hash != repeat_hash:
+        raise FusionEvaluationError("parallel official evaluator exact repeat mismatch")
+    return first, _sha(first), first_diagnostics
+
+
 def _cached_v212_ledger(
     samples: Sequence[Mapping[str, object]],
     source_root: Path,
@@ -270,6 +416,8 @@ def attach_candidate_once(
     comparator_ledger: Path | None = None,
     source_root: Path | None = None,
     projection_root: Path | None = None,
+    factory_spec: str | None = None,
+    workers: int = 1,
 ) -> dict[str, object]:
     """Evaluate one frozen candidate twice and compare to one frozen ledger."""
 
@@ -277,13 +425,27 @@ def attach_candidate_once(
     try:
         descriptor = os.open(claim_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-            json.dump({"state": "TARGET_ATTACH_CLAIMED", "mode": "official_candidate"}, handle, sort_keys=True)
+            json.dump({
+                "state": "TARGET_ATTACH_CLAIMED",
+                "mode": "official_candidate",
+                "workers": workers,
+            }, handle, sort_keys=True)
         with proxy_path.open("r", encoding="utf-8") as handle:
             samples = [json.loads(line) for line in handle if line.strip()]
-        catalog_ids, categories, products = catalog_index(str(catalog_path))
-        candidate, candidate_hash, runtime_diagnostics = _official_repeat(
-            factory, flags, samples, catalog_ids, categories, products
-        )
+        if workers == 1:
+            catalog_ids, categories, products = catalog_index(str(catalog_path))
+            candidate, candidate_hash, runtime_diagnostics = _official_repeat(
+                factory, flags, samples, catalog_ids, categories, products
+            )
+        else:
+            if factory_spec is None:
+                raise FusionEvaluationError(
+                    "parallel evaluation requires an importable factory spec"
+                )
+            candidate, candidate_hash, runtime_diagnostics = _parallel_official_repeat(
+                factory_spec, flags, samples, catalog_path, workers
+            )
+            _, categories, _ = catalog_index(str(catalog_path))
         with np.load(labels_path, allow_pickle=False) as archive:
             eligible = np.asarray(archive["eligible_from"], dtype=np.int16).copy()
             folds = np.asarray(archive["outer_fold"], dtype=np.int16).copy()
@@ -324,6 +486,7 @@ def attach_candidate_once(
             "resource": {
                 "wall_seconds": round(time.perf_counter() - started, 6),
                 "rss_peak_bytes": _rss_bytes(),
+                "workers": workers,
             },
             **_summary(comparator, candidate, folds),
         }
@@ -362,16 +525,28 @@ def evaluate_public_single(
     flags: Mapping[str, object],
     dataset_path: Path,
     catalog_path: Path,
+    factory_spec: str | None = None,
+    workers: int = 1,
 ) -> dict[str, object]:
     """Run one public cohort twice and return no per-session material."""
 
     started = time.perf_counter()
     peak_rss = _rss_bytes()
     samples = _load_dataset(dataset_path)
-    catalog_ids, categories, products = catalog_index(str(catalog_path))
-    ledger, ledger_hash, diagnostics = _official_repeat(
-        factory, flags, samples, catalog_ids, categories, products
-    )
+    if workers == 1:
+        catalog_ids, categories, products = catalog_index(str(catalog_path))
+        ledger, ledger_hash, diagnostics = _official_repeat(
+            factory, flags, samples, catalog_ids, categories, products
+        )
+    else:
+        if factory_spec is None:
+            raise FusionEvaluationError(
+                "parallel evaluation requires an importable factory spec"
+            )
+        ledger, ledger_hash, diagnostics = _parallel_official_repeat(
+            factory_spec, flags, samples, catalog_path, workers
+        )
+        _, categories, _ = catalog_index(str(catalog_path))
     if len(ledger) != len(samples):
         raise FusionEvaluationError("official evaluator returned incomplete cohort")
     peak_rss = max(peak_rss, _rss_bytes())
@@ -387,6 +562,7 @@ def evaluate_public_single(
         "resource": {
             "wall_seconds": round(time.perf_counter() - started, 6),
             "rss_bytes": peak_rss,
+            "workers": workers,
         },
     }
 
@@ -397,6 +573,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     single = sub.add_parser("official-single")
     single.add_argument("--agent-factory", required=True)
     single.add_argument("--flags", default="{}")
+    single.add_argument("--workers", type=int, choices=(1, 2, 4, 8), default=4,
+                        help="total process budget across both exact replicas")
     single.add_argument("--comparator-ledger", type=Path)
     single.add_argument("--source-root", type=Path)
     single.add_argument("--projection-root", type=Path)
@@ -405,6 +583,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     public = sub.add_parser("public-single")
     public.add_argument("--agent-factory", required=True)
     public.add_argument("--flags", default="{}")
+    public.add_argument("--workers", type=int, choices=(1, 2, 4, 8), default=4,
+                        help="total process budget across both exact replicas")
     for name in ("dataset", "catalog", "output"):
         public.add_argument("--" + name, type=Path, required=True)
     args = parser.parse_args(argv)
@@ -414,6 +594,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             flags=json.loads(args.flags),
             dataset_path=args.dataset,
             catalog_path=args.catalog,
+            factory_spec=args.agent_factory,
+            workers=args.workers,
         )
     else:
         result = attach_candidate_once(
@@ -427,6 +609,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             comparator_ledger=args.comparator_ledger,
             source_root=args.source_root,
             projection_root=args.projection_root,
+            factory_spec=args.agent_factory,
+            workers=args.workers,
         )
     args.output.write_bytes(_canonical(result))
     return 0 if result.get("status") != "INVALID_ONE_SHOT_CONSUMED" else 2
