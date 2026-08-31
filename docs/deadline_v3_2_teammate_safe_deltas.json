@@ -1,0 +1,50 @@
+{
+  "schema_version": "deadline-v3.2-teammate-safe-deltas.v1",
+  "branch": "deadline-v3.2-teammate-safe-deltas",
+  "start_commit": "42d73a50aa95182afd6dff01482078b8266c8220",
+  "implementation_commit": "776758b",
+  "teammate_source_commit": "5df5d51e7578e80616f45fcaa89ec977347845fa",
+  "contract_smoke": {
+    "sessions": 10,
+    "tests": "9/9 PASS",
+    "serial_vs_4_worker_ledger_equal": true,
+    "ledger_sha256": "dbeac5e47167684eb11e12ec8fb5c39ef51368267de019194846a97050348937",
+    "first_page_identity": true,
+    "duplicate_and_reset_contract": true
+  },
+  "panel": {
+    "sessions": 200,
+    "workers": 4,
+    "replicas": 1,
+    "per_fold": 40,
+    "scenario_per_fold": {"buying": 16, "browsing": 16, "intent_override": 6, "boundary": 2},
+    "selection_sha256": "1c83de28b5282dd7c1a43c4c86641d9b2aa65c5fe0139dc36d30fe3e03018f15",
+    "proxy_sha256": "2971f90ace58a278181afa78394a2ea574ea5f8bd7aa3cf19f4652f88f315584",
+    "labels_sha256": "872af77342b230623561c3fd0c177ed9ac801b53837eff9533ae3b7d1d20731a"
+  },
+  "variants": {
+    "T0": {
+      "hr_at_10": 0.995, "mrr": 0.574593, "mttc": 2.335, "score": 0.843178,
+      "miss_to_hit": 0, "hit_to_miss": 0, "net": 0, "activation": 0,
+      "fold_hr": [1.0, 1.0, 1.0, 0.975, 1.0], "wall_seconds": 12.975251,
+      "ledger_sha256": "a3f899dccdb05cb44f17d7946c6817df133d1c7e255ed92e3e1ecab199dc3630"
+    },
+    "S1": {
+      "hr_at_10": 0.995, "mrr": 0.574593, "mttc": 2.335, "score": 0.843178,
+      "miss_to_hit": 0, "hit_to_miss": 0, "net": 0, "activation": 0,
+      "fold_hr": [1.0, 1.0, 1.0, 0.975, 1.0], "wall_seconds": 12.90911,
+      "decision": "NO_GO_NET_NONPOSITIVE"
+    },
+    "S2": {
+      "hr_at_10": 0.995, "mrr": 0.574593, "mttc": 2.335, "score": 0.843178,
+      "miss_to_hit": 0, "hit_to_miss": 0, "net": 0, "activation": 0,
+      "tail_attempts": 0, "tail_added": 0, "fallbacks": 0,
+      "fold_hr": [1.0, 1.0, 1.0, 0.975, 1.0], "wall_seconds": 13.058512,
+      "decision": "NO_GO_NET_NONPOSITIVE"
+    }
+  },
+  "combination": {"status": "NOT_RUN", "reason": "neither single delta passed"},
+  "full_2000": {"status": "NOT_RUN", "reason": "no 200-panel winner"},
+  "read_only_incumbent": {"name": "v2.12", "hr_at_10": 0.991, "mrr": 0.695795, "mttc": 2.869, "score": 0.866858},
+  "selection": {"teammate_line": "T0", "overall": "v2.12", "reason": "both deltas were identity and failed net>0"}
+}
