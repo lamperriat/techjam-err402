@@ -52,7 +52,32 @@ DOCUMENTS = {
     "brief": ("Local challenge brief", "problem-statement.md", "Project copy"),
     "plan": ("Internal implementation plan", "docs/internal_plan.md", "Local only"),
     "architecture": ("Current architecture", "docs/current_architecture.md", "Local only"),
+    "fusion_handoff": (
+        "Teammate + Fusion A/B website handoff",
+        "docs/teammate_ab_website_handoff.md",
+        "Fusion A/B",
+    ),
+    "fusion_evidence": (
+        "Fusion A/B showcase evidence",
+        "docs/teammate_ab_website.json",
+        "Fusion A/B",
+    ),
     "source_agent": ("Current Agent source", "starter/agent.py", "Source"),
+    "source_teammate_t0": (
+        "Teammate T0 AgentV1 source",
+        "vendor/teammate_v1/err402/agents/v1.py",
+        "Fusion A/B source",
+    ),
+    "source_strict_fusion_ab": (
+        "Strict Fusion A/B adapter",
+        "starter/teammate_v212_fusion.py",
+        "Fusion A/B source",
+    ),
+    "source_bounded_other": (
+        "Bounded other lifecycle",
+        "starter/teammate_bounded_other.py",
+        "Fusion A/B source",
+    ),
     "source_attributes": (
         "Normalized product attributes",
         "starter/attributes.py",
@@ -618,6 +643,17 @@ class WorkbenchRuntime:
             "group": group,
             "content": path.read_text(encoding="utf-8"),
         }
+
+    def fusion_showcase(self) -> dict[str, Any]:
+        """Return tracked, frozen A/B evidence without running an evaluator."""
+
+        path = self.project_root / "docs" / "teammate_ab_website.json"
+        if not path.exists():
+            raise KeyError("Fusion A/B showcase evidence is unavailable")
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict) or not isinstance(payload.get("benchmarks"), dict):
+            raise ValueError("Fusion A/B showcase evidence is malformed")
+        return payload
 
     def experiments(self) -> dict[str, Any]:
         items = [{

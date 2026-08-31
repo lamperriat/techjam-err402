@@ -1,0 +1,109 @@
+{
+  "schema": "techjam.teammate-ab-website.v1",
+  "title": "Teammate V1 × v2.12 Fusion A/B",
+  "subtitle": "A read-only architecture walkthrough backed by frozen Public200 and local 2k OOF evidence.",
+  "evidence": {
+    "strict_ab": "docs/deadline_v3_4_strict_fusion_ab.json",
+    "teammate_public": "docs/deadline_v3_3_public_safe_fusion.json",
+    "strict_a_commit": "d6c96ac",
+    "strict_b_commit": "5482948",
+    "exact_repeat": true,
+    "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+    "public200_sha256": "571359a8a69014c43fc30d39c996c4a28e875dccc249dffc707358757beb16c0",
+    "two_k_proxy_sha256": "2175696171c0d874fca4b9aa456ff5fd7d570f2184f59ade6781198f6443198e"
+  },
+  "benchmarks": {
+    "public200": {
+      "label": "Public200",
+      "semantics": "Organizer-released 200-session development set; exact-repeat local evaluation.",
+      "rows": [
+        {"id": "t0", "label": "Teammate T0", "hr": 0.995, "mrr": 0.703766, "mttc": 2.11, "score": 0.88643, "status": "reference"},
+        {"id": "a", "label": "Fusion A", "hr": 0.995, "mrr": 0.671333, "mttc": 2.15, "score": 0.8759, "status": "strict-base"},
+        {"id": "b", "label": "Fusion B", "hr": 0.995, "mrr": 0.70628, "mttc": 1.855, "score": 0.892284, "status": "public-best"}
+      ],
+      "deltas": {
+        "a_vs_t0": {"hr": 0.0, "mrr": -0.032433, "mttc": 0.04, "score": -0.01053},
+        "b_vs_a": {"hr": 0.0, "mrr": 0.034947, "mttc": -0.295, "score": 0.016384},
+        "b_vs_t0": {"hr": 0.0, "mrr": 0.002514, "mttc": -0.255, "score": 0.005854}
+      }
+    },
+    "two_k_oof": {
+      "label": "2k OOF",
+      "semantics": "Local train_explore 2,000-session out-of-fold benchmark; this is not the organizer private score.",
+      "rows": [
+        {"id": "t0", "label": "Teammate T0", "hr": null, "mrr": null, "mttc": null, "score": null, "status": "not-run"},
+        {"id": "a", "label": "Fusion A", "hr": 0.9905, "mrr": 0.609388, "mttc": 2.4145, "score": 0.849776, "status": "strict-base", "fold_hr": [1.0, 0.9875, 0.9925, 0.9825, 0.99]},
+        {"id": "b", "label": "Fusion B", "hr": 0.9915, "mrr": 0.626409, "mttc": 2.0285, "score": 0.863103, "status": "aggregate-hr-best", "fold_hr": [0.9975, 0.9875, 0.9925, 0.985, 0.995]},
+        {"id": "v212", "label": "v2.12 incumbent", "hr": 0.991, "mrr": 0.695795, "mttc": 2.869, "score": 0.866858, "status": "score-default"}
+      ],
+      "deltas": {
+        "b_vs_a": {"hr": 0.001, "mrr": 0.017021, "mttc": -0.386, "score": 0.013327, "miss_to_hit": 4, "hit_to_miss": 2, "net": 2},
+        "b_vs_v212": {"hr": 0.0005, "mrr": -0.069386, "mttc": -0.8405, "score": -0.003755}
+      },
+      "risk": "B is not zero-harm: fold 0 HR changes from 1.0000 to 0.9975, fold 0 MRR regresses, and intent-override loses two hits."
+    }
+  },
+  "variants": {
+    "t0": {
+      "label": "Teammate T0",
+      "tagline": "High-recall lexical retrieval with a stateful multi-signal scorer",
+      "accent": "cyan",
+      "question_policy": "Specific catalog-answerable attributes only; no other.",
+      "decision": "Public reference",
+      "layers": [
+        {"name": "Visible input", "kicker": "01 · CONTRACT", "detail": "user_profile, user message, turn and top_k only.", "source": "AgentV1.reset/respond"},
+        {"name": "Session parser", "kicker": "02 · STATE", "detail": "Accumulates intent, category, constraints, replies and override state.", "source": "SessionState"},
+        {"name": "FTS1000 + category", "kicker": "03 · RECALL", "detail": "Field-weighted FTS5 lexical candidates plus the category pool.", "source": "CatalogIndex.candidates"},
+        {"name": "ProductScorer", "kicker": "04 · RANK", "detail": "Lexical, category, constraint, department, budget, rating and popularity signals.", "source": "ProductScorer.score"},
+        {"name": "Exact-category guard", "kicker": "05 · SAFETY", "detail": "Repairs a known malformed-category boundary without global demotion rules.", "source": "_prioritize_exact_category"},
+        {"name": "Unseen ledger", "kicker": "06 · SERVE", "detail": "Removes already shown products and emits the next ordered Top10.", "source": "shown_product_ids"},
+        {"name": "Specific question", "kicker": "07 · CLARIFY", "detail": "Chooses an answerable attribute from the current Top100 candidate distribution.", "source": "_select_question"}
+      ]
+    },
+    "a": {
+      "label": "Fusion A",
+      "tagline": "Two-page T0 exploitation, then v2.12 unseen exploration",
+      "accent": "blue",
+      "question_policy": "Keeps T0 specific questions and rejects ask_attribute=other.",
+      "decision": "Strict fusion base; not better than T0 on Public200",
+      "layers": [
+        {"name": "Dual state reset", "kicker": "01 · STATE", "detail": "Starts both T0 and the v2.12 rank expert with the same visible session input.", "source": "TeammateV212FusionA.reset"},
+        {"name": "T0 forward pass", "kicker": "02 · EXPLOIT", "detail": "Always computes the teammate response, ProductScorer order and specific question.", "source": "AgentV1.respond"},
+        {"name": "v2.12 rank shadow", "kicker": "03 · EXPLORE", "detail": "Computes R08/P11 plus the frozen fold-safe small-ranker order without serving its question.", "source": "rank_expert.respond/debug_rankings"},
+        {"name": "Two-page grace", "kicker": "04 · ROUTE", "detail": "Intent pages 1–2 return T0 exactly and populate the served ledger.", "source": "page <= 2"},
+        {"name": "Unseen expert tail", "kicker": "05 · ROUTE", "detail": "Page 3+ selects unseen rank-expert candidates, then fills from unseen T0 order.", "source": "_rank_order"},
+        {"name": "Fail-safe fallback", "kicker": "06 · SAFETY", "detail": "Malformed, duplicate or empty expert output returns the original T0 response.", "source": "rank_fallbacks"},
+        {"name": "Strict question guard", "kicker": "07 · CLARIFY", "detail": "Cancels the shadow question and fails closed if A ever emits other.", "source": "forbidden_other"}
+      ]
+    },
+    "b": {
+      "label": "Fusion B",
+      "tagline": "Fusion A plus one bounded evaluator-aligned question lifecycle",
+      "accent": "violet",
+      "question_policy": "Replaces the unserved specific question with bounded other; ranking is unchanged.",
+      "decision": "Best Public score; 2k aggregate gain with measured fold/override risk",
+      "layers": [
+        {"name": "Frozen Fusion A", "kicker": "01 · BASE", "detail": "Runs the exact A retrieval, rank expert, grace, tail, fallback and served ledger.", "source": "base_agent=TeammateV212FusionA"},
+        {"name": "Reply consumer", "kicker": "02 · LIFECYCLE", "detail": "Consumes informative, exhausted or boundary replies to the previous other question.", "source": "OtherLifecycle/_consume"},
+        {"name": "Override reset", "kicker": "03 · STATE", "detail": "Starts a fresh bounded question lifecycle when visible text changes intent.", "source": "is_intent_override"},
+        {"name": "Bounded gate", "kicker": "04 · GUARD", "detail": "Asks at most two times per intent version, with a bounded boundary exception; never on turn 10.", "source": "should_ask"},
+        {"name": "Question swap", "kicker": "05 · CLARIFY", "detail": "Cancels A's unserved specific question and emits ask_attribute=other.", "source": "replace_specific/cancel_last_question"},
+        {"name": "Unchanged Top10", "kicker": "06 · IDENTITY", "detail": "Recommendations, rank order, two-page grace and fallback are byte-for-byte A behavior.", "source": "candidate=dict(response)"},
+        {"name": "Exception fallback", "kicker": "07 · SAFETY", "detail": "Any adapter error returns the original A response unchanged.", "source": "except Exception"}
+      ]
+    }
+  },
+  "walkthroughs": {
+    "page1": {"label": "Intent page 1", "title": "Exploit the teammate's strongest first impression", "description": "T0 and A/B all serve the teammate Top10. A/B also compute the v2.12 expert in shadow so later exploration has a causal, current-intent order.", "stages": ["Parse visible request", "Build T0 FTS1000 pool", "Score with ProductScorer", "Compute v2.12 shadow order", "Serve exact T0 Top10", "Record served IDs"]},
+    "page2": {"label": "Intent page 2", "title": "Use the clarification reply without destabilizing ranking", "description": "The second intent page remains exact T0. B may change only the question field and message; its Top10 is still A/T0 identity.", "stages": ["Consume last reply", "Update constraints", "Refresh T0 candidate pool", "Refresh expert shadow", "Serve exact T0 Top10", "Advance question lifecycle"]},
+    "page3": {"label": "Intent page 3+", "title": "Switch from exploitation to unseen exploration", "description": "A/B read the current v2.12 final order, exclude every served ID, take up to 10 unseen products, then fill safely from T0. T0 continues its own unseen ProductScorer pagination.", "stages": ["Recompute both experts", "Read frozen rank order", "Exclude served IDs", "Select unseen expert tail", "Fill from unseen T0", "Commit Top10 ledger"]},
+    "override": {"label": "Intent override", "title": "Reset the page and question lifecycle around the new intent", "description": "Visible override text clears A's page/served ledger and B's bounded-other lifecycle. The new intent again receives two exact T0 pages before exploration.", "stages": ["Detect visible override", "Retire previous intent", "Clear served ledger", "Reset page to zero", "Reset B question budget", "Run new-intent page 1"]}
+  },
+  "official_boundary": {
+    "agent_contract": "reset(session_id, user_profile) and respond(session_id, user_message, turn, top_k)",
+    "catalog": "Frozen 50,000 products; only valid unique parent_asin values can be scored.",
+    "turns": "At most 10 turns; evaluator scores the first 10 valid unique recommendations.",
+    "runtime": "Offline and deterministic; target IDs, labels, scenario and evaluator state are not runtime features.",
+    "website": "Local demonstration and post-hoc diagnostics only. It is not imported by the official Agent and does not modify evaluator or data files."
+  }
+}

@@ -267,6 +267,9 @@ from the coverage-ordered `final` route. `Start Observer.cmd` and
 
 The Workbench provides:
 
+- a read-only Fusion Studio for switching between teammate T0, strict Fusion A, and
+  bounded-`other` Fusion B, including a step-through compute graph and the frozen
+  Public200/local-2k-OOF result comparison;
 - runtime, Git, data, catalog-hash, and FTS5-index health;
 - an honest algorithm registry that distinguishes implemented, baseline-only, and planned layers;
 - all 200 public sessions with actual Agent events and separately labelled post-hoc target diagnostics;
@@ -292,7 +295,8 @@ components, and post-hoc target ranks. It continues to label slot-ledger-driven 
 hard filtering/relaxation, numeric budget execution, dense retrieval, active candidate-
 aware clarification, profile ranking, and semantic reranking as missing rather than
 presenting roadmap layers as implemented. See `docs/agent_workbench.md` for the full
-usage, API, isolation, and maintenance contract.
+usage, API, isolation, and maintenance contract, and
+`docs/teammate_ab_website_handoff.md` for the Fusion A/B architecture and evidence map.
 
 ## Agent Interface
 

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Shopping Copilot Agent Workbench</title>
+  <title>Fusion A/B Studio · Shopping Copilot</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -12,14 +12,15 @@
 
   <header class="topbar">
     <div class="brand-block">
-      <div class="brand-mark">IG</div>
+      <div class="brand-mark">AB</div>
       <div>
-        <div class="eyebrow">SHOPPING COPILOT / LOCAL DEVELOPMENT</div>
-        <h1>Agent Workbench</h1>
+        <div class="eyebrow">TECHJAM TRACK 4 / LOCAL OBSERVER</div>
+        <h1>Fusion Studio</h1>
       </div>
     </div>
     <nav class="nav-tabs" aria-label="Workbench navigation">
-      <button class="nav-tab active" data-page="overview">总览</button>
+      <button class="nav-tab active" data-page="fusion">Fusion A/B</button>
+      <button class="nav-tab" data-page="overview">运行时</button>
       <button class="nav-tab" data-page="sessions">会话诊断</button>
       <button class="nav-tab" data-page="catalog">商品与索引</button>
       <button class="nav-tab" data-page="runs">运行与实验</button>
@@ -35,12 +36,136 @@
   <section id="metrics" class="metric-strip"></section>
 
   <main class="app-shell">
-    <section id="overviewPage" class="page active">
+    <section id="fusionPage" class="page active">
+      <section class="fusion-hero panel">
+        <div class="fusion-hero-copy">
+          <div class="fusion-live-label"><span></span>FROZEN EVIDENCE · NO EVALUATOR RUN</div>
+          <div class="eyebrow">TEAMMATE V1 × V2.12 / ARCHITECTURE OBSERVER</div>
+          <h2>从 50,000 个商品，到一次可解释的 Top 10</h2>
+          <p>用同一张计算图看清队友 T0、严格 Fusion A，以及只增加 bounded <code>other</code> 问询的 Fusion B。切换版本、意图页和评测集，观察每一层到底改变了什么。</p>
+          <div class="fusion-hero-actions">
+            <button class="primary-button" data-page-jump="sessions">打开真实会话 Trace</button>
+            <button class="ghost-button" data-page-jump="docs">查看交接文档</button>
+          </div>
+        </div>
+        <div class="fusion-orbit" aria-hidden="true">
+          <div class="orbit-ring orbit-ring-a"></div>
+          <div class="orbit-ring orbit-ring-b"></div>
+          <div class="orbit-core"><span>50K</span><small>CATALOG</small></div>
+          <div class="orbit-node node-input">QUERY</div>
+          <div class="orbit-node node-rank">RANK</div>
+          <div class="orbit-node node-state">STATE</div>
+          <div class="orbit-node node-serve">TOP 10</div>
+        </div>
+      </section>
+
+      <section class="fusion-toolbar panel" aria-label="Fusion display controls">
+        <div class="control-cluster">
+          <span class="control-label">ARCHITECTURE</span>
+          <div class="segmented" id="fusionVariantControls">
+            <button class="segment" data-fusion-variant="t0">Teammate T0</button>
+            <button class="segment active" data-fusion-variant="a">Fusion A</button>
+            <button class="segment" data-fusion-variant="b">Fusion B</button>
+          </div>
+        </div>
+        <div class="control-cluster">
+          <span class="control-label">EVIDENCE</span>
+          <div class="segmented" id="fusionBenchmarkControls">
+            <button class="segment active" data-fusion-benchmark="public200">Public200</button>
+            <button class="segment" data-fusion-benchmark="two_k_oof">2k OOF</button>
+          </div>
+        </div>
+        <div id="fusionEvidenceStatus" class="evidence-status"><span class="status-dot"></span>Loading tracked artifact</div>
+      </section>
+
+      <section id="fusionKpis" class="fusion-kpis" aria-label="Selected architecture metrics"></section>
+
+      <div class="fusion-workspace">
+        <section class="panel architecture-panel">
+          <div class="architecture-heading">
+            <div>
+              <div id="fusionVariantEyebrow" class="eyebrow">FUSION A</div>
+              <h2 id="fusionVariantTitle">Two-page exploitation → unseen exploration</h2>
+              <p id="fusionVariantSummary" class="muted"></p>
+            </div>
+            <span id="fusionDecisionBadge" class="decision-badge"></span>
+          </div>
+          <div class="architecture-legend">
+            <span><i class="legend-dot shared"></i>shared computation</span>
+            <span><i class="legend-dot route"></i>routing boundary</span>
+            <span><i class="legend-dot guard"></i>fail-safe</span>
+          </div>
+          <div id="fusionArchitecture" class="architecture-flow"></div>
+          <div class="architecture-foot">
+            <span>QUESTION POLICY</span>
+            <strong id="fusionQuestionPolicy"></strong>
+          </div>
+        </section>
+
+        <aside class="panel compute-panel">
+          <div class="compute-topline">
+            <div><div class="eyebrow">COMPUTE WALKTHROUGH</div><h2>这一轮经历了什么？</h2></div>
+            <div class="compute-player">
+              <button id="computePrev" class="icon-button" aria-label="Previous compute stage">←</button>
+              <button id="computePlay" class="icon-button play-button" aria-label="Play compute stages">▶</button>
+              <button id="computeNext" class="icon-button" aria-label="Next compute stage">→</button>
+            </div>
+          </div>
+          <div class="page-scenario-tabs" id="walkthroughControls">
+            <button class="scenario-tab active" data-walkthrough="page1">Page 1</button>
+            <button class="scenario-tab" data-walkthrough="page2">Page 2</button>
+            <button class="scenario-tab" data-walkthrough="page3">Page 3+</button>
+            <button class="scenario-tab" data-walkthrough="override">Override</button>
+          </div>
+          <div class="query-terminal">
+            <span id="walkthroughLabel">INTENT PAGE 1</span>
+            <p id="walkthroughTitle"></p>
+          </div>
+          <div id="computeStageRail" class="compute-stage-rail"></div>
+          <div class="compute-detail">
+            <div class="compute-index" id="computeIndex">01</div>
+            <div><span>ACTIVE STAGE</span><h3 id="computeStageTitle"></h3><p id="computeDescription"></p></div>
+          </div>
+          <p class="simulation-note">架构演示使用冻结定义，不读取 target，也不会触发 evaluator。真实逐轮事件请进入“会话诊断”。</p>
+        </aside>
+      </div>
+
+      <section class="panel evidence-panel">
+        <div class="section-heading evidence-heading">
+          <div><div class="eyebrow">FROZEN BENCHMARK EVIDENCE</div><h2 id="benchmarkTitle">Public200 结果</h2></div>
+          <span id="benchmarkSemantics" class="semantics-pill"></span>
+        </div>
+        <div class="evidence-layout">
+          <div id="fusionScoreChart" class="score-chart" aria-label="TechnicalScore comparison chart"></div>
+          <div class="table-wrap fusion-table-wrap">
+            <table class="fusion-results-table">
+              <thead><tr><th>Variant</th><th>HR@10</th><th>MRR</th><th>MTTC ↓</th><th>TechnicalScore</th><th>Evidence</th></tr></thead>
+              <tbody id="fusionResultRows"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="fusionDeltaStory" class="delta-story"></div>
+      </section>
+
+      <section class="fusion-boundary-grid">
+        <article class="panel boundary-card">
+          <div class="boundary-icon">01</div><div><span>OFFICIAL CONTRACT</span><h3>后端 Agent 没有被网站改写</h3><p><code>reset/respond</code>、Top10、10-turn 与合法 ASIN 规则保持原样；展示层不进入提交依赖。</p></div>
+        </article>
+        <article class="panel boundary-card">
+          <div class="boundary-icon">02</div><div><span>CAUSAL RUNTIME</span><h3>target 只存在于事后诊断</h3><p>检索与问询只接收可见 profile、message、turn、top_k；标签不会成为运行时特征。</p></div>
+        </article>
+        <article class="panel boundary-card warning">
+          <div class="boundary-icon">03</div><div><span>BENCHMARK SEMANTICS</span><h3>2k OOF 不是 private 800</h3><p>网页明确分隔 released Public200、本地 train_explore OOF 与尚未获得的官方 private 成绩。</p></div>
+        </article>
+      </section>
+    </section>
+
+    <section id="overviewPage" class="page">
       <div class="hero panel">
         <div>
-          <div class="eyebrow">CURRENT IMPLEMENTATION TRUTH</div>
-          <h2>当前是真实可运行的状态化稀疏融合 + Query-term Coverage Agent</h2>
-          <p>已完成可审计的会话状态、双路 BM25、加权 RRF 与独立的 Query-term Coverage 检索层；目标盲属性 reranker 与 slot ledger / 候选感知澄清 shadow 保留各自的运行模式与诊断语义。</p>
+          <div class="eyebrow">LIVE LEGACY RUNTIME</div>
+          <h2>当前本机 Workbench 的真实 Agent 运行时</h2>
+          <p>这一页继续展示 <code>starter.Agent</code> 的 R08/P11 运行状态，以及 slot ledger / 候选感知澄清 shadow；它与 Fusion A/B 的冻结证据页分开，可用于开发诊断，但不是严格 A/B 结果的实时重放。</p>
           <p id="codeFreshness" class="boundary-note hidden"></p>
         </div>
         <div class="hero-actions">

@@ -142,6 +142,12 @@ def make_handler(
             if parsed.path == "/api/overview":
                 self._send_json(runtime.overview())
                 return
+            if parsed.path == "/api/fusion-showcase":
+                try:
+                    self._send_json(runtime.fusion_showcase())
+                except Exception as exc:
+                    self._api_error(exc)
+                return
             if parsed.path == "/api/sessions":
                 self._send_json(runtime.list_sessions())
                 return

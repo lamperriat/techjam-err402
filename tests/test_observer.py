@@ -44,6 +44,56 @@ class ObserverTraceTest(unittest.TestCase):
             self.assertIn(marker, app)
         self.assertIn("slot ledger / 候选感知澄清 shadow", page)
 
+    def test_static_workbench_exposes_strict_fusion_studio(self) -> None:
+        project_root = Path(__file__).resolve().parents[1]
+        app = (project_root / "observer" / "static" / "app.js").read_text(
+            encoding="utf-8"
+        )
+        page = (project_root / "observer" / "static" / "index.html").read_text(
+            encoding="utf-8"
+        )
+        evidence = json.loads(
+            (project_root / "docs" / "teammate_ab_website.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        strict = json.loads(
+            (project_root / "docs" / "deadline_v3_4_strict_fusion_ab.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        teammate = json.loads(
+            (project_root / "docs" / "deadline_v3_3_public_safe_fusion.json").read_text(
+                encoding="utf-8"
+            )
+        )
+
+        for marker in ("Teammate T0", "Fusion A", "Fusion B", "2k OOF"):
+            self.assertIn(marker, page)
+        self.assertIn("/api/fusion-showcase", app)
+        self.assertIn("not the organizer private score", evidence["benchmarks"]["two_k_oof"]["semantics"])
+        self.assertEqual(evidence["benchmarks"]["public200"]["rows"][1]["hr"], 0.995)
+        self.assertEqual(evidence["benchmarks"]["two_k_oof"]["rows"][2]["hr"], 0.9915)
+        self.assertEqual(
+            evidence["benchmarks"]["public200"]["rows"][1]["score"],
+            strict["public200"]["a"]["score"],
+        )
+        self.assertEqual(
+            evidence["benchmarks"]["two_k_oof"]["rows"][2]["mrr"],
+            strict["full_2k_oof"]["b"]["mrr"],
+        )
+        teammate_t0 = next(
+            row for row in teammate["variants"] if row["name"] == "teammate T0"
+        )
+        self.assertEqual(
+            evidence["benchmarks"]["public200"]["rows"][0]["score"],
+            teammate_t0["score"],
+        )
+
+        runtime = object.__new__(WorkbenchRuntime)
+        runtime.project_root = project_root
+        self.assertEqual(runtime.fusion_showcase()["schema"], evidence["schema"])
+
     def test_one_click_launcher_defaults_to_served_p11_preset(self) -> None:
         with (
             patch.dict(
@@ -819,6 +869,9 @@ class ObserverTraceTest(unittest.TestCase):
             def trace(self, sample_id: str, refresh: bool = False) -> dict:
                 return {"sample_id": sample_id, "refresh": refresh}
 
+            def fusion_showcase(self) -> dict:
+                return {"schema": "fusion-test", "benchmarks": {"public200": {}}}
+
             def start_evaluation(self) -> dict:
                 return {"job_id": "evaluation_test", "status": "queued"}
 
@@ -841,6 +894,13 @@ class ObserverTraceTest(unittest.TestCase):
         with urllib.request.urlopen(sessions_request) as response:
             payload = json.load(response)
         self.assertEqual(payload["metrics"]["hit_rate_at_10"], 0.5)
+
+        fusion_request = urllib.request.Request(
+            f"{base_url}/api/fusion-showcase", headers=auth_headers
+        )
+        with urllib.request.urlopen(fusion_request) as response:
+            fusion = json.load(response)
+        self.assertEqual(fusion["schema"], "fusion-test")
 
         with self.assertRaises(urllib.error.HTTPError) as context:
             urllib.request.urlopen(f"{base_url}/api/sessions")

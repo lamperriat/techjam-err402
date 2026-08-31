@@ -1,6 +1,6 @@
 # Agent Workbench Guide
 
-The Agent Workbench is a local, offline-first development control plane for the Shopping Copilot. It makes the current implementation observable without presenting planned IntentGraph layers as completed code.
+The Agent Workbench is a local, offline-first development control plane for the Shopping Copilot. Its default Fusion Studio explains the tracked teammate/Fusion A/B implementations and frozen evidence; the remaining pages make the legacy `starter.Agent` runtime observable without presenting planned layers as completed code.
 
 ## Current truth
 
@@ -81,6 +81,18 @@ If a Workbench instance is already healthy, the launcher opens that instance ins
 The launcher verifies a project-root fingerprint before reusing port 8765. If another clone owns that port, startup stops with an explicit error instead of silently opening the wrong project.
 
 ## Pages
+
+### Fusion A/B
+
+- switch between teammate T0, strict A, and bounded-`other` B architecture graphs;
+- step through intent pages 1/2/3+ and visible override computation without running an evaluator;
+- compare tracked Public200 and local `train_explore` 2k OOF metrics;
+- keep missing T0 2k evidence as unavailable and label 2k OOF as non-private;
+- link every layer to its implementation boundary and surface B's fold/override risk.
+
+The Fusion Studio reads `docs/teammate_ab_website.json`; it does not infer metrics from
+the currently loaded `results.json`. See `docs/teammate_ab_website_handoff.md` for the
+architecture and evidence interpretation.
 
 ### 总览
 

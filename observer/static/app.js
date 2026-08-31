@@ -16,6 +16,11 @@ const state = {
   selectedDocumentId: null,
   lab: null,
   apiToken: "",
+  fusion: null,
+  fusionVariant: "a",
+  fusionBenchmark: "public200",
+  walkthrough: "page1",
+  computeStage: 0,
 };
 
 const $ = selector => document.querySelector(selector);
@@ -57,6 +62,7 @@ function postJSON(url, payload = {}) {
 }
 
 let toastTimer;
+let computeTimer;
 function toast(message, tone = "") {
   const element = $("#toast");
   element.textContent = message;
@@ -66,8 +72,8 @@ function toast(message, tone = "") {
 }
 
 function navigate(page) {
-  const knownPages = ["overview", "sessions", "catalog", "runs", "lab", "docs"];
-  if (!knownPages.includes(page)) page = "overview";
+  const knownPages = ["fusion", "overview", "sessions", "catalog", "runs", "lab", "docs"];
+  if (!knownPages.includes(page)) page = "fusion";
   $$(".page").forEach(element => element.classList.toggle("active", element.id === `${page}Page`));
   $$(".nav-tab").forEach(button => button.classList.toggle("active", button.dataset.page === page));
   if (window.location.hash !== `#${page}`) history.replaceState(null, "", `#${page}`);
@@ -78,6 +84,20 @@ function navigate(page) {
 }
 
 function renderMetrics() {
+  if (state.fusion) {
+    const benchmark = state.fusion.benchmarks[state.fusionBenchmark];
+    const row = benchmark.rows.find(item => item.id === state.fusionVariant) || {};
+    const cards = [
+      ["Selected architecture", row.label || "—"],
+      ["Evidence", benchmark.label],
+      ["Hit Rate@10", pct(row.hr)],
+      ["MRR", fmt(row.mrr, 6)],
+      ["TechnicalScore", fmt(row.score, 6)],
+    ];
+    $("#metrics").innerHTML = cards.map(([label, value]) => `
+      <div class="metric-card"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`).join("");
+    return;
+  }
   const metrics = state.metrics || {};
   const cards = [
     ["Hit Rate@10", pct(metrics.hit_rate_at_10)],
@@ -88,6 +108,174 @@ function renderMetrics() {
   ];
   $("#metrics").innerHTML = cards.map(([label, value]) => `
     <div class="metric-card"><span>${label}</span><strong>${value}</strong></div>`).join("");
+}
+
+function stopComputePlayback() {
+  clearInterval(computeTimer);
+  computeTimer = null;
+  const button = $("#computePlay");
+  if (button) { button.textContent = "▶"; button.setAttribute("aria-label", "Play compute stages"); }
+}
+
+function stepCompute(direction) {
+  const raw = state.fusion?.walkthroughs?.[state.walkthrough];
+  if (!raw) return;
+  const flow = walkthroughForVariant(raw, state.fusion.variants[state.fusionVariant]);
+  state.computeStage = (state.computeStage + direction + flow.stages.length) % flow.stages.length;
+  renderWalkthrough();
+}
+
+function toggleComputePlayback() {
+  if (computeTimer) { stopComputePlayback(); return; }
+  const button = $("#computePlay");
+  button.textContent = "Ⅱ";
+  button.setAttribute("aria-label", "Pause compute stages");
+  computeTimer = setInterval(() => stepCompute(1), 1150);
+}
+
+const fusionStatus = value => ({
+  reference: "Public reference",
+  "strict-base": "Strict base",
+  "public-best": "Public best score",
+  "not-run": "No direct artifact",
+  "aggregate-hr-best": "Aggregate HR best",
+  "score-default": "Score incumbent",
+})[value] || value;
+
+function selectedFusionRow() {
+  const benchmark = state.fusion?.benchmarks?.[state.fusionBenchmark];
+  return benchmark?.rows?.find(item => item.id === state.fusionVariant) || null;
+}
+
+function renderFusionArchitecture() {
+  if (!state.fusion) return;
+  const variant = state.fusion.variants[state.fusionVariant];
+  const selected = selectedFusionRow();
+  const walkthrough = walkthroughForVariant(
+    state.fusion.walkthroughs[state.walkthrough], variant
+  );
+  const activeLayer = Math.round(
+    state.computeStage * (variant.layers.length - 1) / Math.max(1, walkthrough.stages.length - 1)
+  );
+  $("#fusionPage").dataset.accent = variant.accent;
+  $("#fusionVariantEyebrow").textContent = variant.label.toUpperCase();
+  $("#fusionVariantTitle").textContent = variant.tagline;
+  $("#fusionVariantSummary").textContent = variant.decision;
+  $("#fusionDecisionBadge").textContent = selected ? fusionStatus(selected.status) : variant.decision;
+  $("#fusionQuestionPolicy").textContent = variant.question_policy;
+  $("#fusionArchitecture").innerHTML = variant.layers.map((layer, index) => `
+    <article class="architecture-step ${index === activeLayer ? "active" : ""}" data-architecture-stage="${index}" role="button" tabindex="0" aria-label="Inspect ${esc(layer.name)}">
+      <div class="architecture-kicker">${esc(layer.kicker)}</div>
+      <div class="architecture-node"><span>${String(index + 1).padStart(2, "0")}</span></div>
+      <h3>${esc(layer.name)}</h3>
+      <p>${esc(layer.detail)}</p>
+      <code>${esc(layer.source)}</code>
+    </article>`).join("");
+  $$('[data-architecture-stage]').forEach(button => button.addEventListener("click", () => {
+    state.computeStage = Math.round(
+      Number(button.dataset.architectureStage) * (walkthrough.stages.length - 1) /
+      Math.max(1, variant.layers.length - 1)
+    );
+    renderWalkthrough();
+  }));
+  $$('[data-architecture-stage]').forEach(button => button.addEventListener("keydown", event => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault(); button.click();
+  }));
+}
+
+function renderFusionEvidence() {
+  if (!state.fusion) return;
+  const benchmark = state.fusion.benchmarks[state.fusionBenchmark];
+  $("#benchmarkTitle").textContent = `${benchmark.label} 结果`;
+  $("#benchmarkSemantics").textContent = benchmark.semantics;
+  $("#fusionEvidenceStatus").innerHTML = `<span class="status-dot"></span>${esc(benchmark.label)} · exact repeat`;
+  $("#fusionResultRows").innerHTML = benchmark.rows.map(row => `
+    <tr class="${row.id === state.fusionVariant ? "selected-row" : ""}">
+      <td><strong>${esc(row.label)}</strong>${row.id === state.fusionVariant ? "<span class=selected-marker>SELECTED</span>" : ""}</td>
+      <td>${pct(row.hr)}</td><td>${fmt(row.mrr, 6)}</td><td>${fmt(row.mttc, 4)}</td><td>${fmt(row.score, 6)}</td>
+      <td><span class="evidence-chip ${esc(row.status)}">${esc(fusionStatus(row.status))}</span></td>
+    </tr>`).join("");
+  const chartRows = benchmark.rows.filter(row => row.score != null);
+  $("#fusionScoreChart").innerHTML = `<div class="score-chart-title"><span>TechnicalScore</span><small>higher is better</small></div>${chartRows.map(row => `
+    <div class="score-bar-row ${row.id === state.fusionVariant ? "selected" : ""}">
+      <div class="score-bar-label"><span>${esc(row.label)}</span><strong>${fmt(row.score, 6)}</strong></div>
+      <progress max="1" value="${Number(row.score)}">${fmt(row.score, 6)}</progress>
+    </div>`).join("")}`;
+  if (state.fusionBenchmark === "public200") {
+    const a = benchmark.deltas.a_vs_t0;
+    const b = benchmark.deltas.b_vs_a;
+    $("#fusionDeltaStory").innerHTML = `
+      <article><span>A vs T0</span><strong>HR 持平，Score ${fmt(a.score, 5)}</strong><p>A 没有超过队友：MRR ${fmt(a.mrr, 6)}，MTTC +${fmt(a.mttc, 3)}。</p></article>
+      <div class="delta-arrow">→</div>
+      <article class="positive"><span>B vs A</span><strong>Score +${fmt(b.score, 6)}</strong><p>HR 保持 ${pct(benchmark.rows.find(row => row.id === "b").hr)}，MRR +${fmt(b.mrr, 6)}，MTTC ${fmt(b.mttc, 3)}。</p></article>`;
+  } else {
+    const delta = benchmark.deltas.b_vs_a;
+    const incumbent = benchmark.deltas.b_vs_v212;
+    $("#fusionDeltaStory").innerHTML = `
+      <article class="positive"><span>B vs A</span><strong>${delta.miss_to_hit} rescue / ${delta.hit_to_miss} harm / net +${delta.net}</strong><p>HR +${fmt(delta.hr, 4)}，MRR +${fmt(delta.mrr, 6)}，MTTC ${fmt(delta.mttc, 4)}。</p></article>
+      <div class="delta-arrow">≠</div>
+      <article class="warning"><span>B vs v2.12</span><strong>HR +${fmt(incumbent.hr, 4)} · Score ${fmt(incumbent.score, 6)}</strong><p>${esc(benchmark.risk)}</p></article>`;
+  }
+}
+
+function walkthroughForVariant(flow, variant) {
+  if (state.fusionVariant !== "t0") return { ...flow, stages: flow.stages };
+  const override = state.walkthrough === "override";
+  return {
+    ...flow,
+    title: override
+      ? "T0 在可见 override 后直接重建新的会话意图"
+      : "T0 每一轮重复同一套状态化检索、排序与 unseen pagination",
+    description: override
+      ? "移除旧的可覆盖偏好、清空已展示集合并以新硬约束继续 ProductScorer。"
+      : "T0 没有两页 grace 或 shadow rank expert；它每轮更新状态、重取 FTS1000、重排并排除已展示商品。",
+    stages: override
+      ? ["Detect visible override", "Remove old preference", "Clear shown IDs", "Add new hard constraint", "Rebuild FTS1000 pool", "Serve new Top10"]
+      : ["Parse visible message", "Update session state", "Build FTS1000 pool", "Run ProductScorer", "Exclude shown IDs", "Serve Top10 + question"],
+  };
+}
+
+function renderWalkthrough() {
+  if (!state.fusion) return;
+  const variant = state.fusion.variants[state.fusionVariant];
+  const raw = state.fusion.walkthroughs[state.walkthrough];
+  const flow = walkthroughForVariant(raw, variant);
+  state.computeStage = Math.min(state.computeStage, flow.stages.length - 1, variant.layers.length - 1);
+  $("#walkthroughLabel").textContent = flow.label.toUpperCase();
+  $("#walkthroughTitle").textContent = flow.title;
+  $("#computeStageRail").innerHTML = flow.stages.map((stage, index) => `
+    <button class="compute-stage ${index < state.computeStage ? "done" : ""} ${index === state.computeStage ? "active" : ""}" data-compute-stage="${index}">
+      <i>${index < state.computeStage ? "✓" : String(index + 1).padStart(2, "0")}</i><span>${esc(stage)}</span>
+    </button>`).join("");
+  $$('[data-compute-stage]').forEach(button => button.addEventListener("click", () => {
+    state.computeStage = Number(button.dataset.computeStage);
+    renderWalkthrough();
+  }));
+  $("#computeIndex").textContent = String(state.computeStage + 1).padStart(2, "0");
+  $("#computeStageTitle").textContent = flow.stages[state.computeStage];
+  $("#computeDescription").textContent = flow.description;
+  renderFusionArchitecture();
+}
+
+function renderFusion() {
+  if (!state.fusion) return;
+  $$('[data-fusion-variant]').forEach(button => button.classList.toggle("active", button.dataset.fusionVariant === state.fusionVariant));
+  $$('[data-fusion-benchmark]').forEach(button => button.classList.toggle("active", button.dataset.fusionBenchmark === state.fusionBenchmark));
+  $$('[data-walkthrough]').forEach(button => button.classList.toggle("active", button.dataset.walkthrough === state.walkthrough));
+  renderMetrics();
+  renderFusionArchitecture();
+  renderFusionEvidence();
+  renderWalkthrough();
+  const row = selectedFusionRow() || {};
+  const kpis = [
+    ["Hit Rate@10", pct(row.hr), "membership / 10 turns"],
+    ["MRR", fmt(row.mrr, 6), "target rank quality"],
+    ["MTTC", fmt(row.mttc, 4), "lower is faster"],
+    ["TechnicalScore", fmt(row.score, 6), "0.50 HR + 0.30 MRR + 0.20 efficiency"],
+  ];
+  $("#fusionKpis").innerHTML = kpis.map(([label, value, note], index) => `
+    <article class="fusion-kpi ${index === 3 ? "primary" : ""}"><span>${esc(label)}</span><strong>${esc(value)}</strong><small>${esc(note)}</small></article>`).join("");
 }
 
 function renderOverview() {
@@ -540,6 +728,18 @@ function bindEvents() {
   $("#labReset").addEventListener("click", resetLab);
   $("#labForm").addEventListener("submit", event => { event.preventDefault(); const input = $("#labInput"); const message = input.value.trim(); if (message) { input.value = ""; sendLabMessage(message); } });
   $("#documentSearch").addEventListener("input", renderDocuments);
+  $$('[data-fusion-variant]').forEach(button => button.addEventListener("click", () => {
+    stopComputePlayback(); state.fusionVariant = button.dataset.fusionVariant; state.computeStage = 0; renderFusion();
+  }));
+  $$('[data-fusion-benchmark]').forEach(button => button.addEventListener("click", () => {
+    state.fusionBenchmark = button.dataset.fusionBenchmark; renderFusion();
+  }));
+  $$('[data-walkthrough]').forEach(button => button.addEventListener("click", () => {
+    stopComputePlayback(); state.walkthrough = button.dataset.walkthrough; state.computeStage = 0; renderFusion();
+  }));
+  $("#computePrev").addEventListener("click", () => { stopComputePlayback(); stepCompute(-1); });
+  $("#computeNext").addEventListener("click", () => { stopComputePlayback(); stepCompute(1); });
+  $("#computePlay").addEventListener("click", toggleComputePlayback);
   $("#shutdownButton").addEventListener("click", async () => {
     if (!window.confirm("停止本地 Agent Workbench？再次使用时双击 Start Observer.vbs。")) return;
     await postJSON("/api/shutdown"); toast("Workbench 已停止"); setTimeout(checkHealth, 700);
@@ -553,13 +753,13 @@ function bindEvents() {
     const tokenPayload = await tokenResponse.json();
     if (!tokenResponse.ok || !tokenPayload.token) throw new Error(tokenPayload.error || "无法取得本机控制令牌");
     state.apiToken = tokenPayload.token;
-    const [overview, sessions, experiments, documents, jobs] = await Promise.all([
-      requestJSON("/api/overview"), requestJSON("/api/sessions"), requestJSON("/api/experiments"), requestJSON("/api/documents"), requestJSON("/api/jobs"),
+    const [overview, sessions, experiments, documents, jobs, fusion] = await Promise.all([
+      requestJSON("/api/overview"), requestJSON("/api/sessions"), requestJSON("/api/experiments"), requestJSON("/api/documents"), requestJSON("/api/jobs"), requestJSON("/api/fusion-showcase"),
     ]);
     state.overview = overview; state.sessions = sessions.sessions; state.metrics = sessions.metrics;
-    state.experiments = experiments.experiments; state.documents = documents.documents; state.jobs = jobs.jobs;
-    renderMetrics(); renderOverview(); renderSessions(); renderExperiments(); renderDocuments(); renderJobs(); checkHealth();
-    navigate(window.location.hash.slice(1) || "overview");
+    state.experiments = experiments.experiments; state.documents = documents.documents; state.jobs = jobs.jobs; state.fusion = fusion;
+    renderFusion(); renderOverview(); renderSessions(); renderExperiments(); renderDocuments(); renderJobs(); checkHealth();
+    navigate(window.location.hash.slice(1) || "fusion");
   } catch (error) {
     $("#overviewPage").innerHTML = `<div class="empty-state panel"><h2>Workbench 启动失败</h2><p>${esc(error.message)}</p></div>`;
   }
