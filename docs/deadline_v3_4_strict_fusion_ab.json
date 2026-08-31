@@ -1,0 +1,43 @@
+{
+  "schema": "techjam.deadline-v3.4-strict-fusion-ab.v1",
+  "branch": "deadline-v3.4-strict-fusion-ab",
+  "commits": {
+    "version_a": "d6c96ac",
+    "version_b": "5482948"
+  },
+  "factories": {
+    "version_a": "starter.teammate_v212_fusion:create_fusion_a",
+    "version_b": "starter.teammate_v212_fusion:create_fusion_b"
+  },
+  "definition": {
+    "version_a": "Teammate V1 exact first two pages; from page three use the frozen P11 plus fold-safe small-ranker unseen tail; teammate specific questions only; ask_attribute=other forbidden.",
+    "version_b_only_delta": "Evaluator-aligned bounded other question lifecycle and cancellation of the unserved A question; retrieval, rank expert, grace, tail and served ledger are unchanged."
+  },
+  "sources": {
+    "public200_sha256": "571359a8a69014c43fc30d39c996c4a28e875dccc249dffc707358757beb16c0",
+    "train_explore_2k_proxy_sha256": "2175696171c0d874fca4b9aa456ff5fd7d570f2184f59ade6781198f6443198e",
+    "train_explore_2k_labels_sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+    "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+    "two_k_semantics": "offline train_explore OOF benchmark; not private score"
+  },
+  "public200": {
+    "a": {"hr": 0.995, "mrr": 0.671333, "mttc": 2.15, "score": 0.8759, "ledger_sha256": "48dd251dce84487a7d999e325f1cf68b857b067e8d761bc981f3abecc49b1caf", "result_sha256": "2c6db4f9488e648cc18d7c6032111d732abd5fb5a857a67465e300e8aff043ee", "wall_seconds": 64.403049},
+    "b": {"hr": 0.995, "mrr": 0.70628, "mttc": 1.855, "score": 0.892284, "ledger_sha256": "f76c72b7451d4052aea3eb2d382f03fa89c12a4e04123606afa766ff88206d8e", "result_sha256": "80e7c91532392c62cabd5bf94a824826ff69d63bec62f70325939433ea70b824", "wall_seconds": 64.681859},
+    "b_minus_a": {"hr": 0.0, "mrr": 0.034947, "mttc": -0.295, "score": 0.016384},
+    "exact_repeat": true
+  },
+  "full_2k_oof": {
+    "a": {"hr": 0.9905, "mrr": 0.609388, "mttc": 2.4145, "score": 0.849776, "fold_hr": [1.0, 0.9875, 0.9925, 0.9825, 0.99], "ledger_sha256": "12ea9a12796a9a4da43e67c9eff2974474164581e47400c3589967729788281c", "result_sha256": "96680ab8cb16552f7e52f1f96be44e284daeb43d8e442aeb5bf6af29bb840b04", "wall_seconds": 643.578363},
+    "b": {"hr": 0.9915, "mrr": 0.626409, "mttc": 2.0285, "score": 0.863103, "fold_hr": [0.9975, 0.9875, 0.9925, 0.985, 0.995], "ledger_sha256": "8511667056564ebddd691ee2a9c4179e869a6549c4bc4d91f13853f567abe9e3", "result_sha256": "e2d90bcdb7abe15ddea30defbe1f22075a9668129beafe9dfaeaad13351e8a639", "wall_seconds": 621.508282},
+    "b_minus_a": {"hr": 0.001, "mrr": 0.017021, "mttc": -0.386, "score": 0.013327, "miss_to_hit": 4, "hit_to_miss": 2, "net": 2},
+    "b_scenario_hit_delta": {"boundary": 0.03, "browsing": 0.00125, "buying": 0.0, "intent_override": -0.006667},
+    "exact_repeat": true
+  },
+  "v2_12_read_only_reference": {"hr": 0.991, "mrr": 0.695795, "mttc": 2.869, "score": 0.866858},
+  "decision": {
+    "a": "VALID_FUSION_BASE_BUT_BELOW_V2_12_SCORE",
+    "b": "VALID_AND_OVERALL_BETTER_THAN_A; HR_EXCEEDS_V2_12_BY_ONE_SESSION; SCORE_REMAINS_0.003755_BELOW_V2_12; NOT_ZERO_HARM",
+    "recommended_default": "v2.12 for TechnicalScore safety; B only if optimizing aggregate HR and MTTC with accepted fold-0/override risk"
+  },
+  "tests": "15/15 targeted passed"
+}
