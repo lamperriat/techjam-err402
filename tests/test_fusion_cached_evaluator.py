@@ -33,6 +33,9 @@ class FusionCachedEvaluatorTests(unittest.TestCase):
         class Agent:
             closed = False
 
+            def evaluation_diagnostics(self) -> dict[str, object]:
+                return {"schema_version": "synthetic.v1", "turns": 1}
+
             def close(self) -> None:
                 self.closed = True
 
@@ -47,11 +50,13 @@ class FusionCachedEvaluatorTests(unittest.TestCase):
 
         samples = [{"sample_id": "s"}]
         with mock.patch.object(ev, "evaluate", side_effect=fake_evaluate):
-            ledger, digest = ev._official_repeat(
+            ledger, digest, diagnostics = ev._official_repeat(
                 factory, {}, samples, {"x"}, {}, {}
             )
         self.assertEqual(ledger, HIT)
         self.assertEqual(digest, ev._sha(HIT))
+        self.assertEqual(diagnostics["schema_version"], "synthetic.v1")
+        self.assertEqual(diagnostics["turns"], 1)
         self.assertEqual(len(set(seen)), 1)
         self.assertTrue(all(getattr(agent, "closed") for agent in agents))
 
@@ -64,7 +69,11 @@ class FusionCachedEvaluatorTests(unittest.TestCase):
             np.savez(labels, eligible_from=[1], outer_fold=[0])
             with (
                 mock.patch.object(ev, "catalog_index", return_value=({"x"}, {}, {})),
-                mock.patch.object(ev, "_official_repeat", return_value=(HIT, ev._sha(HIT))),
+                mock.patch.object(
+                    ev,
+                    "_official_repeat",
+                    return_value=(HIT, ev._sha(HIT), {"schema_version": "synthetic.v1"}),
+                ),
                 mock.patch.object(
                     ev,
                     "_cached_v212_ledger",
@@ -85,6 +94,9 @@ class FusionCachedEvaluatorTests(unittest.TestCase):
                 )
             self.assertEqual(result["status"], "VALID")
             self.assertEqual(result["transitions"]["miss_to_hit"], 1)
+            self.assertEqual(
+                result["runtime_diagnostics"]["schema_version"], "synthetic.v1"
+            )
             payload = json.loads(ledger.read_text(encoding="utf-8"))
             self.assertEqual(payload["schema"], "fusion_session_ledger_v1")
             self.assertNotIn("sample_id", ledger.read_text(encoding="utf-8"))

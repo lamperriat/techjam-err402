@@ -526,12 +526,25 @@ class FusionCoreAgent:
         self.fusion = fusion_core or FusionCore(catalog_path, mode=mode)
         self._profiles: dict[str, dict[str, Any]] = {}
         self._intents: dict[str, str] = {}
+        self._served_versions: dict[str, tuple[int, set[str]]] = {}
+        self._all_served: dict[str, set[str]] = {}
+        self._diagnostic_totals = {
+            "turns": 0,
+            "fusion_active_turns": 0,
+            "fallback_turns": 0,
+            "same_version_repeat_slots": 0,
+            "hard_conflicts": 0,
+            "parent_route_added": 0,
+            "candidate_count": 0,
+        }
 
     def reset(self, session_id: str, user_profile: dict) -> None:
         self.parent.reset(session_id, user_profile)
         self.fusion.reset(session_id)
         self._profiles[session_id] = dict(user_profile)
         self._intents[session_id] = "buying"
+        self._served_versions[session_id] = (1, set())
+        self._all_served[session_id] = set()
 
     def close(self) -> None:
         try:
@@ -576,6 +589,51 @@ class FusionCoreAgent:
                 "Here are the closest matches based on what you have told me."
             )
         return response
+
+    def _record_diagnostics(
+        self,
+        session_id: str,
+        version: int,
+        response: Mapping[str, Any],
+        outcome: FusionOutcome,
+    ) -> None:
+        totals = self._diagnostic_totals
+        totals["turns"] += 1
+        effective = outcome.diagnostics.get("effective_mode")
+        totals["fusion_active_turns"] += int(effective == MODE_ACTIVE)
+        totals["fallback_turns"] += int(effective != MODE_ACTIVE)
+        totals["hard_conflicts"] += int(outcome.diagnostics.get("hard_conflict_count", 0))
+        totals["parent_route_added"] += int(outcome.diagnostics.get("parent_route_added", 0))
+        totals["candidate_count"] += int(outcome.diagnostics.get("candidate_count", 0))
+        identifiers = {
+            str(item.get("parent_asin"))
+            for item in response.get("recommendations", ())
+            if isinstance(item, Mapping) and item.get("parent_asin")
+        }
+        previous_version, served = self._served_versions.get(
+            session_id, (version, set())
+        )
+        if previous_version != version:
+            served = set()
+        totals["same_version_repeat_slots"] += len(identifiers & served)
+        served.update(identifiers)
+        self._served_versions[session_id] = (version, served)
+        self._all_served.setdefault(session_id, set()).update(identifiers)
+
+    def evaluation_diagnostics(self) -> dict[str, object]:
+        turns = self._diagnostic_totals["turns"]
+        sessions = len(self._all_served)
+        return {
+            "schema_version": "fusion-core-evaluation-diagnostics.v1",
+            **self._diagnostic_totals,
+            "sessions": sessions,
+            "mean_distinct_served": round(
+                sum(map(len, self._all_served.values())) / sessions, 6
+            ) if sessions else 0.0,
+            "mean_candidate_count": round(
+                self._diagnostic_totals["candidate_count"] / turns, 6
+            ) if turns else 0.0,
+        }
 
     def respond(
         self,
@@ -625,9 +683,16 @@ class FusionCoreAgent:
             fallback_order=fallback,
             supplemental_order=supplemental,
         )
-        return self._active_response(
+        response = self._active_response(
             parent_response, outcome, turn=turn, top_k=top_k
         )
+        self._record_diagnostics(
+            session_id,
+            int(snapshot.get("version", 1)),
+            response,
+            outcome,
+        )
+        return response
 
 
 __all__ = [

@@ -128,12 +128,17 @@ def _evaluate_and_close(
     catalog_ids: set[str],
     categories: dict[str, list[str]],
     products: dict[str, dict],
-) -> list[dict[str, object]]:
+) -> tuple[list[dict[str, object]], dict[str, object]]:
     agent = factory(**dict(flags))
     try:
-        return _normalized_sessions(
+        ledger = _normalized_sessions(
             evaluate(agent, samples, catalog_ids, categories, products)
         )
+        diagnostics_fn = getattr(agent, "evaluation_diagnostics", None)
+        diagnostics = diagnostics_fn() if callable(diagnostics_fn) else {}
+        if not isinstance(diagnostics, Mapping):
+            raise FusionEvaluationError("agent diagnostics must be a mapping")
+        return ledger, dict(diagnostics)
     finally:
         close = getattr(agent, "close", None)
         if callable(close):
@@ -141,17 +146,18 @@ def _evaluate_and_close(
 
 
 def _official_repeat(factory: Callable[..., object], flags: Mapping[str, object], samples: list[dict],
-                     catalog_ids: set[str], categories: dict[str, list[str]], products: dict[str, dict]) -> tuple[list[dict[str, object]], str]:
-    first = _evaluate_and_close(
+                     catalog_ids: set[str], categories: dict[str, list[str]], products: dict[str, dict]) -> tuple[list[dict[str, object]], str, dict[str, object]]:
+    first, first_diagnostics = _evaluate_and_close(
         factory, flags, samples, catalog_ids, categories, products
     )
-    repeat = _evaluate_and_close(
+    repeat, repeat_diagnostics = _evaluate_and_close(
         factory, flags, samples, catalog_ids, categories, products
     )
-    first_hash, repeat_hash = _sha(first), _sha(repeat)
+    first_hash = _sha({"ledger": first, "diagnostics": first_diagnostics})
+    repeat_hash = _sha({"ledger": repeat, "diagnostics": repeat_diagnostics})
     if first_hash != repeat_hash:
         raise FusionEvaluationError("official evaluator exact repeat mismatch")
-    return first, first_hash
+    return first, _sha(first), first_diagnostics
 
 
 def _cached_v212_ledger(
@@ -275,7 +281,7 @@ def attach_candidate_once(
         with proxy_path.open("r", encoding="utf-8") as handle:
             samples = [json.loads(line) for line in handle if line.strip()]
         catalog_ids, categories, products = catalog_index(str(catalog_path))
-        candidate, candidate_hash = _official_repeat(
+        candidate, candidate_hash, runtime_diagnostics = _official_repeat(
             factory, flags, samples, catalog_ids, categories, products
         )
         with np.load(labels_path, allow_pickle=False) as archive:
@@ -311,6 +317,7 @@ def attach_candidate_once(
             "comparator_name": comparator_name,
             "candidate_ledger_sha256": candidate_hash,
             "candidate_ledger_path": str(ledger_output),
+            "runtime_diagnostics": runtime_diagnostics,
             "candidate_breakdowns": _candidate_breakdowns(
                 candidate, samples, categories
             ),
