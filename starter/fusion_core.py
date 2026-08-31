@@ -23,6 +23,7 @@ from vendor.teammate_v1.err402.agents.v1 import (
     SessionState as V1SessionState,
 )
 from vendor.teammate_v1.err402.retrieval.catalog import (
+    CandidatePool,
     CatalogIndex,
     extract_department,
     normalized_text,
@@ -343,6 +344,7 @@ class FusionCore:
         turn: int,
         top_k: int,
         fallback_order: Sequence[object],
+        supplemental_order: Sequence[object] = (),
     ) -> FusionOutcome:
         fallback = _identifiers(fallback_order, "fallback_order")
         if self.mode == MODE_OFF:
@@ -384,6 +386,10 @@ class FusionCore:
             constraint_texts = tuple(item.text for item in v1_constraints)
             query_text = " ".join((projection.category, *constraint_texts))
             pool = self.catalog.candidates(projection.category, query_text)
+            supplemental = _identifiers(supplemental_order, "supplemental_order")
+            v1_candidate_count = len(pool.parent_asins)
+            combined = tuple(dict.fromkeys((*pool.parent_asins, *supplemental)))
+            pool = CandidatePool(combined, dict(pool.lexical_ranks))
             budget = AgentV1._budget_constraint(v1_constraints)
             context = QueryContext(
                 intent=projection.intent,
@@ -456,6 +462,9 @@ class FusionCore:
                     "output_changed": proposed[:top_k] != fallback[:top_k],
                     "state_committed": True,
                     "candidate_count": len(proposed),
+                    "v1_candidate_count": v1_candidate_count,
+                    "parent_route_count": len(supplemental),
+                    "parent_route_added": len(combined) - v1_candidate_count,
                     "hard_conflict_count": len(conflicts),
                     "unknown_is_neutral": True,
                     "immediate_no_repeat": True,
@@ -596,6 +605,15 @@ class FusionCoreAgent:
         )
         snapshot["profile"] = dict(self._profiles.get(session_id, {}))
         snapshot["intent"] = self._intents.get(session_id, "buying")
+        supplemental: Sequence[object] = ()
+        debug_rankings = getattr(self.parent, "debug_rankings", None)
+        if callable(debug_rankings):
+            try:
+                rankings = debug_rankings(session_id)
+                if isinstance(rankings, Mapping):
+                    supplemental = rankings.get("final", ())
+            except Exception:
+                supplemental = ()
         fallback = tuple(
             item["parent_asin"] for item in parent_response.get("recommendations", ())
         )
@@ -605,6 +623,7 @@ class FusionCoreAgent:
             turn=turn,
             top_k=top_k,
             fallback_order=fallback,
+            supplemental_order=supplemental,
         )
         return self._active_response(
             parent_response, outcome, turn=turn, top_k=top_k

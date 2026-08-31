@@ -124,8 +124,9 @@ class FakeScorer:
         self.order = order or list(catalog.products)
         self.calls = 0
 
-    def score(self, _pool: CandidatePool, _context: object) -> list[ScoredProduct]:
+    def score(self, pool: CandidatePool, _context: object) -> list[ScoredProduct]:
         self.calls += 1
+        allowed = set(pool.parent_asins)
         return [
             ScoredProduct(
                 self.catalog.products[identifier],
@@ -133,6 +134,7 @@ class FakeScorer:
                 {"category": 1.0},
             )
             for index, identifier in enumerate(self.order)
+            if identifier in allowed
         ]
 
 
@@ -205,6 +207,15 @@ class FusionCoreTests(unittest.TestCase):
         self.assertEqual(result.identifiers, ("P0", "P1", "P2"))
         self.assertEqual(catalog.calls, [("dress", "dress cotton")])
         self.assertFalse(result.diagnostics["fallback"])
+
+        catalog.candidates = lambda *_: CandidatePool(("P0",), {"P0": 1})
+        adapter.reset("union")
+        union = adapter.apply(
+            "union", state(), turn=1, top_k=2,
+            fallback_order=("F0", "F1"), supplemental_order=("P1",),
+        )
+        self.assertEqual(union.identifiers, ("P0", "P1"))
+        self.assertEqual(union.diagnostics["parent_route_added"], 1)
 
     def test_unknown_is_neutral_and_explicit_negative_violation_is_last(self) -> None:
         adapter, _catalog = core([
