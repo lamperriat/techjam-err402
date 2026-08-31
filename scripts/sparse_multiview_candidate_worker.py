@@ -1,4 +1,4 @@
-"""Isolated target-free worker for the frozen v2.19 sparse multiview probe.
+"""Isolated target-free worker for frozen sparse multiview trace generation.
 
 The worker consumes only the sealed catalog, visible-context cache, and one
 sealed variable-length C200 reference.  It calls the diagnostic sparse
@@ -69,9 +69,8 @@ EXPECTED_ATTRIBUTE_REGISTRY_SHA256 = (
 EXPECTED_EXECUTABLE = Path(r"D:\450\conda\envs\tiktok\python.exe")
 EXPECTED_PYTHON = "3.11.16"
 EXPECTED_SQLITE = "3.53.4"
-EXPECTED_PREREGISTRATION_BYTES = 20_271
-EXPECTED_PREREGISTRATION_SHA256 = (
-    "c5363e51e7d6248e958ec9225bea827a062fe11fe73a7129ef26c8a539a70fc4"
+EXPECTED_PREREGISTRATION_BLOB_SHA1 = (
+    "3cad1aba4f92d1107dd5179c24861d370d8e321b"
 )
 EXPECTED_CATALOG_PATH = PureWindowsPath(
     r"D:\tiktok\techjam-err402-fast-track\data\catalog.jsonl"
@@ -93,6 +92,12 @@ EXPECTED_C200_REFERENCE_PATHS = frozenset(
     }
 )
 EXPECTED_TRACE_ROOT = PureWindowsPath(PROJECT_ROOT.as_posix()) / "experiments" / "fast_track"
+V219_RESULT_DENIED_PATH = (
+    EXPECTED_TRACE_ROOT / "small_ranker_v2_19_registry_ca_g0_20260831.json"
+)
+V219_CACHE_DENIED_ROOT = (
+    EXPECTED_TRACE_ROOT / "small_ranker_v2_19_registry_ca_g0_cache_20260831"
+)
 PINNED_DEPENDENCY_BLOBS = {
     "evaluator/local_evaluator.py": "7c808347b31ef3121a9cbc4810ac3eb325f950ba",
     "scripts/c200_candidate_worker.py": "b94fddcf5a9b20ddde540f3f43ea9962982cb096",
@@ -113,6 +118,7 @@ MAX_CANDIDATE_CELL_RATIO = 2.0
 MAX_TRACE_BYTE_RATIO = 2.1
 
 NONCE_RE = re.compile(r"[0-9a-f]{32}")
+GIT_BLOB_RE = re.compile(r"[0-9a-f]{40}\Z")
 ASIN_SHAPE_RE = re.compile(
     r"(?<![A-Z0-9])B0[A-Z0-9]{8}(?![A-Z0-9])", re.IGNORECASE
 )
@@ -290,6 +296,19 @@ def _lexical_path_key(path: PureWindowsPath) -> tuple[str, ...]:
     return tuple(part.casefold() for part in path.parts)
 
 
+def _is_v219_trace_path_denied(path: Path | PureWindowsPath) -> bool:
+    lexical = path if isinstance(path, PureWindowsPath) else _lexical_windows_path(path)
+    key = _lexical_path_key(lexical)
+    result_key = _lexical_path_key(V219_RESULT_DENIED_PATH)
+    cache_key = _lexical_path_key(V219_CACHE_DENIED_ROOT)
+    return key == result_key or key == cache_key or key[: len(cache_key)] == cache_key
+
+
+def _guard_v219_trace_namespace(path: Path | PureWindowsPath) -> None:
+    if _is_v219_trace_path_denied(path):
+        raise SparseMultiviewWorkerError("V219_NAMESPACE_DENIED")
+
+
 def _raw_identity(path: Path, *, rows: bool = False) -> SourceIdentity:
     _require_regular_file(path, "SOURCE_UNAVAILABLE")
     before = _snapshot(path)
@@ -327,7 +346,7 @@ def _tracked_source_identities() -> dict[str, SourceIdentity]:
     paths = {
         "preregistration": PROJECT_ROOT
         / "configs"
-        / "small_ranker_v2_19.registry_ca_g0_preregistration.json",
+        / "small_ranker_v2_20.sparse_route_cache_preregistration.json",
         "scripts/sparse_multiview_candidate_worker.py": Path(__file__).resolve(),
         "starter/sparse_multiview.py": PROJECT_ROOT / "starter" / "sparse_multiview.py",
         **{
@@ -336,10 +355,9 @@ def _tracked_source_identities() -> dict[str, SourceIdentity]:
         },
     }
     identities = {name: _raw_identity(path) for name, path in paths.items()}
-    preregistration = identities["preregistration"]
     if (
-        preregistration.bytes != EXPECTED_PREREGISTRATION_BYTES
-        or preregistration.sha256 != EXPECTED_PREREGISTRATION_SHA256
+        _raw_git_blob_sha1(paths["preregistration"])
+        != EXPECTED_PREREGISTRATION_BLOB_SHA1
     ):
         raise SparseMultiviewWorkerError("PREREGISTRATION_IDENTITY")
     if any(
@@ -360,6 +378,25 @@ def _source_identity_reports(
             report["raw_git_blob_sha1"] = PINNED_DEPENDENCY_BLOBS[name]
         reports[name] = report
     return reports
+
+
+def _validate_semantic_source_blobs(args: argparse.Namespace) -> None:
+    """Bind the v2.20 worker/core bytes to the parent-verified Git tree."""
+
+    if not bool(getattr(args, "semantic_audit", False)):
+        return
+    expected_worker = getattr(args, "expected_worker_blob", None)
+    expected_sparse = getattr(args, "expected_sparse_blob", None)
+    if (
+        not isinstance(expected_worker, str)
+        or GIT_BLOB_RE.fullmatch(expected_worker) is None
+        or not isinstance(expected_sparse, str)
+        or GIT_BLOB_RE.fullmatch(expected_sparse) is None
+        or _raw_git_blob_sha1(Path(__file__).resolve()) != expected_worker
+        or _raw_git_blob_sha1(PROJECT_ROOT / "starter" / "sparse_multiview.py")
+        != expected_sparse
+    ):
+        raise SparseMultiviewWorkerError("EXPECTED_SOURCE_BLOB_MISMATCH")
 
 
 def _same_identities(
@@ -666,6 +703,29 @@ def canonical_trace_line(ordinal: int, turn: int, candidates: object) -> bytes:
     ) + b"\n"
 
 
+def canonical_semantic_line(ordinal: int, turn: int, result: object) -> bytes:
+    """Hash-only audit encoding for a complete expansion result."""
+
+    if (
+        not isinstance(ordinal, int)
+        or isinstance(ordinal, bool)
+        or not 1 <= ordinal <= SESSION_COUNT
+        or not isinstance(turn, int)
+        or isinstance(turn, bool)
+        or not 1 <= turn <= TURN_COUNT
+    ):
+        raise SparseMultiviewWorkerError("SEMANTIC_AUDIT_ORDINAL")
+    as_dict = getattr(result, "as_dict", None)
+    if not callable(as_dict):
+        raise SparseMultiviewWorkerError("SEMANTIC_AUDIT_SCHEMA")
+    payload = as_dict()
+    if not isinstance(payload, Mapping):
+        raise SparseMultiviewWorkerError("SEMANTIC_AUDIT_SCHEMA")
+    # Ordinal/turn validate the caller's frozen traversal; their order is encoded
+    # by the sequence of LF-delimited canonical ExpansionResult payloads.
+    return _canonical_bytes(payload) + b"\n"
+
+
 def _nearest_rank(values: Sequence[float], fraction: float) -> float:
     ordered = sorted(float(value) for value in values)
     if not ordered:
@@ -755,6 +815,7 @@ def _peak_rss_bytes() -> tuple[int | None, str]:
 
 
 def _validate_trace_paths(output: Path, nonce: str) -> Path:
+    _guard_v219_trace_namespace(output)
     _require_real_ancestry(output.parent, "TRACE_PARENT_UNSAFE")
     if not output.parent.is_dir() or _is_link_or_reparse(output.parent):
         raise SparseMultiviewWorkerError("TRACE_PARENT_UNAVAILABLE")
@@ -826,11 +887,33 @@ def _validate_arguments(args: argparse.Namespace, progress: WorkerProgress) -> N
         raise SparseMultiviewWorkerError("NONCE_INVALID")
     if args.session_limit not in ALLOWED_SESSION_LIMITS:
         raise SparseMultiviewWorkerError("SESSION_LIMIT_INVALID")
+    if not isinstance(getattr(args, "semantic_audit", False), bool) or not isinstance(
+        getattr(args, "semantic_cache", False), bool
+    ):
+        raise SparseMultiviewWorkerError("SEMANTIC_MODE_INVALID")
+    if bool(getattr(args, "semantic_cache", False)) and not bool(
+        getattr(args, "semantic_audit", False)
+    ):
+        raise SparseMultiviewWorkerError("SEMANTIC_AUDIT_REQUIRED")
+    expected_worker_blob = getattr(args, "expected_worker_blob", None)
+    expected_sparse_blob = getattr(args, "expected_sparse_blob", None)
+    semantic_audit = bool(getattr(args, "semantic_audit", False))
+    if semantic_audit:
+        if (
+            not isinstance(expected_worker_blob, str)
+            or GIT_BLOB_RE.fullmatch(expected_worker_blob) is None
+            or not isinstance(expected_sparse_blob, str)
+            or GIT_BLOB_RE.fullmatch(expected_sparse_blob) is None
+        ):
+            raise SparseMultiviewWorkerError("EXPECTED_SOURCE_BLOB_INVALID")
+    elif expected_worker_blob is not None or expected_sparse_blob is not None:
+        raise SparseMultiviewWorkerError("EXPECTED_SOURCE_BLOB_UNSCOPED")
     progress.nonce = nonce
     catalog = _lexical_windows_path(args.catalog)
     context = _lexical_windows_path(args.context)
     reference = _lexical_windows_path(args.c200_reference)
     output = _lexical_windows_path(args.trace_output)
+    _guard_v219_trace_namespace(output)
     if (
         _lexical_path_key(catalog) != _lexical_path_key(EXPECTED_CATALOG_PATH)
         or _lexical_path_key(context) != _lexical_path_key(EXPECTED_CONTEXT_PATH)
@@ -881,6 +964,7 @@ def run(
 
     state.phase = "SOURCE_VALIDATION"
     source_start = _tracked_source_identities()
+    _validate_semantic_source_blobs(args)
     state.source_identities = _source_identity_reports(source_start)
     c200_contract, sparse_multiview, registry_hash = runtime_loader()
     _verify_imported_module_origins(
@@ -888,6 +972,10 @@ def run(
         sparse_multiview,
         registry_hash,
     )
+    presealed_sources = _tracked_source_identities()
+    _validate_semantic_source_blobs(args)
+    if not _same_identities(source_start, presealed_sources):
+        raise SparseMultiviewWorkerError("TRACKED_SOURCE_CHANGED_BEFORE_SEALED_ACCESS")
 
     state.phase = "TRACE_PREPARATION"
     partial_path = _validate_trace_paths(args.trace_output, state.nonce or "")
@@ -943,11 +1031,20 @@ def run(
     reference_prefix_bytes = 0
     reference_prefix_cells = 0
     trace_digest = hashlib.sha256()
+    semantic_digest = hashlib.sha256()
+    semantic_audit = bool(getattr(args, "semantic_audit", False))
+    semantic_cache = bool(getattr(args, "semantic_cache", False))
+    cache_before_close: Mapping[str, Any] | None = None
+    cache_after_close: Mapping[str, Any] | None = None
     processed_turns = 0
 
     state.phase = "EXPANDER_INITIALIZATION"
     factory = expander_factory or sparse_multiview.SparseMultiviewExpander
-    expander = factory(args.catalog, enabled=True)
+    expander = (
+        factory(args.catalog, enabled=True, cache_enabled=True)
+        if semantic_cache
+        else factory(args.catalog, enabled=True)
+    )
     try:
         expander.validate()
         state.phase = "TRAJECTORY"
@@ -998,6 +1095,10 @@ def run(
                         candidates = validate_expansion_result(
                             result, sealed_c200, catalog_ids
                         )
+                        if semantic_audit:
+                            semantic_digest.update(
+                                canonical_semantic_line(ordinal, turn, result)
+                            )
                         trace_line = canonical_trace_line(ordinal, turn, candidates)
                         _write_all(descriptor, trace_line)
                         trace_digest.update(trace_line)
@@ -1025,6 +1126,11 @@ def run(
                     if context_handle.read(1) or reference_handle.read(1):
                         raise SparseMultiviewWorkerError("SEALED_SOURCE_EXCESS_ROWS")
             os.fsync(descriptor)
+            if semantic_cache:
+                diagnostics = getattr(expander, "cache_diagnostics", None)
+                if not callable(diagnostics):
+                    raise SparseMultiviewWorkerError("CACHE_DIAGNOSTICS_UNAVAILABLE")
+                cache_before_close = diagnostics()
         finally:
             os.close(descriptor)
     finally:
@@ -1034,6 +1140,10 @@ def run(
             expander.close()
         finally:
             state.sqlite_closed = bool(getattr(expander, "closed", False))
+            if semantic_cache:
+                diagnostics = getattr(expander, "cache_diagnostics", None)
+                if callable(diagnostics):
+                    cache_after_close = diagnostics()
 
     if not state.sqlite_closed:
         raise SparseMultiviewWorkerError("SQLITE_NOT_CLOSED")
@@ -1050,6 +1160,7 @@ def run(
     _validate_end_identity(args.context, context_identity, c200_contract)
     _validate_end_identity(args.c200_reference, reference_identity, c200_contract)
     source_end = _tracked_source_identities()
+    _validate_semantic_source_blobs(args)
     if not _same_identities(source_start, source_end):
         raise SparseMultiviewWorkerError("TRACKED_SOURCE_CHANGED")
 
@@ -1144,6 +1255,20 @@ def run(
         "session_limit": args.session_limit,
         "source_identities": state.source_identities,
     }
+    if semantic_audit:
+        summary["semantic_trace"] = {
+            "rows": expected_records,
+            "sha256": semantic_digest.hexdigest(),
+        }
+    if semantic_cache:
+        if not isinstance(cache_before_close, Mapping) or not isinstance(
+            cache_after_close, Mapping
+        ):
+            raise SparseMultiviewWorkerError("CACHE_DIAGNOSTICS_INCOMPLETE")
+        summary["cache"] = {
+            "after_close": dict(cache_after_close),
+            "before_close": dict(cache_before_close),
+        }
     receipt: dict[str, Any] = {
         "error_code": "NONE",
         "kind": "receipt",
@@ -1278,6 +1403,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--session-limit", type=int, choices=ALLOWED_SESSION_LIMITS, required=True
     )
+    parser.add_argument("--semantic-audit", action="store_true")
+    parser.add_argument("--semantic-cache", action="store_true")
+    parser.add_argument("--expected-worker-blob")
+    parser.add_argument("--expected-sparse-blob")
     return parser
 
 
