@@ -923,6 +923,14 @@ def test_runner_and_powershell_freeze_durable_claim_outer_terminal_protocol() ->
     assert "fsync" in combined or "Flush(true)" in combined
     assert "INVALID_ONE_SHOT_CONSUMED" in combined
     assert "COMPLETE" in combined
+    assert "[AllowEmptyCollection()][byte[]]$Bytes" in powershell
+    assert "$captured.Stderr.Length -ne 0" in powershell
+    assert '"--min-parents=2", "$PreregCommit..$Commit"' in powershell
+    git_checkpoint = inspect.getsource(probe._validate_git_checkpoint)
+    assert '"merge-base", "--is-ancestor"' in git_checkpoint
+    assert '"--min-parents=2"' in git_checkpoint
+    assert "PREREG_COMMIT," in git_checkpoint
+    assert "implementation_commit," in git_checkpoint
     assert "D:/tiktok/.v221_runtime" in combined or r"D:\tiktok\.v221_runtime" in combined
     assert "Remove-Item" not in powershell
 

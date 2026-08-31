@@ -33,7 +33,7 @@ RUNNER_PATH = PROJECT_ROOT + "/scripts/probe_sparse_union_g0.py"
 RUNNER_MODULE = "scripts.probe_sparse_union_g0"
 # Replaced exactly once after the final runner blob exists.  Keeping the value
 # conspicuous makes an unpatched implementation fail closed.
-RUNNER_BLOB = "a18fba6b2a1f9fd11a85ce13b06c32e37b2e8c9f"
+RUNNER_BLOB = "f9309e96c3dabe8db3e65d71f92d64ce5baed398"
 WORKER_PATH = PROJECT_ROOT + "/scripts/sparse_union_g0_worker.py"
 WORKER_MODULE = "scripts.sparse_union_g0_worker"
 WORKER_BLOB = "93d926400b54bc829b5f743294566f5254371a80"

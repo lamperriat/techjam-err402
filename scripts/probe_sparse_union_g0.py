@@ -484,7 +484,9 @@ def _git(*arguments: str, binary: bool = False) -> str | bytes:
         "cat-file",
         "config",
         "diff-tree",
+        "merge-base",
         "rev-parse",
+        "rev-list",
         "symbolic-ref",
     }
     if not arguments or arguments[0] not in allowed_first:
@@ -596,8 +598,11 @@ def _validate_git_checkpoint(implementation_commit: str) -> dict[str, Any]:
         raise SparseUnionProbeError("BRANCH_DRIFT")
     if _git("rev-parse", REMOTE_REF) != implementation_commit:
         raise SparseUnionProbeError("IMPLEMENTATION_NOT_PUSHED")
-    if _git("rev-parse", f"{implementation_commit}^") != PREREG_COMMIT:
-        raise SparseUnionProbeError("IMPLEMENTATION_PARENT")
+    if implementation_commit == PREREG_COMMIT:
+        raise SparseUnionProbeError("IMPLEMENTATION_COMMIT_REQUIRED")
+    _git("merge-base", "--is-ancestor", PREREG_COMMIT, implementation_commit)
+    if _git("rev-list", "--min-parents=2", f"{PREREG_COMMIT}..{implementation_commit}"):
+        raise SparseUnionProbeError("IMPLEMENTATION_MERGE_DENIED")
     if _git("rev-parse", f"{PREREG_COMMIT}^") != PARENT_COMMIT:
         raise SparseUnionProbeError("PREREG_PARENT")
     if _git("rev-parse", f"{PREREG_COMMIT}:{PREREG_RELATIVE}") != PREREG_BLOB:
@@ -608,7 +613,12 @@ def _validate_git_checkpoint(implementation_commit: str) -> dict[str, Any]:
     if remote != REMOTE_URL:
         raise SparseUnionProbeError("REMOTE_DRIFT")
     changed_raw = _git(
-        "diff-tree", "--no-commit-id", "--name-only", "-r", implementation_commit
+        "diff-tree",
+        "--no-commit-id",
+        "--name-only",
+        "-r",
+        PREREG_COMMIT,
+        implementation_commit,
     )
     changed = frozenset(line for line in str(changed_raw).splitlines() if line)
     if changed != IMPLEMENTATION_PATHS:

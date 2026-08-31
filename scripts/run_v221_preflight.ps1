@@ -31,6 +31,7 @@ $GitVersion = "git version 2.45.2.windows.1"
 $GitDir = "D:\tiktok\techjam-err402\.git\worktrees\techjam-v2-21-gloss-g0"
 $GitDirPosix = "D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-21-gloss-g0"
 $Branch = "small-ranker-v2.21-gloss-g0"
+$ParentCommit = "d7bc963188e1ba357539c22e75a016611ad52ba2"
 $PreregCommit = "b81351a0657411ab04810bb4740b35b407d175cc"
 $PreregBlob = "5ee89ebda59c3dbf973fc3cd3f127ec34f47d1fa"
 $PreregBytes = 19911L
@@ -328,7 +329,7 @@ function New-GitEnvironment {
 }
 
 function Convert-Utf8Strict {
-    param([Parameter(Mandatory = $true)][byte[]]$Bytes)
+    param([Parameter(Mandatory = $true)][AllowEmptyCollection()][byte[]]$Bytes)
     $encoding = New-Object System.Text.UTF8Encoding($false, $true)
     try {
         return $encoding.GetString($Bytes)
@@ -349,7 +350,7 @@ function Invoke-FrozenGit {
         "--no-replace-objects"
     )
     $captured = Invoke-CapturedProcess -FileName $GitExe -Arguments ($prefix + $Arguments) -WorkingDirectory "C:\Windows\System32" -Environment (New-GitEnvironment) -TimeoutMilliseconds 30000
-    if ($captured.TimedOut -or $captured.Stdout.Length -gt 1048576 -or $captured.Stderr.Length -gt 65536 -or $AllowedExitCodes -notcontains $captured.ExitCode) {
+    if ($captured.TimedOut -or $captured.Stdout.Length -gt 1048576 -or $captured.Stderr.Length -ne 0 -or $AllowedExitCodes -notcontains $captured.ExitCode) {
         Throw-Code "GIT_COMMAND_FAILED"
     }
     $text = Convert-Utf8Strict -Bytes $captured.Stdout
@@ -445,15 +446,15 @@ function Assert-PushedCheckpoint {
     if ($resolved -cne $Commit -or $local -cne $Commit -or $remote -cne $Commit) {
         Throw-Code "PUSHED_REF_MISMATCH"
     }
-    $parentLine = Get-GitSingleLine -Arguments @("rev-list", "--parents", "-n", "1", $Commit)
-    $parents = $parentLine.Split(@(" "), [System.StringSplitOptions]::RemoveEmptyEntries)
-    if ($parents.Length -ne 2 -or $parents[0] -cne $Commit -or $parents[1] -cne $PreregCommit) {
-        Throw-Code "IMPLEMENTATION_PARENT_DRIFT"
-    }
+    if ($Commit -ceq $PreregCommit) { Throw-Code "IMPLEMENTATION_COMMIT_REQUIRED" }
+    $preregParent = Get-GitSingleLine -Arguments @("rev-parse", "$PreregCommit^")
+    if ($preregParent -cne $ParentCommit) { Throw-Code "PREREG_PARENT_DRIFT" }
     $ancestor = Invoke-FrozenGit -Arguments @("merge-base", "--is-ancestor", $PreregCommit, $Commit) -AllowedExitCodes @(0, 1)
     if ($ancestor.ExitCode -ne 0) {
         Throw-Code "PREREG_NOT_ANCESTOR"
     }
+    $mergeCommits = (Invoke-FrozenGit -Arguments @("rev-list", "--min-parents=2", "$PreregCommit..$Commit")).Text.Trim()
+    if (-not [string]::IsNullOrEmpty($mergeCommits)) { Throw-Code "IMPLEMENTATION_MERGE_DENIED" }
     $changedRaw = (Invoke-FrozenGit -Arguments @("diff-tree", "--no-commit-id", "--name-only", "--no-renames", "-r", $PreregCommit, $Commit)).Text
     $changed = @($changedRaw -split "`r?`n" | Where-Object { -not [string]::IsNullOrEmpty($_) } | Sort-Object)
     if ($changed.Count -ne $ImplementationPaths.Count) {
