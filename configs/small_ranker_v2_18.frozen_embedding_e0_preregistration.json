@@ -1,0 +1,261 @@
+{
+  "schema_version": "small-ranker-frozen-embedding-e0-preregistration.v1",
+  "status": "PREREGISTERED_BEFORE_E0_IMPLEMENTATION_AND_CURRENT_BENCHMARK_OUTCOME",
+  "recorded_on": "2026-08-31",
+  "experiment_id": "SR-V2.18-FROZEN-EMBEDDING-E0-DENSE400",
+  "parent_commit": "c94747edd890c56d4bf6a30edf86777f5868ded8",
+  "branch": "small-ranker-v2.18-frozen-embedding-e0",
+  "evidence_scope": "full 2000-session train_explore shared-cohort diagnostic candidate-recall probe; target-cluster and outer-fold views are diagnostic and are not private validation",
+  "global_incumbent": {
+    "commit": "7d08e144fe6f589d64fab21f1b68c3ec2feeb684",
+    "hit_rate_at_10": 0.991,
+    "mrr": 0.695795,
+    "mttc": 2.869,
+    "technical_score": 0.866858,
+    "served_by_this_probe": false
+  },
+  "prior_stage": {
+    "c200_result_commit": "c94747edd890c56d4bf6a30edf86777f5868ded8",
+    "c200_status": "C200_RECALL_NO_GO_CONTINUE_C400",
+    "c200_recall_sessions": 1986,
+    "c200_absent_frontier_sessions": 14,
+    "c400_result_commit": "82753a422774fbdedef28d738891cd51d122109b",
+    "c400_receipt_raw_sha256": "0c323735a178351b5ab2a2689c3d331e85a56bb6d369c65b29f0d5141cffd348",
+    "c400_status": "INVALID_ONE_SHOT_CONSUMED",
+    "c400_interpretation": "evaluator-side import implementation failure after target-free gates; neither Go nor algorithm No-Go; never rerun and never used as an E0 candidate baseline"
+  },
+  "historical_p7_boundary": {
+    "source": {
+      "path": "docs/algorithm_architecture_research.md",
+      "git_blob_oid": "f6e9c74372fba75a30c620b69cd334c977337d00",
+      "section": "P7 frozen result"
+    },
+    "model_and_route": "same frozen BGE-small model/index, Dense-120, sparse Broad-120 stable-union Strict-80, diagnostic-only",
+    "cohort": "separate product-disjoint 200-session P7 selection cohort; this preregistration does not open or rerun that protected corpus",
+    "observed_aggregate": {
+      "sparse_session_recall": 198,
+      "dense_session_recall_at_120": 115,
+      "sparse_dense_union_session_recall": 198,
+      "rescued_sessions": 0,
+      "query_exact_search_p95_milliseconds": 30.6435,
+      "shadow_control_wall_ratio": 1.5521,
+      "shadow_control_peak_rss_ratio": 2.7595,
+      "decision": "reject_p7_bge"
+    },
+    "why_current_probe_is_not_a_p7_rerun": [
+      "different current shared 2000-session diagnostic cohort",
+      "full sealed variable-length C200 prefix instead of raw Broad-120 union Strict-80",
+      "Dense depth frozen once at 400 instead of 120",
+      "all ten sealed causal turns instead of only P7 control-reached eligible turns",
+      "candidate-recall-only evidence with unchanged served Top10"
+    ]
+  },
+  "frozen_embedding_assets": {
+    "reuse_only": "never rebuild, overwrite, modify, copy, quantize, convert, download, or train the model/index in this experiment",
+    "model": {
+      "repository": "BAAI/bge-small-en-v1.5",
+      "revision": "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a",
+      "license": "MIT",
+      "model_card": "https://huggingface.co/BAAI/bge-small-en-v1.5",
+      "directory": "D:/tiktok/techjam-err402-fast-track/experiments/p7_assets/bge-small-en-v1.5",
+      "onnx": {
+        "path": "onnx/model.onnx",
+        "bytes": 133093490,
+        "sha256": "828e1496d7fabb79cfa4dcd84fa38625c0d3d21da474a00f08db0f559940cf35"
+      },
+      "tokenizer": {
+        "path": "tokenizer.json",
+        "bytes": 711396,
+        "sha256": "d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66"
+      },
+      "all_required_files": "exact eleven-entry sizes and hashes from configs/p7_bge_small_en_v1_5.json"
+    },
+    "license_identity": {
+      "source": "Git LF blob, not autocrlf working-tree bytes",
+      "path": "third_party/bge-small-en-v1.5/LICENSE",
+      "git_blob_oid": "360931513aa6c02f933a403202afa99ac2c5bc88",
+      "bytes": 1065,
+      "sha256": "587a673933425dbc36ec61268d3b954051b2d3ef3c9b322ede357976055ffdd5"
+    },
+    "model_spec": {
+      "path": "configs/p7_bge_small_en_v1_5.json",
+      "identity_authority": "Git LF blob bytes plus parsed canonical JSON; autocrlf working-tree bytes are explicitly non-authoritative",
+      "git_blob_oid": "d007e8a4dd5121109ea94dc250b778c29c7aa3ab",
+      "raw_bytes": 11976,
+      "raw_sha256": "c27107edcab9f40f0aa8ba7b003434672e1c6c7fe7714b86f762768d7d3a4614",
+      "canonical_sha256": "e71d0cad480c89eac25ad2b276de9a4e7153e1ec2f3bdcc793682f183a592200"
+    },
+    "index": {
+      "directory": "D:/tiktok/techjam-err402-fast-track/experiments/p7_index",
+      "path_policy": "model and index roots must be ordinary local directories, not symlinks, junctions, reparse points, or Hugging Face cache aliases",
+      "manifest": {
+        "path": "semantic-index.manifest.json",
+        "bytes": 9474,
+        "sha256": "cca932a8b4d0a160e0a409ec6ce9cf3b68c99e3b95bddb911b9c7d83b67365ba"
+      },
+      "matrix": {
+        "path": "embeddings.npy",
+        "bytes": 76800128,
+        "sha256": "84897381c106b909b9e3d44229187d12f23796f108cfec97904db1cbeeb2d407",
+        "dtype": "float32",
+        "shape": [50000, 384]
+      },
+      "ordered_asins": {
+        "path": "parent_asins.txt",
+        "bytes": 550000,
+        "sha256": "3af465b23ff2d33614501472edf02d2953ccfc170d2fe3348d55cd51c8ef0d54",
+        "count": 50000
+      },
+      "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+      "required_asset_bytes": 211493793,
+      "historical_build": {
+        "wall_seconds": 7422.871804,
+        "peak_rss_bytes": 4844965888,
+        "interpretation": "historical sunk build cost only; rebuilding is forbidden"
+      }
+    }
+  },
+  "encoder_and_search_identity": {
+    "runtime": {
+      "executable": "D:/450/conda/envs/tiktok/python.exe",
+      "python": "3.11.16",
+      "numpy": "2.4.6",
+      "onnxruntime": "1.29.0",
+      "tokenizers": "0.23.1",
+      "provider": "CPUExecutionProvider",
+      "gpu_used": false,
+      "network_required": false
+    },
+    "encoder": {
+      "dimensions": 384,
+      "max_length": 256,
+      "pooling": "first_token_cls",
+      "normalization": "l2_float32",
+      "query_instruction": "Represent this sentence for searching relevant passages: ",
+      "batch_size": 32
+    },
+    "query": "single ASCII-space join of the frozen Agent _query_terms at the pre-P11 boundary after current visible state/override processing; empty query gives an empty dense route",
+    "search": "exact full float32 matrix dot product",
+    "dense_depth": 400,
+    "dense_order": "score descending then parent_asin ascending; stable over the parent_asin-ascending index",
+    "tracked_runtime_source": {
+      "starter/semantic.py": "926c3db3acecf433a4da0c4f83cb0b6d165511a3",
+      "starter/p7_lab.py": "5a84ee82163314de28555aec0096f5abbb41f5ae"
+    }
+  },
+  "sealed_current_inputs": {
+    "catalog": {
+      "path": "D:/tiktok/techjam-err402-fast-track/data/catalog.jsonl",
+      "rows": 50000,
+      "bytes": 60546327,
+      "sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67"
+    },
+    "visible_context": {
+      "path": "D:/tiktok/techjam-v2-16-c200-recall/experiments/fast_track/c200_candidate_recall_cache_20260831/visible_context.jsonl",
+      "rows": 2000,
+      "turns": 20000,
+      "bytes": 47168882,
+      "sha256": "f30a98700da5d480731fe7e82c87c40a22f06de290e069e20dc68f9fefecd20f",
+      "redacted_message_count": 8
+    },
+    "c200_reference_traces": [
+      {
+        "path": "D:/tiktok/techjam-v2-16-c200-recall/experiments/fast_track/c200_candidate_recall_cache_20260831/replica_a.jsonl",
+        "rows": 20000,
+        "bytes": 32226135,
+        "sha256": "a8589749376f48f019997a618481578dde36be4ca1fc723e8ed00056c23e40dc"
+      },
+      {
+        "path": "D:/tiktok/techjam-v2-16-c200-recall/experiments/fast_track/c200_candidate_recall_cache_20260831/replica_b.jsonl",
+        "rows": 20000,
+        "bytes": 32226135,
+        "sha256": "a8589749376f48f019997a618481578dde36be4ca1fc723e8ed00056c23e40dc"
+      }
+    ],
+    "c200_candidate_cells": 2425785,
+    "normalized_c100_bytes": 26690930,
+    "normalized_c100_sha256": "b22b035cb7789570f36db6c52256e5deb67f593f90cbbc5c334d48f2f0a01a67",
+    "candidate_recall_sanity": {
+      "c10": 1895,
+      "c20": 1943,
+      "c50": 1982,
+      "c100": 1986,
+      "c200": 1986
+    }
+  },
+  "unique_mechanism": {
+    "name": "FROZEN_BGE_DENSE400_STABLE_TAIL_AFTER_FULL_VARIABLE_C200",
+    "dense_route": "one frozen Dense-400 route from the current causal visible-state query",
+    "candidate_surface": "complete sealed ordered variable-length C200 followed by Dense-400 identifiers not already in C200, preserving dense order, capped at 400 without padding",
+    "retention": "the complete C200 is an exact ordered prefix; old candidate loss and candidate-level hit-to-miss are structurally zero",
+    "served_top10": "unchanged production C200 first 10 after control P11; dense candidates are diagnostic only",
+    "unchanged": [
+      "catalog embedding matrix, BGE model, tokenizer, pooling, query instruction and search tie order",
+      "production sparse retrieval, fusion, coverage, P11, small-ranker, question order, session state and Top10",
+      "catalog, visible context, C200 trace, proxy, labels, folds and evaluator semantics"
+    ],
+    "runtime": "target-blind, causal, local-only, deterministic, diagnostic-only and default off"
+  },
+  "formal_protocol": {
+    "entrypoint": "direct-script and python -m synthetic checks must both succeed before commit; formal direct entrypoint explicitly bootstraps repository root before evaluator-side imports",
+    "preflight": "may read only Git, environment, catalog, tracked sources, P7 model/index/license identities, sealed C200 aggregate/context/traces and historical tracked documentation; it must not stat/open/hash proxy, labels, P7 selection, calibration, selection, confirmation, public or Amazon heldout",
+    "receipt": {
+      "fixed_output": "experiments/fast_track/small_ranker_v2_18_frozen_embedding_e0_20260831.json",
+      "creation": "prepared real parent, O_WRONLY|O_CREAT|O_EXCL, canonical pending LF and fsync; any existing state forbids rerun",
+      "failure": "catch BaseException and durably replace only through the same descriptor with INVALID_ONE_SHOT_CONSUMED"
+    },
+    "worker_phase": "two simultaneous fresh offline CPU workers receive only catalog, visible context, one sealed C200 reference, frozen BGE assets and frozen semantic index; each recomputes the frozen control path solely to derive causal current-state query terms and computes Dense-400 only at the pre-P11 boundary; every recomputed control turn must exactly match the sealed C200 reference before any outcome is opened",
+    "pre_target_gates": "both workers close Agent/SQLite/model/index, publish O_EXCL traces, pass full variable-C200 prefix, unchanged Top10, dense route, schema, catalog, exact-repeat, source, Git and resource gates",
+    "join_phase": "only then open proxy once with same-handle double-hash/fstat for target/eligibility and read numeric outer_fold then family_index; compute aggregate membership only",
+    "forbidden": "do not invoke the C200 or C400 experiment runners, rebuild either cache, or reinterpret either receipt; the worker's target-free control recomputation is only an identity guard needed to derive causal query terms and is not a new C200/C400 experiment; no index rebuild, fit, threshold selection, full Agent evaluator, protected split, network, GPU, output identifiers, or per-session vectors"
+  },
+  "resource_budget": {
+    "total_wall_seconds_maximum": 3600,
+    "cold_semantic_initialization_seconds_maximum": 10,
+    "agent_respond_p95_milliseconds_maximum": 400,
+    "dense_query_exact_search_p95_milliseconds_maximum": 100,
+    "per_worker_peak_working_set_bytes_maximum": 1610612736,
+    "two_worker_peak_sum_bytes_maximum": 3221225472,
+    "required_asset_bytes_maximum": 225000000,
+    "candidate_cells_union_over_c100_maximum": 4.0,
+    "candidate_cells_union_over_c200_maximum": 3.3,
+    "trace_bytes_union_over_c100_maximum": 4.1,
+    "trace_bytes_union_over_c200_maximum": 3.4,
+    "network_attempt_count_maximum": 0,
+    "gpu_peak_bytes_maximum": 0
+  },
+  "exact_repeat": "two fresh worker trace bytes, hashes, record counts, ordered candidate arrays, recall aggregates and inflation aggregates are identical; timings and RSS are excluded",
+  "decision": {
+    "recall_go": "all integrity/resource gates pass and C200-plus-Dense400 recall is strictly above sealed C200 with at least one incremental target cluster",
+    "recall_no_go": "all integrity/resource gates pass and C200-plus-Dense400 recall equals sealed C200",
+    "embedding_adapter_e1_gate": "strict positive target-uniform recall, at least two outer folds, at least one non-clothing incremental taxonomy, no candidate loss, exact repeat and all resource gates pass",
+    "top10_global_promotion": false,
+    "next_stage": "record the unique result and continue to deterministic GLoSS G0; only a passing E1 gate can later authorize the embedding adapter",
+    "fallback_order": ["SR-V2.12-FIXED-TWO-PAGE-GRACE", "v1.9", "P11", "R08"]
+  },
+  "frozen_tracked_blobs": {
+    "starter/agent.py": "421c6d43c598102b8fefb181b72bab5da4bf1294",
+    "starter/coverage.py": "59a6507fef63afa0d9761323f5771a52741c811a",
+    "starter/semantic.py": "926c3db3acecf433a4da0c4f83cb0b6d165511a3",
+    "starter/p7_lab.py": "5a84ee82163314de28555aec0096f5abbb41f5ae",
+    "scripts/c200_candidate_worker.py": "b94fddcf5a9b20ddde540f3f43ea9962982cb096",
+    "evaluator/local_evaluator.py": "7c808347b31ef3121a9cbc4810ac3eb325f950ba"
+  },
+  "checkpoint_choreography": {
+    "remote": "origin",
+    "remote_url": "https://github.com/lamperriat/techjam-err402.git",
+    "preregistration_direct_parent": "c94747edd890c56d4bf6a30edf86777f5868ded8",
+    "preregistration_exact_changed_paths": [
+      "configs/small_ranker_v2_18.frozen_embedding_e0_preregistration.json"
+    ],
+    "implementation_direct_parent": "THIS_PREREGISTRATION_COMMIT",
+    "implementation_exact_changed_paths": [
+      "scripts/e0_embedding_candidate_worker.py",
+      "scripts/probe_e0_embedding_candidate_recall.py",
+      "tests/test_e0_embedding_candidate_recall.py"
+    ],
+    "must_push_preregistration_before_implementation": true,
+    "must_push_implementation_before_preflight_or_receipt": true,
+    "history_rewrite_or_old_artifact_overwrite": false
+  }
+}
