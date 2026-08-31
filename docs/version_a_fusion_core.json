@@ -1,0 +1,67 @@
+{
+  "schema": "techjam.fusion-result.v1",
+  "version": "A - Fusion Core",
+  "branch": "deadline-v3.0-fusion-core",
+  "commit": "47bd9d813463ff09cbe23b7793120bf7ac6b5aeb",
+  "algorithm_commit": "2879de4d53ef0e8f7a10fc21e36c99723fecdc30",
+  "factory": "starter.fusion_core:FusionCoreAgent",
+  "runtime_flags": {
+    "mode": "active",
+    "force_v212_parent": true
+  },
+  "default_off": true,
+  "other_enabled": false,
+  "components": [
+    "teammate-v1 exact FTS1000 coarse-category candidate and ProductScorer",
+    "visible parent slot ledger and selective intent-version reset",
+    "supported-slot hard-conflict guard with unknown-neutral semantics",
+    "P11/v1.9/C100 target-blind candidate union scored by ProductScorer",
+    "immediate same-intent no-repeat with deterministic fallback",
+    "candidate-aware concrete-attribute question policy"
+  ],
+  "tests": {
+    "targeted_unittest": "20/20 passed",
+    "public_exact_repeat": true,
+    "cached_2k_exact_repeat": true,
+    "same_intent_repeat_slots": 0
+  },
+  "public_200": {
+    "hr_at_10": 0.955,
+    "mrr": 0.658046,
+    "mttc": 2.505,
+    "technical_score": 0.844814,
+    "first_turn_hr": 0.475,
+    "wall_seconds": 323.659376,
+    "rss_bytes": 1227976704,
+    "result_sha256": "7a993f0758a11b12f59d6e0f953d81aa5ed442cf6498ee369687da815d53515f"
+  },
+  "cached_2k_oof": {
+    "comparator": "v2.12 fixed-two-page grace",
+    "comparator_metrics": {
+      "hr_at_10": 0.991,
+      "mrr": 0.695795,
+      "mttc": 2.869,
+      "technical_score": 0.866858
+    },
+    "metrics": {
+      "hr_at_10": 0.9025,
+      "mrr": 0.525192,
+      "mttc": 3.285,
+      "technical_score": 0.763108,
+      "first_turn_hr": 0.358
+    },
+    "transitions_vs_comparator": {
+      "miss_to_hit": 3,
+      "hit_to_miss": 180,
+      "net": -177
+    },
+    "fold_hr": [0.9075, 0.91, 0.9, 0.8925, 0.9025],
+    "wall_seconds_single_recovery": 1778.186676,
+    "rss_peak_bytes": 1901236224,
+    "candidate_ledger_sha256": "7e6751c973ea2b1d66d3432954a04d2e63b8774e2143348af1458584ae5188aa",
+    "result_file_sha256": "b55b684a2f69aa4f810e3151dbc8c185c1ac7d6f613136939e1464b4303ffcc5"
+  },
+  "decision": "NO_GO_AS_DEFAULT",
+  "conclusion": "Directly stacking the individually strong mechanisms creates severe negative interaction on cached 2k. Preserve this version as a reproducible ablation point, not as the submission default.",
+  "next_ablation": "Keep the v2.12 first-two-page exploitation byte-identical and admit teammate-V1 fusion only as an unseen exploration tail after page two; separately test removing the hard-conflict guard before changing any weights."
+}
