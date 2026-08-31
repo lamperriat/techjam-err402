@@ -4337,7 +4337,16 @@ def _algorithm_fts_cache_privacy_self_check() -> bool:
             },
         )
     )
-    temp_parent = Path(os.environ.get("TEMP", tempfile.gettempdir()))
+    if isinstance(sys.pycache_prefix, str) and sys.pycache_prefix:
+        temp_parent = Path(sys.pycache_prefix).resolve(strict=True).parent
+        if (
+            re.fullmatch(r"v223-[0-9a-f]{32}", temp_parent.name) is None
+            or temp_parent.parent.resolve(strict=True)
+            != RUNTIME_BASE.resolve(strict=True)
+        ):
+            raise SparseUnionProbeError("ORACLE_SYNTHETIC_RUNTIME_SCOPE")
+    else:
+        temp_parent = Path(tempfile.gettempdir())
     _require_plain(temp_parent, directory=True)
     temporary_path: Path | None = None
     with tempfile.TemporaryDirectory(prefix="v223-oracle-synthetic-", dir=temp_parent) as raw:

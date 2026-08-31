@@ -50,7 +50,7 @@ RUNNER_PATH = PROJECT_ROOT + "/scripts/probe_oov_chargram_bridge_g0.py"
 RUNNER_MODULE = "scripts.probe_oov_chargram_bridge_g0"
 # Replaced exactly once after the final runner blob exists.  Keeping the value
 # conspicuous makes an unpatched implementation fail closed.
-RUNNER_BLOB = "d974a2028d2ac12f8a4edd619912e6bc5f3138b6"
+RUNNER_BLOB = "a4d6d66f6e224377c0ee48275e732f89315f5f64"
 WORKER_PATH = PROJECT_ROOT + "/scripts/oov_chargram_bridge_g0_worker.py"
 WORKER_MODULE = "scripts.oov_chargram_bridge_g0_worker"
 WORKER_BLOB = "80c61b69c805d372789d5b10a9dbc26e8e53b2f8"
