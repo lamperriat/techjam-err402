@@ -1,0 +1,280 @@
+{
+  "schema_version": "small-ranker-v2.21-dual-view-rrf-g0-preregistration.v1",
+  "status": "PREREGISTERED_BEFORE_IMPLEMENTATION_AND_OUTCOME",
+  "recorded_on": "2026-08-31",
+  "experiment_id": "SR-V2.21-CLAUSE-ISOLATED-DUAL-VIEW-RRF-G0",
+  "branch": "small-ranker-v2.21-gloss-g0",
+  "parent_commit": "d7bc963188e1ba357539c22e75a016611ad52ba2",
+  "global_incumbent": {
+    "experiment_id": "SR-V2.12-FIXED-TWO-PAGE-GRACE",
+    "commit": "7d08e144fe6f589d64fab21f1b68c3ec2feeb684",
+    "hit_rate_at_10": 0.991,
+    "mrr": 0.695795,
+    "mttc": 2.869,
+    "technical_score": 0.866858,
+    "miss_to_hit": 39,
+    "hit_to_miss": 0,
+    "fold_net": [14, 8, 7, 8, 2],
+    "interpretation": "Comparable cached nested-OOF incumbent, not a private score. This candidate-membership experiment cannot change the incumbent or claim served improvement."
+  },
+  "prior_evidence": {
+    "sealed_variable_c200": {
+      "status": "VALID_RECALL_NO_GO",
+      "candidate_recall": {
+        "c10": 1895,
+        "c20": 1943,
+        "c50": 1982,
+        "c100": 1986,
+        "c200": 1986
+      },
+      "remaining_c100_absent_sessions": 14
+    },
+    "v2_19": "The sole category-AND-core-attribute route never obtained a valid full candidate-recall receipt. Its 20-session activation evidence is local mechanism evidence only and is not reused as an outcome.",
+    "v2_20": "Cache implementation d9e04b1 was synthetically verified, but the formal run was blocked before source access by a preregistration conflict.",
+    "v2_20b": {
+      "implementation_commit": "a1ec9df820177faf7d508de248d748b455f8bda3",
+      "blocker_commit": "d7bc963188e1ba357539c22e75a016611ad52ba2",
+      "status": "TARGET_FREE_ORCHESTRATION_RECEIPT_LOSS_BLOCKER",
+      "meaning": "One formal process returned target exit code 2 after a valid bootstrap attestation, but the external orchestrator discarded the nested failure receipt. It is neither a resource pass/fail nor an algorithm Go/No-Go and is never rerun or relabeled."
+    },
+    "invalid_never_rerun": [
+      "v2.17 C400",
+      "v2.18 frozen embedding E0",
+      "v2.20b semantic-cache preflight"
+    ]
+  },
+  "sole_hypothesis": {
+    "name": "CLAUSE_ISOLATED_DUAL_VIEW_RRF_G0",
+    "claim": "The correct product can be buried when category and positive core attributes must match in one FTS expression. Two field-isolated sparse routes, fused only in the novel tail, can recover orthogonal candidates while preserving the complete variable-C200 prefix.",
+    "single_variable": "One default-off switch changes no route to one fixed dual-view union. No single-view ablation, route selection, k/limit/slot/term sweep, or result-conditioned rule change is allowed.",
+    "strict_novelty_from_v2_19": "The old (category AND core_attribute) expression is prohibited from execution and reporting. v2.21 executes category-only and core-attribute-only expressions; it is not a cache-only or orchestration rerun of v2.19/v2.20/v2.20b.",
+    "runtime": "Target-blind, causal, deterministic, local-only, diagnostic-only, default off."
+  },
+  "non_repetition_proof": {
+    "baseline": "Only the sealed complete variable-C200 is the baseline. No v2.19/v2.20/v2.20b trace, result, cache, or terminal receipt may be read or compared.",
+    "legacy_source_rule": "starter/sparse_multiview.py, scripts/sparse_multiview_candidate_worker.py, the v2.20b runner/bootstrap, and every old result namespace remain blob-identical and are not executable dependencies of the v2.21 worker.",
+    "sql_audit": "A fake-SQL targeted test must prove that formal G0 executes only category-only and positive-core-only expressions and that the legacy category-AND-core expression execution count is exactly zero.",
+    "receipt_fields": "Every target-free and candidate receipt reports legacy_route_executions=0 plus aggregate category-route, positive-core-route, and dual-support activation counts; no terms, identifiers, queries, or per-session arrays are emitted.",
+    "infrastructure_reuse": "Deterministic LRU concepts may be reimplemented as infrastructure, but no old worker, runner, bootstrap, receipt, cached trace, or outcome is invoked or reopened."
+  },
+  "visible_state_contract": {
+    "current_goal_only": "Use only status=active records whose version equals visible_context.version. Retired, stale-version, overridden, and withdrawn records are ignored.",
+    "category_terms": "Use canonical category values from build_conversation_constraint_view and only frozen CATEGORIES reverse-registry surfaces mapping back to those values. Unknown/raw category text never enters a route.",
+    "positive_core_terms": "Use polarity=+1 records in exactly material/style/use_case. Canonicalize only through frozen SLOT_VOCABULARIES and use only reverse-registry surfaces mapping back to those values.",
+    "hardness": "Hard and soft positive core values both inform recall. Hardness is preserved separately for the conflict mask and is never inferred from target/outcome.",
+    "normalization": "NFKC/casefold/frozen registry normalization only. No learned synonym, raw latest-turn text, brand inference, price/unit rewrite, embedding, LLM, or catalog-derived post-prereg vocabulary.",
+    "term_order": "Within each route: canonical values and reverse-registry surfaces are normalized, deduplicated, lexicographically sorted, and truncated to 24 terms."
+  },
+  "frozen_routes": {
+    "category_only": {
+      "activation": "At least one frozen canonical category value exists.",
+      "fields": ["title", "categories"],
+      "expression": "{title categories} : (quoted_category_term_1 OR ...)",
+      "limit": 120
+    },
+    "positive_core_only": {
+      "activation": "At least one active current-version positive material/style/use_case value exists.",
+      "fields": ["title", "features", "details", "description"],
+      "expression": "{title features details description} : (quoted_core_term_1 OR ...)",
+      "limit": 120
+    },
+    "sql": "SELECT rowid,parent_asin FROM products WHERE products MATCH ? ORDER BY bm25(products,0.0,6.0,4.0,2.5,2.5,1.5,1.0),parent_asin ASC LIMIT 120",
+    "tokenizer": "fts5 unicode61 remove_diacritics 2",
+    "prohibited_routes": [
+      "category AND core_attribute",
+      "raw full query",
+      "raw latest turn",
+      "category plus inferred brand",
+      "relax-one",
+      "embedding or dense search"
+    ]
+  },
+  "fusion": {
+    "candidate_scope": "Remove every identifier already present anywhere in the complete ordered C200 before fusion. Apply the frozen explicit hard-conflict mask to novel route candidates; an identifier failing the mask receives no fusion score.",
+    "score": "Exact Fraction(1,60+rank) summed across supporting routes; rank is one-based within each filtered route. Float arithmetic is prohibited.",
+    "tie_break": [
+      "RRF score descending",
+      "supporting route count descending",
+      "minimum route rank ascending",
+      "category route rank ascending with absent=121",
+      "positive-core route rank ascending with absent=121",
+      "parent_asin ascending"
+    ],
+    "output": "Append fused novel identifiers to the untouched complete variable-C200 prefix and truncate only the novel tail so total length is at most 400.",
+    "prefix_invariant": "C200 is a byte-for-byte ordered prefix at every turn. No C200 candidate may be filtered, reordered, duplicated, or lost.",
+    "served_surface": "C200[:10] and the first two served pages remain unchanged. This experiment does not call Agent.respond and does not serve the new tail."
+  },
+  "hard_conflict_mask": {
+    "reuse": "Reimplement the frozen v2.19 current-goal explicit-conflict semantics inside the new module; the formal worker never imports starter.sparse_multiview. Synthetic conformance tests may import the parent blob 4adf065b0384ab5d45f7bd4582bf7aaf217348a5 only as a test oracle and must prove identical decisions over fixed positive, negative, unknown-metadata, stale-version, retired, and confidence-boundary vectors. The old recall route is never executed.",
+    "negative_slots": ["audience", "material", "color", "closure", "style", "use_case"],
+    "positive_slots": ["category", "audience", "material", "color", "closure", "style", "use_case", "size", "width"],
+    "evidence_threshold": 0.9,
+    "unknown_metadata": "Keep the candidate. Missing evidence is not a conflict.",
+    "budget": "Price/budget is not executed by this G0 mask.",
+    "scope": "Novel tail only; never C200."
+  },
+  "cache_and_determinism": {
+    "enabled_by_default": false,
+    "formal_cache": true,
+    "layers": {
+      "fts_route": 512,
+      "product_view": 4096,
+      "mask_decision": 16384
+    },
+    "semantics": "Fresh cache-disabled direct control, fresh cache-enabled direct worker, and fresh cache-enabled module worker must emit identical complete semantic traces and candidate bytes. Cache may remove repeated computation only.",
+    "generation_binding": "Bind cache lifetime to exact catalog/SQLite schema, tokenizer, SQL, row/identifier counts, source blobs, and connection total_changes. Any drift clears, closes, and permanently fails the runtime.",
+    "exact_repeat": true
+  },
+  "target_free_sources": {
+    "catalog": {
+      "path": "D:/tiktok/techjam-err402-fast-track/data/catalog.jsonl",
+      "rows": 50000,
+      "bytes": 60546327,
+      "sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67"
+    },
+    "visible_context": {
+      "path": "D:/tiktok/techjam-v2-16-c200-recall/experiments/fast_track/c200_candidate_recall_cache_20260831/visible_context.jsonl",
+      "rows": 2000,
+      "turns": 20000,
+      "bytes": 47168882,
+      "sha256": "f30a98700da5d480731fe7e82c87c40a22f06de290e069e20dc68f9fefecd20f"
+    },
+    "c200_reference": {
+      "replica_a": "D:/tiktok/techjam-v2-16-c200-recall/experiments/fast_track/c200_candidate_recall_cache_20260831/replica_a.jsonl",
+      "replica_b": "D:/tiktok/techjam-v2-16-c200-recall/experiments/fast_track/c200_candidate_recall_cache_20260831/replica_b.jsonl",
+      "rows_each": 20000,
+      "bytes_each": 32226135,
+      "sha256_each": "a8589749376f48f019997a618481578dde36be4ca1fc723e8ed00056c23e40dc",
+      "candidate_cells": 2425785
+    },
+    "attribute_registry_sha256": "1d85fc42f49fd9374238d98b8feaeab8d76269b0987740256fe60e666757d2ca"
+  },
+  "post_target_free_evaluator_sources": {
+    "train_explore_proxy": {
+      "path": "D:/tiktok/techjam-err402-fast-track/experiments/fast_track/proxy_v1/proxy_train_explore.jsonl",
+      "rows": 2000,
+      "bytes": 1315338,
+      "sha256": "2175696171c0d874fca4b9aa456ff5fd7d570f2184f59ade6781198f6443198e"
+    },
+    "label_archive": {
+      "path": "D:/tiktok/techjam-err402-fast-track/experiments/fast_track/small_ranker_v1/labels_v2.npz",
+      "bytes": 1702876,
+      "sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+      "allowed_members_in_order": ["outer_fold", "family_index", "taxonomy_code"],
+      "forbidden_members": ["inner_fold", "training arrays", "baseline outcomes", "identifiers"]
+    },
+    "access": "First stat/open/hash/read only after target-free 20/100 is COMPLETE and the candidate-recall claim has been durably consumed, both fresh full-2000 candidate traces are closed/published, and their exact-repeat, ordered-prefix, mask, source, schema, privacy, and resource gates all pass. Target is then attached evaluator-side for membership only and is never a runtime feature."
+  },
+  "target_free_preflight": {
+    "stages": [20, 100],
+    "workers_per_stage": [
+      "cache-disabled direct control",
+      "fresh cache-enabled direct",
+      "fresh cache-enabled literal python -m"
+    ],
+    "required_gates": [
+      "category route activation > 0 and positive-core route activation > 0",
+      "union expansion turns > 0 and union novel candidate cells > 0",
+      "all three traces and full semantic digests are exact",
+      "complete C200 ordered-prefix loss/reorder/duplication count is zero",
+      "tail duplication and explicit-hard-conflict count are zero",
+      "all three cache layers record at least one hit in each cached worker",
+      "network attempts=0, GPU bytes=0, exact source/input hashes unchanged",
+      "peak RSS <= 1610612736 bytes per worker",
+      "extra route+mask p95 <=100ms and per-turn p95 <=400ms",
+      "candidate cells <=2.0 times C200 cells and trace bytes <=2.1 times C200 reference prefix bytes",
+      "stage-100 cached direct+module unrounded parent wall math.fsum <=60.0 seconds",
+      "100-session linear extrapolation times 1.5 <=1800 seconds"
+    ],
+    "failure": "PRE_OUTCOME_NO_INFORMATION if a route family never activates; otherwise implementation/resource blocker. Neither is an algorithm No-Go. Do not open proxy/labels and do not create a candidate-recall receipt."
+  },
+  "candidate_recall_receipt": {
+    "eligibility": "Only after target-free preflight COMPLETE. One full 2000-session same-cohort diagnostic candidate-membership receipt; not a private or independent score.",
+    "pre_target_trace_protocol": "After the immutable candidate claim, run exactly two fresh sequential cache-enabled CPU workers over all 2000 sessions: direct first, literal python -m second. Each streams to its own nonce-scoped partial trace, fsyncs, publishes exclusively, closes SQLite, and emits only a sanitized compact receipt. Before the first proxy/label stat, require byte-identical complete traces and semantic digests, complete ordered-C200 prefix, zero loss/dup/hard-conflict, exact source/input hashes, network=0, GPU=0, peak RSS<=1610612736, each worker wall<=1800 seconds, and total formal parent wall<=1800 seconds. No cache-disabled full worker, third replica, retry, or rerun is allowed.",
+    "reported_membership_views": [
+      "SEALED_PREFIX_K10",
+      "SEALED_PREFIX_K20",
+      "SEALED_PREFIX_K50",
+      "SEALED_PREFIX_K100",
+      "SEALED_VARIABLE_C200",
+      "EXPANDED_FIXED_K200",
+      "C400_COMPLETE_UNION"
+    ],
+    "baseline_sanity": {
+      "c10": 1895,
+      "c20": 1943,
+      "c50": 1982,
+      "c100": 1986,
+      "sealed_variable_c200": 1986
+    },
+    "reported_anonymous_views": [
+      "all 2000 sessions",
+      "C200-absent frontier",
+      "five outer folds",
+      "exact-target-cluster uniform aggregate",
+      "taxonomy aggregate"
+    ],
+    "candidate_loss": "Structurally zero because C200 is the complete ordered prefix.",
+    "view_semantics": "SEALED_VARIABLE_C200 is the complete per-turn variable-length baseline and remains 1986/2000. EXPANDED_FIXED_K200 may include new tail when the sealed prefix has fewer than 200 candidates and is diagnostic only. C400_COMPLETE_UNION is the primary expanded view.",
+    "promotion_gate": "C400_COMPLETE_UNION recall >=1988/2000, at least two newly recalled targets over SEALED_VARIABLE_C200, gains span at least two outer folds and include at least one non-clothing taxonomy, exact-target-cluster-uniform delta >0, exact repeat and every resource/integrity gate pass, and candidate loss/hard-conflict count remain zero.",
+    "no_go": "A valid complete receipt with C400<=1987 or any distribution gate failure freezes this exact G0. Do not tune k, limits, clauses, slots, terms, or tie-breaks.",
+    "invalid": "Any structural/runtime/source/resource failure is an implementation failure, never algorithm No-Go, and the one-shot is never rerun.",
+    "forbidden_claim": "Candidate recall is not served HR@10, MRR, MTTC, TechnicalScore, private performance, or deployment evidence."
+  },
+  "after_candidate_go": {
+    "action": "Create a separate preregistration before any policy outcome. Preserve v2.12 first two pages byte-identical; only intent-age>=3 exploration may consume the new RRF tail with real served-seen exclusion.",
+    "first_100_policy_gate": "net>=1, hit-to-miss=0, MRR delta>=0, MTTC delta<=0, TechnicalScore delta>0, every fold HR/MRR/MTTC non-regression, and exact repeat.",
+    "global_gate": "Any later 2000-session policy candidate must strictly exceed HR@10 0.9910, MRR>=0.695795, MTTC<=2.869, TechnicalScore>0.866858, hit-to-miss=0, and every fold non-regression.",
+    "fallback_order": ["SR-V2.12-FIXED-TWO-PAGE-GRACE", "v1.9", "P11", "R08"]
+  },
+  "device_selection": {
+    "selected": "CPU",
+    "reason": "SQLite FTS5, branch-heavy conflict masks, exact Fraction RRF, dedupe, and stable append have no frozen semantically equivalent GPU backend. Adding one would introduce another variable.",
+    "gpu_used": false,
+    "gpu_peak_bytes": 0,
+    "future_policy": "For a later dense/encoding mechanism, benchmark the same 100-1000 target-free queries on CPU and an idle local GPU. Select GPU only with no install/download, no process preemption, <=11GB VRAM, no OOM/NaN, identical candidate set/order/hash and exact repeat, and >=1.5x wall speedup."
+  },
+  "protected_data_and_git": {
+    "forbidden_before_target_free_complete": [
+      "proxy",
+      "label archive",
+      "target or outcome",
+      "old calibration",
+      "opened selection",
+      "sealed confirmation",
+      "released public",
+      "Amazon test or heldout",
+      "v2.19/v2.20/v2.20b result or cache namespaces"
+    ],
+    "no_recursive_scan": true,
+    "no_worktree_wide_formal_git_probe": true,
+    "git_formal_policy": "Absolute pinned Git, strict environment without inherited GIT_*, object/control reads only, exact commit/ref/ancestry/blobs, and no status/worktree diff/ls-files/fetch/pathspec traversal.",
+    "history_rewrite_force_amend_old_artifact_overwrite": false
+  },
+  "durable_one_shot_protocol": {
+    "target_free_claim": "experiments/fast_track/small_ranker_v2_21_dual_view_rrf_g0_preflight_claim_20260831.json",
+    "target_free_result": "experiments/fast_track/small_ranker_v2_21_dual_view_rrf_g0_preflight_20260831.json",
+    "target_free_outer_envelope": "experiments/fast_track/small_ranker_v2_21_dual_view_rrf_g0_preflight_outer_20260831.json",
+    "candidate_recall_claim": "experiments/fast_track/small_ranker_v2_21_dual_view_rrf_g0_candidate_recall_claim_20260831.json",
+    "candidate_recall_outer_envelope": "experiments/fast_track/small_ranker_v2_21_dual_view_rrf_g0_candidate_recall_outer_20260831.json",
+    "candidate_recall_result": "experiments/fast_track/small_ranker_v2_21_dual_view_rrf_g0_candidate_recall_20260831.json",
+    "runtime_base": "D:/tiktok/.v221_runtime",
+    "claim_semantics": "Before process start, create the fixed canonical claim with O_EXCL, write/fsync/close it, and fsync the parent where available. A claim exists permanently even after crash. Claim existence with no terminal result is ONE_SHOT_CONSUMED_CRASH and forbids rerun.",
+    "outer_capture": "After the bootstrap process closes, create the fixed outer file with O_EXCL and write/fsync the exact raw canonical outer envelope, or a sanitized no-envelope failure, before parsing target_exit_code or target_receipt. The v2.20b discard-on-error bug is therefore impossible.",
+    "completion": "After outer capture, create exactly one canonical COMPLETE or sanitized INVALID_ONE_SHOT_CONSUMED terminal result with O_EXCL/write/fsync/close. Claim, outer, and terminal files are immutable; never truncate, unlink, overwrite, replace, or rerun.",
+    "privacy": "No identifiers, targets, messages, per-session values, membership vectors, raw traceback, or arrays of length 2000/20000."
+  },
+  "checkpoint_choreography": {
+    "preregistration_commit": "This JSON only, ordinary commit, direct child of d7bc963188e1ba357539c22e75a016611ad52ba2, pushed before implementation.",
+    "implementation_exact_changed_paths": [
+      "starter/sparse_union_g0.py",
+      "scripts/sparse_union_g0_worker.py",
+      "scripts/probe_sparse_union_g0.py",
+      "scripts/v221_safe_bootstrap.py",
+      "scripts/run_v221_preflight.ps1",
+      "tests/test_sparse_union_g0.py"
+    ],
+    "must_push_implementation_before_target_free_source_access": true,
+    "post_candidate_policy_requires_new_preregistration": true
+  }
+}
