@@ -1,0 +1,52 @@
+{
+  "schema_version": "small-ranker-v2.20b-sparse-route-cache-preflight-blocker.v1",
+  "status": "TARGET_FREE_ORCHESTRATION_RECEIPT_LOSS_BLOCKER",
+  "recorded_on": "2026-08-31",
+  "branch": "small-ranker-v2.20b-sparse-cache",
+  "preregistration_commit": "d073ca9b766b61e529a74e2656c1fcb7bbce9d86",
+  "implementation_commit": "a1ec9df820177faf7d508de248d748b455f8bda3",
+  "implementation_blobs": {
+    "scripts/probe_sparse_multiview_cache_preflight.py": "f5d08d65da7450fe4fc723fd027dd987dedf2959",
+    "scripts/v220b_safe_bootstrap.py": "8c7093c71e56f9f11cfd0a33db86202b67c1a80f",
+    "tests/test_sparse_multiview_cache.py": "7cf990bc699264678fb7e1f26004970fb4809d13"
+  },
+  "frozen_algorithm_blobs": {
+    "scripts/sparse_multiview_candidate_worker.py": "b44a0c2cbb4c9b4d34aedd6795dbed1ff24a5020",
+    "starter/sparse_multiview.py": "4adf065b0384ab5d45f7bd4582bf7aaf217348a5"
+  },
+  "formal_attempt": {
+    "count": 1,
+    "rerun_allowed": false,
+    "python_started": true,
+    "bootstrap_attestation_validated_externally": true,
+    "target_exit_code": 2,
+    "target_receipt_retained": false,
+    "formal_result_created": false,
+    "runtime_children_remaining": 0,
+    "worktree_clean_after_attempt": true
+  },
+  "blocker": {
+    "code": "EXTERNAL_ORCHESTRATOR_DROPPED_FAILURE_RECEIPT",
+    "reason": "The external pre-launch validator captured a valid three-key bootstrap envelope and matching six-key attestation, but threw on target exit code 2 before emitting or durably retaining target_receipt. The runner's sanitized failure code therefore cannot be recovered without a prohibited second formal run.",
+    "classification": "implementation-orchestration blocker, not cache-algorithm No-Go",
+    "fail_closed": "No compact formal result was published. No HR, candidate-recall, served-metric, or algorithm Go/No-Go claim is made."
+  },
+  "postmortem_target_free_checks": {
+    "git_checkpoint": "PASS",
+    "preregistration_identity": "PASS",
+    "safe_direct_module_and_missing_module_entrypoints": "PASS",
+    "synthetic_tests": "40 passed",
+    "downloads_or_installs": false,
+    "gpu_used": false,
+    "target_proxy_label_fold_taxonomy_or_outcome_accessed": false,
+    "protected_v2_19_namespace_accessed": false
+  },
+  "claims": {
+    "cache_resource_gate_passed": false,
+    "cache_resource_gate_failed": false,
+    "candidate_recall_computed": false,
+    "algorithm_go_or_no_go": false,
+    "private_performance": false
+  },
+  "next_action": "Do not rerun v2.20b. Create an isolated G0 multi-view sparse-query-union preregistration. Its external orchestrator must atomically retain the raw canonical outer envelope before interpreting target_exit_code, and must report failures from that retained receipt without reopening this checkpoint."
+}
