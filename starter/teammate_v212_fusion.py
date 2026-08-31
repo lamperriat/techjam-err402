@@ -7,7 +7,10 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from starter.agent import Agent as V212Agent
-from starter.teammate_bounded_other import is_intent_override
+from starter.teammate_bounded_other import (
+    TeammateBoundedOtherAgent,
+    is_intent_override,
+)
 from vendor.teammate_v1.err402.agents.v1 import AgentV1
 
 
@@ -181,9 +184,22 @@ def create_fusion_a(
     return TeammateV212FusionA(catalog_path)
 
 
+def create_fusion_b(
+    catalog_path: str | Path = "data/catalog.jsonl",
+) -> TeammateBoundedOtherAgent:
+    """Version A plus the sole B delta: evaluator-aligned bounded ``other``."""
+
+    return TeammateBoundedOtherAgent(
+        catalog_path,
+        base_agent=TeammateV212FusionA(catalog_path),
+        replace_specific=True,
+    )
+
+
 __all__ = [
     "FOLD_SAFE_ARTIFACT",
     "SCHEMA_VERSION",
     "TeammateV212FusionA",
     "create_fusion_a",
+    "create_fusion_b",
 ]

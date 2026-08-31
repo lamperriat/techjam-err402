@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import unittest
 
 from starter.teammate_v212_fusion import TeammateV212FusionA
+from starter.teammate_bounded_other import TeammateBoundedOtherAgent
 
 
 def response(*identifiers: str) -> dict:
@@ -99,6 +100,20 @@ class TeammateV212FusionTests(unittest.TestCase):
         state = agent.teammate._sessions["s"]
         self.assertIsNone(state.last_asked_attribute)
         self.assertEqual(state.question_counts, Counter())
+
+    def test_version_b_changes_only_question_contract_on_first_page(self):
+        base = self.make_agent()
+        agent = TeammateBoundedOtherAgent(
+            base_agent=base, replace_specific=True
+        )
+        agent.reset("b", {})
+        actual = agent.respond("b", "initial", 1, 2)
+        self.assertEqual(actual["ask_attribute"], "other")
+        self.assertEqual(
+            [row["parent_asin"] for row in actual["recommendations"]],
+            ["T1", "T2"],
+        )
+        self.assertEqual(base.evaluation_diagnostics()["grace_turns"], 1)
 
 
 if __name__ == "__main__":

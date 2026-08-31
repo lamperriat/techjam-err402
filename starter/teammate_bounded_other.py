@@ -98,6 +98,9 @@ class TeammateBoundedOtherAgent:
     def _cancel_base_question(self, session_id: str, attribute: object) -> None:
         if not isinstance(attribute, str) or not attribute:
             return
+        cancel = getattr(self.base, "cancel_last_question", None)
+        if callable(cancel) and cancel(session_id, attribute):
+            return
         sessions = getattr(self.base, "_sessions", None)
         state = sessions.get(session_id) if isinstance(sessions, dict) else None
         if state is None or getattr(state, "last_asked_attribute", None) != attribute:
