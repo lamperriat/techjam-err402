@@ -343,7 +343,55 @@ def _read_json(path: Path) -> Any:
         return json.load(handle)
 
 
-def main() -> int:
+def _load_dataset(path: Path) -> list[dict[str, object]]:
+    text = path.read_text(encoding="utf-8")
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        payload = [json.loads(line) for line in text.splitlines() if line.strip()]
+    if isinstance(payload, Mapping):
+        payload = payload.get("sessions", payload.get("samples"))
+    if not isinstance(payload, list) or not all(isinstance(row, Mapping) for row in payload):
+        raise FusionEvaluationError("dataset must contain a JSON array or JSONL objects")
+    return [dict(row) for row in payload]
+
+
+def evaluate_public_single(
+    *,
+    factory: Callable[..., object],
+    flags: Mapping[str, object],
+    dataset_path: Path,
+    catalog_path: Path,
+) -> dict[str, object]:
+    """Run one public cohort twice and return no per-session material."""
+
+    started = time.perf_counter()
+    peak_rss = _rss_bytes()
+    samples = _load_dataset(dataset_path)
+    catalog_ids, categories, products = catalog_index(str(catalog_path))
+    ledger, ledger_hash, diagnostics = _official_repeat(
+        factory, flags, samples, catalog_ids, categories, products
+    )
+    if len(ledger) != len(samples):
+        raise FusionEvaluationError("official evaluator returned incomplete cohort")
+    peak_rss = max(peak_rss, _rss_bytes())
+    return {
+        "status": "VALID",
+        "schema": "fusion_public_single_v1",
+        "session_count": len(ledger),
+        "exact_repeat": True,
+        "ledger_sha256": ledger_hash,
+        "metrics": rebuild_official_metrics(ledger),
+        "breakdowns": _candidate_breakdowns(ledger, samples, categories),
+        "runtime_diagnostics": diagnostics,
+        "resource": {
+            "wall_seconds": round(time.perf_counter() - started, 6),
+            "rss_bytes": peak_rss,
+        },
+    }
+
+
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
     single = sub.add_parser("official-single")
@@ -354,19 +402,32 @@ def main() -> int:
     single.add_argument("--projection-root", type=Path)
     for name in ("proxy", "labels", "catalog", "claim", "ledger-output", "output"):
         single.add_argument("--" + name, type=Path, required=True)
-    args = parser.parse_args()
-    result = attach_candidate_once(
-        factory=_factory(args.agent_factory),
-        flags=json.loads(args.flags),
-        proxy_path=args.proxy,
-        labels_path=args.labels,
-        catalog_path=args.catalog,
-        claim_path=args.claim,
-        ledger_output=args.ledger_output,
-        comparator_ledger=args.comparator_ledger,
-        source_root=args.source_root,
-        projection_root=args.projection_root,
-    )
+    public = sub.add_parser("public-single")
+    public.add_argument("--agent-factory", required=True)
+    public.add_argument("--flags", default="{}")
+    for name in ("dataset", "catalog", "output"):
+        public.add_argument("--" + name, type=Path, required=True)
+    args = parser.parse_args(argv)
+    if args.command == "public-single":
+        result = evaluate_public_single(
+            factory=_factory(args.agent_factory),
+            flags=json.loads(args.flags),
+            dataset_path=args.dataset,
+            catalog_path=args.catalog,
+        )
+    else:
+        result = attach_candidate_once(
+            factory=_factory(args.agent_factory),
+            flags=json.loads(args.flags),
+            proxy_path=args.proxy,
+            labels_path=args.labels,
+            catalog_path=args.catalog,
+            claim_path=args.claim,
+            ledger_output=args.ledger_output,
+            comparator_ledger=args.comparator_ledger,
+            source_root=args.source_root,
+            projection_root=args.projection_root,
+        )
     args.output.write_bytes(_canonical(result))
     return 0 if result.get("status") != "INVALID_ONE_SHOT_CONSUMED" else 2
 

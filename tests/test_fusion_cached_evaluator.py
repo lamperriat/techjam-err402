@@ -26,6 +26,51 @@ HIT = [{
 
 
 class FusionCachedEvaluatorTests(unittest.TestCase):
+    def test_public_single_cli_writes_compact_repeat_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dataset = root / "public.jsonl"
+            dataset.write_text(
+                '\n'.join([
+                    json.dumps({"scenario_type": "buying", "ground_truth": {"parent_asin": "A"}}),
+                    json.dumps({"scenario_type": "browse", "ground_truth": {"parent_asin": "B"}}),
+                ]) + "\n",
+                encoding="utf-8",
+            )
+            output = root / "summary.json"
+            ledger = [HIT[0], MISS[0]]
+            diagnostics = {"schema_version": "synthetic.v1", "turns": 2}
+            factory = object()
+            with (
+                mock.patch.object(ev, "_factory", return_value=factory),
+                mock.patch.object(
+                    ev,
+                    "catalog_index",
+                    return_value=({"A", "B"}, {"A": ["Shoes"], "B": ["Jewelry"]}, {}),
+                ),
+                mock.patch.object(
+                    ev,
+                    "_official_repeat",
+                    return_value=(ledger, ev._sha(ledger), diagnostics),
+                ) as repeat,
+            ):
+                code = ev.main([
+                    "public-single", "--agent-factory", "fake:Agent",
+                    "--flags", '{"mode":"active"}', "--dataset", str(dataset),
+                    "--catalog", str(root / "catalog"), "--output", str(output),
+                ])
+            payload = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(code, 0)
+            self.assertEqual(payload["session_count"], 2)
+            self.assertEqual(payload["ledger_sha256"], ev._sha(ledger))
+            self.assertEqual(payload["runtime_diagnostics"], diagnostics)
+            self.assertIn("first_turn_hr", payload["breakdowns"])
+            self.assertIn("scenario", payload["breakdowns"])
+            self.assertIn("taxonomy", payload["breakdowns"])
+            self.assertNotIn("sessions", payload)
+            self.assertEqual(repeat.call_args.args[0], factory)
+            self.assertEqual(repeat.call_args.args[1], {"mode": "active"})
+
     def test_official_repeat_reuses_samples_and_closes_agents(self) -> None:
         seen: list[int] = []
         agents: list[object] = []
