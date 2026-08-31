@@ -786,3 +786,34 @@ next single mechanism must stay inside the same rank-1 structural safety envelop
 and change only the target-blind priority among unseen C100-tail products.
 Immutable receipt provenance and the correction are tracked in
 `configs/small_ranker_v2_12.rank1_seen_replacement.manifest.json`.
+
+## SR-V2.23 OOV chargram bridge G0 — implementation INVALID
+
+The single formal target-free preflight was durably claimed at implementation
+commit `33bc41a` and failed in its first `20-session uncached direct` worker stage.
+The immutable terminal status is `INVALID_ONE_SHOT_CONSUMED`; the failure is
+runner-originated `INTERNAL_INVARIANT`, has no canonical child receipt, and the
+candidate 2,000-session stage was never started. No proxy, label archive, or
+outcome was attached. Consequently v2.23 has no candidate-recall or served metric
+and is neither an algorithm Go nor an algorithm No-Go. It must never be rerun.
+
+Read-only source forensics identified a high-confidence (`0.93`) harness cause.
+The bootstrap snapshots the complete TEMP directory stat signature, including
+`mtime_ns`, and requires exact equality after target execution. The frozen SQLite
+3.53.4 build reports `TEMP_STORE=1`; the core's FTS5 vocabulary `ORDER BY` query
+plans use a temporary B-tree and do not set `PRAGMA temp_store=MEMORY`. Creating
+and deleting that sort file leaves TEMP empty but changes its timestamp. The
+bootstrap then emits its minimal empty-attestation envelope, which the runner
+collapses to the observed `INTERNAL_INVARIANT`. A static field-by-field comparison
+found no more direct worker-success-receipt/schema mismatch. Because the sealed
+receipt intentionally omits the internal exception, this remains a strongly
+corroborated inference rather than a recovered error message.
+
+The next experiment is independent: a preregistered soft-clause leave-one-out
+sparse expansion. It will preserve the complete ordered variable-C200 prefix,
+remove exactly one current-version soft positive clause per view, retain every
+hard/negative constraint, and append only hard-masked novel candidates. It will
+not execute the frozen v2.22b routes or the v2.23 OOV bridge. SQLite FTS5 and
+branch-heavy masking/RRF remain CPU work; a GPU benchmark is not applicable
+without changing the algorithm. Evidence is tracked in
+`configs/small_ranker_v2_23.oov_chargram_bridge_g0_invalid_manifest.json`.

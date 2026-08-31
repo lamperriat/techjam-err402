@@ -1,0 +1,105 @@
+{
+  "schema_version": "small-ranker-v2.23-oov-chargram-bridge-g0-invalid-manifest.v1",
+  "experiment_id": "SR-V2.23-TARGET-BLIND-OOV-CHARGRAM-LEXICON-BRIDGE-G0",
+  "status": "INVALID_ONE_SHOT_CONSUMED",
+  "recorded_on": "2026-09-01",
+  "formal_attempt_date": "2026-08-31",
+  "classification": "implementation_harness_failure; candidate recall is unknown; neither Go nor algorithm No-Go",
+  "branch": "small-ranker-v2.23-oov-chargram-bridge",
+  "preregistration_commit": "2f8a9dbed16b8e6c4de701f15cf4e63a4d43f78c",
+  "formal_implementation_commit": "33bc41abd6b6d130147cacd4a0fcbb87cedf3e65",
+  "formal_attempt": {
+    "attempt_count": 1,
+    "rerun_forbidden": true,
+    "root_stage_id": "preflight_20_uncached_direct",
+    "root_failure_origin": "runner",
+    "root_error_code": "INTERNAL_INVARIANT",
+    "canonical_failure_receipt": false,
+    "child_exit_code": -1,
+    "preflight_complete": false,
+    "candidate_claim_created": false,
+    "candidate_worker_started": false,
+    "candidate_outcome_created": false,
+    "runtime_children_remaining": 0,
+    "claim_to_terminal_wall_seconds": 18.970869
+  },
+  "receipts": {
+    "claim": {
+      "path": "experiments/fast_track/small_ranker_v2_23_oov_chargram_bridge_g0_preflight_claim_20260831.json",
+      "bytes": 713,
+      "sha256": "815609e80adf3ad5465ad539fa6e29dbff2d4ffc38aeba3573a45a01d4618b13"
+    },
+    "outer": {
+      "path": "experiments/fast_track/small_ranker_v2_23_oov_chargram_bridge_g0_preflight_outer_20260831.json",
+      "bytes": 857,
+      "sha256": "1211206f2421ab6b9b904618f195d19c2776ed79b8e109b8c1fd57eb57eff4df"
+    },
+    "terminal": {
+      "path": "experiments/fast_track/small_ranker_v2_23_oov_chargram_bridge_g0_preflight_20260831.json",
+      "bytes": 612,
+      "sha256": "cd7c69c2ffd7fbc6ed124f9f16fdb9c8b2f783884d26fce3fa27daa4c0d5861c"
+    }
+  },
+  "source_identity": {
+    "bootstrap_blob": "bcace6872349d011de57b4525690269432f5adb6",
+    "runner_blob": "a4d6d66f6e224377c0ee48275e732f89315f5f64",
+    "worker_blob": "80c61b69c805d372789d5b10a9dbc26e8e53b2f8",
+    "core_blob": "f7bdfccfd2d3111b735757c03cdf2d96ec5f88f3"
+  },
+  "root_cause_forensics": {
+    "confidence": 0.93,
+    "directly_proven_by_receipt": false,
+    "finding": "The source-only bootstrap required the TEMP directory's full stat signature, including mtime_ns, to remain byte-identical across target execution. The frozen SQLite build uses TEMP_STORE=1, while core initialization executes FTS5 vocabulary ORDER BY queries whose query plan uses a temporary B-tree and does not set PRAGMA temp_store=MEMORY. Creating and deleting the temporary sort file leaves the directory empty but changes its mtime, causing bootstrap PYCACHE_DRIFT, a minimal empty-attestation envelope, BOOTSTRAP_ATTESTATION rejection, and finally the observed runner INTERNAL_INVARIANT with child_exit_code=-1.",
+    "corroboration": [
+      "SQLite 3.53.4 reports TEMP_STORE=1",
+      "synthetic EXPLAIN QUERY PLAN reports USE TEMP B-TREE FOR ORDER BY",
+      "worker success receipt and runner validator schemas have no static key mismatch",
+      "the observed stage, empty child identity, and noncanonical runner failure match the inferred chain"
+    ],
+    "caveat": "The sanitized immutable receipt does not retain the internal bootstrap exception, so the inferred internal code cannot be proven by reopening or rerunning the consumed experiment."
+  },
+  "access_boundary": {
+    "catalog_visible_context_and_c200_may_have_been_opened_by_first_preflight_worker": true,
+    "proxy_opened": false,
+    "label_archive_opened": false,
+    "outcome_attached": false,
+    "protected_old_split_opened": false
+  },
+  "metrics": {
+    "inherited_complete_variable_c200_candidate_recall": 1986,
+    "session_count": 2000,
+    "v2_23_candidate_recall": null,
+    "recall_increment": null,
+    "hit_rate_at_10": null,
+    "miss_to_hit": null,
+    "hit_to_miss": null,
+    "mrr": null,
+    "mttc": null,
+    "technical_score": null
+  },
+  "device": {
+    "selected": "CPU",
+    "provider": "SQLite FTS5 + CPython",
+    "gpu_used": false,
+    "gpu_peak_bytes": 0,
+    "valid_worker_resource_summary": null
+  },
+  "validation": {
+    "targeted_unittest": "19 passed",
+    "json_parse": "PASS",
+    "diff_check": "PASS",
+    "formal_worker_or_evaluator_rerun": false
+  },
+  "decision": {
+    "v2_23": "INVALID_DO_NOT_RERUN",
+    "candidate_recall_go_or_no_go": null,
+    "top10_promotion_authorized": false,
+    "next_stage": "independent target-blind soft-clause leave-one-out sparse RRF candidate expansion under a new preregistration and artifact namespace",
+    "fallback_order": [
+      "SR-V2.12-FIXED-TWO-PAGE-GRACE",
+      "v1.9",
+      "P11",
+      "R08"
+    ]
+  }
+}
