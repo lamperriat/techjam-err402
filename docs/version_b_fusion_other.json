@@ -1,0 +1,77 @@
+{
+  "schema": "techjam.fusion-result.v1",
+  "version": "B - Fusion Core + evaluator-aligned other",
+  "branch": "deadline-v3.1-fusion-other",
+  "implementation_commit": "3fa81aba4d86305dd48bce0f2ec49e6e8d5fcd2f",
+  "algorithm_commit": "dded52faa0de8996a8acc145b4160f38722e5001",
+  "base_a_commit": "fbf470c1c26c28c29db3efca1a9bab0cb78820f0",
+  "factory": "starter.fusion_other:FusionOtherAgent",
+  "runtime_flags": {
+    "other_mode": "active",
+    "mode": "active",
+    "force_v212_parent": true
+  },
+  "default_off": true,
+  "only_algorithmic_delta_from_a": "evaluator-aligned ask_attribute=other lifecycle and observation-only counters",
+  "tests": {
+    "version_b_unittest": "8/8 passed",
+    "shared_version_a_and_runner_unittest": "20/20 passed",
+    "public_exact_repeat": true,
+    "cached_2k_exact_repeat": true,
+    "same_intent_repeat_slots": 0
+  },
+  "public_200": {
+    "metrics": {
+      "hr_at_10": 0.995,
+      "mrr": 0.714518,
+      "mttc": 1.93,
+      "technical_score": 0.893255,
+      "first_turn_hr": 0.475
+    },
+    "delta_vs_a": {
+      "hr_at_10": 0.04,
+      "mrr": 0.056472,
+      "mttc": -0.575,
+      "technical_score": 0.048441
+    },
+    "other_activation_sessions": 200,
+    "other_activation_turns": 343,
+    "wall_seconds": 300.819441,
+    "rss_bytes": 1236881408,
+    "result_sha256": "09183e1e875fd98272ec1ae251568035f81d195ec0f946c5719806f2631db807"
+  },
+  "cached_2k_oof": {
+    "metrics": {
+      "hr_at_10": 0.941,
+      "mrr": 0.614587,
+      "mttc": 2.6025,
+      "technical_score": 0.822826,
+      "first_turn_hr": 0.358
+    },
+    "transitions_vs_a": {
+      "miss_to_hit": 105,
+      "hit_to_miss": 28,
+      "net": 77
+    },
+    "transitions_vs_v2_12": {
+      "miss_to_hit": 5,
+      "hit_to_miss": 105,
+      "net": -100
+    },
+    "fold_hr": [0.9475, 0.94, 0.96, 0.925, 0.9325],
+    "other": {
+      "activation_sessions": 2000,
+      "activation_turns": 3695,
+      "informative_replies": 1808,
+      "disclosed_constraints": 3580,
+      "boundary_sentinel_replies": 79,
+      "exhausted_replies": 47
+    },
+    "wall_seconds_single_recovery": 1699.32003,
+    "rss_peak_bytes": 1303584768,
+    "candidate_ledger_sha256": "6c6d8ce794398a4197da192e13888b42788f48b03abd1058711a3848695ef100",
+    "result_file_sha256": "8c1aa048d0d384a3d757e19bbe205cac98f7d751d5fa9da6d6bf19ed198c2320"
+  },
+  "decision": "SCORE_MAX_WINNER_AMONG_A_B_BUT_NO_GO_VS_GLOBAL_INCUMBENT",
+  "conclusion": "The isolated other policy is a large, consistent gain over A on public and cached 2k, but its 100 percent session activation is evaluator-specific and B remains below v2.12 on cached 2k. Keep it as an opt-in flag over a safer A-star core."
+}
