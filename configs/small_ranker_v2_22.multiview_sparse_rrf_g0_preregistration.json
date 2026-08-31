@@ -1,10 +1,11 @@
 {
-  "schema_version": "small-ranker-v2.22-multiview-sparse-rrf-g0-preregistration.v1",
+  "schema_version": "small-ranker-v2.22b-multiview-sparse-rrf-g0-preregistration.v1",
   "status": "PREREGISTERED_BEFORE_IMPLEMENTATION_AND_OUTCOME",
-  "experiment_id": "SR-V2.22-TARGET-BLIND-MULTIVIEW-SPARSE-RRF-G0",
+  "experiment_id": "SR-V2.22B-TARGET-BLIND-MULTIVIEW-SPARSE-RRF-G0",
   "recorded_on": "2026-08-31",
-  "branch": "small-ranker-v2.22-sparse-multiview",
+  "branch": "small-ranker-v2.22b-sparse-multiview",
   "parent_commit": "a402c3d3398fd7deff2215837aade044d07cb200",
+  "corrective_parent_commit": "eaae35b32d5ee143b317872c60b230863b5c8e29",
   "evidence_scope": "Shared 2000-session diagnostic candidate membership only; not private validation and not served HR@10.",
   "incumbent": {
     "comparable_cached_nested_oof": {
@@ -26,15 +27,31 @@
     "candidate_claim_existed": false,
     "proxy_or_labels_opened": false,
     "rerun_v2_21_forbidden": true,
-    "formal_read_denied": "No v2.21 claim, outer, terminal, runtime, trace, cache, or result may be read by v2.22 formal code."
+    "formal_read_denied": "No v2.21 claim, outer, terminal, runtime, trace, cache, or result may be read by v2.22B formal code."
+  },
+  "prior_v2_22_prelaunch_boundary": {
+    "preregistration_correction_history": [
+      "14ac9f0b90b5dd6dbb9cc799ba99f6a1c8b0c0e5",
+      "68a84ab49c670716f65df24dd260724e00ba0661",
+      "eaae35b32d5ee143b317872c60b230863b5c8e29"
+    ],
+    "implementation_commit": "8ff4dc99a43050a0d1b048a28f212f7c0acf87e6",
+    "status": "PRELAUNCH_INVALID_UNCONSUMED",
+    "failure": "The frozen include.path=NUL fixed-prefix value was rejected by Git 2.45.2.windows.1 during prelaunch Git isolation.",
+    "candidate_claim_existed": false,
+    "frozen_input_accessed": false,
+    "formal_input_accessed": false,
+    "proxy_or_labels_opened": false,
+    "classification": "Prelaunch implementation/configuration failure before claim creation and before any frozen-input access; no algorithm outcome was consumed.",
+    "v2_22b_boundary": "V2.22B is an independently named JSON-only corrective preregistration before implementation and outcome. Its commit is intentionally not asserted before that commit exists."
   },
   "hypothesis": {
     "claim": "Targets absent from complete variable-C200 are more likely hidden by representation/field mismatch than by insufficient depth. Four independently fielded sparse views over only visible active state can recover orthogonal candidates without changing the served prefix.",
     "distinct_from_v2_21": [
       "v2.21 had only category-only and current positive material/style/use_case routes",
-      "v2.22 adds accumulated exact-active, full-positive, and title/store field-isolated views",
-      "v2.22 current-positive covers every supported positive slot, not only three core slots",
-      "v2.22 freezes corrected runtime cleanup identity semantics"
+      "v2.22B adds accumulated exact-active, full-positive, and title/store field-isolated views",
+      "v2.22B current-positive covers every supported positive slot, not only three core slots",
+      "v2.22B freezes corrected runtime cleanup identity semantics"
     ]
   },
   "frozen_inputs": {
@@ -146,7 +163,7 @@
       "unknown_metadata_policy": "keep candidate; a positive conflict exists only when at least one reliable canonical value is known for that slot and the known set is disjoint from the requested set",
       "negative_policy": "drop only when starter.p8_negative.classify_candidate returns explicit_violation"
     },
-    "budget_and_price": "Price/budget are neither queried as structured positive slots nor hard-masked in v2.22. No budget relaxation, price filter, or price-derived admission rule exists.",
+    "budget_and_price": "Price/budget are neither queried as structured positive slots nor hard-masked in v2.22B. No budget relaxation, price filter, or price-derived admission rule exists.",
     "mask_rank_semantics": "Each route is ranked by frozen FTS first; its returned identifiers then receive hard-conflict decisions. Dropped identifiers leave holes and are not replaced by queries deeper than LIMIT 120. RRF ranks use each surviving candidate's original one-based pre-mask route rank."
   },
   "retrieval_routes": {
@@ -325,7 +342,7 @@
       "network attempt count",
       "source, input, trace, semantic, and receipt hashes"
     ],
-    "timing_definitions": "Use time.perf_counter_ns around each uncached SQLite route execution, the complete per-turn hard-mask phase, all v2.22 extra route+mask work, and the complete worker turn. Convert to milliseconds only after collecting integer nanoseconds; nearest-rank P95 is the sorted value at ceil(0.95*N)-1. Wall is unrounded perf_counter elapsed. Throughput is completed trace records divided by worker wall seconds. Peak RSS is the Windows process PeakWorkingSet64 sampled by the parent after process close, with worker psutil/resource self-report used only as a consistency lower bound.",
+    "timing_definitions": "Use time.perf_counter_ns around each uncached SQLite route execution, the complete per-turn hard-mask phase, all v2.22B extra route+mask work, and the complete worker turn. Convert to milliseconds only after collecting integer nanoseconds; nearest-rank P95 is the sorted value at ceil(0.95*N)-1. Wall is unrounded perf_counter elapsed. Throughput is completed trace records divided by worker wall seconds. Peak RSS is the Windows process PeakWorkingSet64 sampled by the parent after process close, with worker psutil/resource self-report used only as a consistency lower bound.",
     "ratio_definitions": "candidate-cell ratio is math.fsum of complete expanded candidate lengths over sealed candidate_cells=2425785. Trace-byte ratio is each canonical expanded JSONL byte length over sealed reference bytes=32226135. Both full replicas must independently pass."
   },
   "candidate_recall_receipt": {
@@ -333,7 +350,7 @@
     "workers": ["fresh cached direct full-2000", "fresh cached literal-module full-2000"],
     "exact_repeat_required_before_target_attach": true,
     "pre_target_attach_gate": "Before the first proxy or label stat/open/hash/read: both full workers must exit zero; both partial traces must be fsynced, exclusively published, closed, and canonical; both in-process worker receipts must be fully captured and closed; trace bytes and semantic digests must exactly repeat; all executable source blobs plus catalog, visible_context, and both sealed-C200 identities/hashes must match; every record must preserve the complete ordered C200 prefix; loss, duplicate, reorder, explicit-hard-conflict, legacy-route, schema, and privacy violations must all equal zero; and every key named in resource_gates.candidate_pre_target_gates must pass independently for both workers and the parent. The experiment-level outer capture is deliberately not a pre-target condition because the outer PowerShell writes it only after the runner exits. Any pre-target failure becomes implementation INVALID without target attach.",
-    "target_source_open_sequence": "After and only after pre_target_attach_gate passes, enter a one-way target-attach phase: stat/open/read raw proxy bytes, verify exact bytes/rows/SHA-256 before parsing only the frozen proxy field allowlist; then stat/open/read raw label archive bytes, verify exact bytes/SHA-256 before requesting exactly outer_fold, family_index, taxonomy_code in order. A proxy/label identity or parse failure is INVALID_AFTER_TARGET_ATTACH, consumes v2.22, and is never retried.",
+    "target_source_open_sequence": "After and only after pre_target_attach_gate passes, enter a one-way target-attach phase: stat/open/read raw proxy bytes, verify exact bytes/rows/SHA-256 before parsing only the frozen proxy field allowlist; then stat/open/read raw label archive bytes, verify exact bytes/SHA-256 before requesting exactly outer_fold, family_index, taxonomy_code in order. A proxy/label identity or parse failure is INVALID_AFTER_TARGET_ATTACH, consumes v2.22B, and is never retried.",
     "proxy_field_allowlist": {
       "top_level": ["ground_truth", "scenario_type", "behavior"],
       "ground_truth": ["parent_asin"],
@@ -358,7 +375,7 @@
       "SEALED_K100": 1986,
       "SEALED_VARIABLE_C200": 1986
     },
-    "expanded_fixed_k200_semantics": "EXPANDED_FIXED_K200 includes the newly fused v2.22 tail whenever the sealed variable prefix has fewer than 200 candidates. It is candidate output, must be reported, has no frozen baseline count, and may legitimately exceed 1986.",
+    "expanded_fixed_k200_semantics": "EXPANDED_FIXED_K200 includes the newly fused v2.22B tail whenever the sealed variable prefix has fewer than 200 candidates. It is candidate output, must be reported, has no frozen baseline count, and may legitimately exceed 1986.",
     "exact_target_cluster_uniform_formula": "After both traces close and all pre-target gates pass, group the 2000 evaluator-side session membership values by exact proxy ground-truth parent_asin (family_index is audit-only, not the grouping key) without emitting identifiers. For each exact target cluster compute the arithmetic mean session recall separately for SEALED_VARIABLE_C200 and C400_COMPLETE_UNION; then take the unweighted arithmetic mean across all unique exact target clusters. Report baseline, candidate, and candidate-minus-baseline; the frozen promotion test is candidate-minus-baseline > 0.",
     "taxonomy_codebook": {"accessories-other": 0, "clothing": 1, "jewelry": 2, "shoes": 3},
     "non_clothing_definition": "taxonomy_code in {0,2,3}; incremental sessions with taxonomy_code=1 are clothing and do not satisfy this gate",
@@ -382,8 +399,8 @@
       "hard_conflict": "count of admitted novel tail candidate cells for which either executable-negative explicit_violation or reliable-positive conflict is true; frozen gate is separately exactly 0",
       "combined_field_forbidden": "candidate_loss and hard_conflict must be reported and gated separately; they may not be collapsed into a net or combined count"
     },
-    "valid_no_go": "Only after every pre-target and post-target source/schema/privacy/integrity/resource/exact-repeat gate passes: C400<=1987, fewer than two incremental sessions, fold span<2, non-clothing increment<1, or exact-target-cluster-uniform delta<=0 is a valid algorithm No-Go. Freeze exact v2.22 and move to the next independent mechanism; never tune routes or depth.",
-    "invalid_one_shot": "Any source, schema, privacy, integrity, exact-repeat, worker-exit, publication, resource, proxy/label identity, or post-target final-gate failure is INVALID_ONE_SHOT_CONSUMED, never an algorithm No-Go, and v2.22 is never retried.",
+    "valid_no_go": "Only after every pre-target and post-target source/schema/privacy/integrity/resource/exact-repeat gate passes: C400<=1987, fewer than two incremental sessions, fold span<2, non-clothing increment<1, or exact-target-cluster-uniform delta<=0 is a valid algorithm No-Go. Freeze exact v2.22B and move to the next independent mechanism; never tune routes or depth.",
+    "invalid_one_shot": "Any source, schema, privacy, integrity, exact-repeat, worker-exit, publication, resource, proxy/label identity, or post-target final-gate failure is INVALID_ONE_SHOT_CONSUMED, never an algorithm No-Go, and v2.22B is never retried.",
     "go": "Only permits a new preregistered 100-session served-policy smoke; it is not Top10 improvement."
   },
   "device_selection": {
@@ -427,7 +444,7 @@
         "sha256": "7819c841b9a6457da034e567563de1283dbc0b86482fd83d62b5d982d2a83a63",
         "version": "3.11.16",
         "sqlite_version": "3.53.4",
-        "exact_flags": ["-P", "-S", "-s", "-B", "-X", "pycache_prefix=<fresh-v222-nonce-pycache>"],
+        "exact_flags": ["-P", "-S", "-s", "-B", "-X", "pycache_prefix=<fresh-v222b-nonce-pycache>"],
         "critical_binary_dependencies": {
           "D:/450/conda/envs/tiktok/python311.dll": {"bytes": 6193152, "sha256": "08701864dea4e08c077c1c5bc6cb208d5628dba9473a318fa6ce3796a86806c5"},
           "D:/450/conda/envs/tiktok/DLLs/_sqlite3.pyd": {"bytes": 99328, "sha256": "67858a7dcbce3abef73328276c19dc06abe2515ab01d7cbc7fc7ad7bd3e2114c"},
@@ -443,13 +460,13 @@
     "formal_python_environment_values": "Child environment is cleared first. PATH is exactly SYSTEMROOT/System32; TEMP/TMP are the fresh nonce temp; CUDA_VISIBLE_DEVICES='', HF_HUB_OFFLINE=1, MKL_NUM_THREADS=OMP_NUM_THREADS=OPENBLAS_NUM_THREADS=1, PYTHONDONTWRITEBYTECODE=1, PYTHONHASHSEED=0, PYTHONNOUSERSITE=1, TOKENIZERS_PARALLELISM=false. Direct formal mode has no PYTHONPATH. Literal-module entrypoint checks add only PYTHONPATH=<fresh nonce module root> containing exactly the verified bootstrap blob. -S prevents site/sitecustomize, -P prevents unsafe cwd/script prepending, -B plus the nonce pycache prevents inherited pyc, and every local module is source-blob loaded by the bootstrap. The five Windows bootstrap variables are copied only from the pinned host process and recorded as hashes, not project search paths.",
     "formal_git_environment": "Clear the entire child environment, then set exactly the Windows bootstrap keys plus the GIT_/locale/pager keys listed in formal_git_isolation.environment_after_clear. Git cwd is exactly C:/Windows/System32. No inherited GIT_* or project PATH is retained.",
     "formal_git_isolation": {
-      "git_dir": "D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-22-sparse-multiview",
-      "work_tree": "D:/tiktok/techjam-v2-22-sparse-multiview",
+      "git_dir": "D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-22b-sparse-multiview",
+      "work_tree": "D:/tiktok/techjam-v2-22b-sparse-multiview",
       "pinned_control_files": {
         "D:/tiktok/techjam-err402/.git/config": {"bytes": 3267, "sha256": "13a2efcabcda2ab3e7ce75bfc886fdf70ac4aaf0a7589ec19a422e51fbc26b9b"},
-        "D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-22-sparse-multiview/gitdir": {"bytes": 46, "sha256": "2b33735d24d0c161a48316c4033d51580b52f9fe43452abd215208fa11e4388c"},
-        "D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-22-sparse-multiview/commondir": {"bytes": 6, "sha256": "340ddcb67a6204f742cd1e28e5b462622dde7daaa8ee36001897196aacdc6d47"},
-        "D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-22-sparse-multiview/HEAD": {"bytes": 52, "sha256": "54034399008f60be6419e17a4a7699e8a9b2ca498a424751c0fe4f7d23ce488a"}
+        "D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-22b-sparse-multiview/gitdir": {"bytes": 47, "sha256": "094e1cea6a66a0e4a994dbd565bc102377d8ef072a50c23fa259345800de595c"},
+        "D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-22b-sparse-multiview/commondir": {"bytes": 6, "sha256": "340ddcb67a6204f742cd1e28e5b462622dde7daaa8ee36001897196aacdc6d47"},
+        "D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-22b-sparse-multiview/HEAD": {"bytes": 53, "sha256": "a632024088a4dc2054b446066d167e9641cfec37f1db8c09b937eaf2d3dbe62a"}
       },
       "environment_after_clear": {
         "GIT_CONFIG_NOSYSTEM": "1",
@@ -464,14 +481,14 @@
         "LC_ALL": "C",
         "PAGER": "cat"
       },
-      "fixed_prefix_argv": ["--no-pager", "--no-replace-objects", "--no-optional-locks", "--git-dir=D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-22-sparse-multiview", "--work-tree=D:/tiktok/techjam-v2-22-sparse-multiview", "-c", "core.hooksPath=NUL", "-c", "core.attributesFile=NUL", "-c", "include.path=NUL"],
-      "config_and_replace_policy": "C:/Program Files/Git/mingw64/bin/git.exe is the real pinned PE executable, not cmd/git.exe or a shell wrapper. The repository-local config and three worktree control files must match the pinned raw identities before and after every Git cell and contain no include/includeIf section. No system/global/includes/replace refs, hooks, attributes, aliases, pager, optional locks, or environment-supplied object directory/index/worktree are honored."
+      "fixed_prefix_argv": ["--no-pager", "--no-replace-objects", "--no-optional-locks", "--git-dir=D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-22b-sparse-multiview", "--work-tree=D:/tiktok/techjam-v2-22b-sparse-multiview", "-c", "core.hooksPath=NUL", "-c", "core.attributesFile=NUL", "-c", "include.path=/dev/null"],
+      "config_and_replace_policy": "C:/Program Files/Git/mingw64/bin/git.exe is the real pinned PE executable, not cmd/git.exe or a shell wrapper. The repository-local config and three worktree control files must match the pinned raw identities before and after every Git cell and contain no include/includeIf section. The fixed prefix binds include.path to Git for Windows' accepted /dev/null path; this is the sole semantic correction from the prior v2.22 prelaunch prefix, whose include.path=NUL value Git 2.45.2.windows.1 rejected. No system/global/includes/replace refs, hooks, attributes, aliases, pager, optional locks, or environment-supplied object directory/index/worktree are honored."
     },
     "formal_git_exact_operation_shapes": [
       "--version",
       "rev-parse --verify <pinned-40hex>^{commit}",
-      "rev-parse --verify refs/heads/small-ranker-v2.22-sparse-multiview^{commit}",
-      "rev-parse --verify refs/remotes/origin/small-ranker-v2.22-sparse-multiview^{commit}",
+      "rev-parse --verify refs/heads/small-ranker-v2.22b-sparse-multiview^{commit}",
+      "rev-parse --verify refs/remotes/origin/small-ranker-v2.22b-sparse-multiview^{commit}",
       "rev-parse <effective-prereg-40hex>^",
       "merge-base --is-ancestor <effective-prereg-40hex> <candidate-40hex>",
       "rev-list --min-parents=2 <effective-prereg-40hex>..<candidate-40hex>",
@@ -495,22 +512,22 @@
       "starter/reranker.py": "f179e7c75d4c0c5189f3a62139de5f51c8ec231a",
       "starter/slot_ledger.py": "72975cff12af59e4044e52911c58294cd74a785a"
     },
-    "runtime_source_origin": "The source-only bootstrap materializes/loads exactly the parent manifest plus the candidate-commit blobs for the six v2.22 implementation paths. Every local module __file__, loader origin, raw Git blob and import allowlist is checked; project cwd/sys.path discovery, dirty bytes, pyc, namespace packages, shadow modules and every other local import are denied.",
+    "runtime_source_origin": "The source-only bootstrap materializes/loads exactly the parent manifest plus the candidate-commit blobs for the six v2.22B implementation paths. Every local module __file__, loader origin, raw Git blob and import allowlist is checked; project cwd/sys.path discovery, dirty bytes, pyc, namespace packages, shadow modules and every other local import are denied.",
     "destructive_history_and_artifact_actions_forbidden": "No force/force-push, rebase, reset --hard, amend, branch or tag deletion, old artifact deletion, claim deletion, or artifact overwrite/replacement.",
-    "irreversible_candidate_lock": "Before the first stat/open/hash/read of catalog, visible_context, either sealed C200 replica, proxy, or label archive, the formal harness binds one pushed candidate commit SHA, its exact six implementation blobs, the corrected prereg blob, local branch and remote-tracking ref. From that first frozen-input access onward no code/blob/commit change or new follow-up is allowed within v2.22, even before a claim; any required change becomes a new experiment/preregistration. Preclaim synthetic tests are source-only and may not access these frozen inputs.",
-    "ordinary_linear_followup_fix_commits_before_claim": "Allowed only while no v2.22 claim exists; prereg must remain ancestor, no merge commit, cumulative prereg-to-candidate changed-path set must remain exact, and every candidate commit must be pushed before source access."
+    "irreversible_candidate_lock": "Before the first stat/open/hash/read of catalog, visible_context, either sealed C200 replica, proxy, or label archive, the formal harness binds one pushed candidate commit SHA, its exact six implementation blobs, the corrected prereg blob, local branch and remote-tracking ref. From that first frozen-input access onward no code/blob/commit change or new follow-up is allowed within v2.22B, even before a claim; any required change becomes a new experiment/preregistration. Preclaim synthetic tests are source-only and may not access these frozen inputs.",
+    "ordinary_linear_followup_fix_commits_before_claim": "Allowed only while no v2.22B claim exists; prereg must remain ancestor, no merge commit, cumulative prereg-to-candidate changed-path set must remain exact, and every candidate commit must be pushed before source access."
   },
   "durable_one_shot_protocol": {
-    "runtime_base": "D:/tiktok/.v222_runtime",
-    "preflight_claim": "experiments/fast_track/small_ranker_v2_22_multiview_sparse_rrf_g0_preflight_claim_20260831.json",
-    "preflight_outer": "experiments/fast_track/small_ranker_v2_22_multiview_sparse_rrf_g0_preflight_outer_20260831.json",
-    "preflight_terminal": "experiments/fast_track/small_ranker_v2_22_multiview_sparse_rrf_g0_preflight_20260831.json",
-    "candidate_claim": "experiments/fast_track/small_ranker_v2_22_multiview_sparse_rrf_g0_candidate_recall_claim_20260831.json",
-    "candidate_outer": "experiments/fast_track/small_ranker_v2_22_multiview_sparse_rrf_g0_candidate_recall_outer_20260831.json",
-    "candidate_terminal": "experiments/fast_track/small_ranker_v2_22_multiview_sparse_rrf_g0_candidate_recall_20260831.json",
+    "runtime_base": "D:/tiktok/.v222b_runtime",
+    "preflight_claim": "experiments/fast_track/small_ranker_v2_22b_multiview_sparse_rrf_g0_preflight_claim_20260831.json",
+    "preflight_outer": "experiments/fast_track/small_ranker_v2_22b_multiview_sparse_rrf_g0_preflight_outer_20260831.json",
+    "preflight_terminal": "experiments/fast_track/small_ranker_v2_22b_multiview_sparse_rrf_g0_preflight_20260831.json",
+    "candidate_claim": "experiments/fast_track/small_ranker_v2_22b_multiview_sparse_rrf_g0_candidate_recall_claim_20260831.json",
+    "candidate_outer": "experiments/fast_track/small_ranker_v2_22b_multiview_sparse_rrf_g0_candidate_recall_outer_20260831.json",
+    "candidate_terminal": "experiments/fast_track/small_ranker_v2_22b_multiview_sparse_rrf_g0_candidate_recall_20260831.json",
     "preclaim_harness": "Before every fixed claim, source-only PS checks Git and four entrypoint cells, then independently checks checkpoint/worktree again. Candidate additionally binds and independently rechecks the exact preflight claim/outer/terminal chain.",
     "transaction": "O_EXCL/create-new claim and fsync before process; after process closes, O_EXCL/fsync exact raw outer before parsing; O_EXCL/fsync one COMPLETE or INVALID terminal. Never truncate, unlink, overwrite, replace, or rerun after claim.",
-    "invalid": "Any failure after claim is implementation INVALID, not algorithm No-Go, and v2.22 is never rerun."
+    "invalid": "Any failure after claim is implementation INVALID, not algorithm No-Go, and v2.22B is never rerun."
   },
   "formal_worker_schedule_and_clocks": {
     "full_workers": "Exactly two, strictly sequential with no overlap: fresh cached direct first, then only after its process exits and trace/receipt closes, fresh cached literal-module second.",
@@ -522,8 +539,8 @@
     "parallelism_forbidden": true
   },
   "checkpoint_choreography": {
-    "preregistration": "This JSON only, ordinary commit, direct child of parent_commit, pushed before implementation.",
-    "corrective_prereg_followup": "The original JSON-only prereg commit may have one or more ordinary JSON-only linear corrections before any frozen-input access or claim. The last correction commit/blob is the effective prereg checkpoint pinned by the formal harness; it must be pushed before the six-path implementation commit and remain its ancestor. No correction may inspect target-free traces or outcomes.",
+    "preregistration": "This JSON only, ordinary V2.22B corrective commit whose parent is corrective_parent_commit, pushed before implementation and before any frozen-input access or claim.",
+    "corrective_prereg_followup": "The inherited V2.22 JSON-only history is exactly prior_v2_22_prelaunch_boundary.preregistration_correction_history. The new V2.22B JSON-only commit becomes the effective prereg checkpoint only after its real commit and blob exist; the formal harness must then pin those real identities without a placeholder or fabricated hash. It must be pushed before the six-path implementation commit and remain its ancestor. No correction may inspect target-free traces or outcomes.",
     "implementation_exact_cumulative_changed_paths_no_renames": [
       "scripts/probe_sparse_multiview_g0.py",
       "scripts/run_v222_preflight.ps1",
@@ -532,12 +549,12 @@
       "starter/sparse_multiview_g0.py",
       "tests/test_sparse_multiview_g0.py"
     ],
-    "frozen_v2_21_source_boundary": "The six v2.21 implementation blobs remain byte-for-byte unchanged, are not deleted or renamed, and are not formal runtime dependencies of v2.22. v2.22 may depend only on pre-existing stable baseline modules plus the six new v2.22 paths.",
+    "frozen_v2_21_source_boundary": "The six v2.21 implementation blobs remain byte-for-byte unchanged, are not deleted or renamed, and are not formal runtime dependencies of v2.22B. v2.22B may depend only on pre-existing stable baseline modules plus the six new v2.22B paths.",
     "implementation_must_be_pushed_before_target_free_source_access": true,
     "post_candidate_policy_requires_new_preregistration": true
   },
   "stop_rules": {
-    "preflight_invalid": "Freeze v2.22 as implementation failure, never rerun, choose an independent mechanism.",
+    "preflight_invalid": "Freeze v2.22B as implementation failure, never rerun, choose an independent mechanism.",
     "valid_no_go": "Freeze exact routes/depth/fusion and choose an independent mechanism.",
     "valid_go": "Create a new branch/worktree and preregister the 100-session served-policy smoke before implementation or outcome."
   }
