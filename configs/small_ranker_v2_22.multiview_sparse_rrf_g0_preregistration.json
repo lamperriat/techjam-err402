@@ -68,7 +68,7 @@
       "bytes": 1315338,
       "rows": 2000,
       "sha256": "2175696171c0d874fca4b9aa456ff5fd7d570f2184f59ade6781198f6443198e",
-      "access": "evaluator-side only after both full traces close and exact-repeat passes"
+      "access": "evaluator-side only after the frozen pre_target_attach_gate passes in full; no earlier stat, open, hash, or read"
     },
     "label_archive": {
       "path": "D:/tiktok/techjam-err402-fast-track/experiments/fast_track/small_ranker_v1/labels_v2.npz",
@@ -76,7 +76,7 @@
       "sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
       "allowed_members_in_order": ["outer_fold", "family_index", "taxonomy_code"],
       "member_access_policy": "The evaluator loader requests exactly these three named numeric members in this order and rejects every other requested member. It never enumerates, deserializes, or reads any other archive member.",
-      "access": "evaluator-side only after both full traces close and exact-repeat passes"
+      "access": "evaluator-side only after the frozen pre_target_attach_gate passes in full; no earlier stat, open, hash, or read"
     }
   },
   "visible_runtime_inputs": {
@@ -108,6 +108,19 @@
     "term_cap_per_route": 24
   },
   "constraint_and_mask_semantics": {
+    "frozen_extractor_closure": {
+      "starter/attributes.py": "92260323f077c9861aa4edd5242aff772c875760",
+      "starter/p8_negative.py": "719078234dba297ce59f68d8a2b1734ec53c9c63",
+      "starter/slot_ledger.py": "72975cff12af59e4044e52911c58294cd74a785a",
+      "functions": [
+        "normalize_value",
+        "build_conversation_constraint_view",
+        "build_product_attribute_view",
+        "product_slot",
+        "classify_candidate"
+      ],
+      "rule": "Formal execution imports these functions only from source bytes whose Git blob equals the listed parent blob; worktree shadow modules and alternate extractors are denied."
+    },
     "supported_positive_slots_in_order": [
       "category",
       "audience",
@@ -127,6 +140,8 @@
       "minimum_confidence_inclusive": 0.9,
       "reliable_sources": ["categories", "title", "features", "details", "store"],
       "details_subfield_prefix_is_reliable": true,
+      "details_prefix_grammar": "For a mapping-valued product.details, sort keys by normalize_value(key), map a normalized key to the first matching slot in this fixed precedence: audience if it contains department/gender/audience; material if material/fabric; color if color; closure if closure; width if width; size if size; style if style/pattern/fit; brand if brand/manufacturer; otherwise ignore. The source string is exactly 'details.' + (normalize_value(key) or 'value'). Flatten nested mapping values by normalized-key order and lists/tuples in input order. Only frozen vocabulary canonical values are emitted for non-brand slots.",
+      "general_field_extraction": "categories, title, and features are flattened by the frozen attributes._flatten order. Category values come from categories/title; every SLOT_VOCABULARIES slot is extracted by frozen longest-surface then lexical matching. Non-mapping details additionally uses the same general vocabulary extraction. store produces brand only and never supplies a positive-conflict slot.",
       "description_is_not_reliable_for_masking": true,
       "unknown_metadata_policy": "keep candidate; a positive conflict exists only when at least one reliable canonical value is known for that slot and the known set is disjoint from the requested set",
       "negative_policy": "drop only when starter.p8_negative.classify_candidate returns explicit_violation"
@@ -143,8 +158,8 @@
     "bm25_column_weights_in_schema_order": [0.0, 6.0, 4.0, 2.5, 2.5, 1.5, 1.0],
     "fts_rank_order": "weighted SQLite bm25 ascending, then parent_asin lexical ascending; rowid is returned for integrity only and is not a tie-break",
     "term_quoting": "Each normalized term is an FTS phrase: one double quote on each side and every embedded double quote doubled. A route expression is {field1 field2 ...} : (quoted_term OR quoted_term ...), with fields and terms in their frozen orders.",
-    "activation_definition": "A route is activated for a turn iff its frozen source set yields at least one normalized term after lexical sort and the first-32 cap, which makes its FTS expression non-empty. Activation is counted before cache lookup and is independent of whether SQLite returns a row.",
-    "surface_and_cap_order": "For each slot/value, take the canonical normalized value plus every normalized registry surface mapping to it; union all route sources, remove empty values and duplicates, sort lexically, then retain the first 32 terms. Fields retain the order declared below.",
+    "activation_definition": "A route is activated for a turn iff its frozen source set yields at least one normalized term after lexical sort and the first-24 cap, which makes its FTS expression non-empty. Activation is counted before cache lookup and is independent of whether SQLite returns a row.",
+    "surface_and_cap_order": "For each slot/value, take the canonical normalized value plus every normalized registry surface mapping to it; union all route sources, remove empty values and duplicates, sort lexically, then retain the first 24 terms. Fields retain the order declared below.",
     "routes_in_tie_order": [
       "full_positive",
       "exact_active",
@@ -235,14 +250,50 @@
       "network attempts=0 and GPU bytes=0",
       "cached direct+module parent wall <=60 seconds at limit=100",
       "linear x1.5 full estimate <=1800 seconds",
-      "every frozen resource gate passes"
+      "every key named in resource_gates.preflight_applicable_gates passes"
     ],
     "no_information_result": "If any of the four route activation counts, union expansion records, union novel candidate cells, or three cache-layer hit counts is zero at limit=100, emit PRE_OUTCOME_NO_INFORMATION, do not create the candidate claim, and do not open proxy or labels.",
     "target_sources_forbidden": ["proxy", "label archive", "target", "outcome"]
   },
   "resource_gates": {
+    "preflight_applicable_gates": [
+      "preflight_limit100_cached_direct_plus_module_parent_wall_seconds_maximum",
+      "per_worker_peak_rss_bytes_maximum",
+      "individual_fts_route_p95_milliseconds_maximum",
+      "hard_mask_p95_milliseconds_maximum",
+      "all_extra_routes_plus_mask_p95_milliseconds_maximum",
+      "total_per_turn_p95_milliseconds_maximum",
+      "route_candidates_maximum_each",
+      "complete_candidate_count_maximum_per_turn",
+      "network_attempt_count_maximum",
+      "gpu_peak_bytes_maximum",
+      "free_disk_bytes_before_formal_minimum"
+    ],
+    "candidate_pre_target_gates": [
+      "full_worker_wall_seconds_maximum_each",
+      "pre_target_parent_wall_seconds_maximum",
+      "full_turns_per_second_minimum_each_worker",
+      "per_worker_peak_rss_bytes_maximum",
+      "individual_fts_route_p95_milliseconds_maximum",
+      "hard_mask_p95_milliseconds_maximum",
+      "all_extra_routes_plus_mask_p95_milliseconds_maximum",
+      "total_per_turn_p95_milliseconds_maximum",
+      "route_candidates_maximum_each",
+      "complete_candidate_count_maximum_per_turn",
+      "candidate_cells_union_over_sealed_c200_maximum",
+      "canonical_trace_bytes_union_over_sealed_c200_maximum",
+      "network_attempt_count_maximum",
+      "gpu_peak_bytes_maximum",
+      "free_disk_bytes_before_formal_minimum"
+    ],
+    "post_target_final_gates": [
+      "full_formal_parent_wall_seconds_maximum",
+      "network_attempt_count_maximum",
+      "gpu_peak_bytes_maximum"
+    ],
     "preflight_limit100_cached_direct_plus_module_parent_wall_seconds_maximum": 60.0,
     "full_worker_wall_seconds_maximum_each": 1800.0,
+    "pre_target_parent_wall_seconds_maximum": 1800.0,
     "full_formal_parent_wall_seconds_maximum": 1800.0,
     "full_turns_per_second_minimum_each_worker": 10.0,
     "per_worker_peak_rss_bytes_maximum": 1610612736,
@@ -278,6 +329,8 @@
     "eligible_only_after_preflight_complete": true,
     "workers": ["fresh cached direct full-2000", "fresh cached literal-module full-2000"],
     "exact_repeat_required_before_target_attach": true,
+    "pre_target_attach_gate": "Before the first proxy or label stat/open/hash/read: both full workers must exit zero; both partial traces must be fsynced, exclusively published, closed, and canonical; both in-process worker receipts must be fully captured and closed; trace bytes and semantic digests must exactly repeat; all executable source blobs plus catalog, visible_context, and both sealed-C200 identities/hashes must match; every record must preserve the complete ordered C200 prefix; loss, duplicate, reorder, explicit-hard-conflict, legacy-route, schema, and privacy violations must all equal zero; and every key named in resource_gates.candidate_pre_target_gates must pass independently for both workers and the parent. The experiment-level outer capture is deliberately not a pre-target condition because the outer PowerShell writes it only after the runner exits. Any pre-target failure becomes implementation INVALID without target attach.",
+    "target_source_open_sequence": "After and only after pre_target_attach_gate passes, enter a one-way target-attach phase: stat/open/read raw proxy bytes, verify exact bytes/rows/SHA-256 before parsing only the target and frozen eligibility fields; then stat/open/read raw label archive bytes, verify exact bytes/SHA-256 before requesting exactly outer_fold, family_index, taxonomy_code in order. A proxy/label identity or parse failure is INVALID_AFTER_TARGET_ATTACH, consumes v2.22, and is never retried.",
     "membership_views": [
       "SEALED_K10",
       "SEALED_K20",
@@ -304,10 +357,22 @@
       "outer_fold_span_minimum": 2,
       "non_clothing_minimum": 1,
       "exact_target_cluster_uniform_delta_strictly_positive": true,
-      "candidate_loss_or_hard_conflict": 0,
+      "candidate_loss_maximum": 0,
+      "hard_conflict_maximum": 0,
       "exact_repeat": true
     },
-    "no_go": "C400<=1987 or any distribution/resource/integrity gate fails: freeze exact v2.22 and move to the next independent mechanism; never tune routes or depth.",
+    "promotion_metric_formulas": {
+      "membership_unit": "one of the fixed 2000 sessions; for a view V, membership[s,V] is true iff the session target occurs in V at any evaluator-eligible turn under the frozen intent-override eligibility boundary",
+      "c400_count": "sum over all 2000 sessions of int(membership[s,C400_COMPLETE_UNION])",
+      "new_targets": "despite the historical field name, this is the number of incremental sessions, not unique identifiers: sum int(C400 membership and not SEALED_VARIABLE_C200 membership)",
+      "outer_fold_span": "cardinality of the set of outer_fold codes among only incremental sessions",
+      "non_clothing_count": "number of incremental sessions whose taxonomy_code is 0, 2, or 3",
+      "candidate_loss": "count of turn-level sealed-prefix identifiers missing, duplicated, or reordered in expanded output; frozen gate is exactly 0",
+      "hard_conflict": "count of admitted novel tail candidate cells for which either executable-negative explicit_violation or reliable-positive conflict is true; frozen gate is separately exactly 0",
+      "combined_field_forbidden": "candidate_loss and hard_conflict must be reported and gated separately; they may not be collapsed into a net or combined count"
+    },
+    "valid_no_go": "Only after every pre-target and post-target source/schema/privacy/integrity/resource/exact-repeat gate passes: C400<=1987, fewer than two incremental sessions, fold span<2, non-clothing increment<1, or exact-target-cluster-uniform delta<=0 is a valid algorithm No-Go. Freeze exact v2.22 and move to the next independent mechanism; never tune routes or depth.",
+    "invalid_one_shot": "Any source, schema, privacy, integrity, exact-repeat, worker-exit, publication, resource, proxy/label identity, or post-target final-gate failure is INVALID_ONE_SHOT_CONSUMED, never an algorithm No-Go, and v2.22 is never retried.",
     "go": "Only permits a new preregistered 100-session served-policy smoke; it is not Top10 improvement."
   },
   "device_selection": {
@@ -337,10 +402,57 @@
       "version": "git version 2.45.2.windows.1"
     },
     "formal_git_environment": "Clear every inherited environment variable whose name starts with GIT_ before launching pinned Git. Set only explicit cwd and deterministic locale variables required by the harness.",
-    "formal_git_command_allowlist": ["cat-file", "config --get remote.origin.url", "diff-tree", "merge-base --is-ancestor", "rev-parse", "rev-list", "symbolic-ref"],
+    "formal_git_isolation": {
+      "git_dir": "D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-22-sparse-multiview",
+      "work_tree": "D:/tiktok/techjam-v2-22-sparse-multiview",
+      "pinned_control_files": {
+        "D:/tiktok/techjam-err402/.git/config": {"bytes": 3267, "sha256": "13a2efcabcda2ab3e7ce75bfc886fdf70ac4aaf0a7589ec19a422e51fbc26b9b"},
+        "D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-22-sparse-multiview/gitdir": {"bytes": 46, "sha256": "2b33735d24d0c161a48316c4033d51580b52f9fe43452abd215208fa11e4388c"},
+        "D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-22-sparse-multiview/commondir": {"bytes": 6, "sha256": "340ddcb67a6204f742cd1e28e5b462622dde7daaa8ee36001897196aacdc6d47"},
+        "D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-22-sparse-multiview/HEAD": {"bytes": 52, "sha256": "54034399008f60be6419e17a4a7699e8a9b2ca498a424751c0fe4f7d23ce488a"}
+      },
+      "environment_after_clear": {
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_CONFIG_GLOBAL": "NUL",
+        "GIT_CONFIG_COUNT": "0",
+        "GIT_NO_REPLACE_OBJECTS": "1",
+        "GIT_OPTIONAL_LOCKS": "0",
+        "GIT_ATTR_NOSYSTEM": "1"
+      },
+      "fixed_prefix_argv": ["--no-replace-objects", "--no-optional-locks", "--git-dir=D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-22-sparse-multiview", "--work-tree=D:/tiktok/techjam-v2-22-sparse-multiview", "-c", "core.hooksPath=NUL", "-c", "core.attributesFile=NUL", "-c", "include.path=NUL"],
+      "config_and_replace_policy": "The repository-local config and three worktree control files must match the pinned raw identities before and after every Git cell and contain no include/includeIf section. No system/global/includes/replace refs, hooks, attributes, aliases, pager, optional locks, or environment-supplied object directory/index/worktree are honored."
+    },
+    "formal_git_exact_operation_shapes": [
+      "--version",
+      "rev-parse --verify <pinned-40hex>^{commit}",
+      "rev-parse --verify refs/heads/small-ranker-v2.22-sparse-multiview^{commit}",
+      "rev-parse --verify refs/remotes/origin/small-ranker-v2.22-sparse-multiview^{commit}",
+      "rev-parse <effective-prereg-40hex>^",
+      "merge-base --is-ancestor <effective-prereg-40hex> <candidate-40hex>",
+      "rev-list --min-parents=2 <effective-prereg-40hex>..<candidate-40hex>",
+      "diff-tree --no-commit-id --name-only --no-renames -r <effective-prereg-40hex> <candidate-40hex>",
+      "cat-file -t <40hex-object>",
+      "cat-file blob <candidate-40hex>:<one-exact-allowlisted-path>"
+    ],
     "formal_git_forbidden": ["status", "diff", "ls-files", "worktree-wide scan", "fetch", "pull", "checkout", "switch", "commit", "tag", "push", "reset", "rebase", "amend", "clean", "gc", "delete"],
     "git_object_control_reads_only": true,
+    "formal_runtime_source_manifest_at_parent": {
+      "evaluator/__init__.py": "36ae92f27844cf6288fd433bdb4b21ca4b2a6b07",
+      "evaluator/local_evaluator.py": "7c808347b31ef3121a9cbc4810ac3eb325f950ba",
+      "scripts/__init__.py": "3571b1ee55a368c944442b55d00adc4aa8d0ebfd",
+      "scripts/c200_candidate_worker.py": "b94fddcf5a9b20ddde540f3f43ea9962982cb096",
+      "starter/__init__.py": "f4cea264f261c96c4ff2166ad00b28a8025a55e3",
+      "starter/agent.py": "421c6d43c598102b8fefb181b72bab5da4bf1294",
+      "starter/attributes.py": "92260323f077c9861aa4edd5242aff772c875760",
+      "starter/clarification.py": "b648571dc873cb790455898a2ae3077cc9760c45",
+      "starter/coverage.py": "59a6507fef63afa0d9761323f5771a52741c811a",
+      "starter/p8_negative.py": "719078234dba297ce59f68d8a2b1734ec53c9c63",
+      "starter/reranker.py": "f179e7c75d4c0c5189f3a62139de5f51c8ec231a",
+      "starter/slot_ledger.py": "72975cff12af59e4044e52911c58294cd74a785a"
+    },
+    "runtime_source_origin": "The source-only bootstrap materializes/loads exactly the parent manifest plus the candidate-commit blobs for the six v2.22 implementation paths. Every local module __file__, loader origin, raw Git blob and import allowlist is checked; project cwd/sys.path discovery, dirty bytes, pyc, namespace packages, shadow modules and every other local import are denied.",
     "destructive_history_and_artifact_actions_forbidden": "No force/force-push, rebase, reset --hard, amend, branch or tag deletion, old artifact deletion, claim deletion, or artifact overwrite/replacement.",
+    "irreversible_candidate_lock": "Before the first stat/open/hash/read of catalog, visible_context, either sealed C200 replica, proxy, or label archive, the formal harness binds one pushed candidate commit SHA, its exact six implementation blobs, the corrected prereg blob, local branch and remote-tracking ref. From that first frozen-input access onward no code/blob/commit change or new follow-up is allowed within v2.22, even before a claim; any required change becomes a new experiment/preregistration. Preclaim synthetic tests are source-only and may not access these frozen inputs.",
     "ordinary_linear_followup_fix_commits_before_claim": "Allowed only while no v2.22 claim exists; prereg must remain ancestor, no merge commit, cumulative prereg-to-candidate changed-path set must remain exact, and every candidate commit must be pushed before source access."
   },
   "durable_one_shot_protocol": {
@@ -355,8 +467,18 @@
     "transaction": "O_EXCL/create-new claim and fsync before process; after process closes, O_EXCL/fsync exact raw outer before parsing; O_EXCL/fsync one COMPLETE or INVALID terminal. Never truncate, unlink, overwrite, replace, or rerun after claim.",
     "invalid": "Any failure after claim is implementation INVALID, not algorithm No-Go, and v2.22 is never rerun."
   },
+  "formal_worker_schedule_and_clocks": {
+    "full_workers": "Exactly two, strictly sequential with no overlap: fresh cached direct first, then only after its process exits and trace/receipt closes, fresh cached literal-module second.",
+    "worker_parent_wall": "For each worker, unrounded perf_counter elapsed from immediately before subprocess creation through process exit, stdout/stderr capture closure, worker receipt parse, and exclusive trace publication verification. Later nonce-runtime deletion is excluded from the worker clock.",
+    "pre_target_parent_wall": "One unrounded perf_counter clock begins immediately before direct-worker launch and ends after module-worker exit, both closed-trace validations and exact-repeat, and all source/Git/schema/privacy/candidate_pre_target resource gates, immediately before the first proxy/label stat or open. It excludes target attach, target aggregation, and later runtime cleanup, and is the only parent-wall value used by pre_target_attach_gate.",
+    "full_formal_parent_wall": "One unrounded perf_counter clock begins immediately before direct-worker launch and ends only after module-worker exit, both trace validations and exact-repeat, pre-target source/Git/resource gates, target attach and aggregate calculation, final source/Git hash checks, and both nonce-runtime cleanups. It includes both sequential worker walls and every operation between them. It excludes the already-durable candidate claim creation, outer PowerShell preclaim checks, bootstrap startup before runner entry, terminal JSON serialization/fsync, and outer process teardown; those exclusions are fixed and reported separately as outer transaction wall.",
+    "post_target_rule": "After target attach, every key in resource_gates.post_target_final_gates must pass before COMPLETE; failure is implementation INVALID and cannot be used as a promotion result.",
+    "outer_transaction_wall": "Measured and reported from immediately before bootstrap process creation through process exit, raw outer O_EXCL/fsync, terminal O_EXCL/fsync, and verified safe runtime cleanup; diagnostic only and not substituted for the full_formal_parent_wall gate.",
+    "parallelism_forbidden": true
+  },
   "checkpoint_choreography": {
     "preregistration": "This JSON only, ordinary commit, direct child of parent_commit, pushed before implementation.",
+    "corrective_prereg_followup": "The original JSON-only prereg commit may have one or more ordinary JSON-only linear corrections before any frozen-input access or claim. The last correction commit/blob is the effective prereg checkpoint pinned by the formal harness; it must be pushed before the six-path implementation commit and remain its ancestor. No correction may inspect target-free traces or outcomes.",
     "implementation_exact_cumulative_changed_paths_no_renames": [
       "scripts/probe_sparse_multiview_g0.py",
       "scripts/run_v222_preflight.ps1",
