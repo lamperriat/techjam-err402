@@ -1,0 +1,33 @@
+{
+  "schema_version": "small-ranker-v2.20-sparse-route-cache-preflight-blocker.v1",
+  "status": "TARGET_FREE_PREREGISTRATION_CONSTRAINT_CONFLICT_BLOCKER",
+  "recorded_on": "2026-08-31",
+  "branch": "small-ranker-v2.20-sparse-cache",
+  "preregistration_commit": "2a1aa5d51da4b9d621687b9101c26bafcac82ccb",
+  "implementation_commit": "d9e04b1ccb73bbbe132d3b5673931c6a40a279a4",
+  "formal_preflight_started": false,
+  "sealed_source_accessed": false,
+  "target_or_outcome_accessed": false,
+  "candidate_recall_computed": false,
+  "algorithm_go_or_no_go_claimed": false,
+  "blocker": {
+    "code": "PREREGISTRATION_CONSTRAINT_CONFLICT",
+    "reason": "The frozen preregistration simultaneously requires a globally clean worktree and forbids any resolve/stat/open/hash/read/create/rename/delete/probe of the v2.19 receipt and cache namespace. A worktree-wide Git status must enumerate the protected namespace's parent tree, so the two gates cannot both be proven. Leaf exclusion pathspecs filter matches after traversal and are not a zero-probe guarantee.",
+    "classification": "implementation-orchestration blocker, not algorithm No-Go",
+    "fail_closed": "The formal run entry raises before result-path, audit, Git, catalog, visible-context, or C200 access."
+  },
+  "reusable_implementation_blobs": {
+    "scripts/probe_sparse_multiview_cache_preflight.py": "35110d5bb65c5b3d6f58fe303bd2bf7d9cc4e591",
+    "scripts/sparse_multiview_candidate_worker.py": "b44a0c2cbb4c9b4d34aedd6795dbed1ff24a5020",
+    "starter/sparse_multiview.py": "4adf065b0384ab5d45f7bd4582bf7aaf217348a5",
+    "tests/test_sparse_multiview_cache.py": "15dc470bc799d4fe4b96179c26185781e635ff69"
+  },
+  "verification": {
+    "formal_python_ast": "4 files passed",
+    "targeted_tests": "29 passed",
+    "relevant_regression": "177 passed, 26 subtests passed",
+    "downloads_or_installs": false,
+    "gpu_used": false
+  },
+  "next_action": "Create a new isolated preregistration that freezes exact execution-surface cleanliness, Git commit/blob/origin equality, import-origin checks, and top-level shadow protection without any worktree traversal through protected artifact trees; then reuse the unchanged cache algorithm for one target-free 20/100 preflight."
+}
