@@ -12,15 +12,15 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-# This is the sole external formal orchestrator for SR-v2.22.  It intentionally
+# This is the sole external formal orchestrator for SR-v2.22B.  It intentionally
 # has no data-set paths: all data/source gates remain inside the source-only
 # Python runner.  The outer process owns the irreversible claim -> raw outer ->
 # terminal transaction so a non-zero nested exit can never discard its receipt.
 
-$ProjectRoot = "D:\tiktok\techjam-v2-22-sparse-multiview"
-$ProjectRootPosix = "D:/tiktok/techjam-v2-22-sparse-multiview"
-$RuntimeBase = "D:\tiktok\.v222_runtime"
-$RuntimeBasePosix = "D:/tiktok/.v222_runtime"
+$ProjectRoot = "D:\tiktok\techjam-v2-22b-sparse-multiview"
+$ProjectRootPosix = "D:/tiktok/techjam-v2-22b-sparse-multiview"
+$RuntimeBase = "D:\tiktok\.v222b_runtime"
+$RuntimeBasePosix = "D:/tiktok/.v222b_runtime"
 $PythonExe = "D:\450\conda\envs\tiktok\python.exe"
 $PythonBytes = 93184L
 $PythonSha256 = "7819c841b9a6457da034e567563de1283dbc0b86482fd83d62b5d982d2a83a63"
@@ -28,17 +28,18 @@ $GitExe = "C:\Program Files\Git\mingw64\bin\git.exe"
 $GitBytes = 4018680L
 $GitSha256 = "3fe4878d8399f6fb7632b9325559d1bb38c3a17aac7a60f667c1e5f90b865248"
 $GitVersion = "git version 2.45.2.windows.1"
-$GitDir = "D:\tiktok\techjam-err402\.git\worktrees\techjam-v2-22-sparse-multiview"
-$GitDirPosix = "D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-22-sparse-multiview"
-$Branch = "small-ranker-v2.22-sparse-multiview"
+$GitDir = "D:\tiktok\techjam-err402\.git\worktrees\techjam-v2-22b-sparse-multiview"
+$GitDirPosix = "D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-22b-sparse-multiview"
+$Branch = "small-ranker-v2.22b-sparse-multiview"
 $ParentCommit = "a402c3d3398fd7deff2215837aade044d07cb200"
 $OriginalPreregCommit = "14ac9f0b90b5dd6dbb9cc799ba99f6a1c8b0c0e5"
-$PreregCorrectionCommit = "68a84ab49c670716f65df24dd260724e00ba0661"
-$PreregCommit = "eaae35b32d5ee143b317872c60b230863b5c8e29"
-$PreregBlob = "c748fc6984c53f12ac61113a8bf8ebc5981416f8"
-$PreregBytes = 43744L
-$PreregSha256 = "28dc1885999bdeb81d862caa5ab3199a17e11e41f9c0e23b4ae849bb3914e933"
-$ProbeSchemaVersion = "small-ranker-v2.22-multiview-sparse-rrf-g0-probe.v1"
+$PreregCorrection1Commit = "68a84ab49c670716f65df24dd260724e00ba0661"
+$PreregCorrection2Commit = "eaae35b32d5ee143b317872c60b230863b5c8e29"
+$PreregCommit = "a2e324e21730cf1c243dcc2647a894b30ad515d2"
+$PreregBlob = "e534bc7a9a304a03869e951f290fa2b96d51dee7"
+$PreregBytes = 45251L
+$PreregSha256 = "2d0ebc1e29c3e4e273e54b147aa15d24add3a593f389d09f952a5fc48e22e096"
+$ProbeSchemaVersion = "small-ranker-v2.22b-multiview-sparse-rrf-g0-probe.v1"
 $RemoteUrl = "https://github.com/lamperriat/techjam-err402.git"
 $PreregRelative = "configs/small_ranker_v2_22.multiview_sparse_rrf_g0_preregistration.json"
 $BootstrapRelative = "scripts/v222_safe_bootstrap.py"
@@ -69,9 +70,9 @@ $CriticalBinaries = @(
 )
 $GitControlFiles = @(
     [pscustomobject]@{ Path = "D:\tiktok\techjam-err402\.git\config"; Bytes = 3267L; Sha256 = "13a2efcabcda2ab3e7ce75bfc886fdf70ac4aaf0a7589ec19a422e51fbc26b9b" },
-    [pscustomobject]@{ Path = (Join-Path $GitDir "gitdir"); Bytes = 46L; Sha256 = "2b33735d24d0c161a48316c4033d51580b52f9fe43452abd215208fa11e4388c" },
+    [pscustomobject]@{ Path = (Join-Path $GitDir "gitdir"); Bytes = 47L; Sha256 = "094e1cea6a66a0e4a994dbd565bc102377d8ef072a50c23fa259345800de595c" },
     [pscustomobject]@{ Path = (Join-Path $GitDir "commondir"); Bytes = 6L; Sha256 = "340ddcb67a6204f742cd1e28e5b462622dde7daaa8ee36001897196aacdc6d47" },
-    [pscustomobject]@{ Path = (Join-Path $GitDir "HEAD"); Bytes = 52L; Sha256 = "54034399008f60be6419e17a4a7699e8a9b2ca498a424751c0fe4f7d23ce488a" }
+    [pscustomobject]@{ Path = (Join-Path $GitDir "HEAD"); Bytes = 53L; Sha256 = "a632024088a4dc2054b446066d167e9641cfec37f1db8c09b937eaf2d3dbe62a" }
 )
 
 $FastTrack = Join-Path $ProjectRoot "experiments\fast_track"
@@ -83,14 +84,14 @@ $WorktreeDotGit = Join-Path $ProjectRoot ".git"
 
 $ModePaths = @{
     preflight = [ordered]@{
-        claim = Join-Path $FastTrack "small_ranker_v2_22_multiview_sparse_rrf_g0_preflight_claim_20260831.json"
-        outer = Join-Path $FastTrack "small_ranker_v2_22_multiview_sparse_rrf_g0_preflight_outer_20260831.json"
-        result = Join-Path $FastTrack "small_ranker_v2_22_multiview_sparse_rrf_g0_preflight_20260831.json"
+        claim = Join-Path $FastTrack "small_ranker_v2_22b_multiview_sparse_rrf_g0_preflight_claim_20260831.json"
+        outer = Join-Path $FastTrack "small_ranker_v2_22b_multiview_sparse_rrf_g0_preflight_outer_20260831.json"
+        result = Join-Path $FastTrack "small_ranker_v2_22b_multiview_sparse_rrf_g0_preflight_20260831.json"
     }
     candidate = [ordered]@{
-        claim = Join-Path $FastTrack "small_ranker_v2_22_multiview_sparse_rrf_g0_candidate_recall_claim_20260831.json"
-        outer = Join-Path $FastTrack "small_ranker_v2_22_multiview_sparse_rrf_g0_candidate_recall_outer_20260831.json"
-        result = Join-Path $FastTrack "small_ranker_v2_22_multiview_sparse_rrf_g0_candidate_recall_20260831.json"
+        claim = Join-Path $FastTrack "small_ranker_v2_22b_multiview_sparse_rrf_g0_candidate_recall_claim_20260831.json"
+        outer = Join-Path $FastTrack "small_ranker_v2_22b_multiview_sparse_rrf_g0_candidate_recall_outer_20260831.json"
+        result = Join-Path $FastTrack "small_ranker_v2_22b_multiview_sparse_rrf_g0_candidate_recall_20260831.json"
     }
 }
 
@@ -364,7 +365,7 @@ function Invoke-FrozenGit {
         "--work-tree=$ProjectRootPosix",
         "-c", "core.hooksPath=NUL",
         "-c", "core.attributesFile=NUL",
-        "-c", "include.path=NUL"
+        "-c", "include.path=/dev/null"
     )
     $captured = Invoke-CapturedProcess -FileName $GitExe -Arguments ($prefix + $Arguments) -WorkingDirectory "C:\Windows\System32" -Environment (New-GitEnvironment) -TimeoutMilliseconds 30000
     $after = Get-GitControlCheckpoint
@@ -512,8 +513,9 @@ function Assert-PushedCheckpoint {
     if ($Commit -ceq $PreregCommit) { Throw-Code "IMPLEMENTATION_COMMIT_REQUIRED" }
     $correctionChain = @(
         [pscustomobject]@{ Child = $OriginalPreregCommit; Parent = $ParentCommit },
-        [pscustomobject]@{ Child = $PreregCorrectionCommit; Parent = $OriginalPreregCommit },
-        [pscustomobject]@{ Child = $PreregCommit; Parent = $PreregCorrectionCommit }
+        [pscustomobject]@{ Child = $PreregCorrection1Commit; Parent = $OriginalPreregCommit },
+        [pscustomobject]@{ Child = $PreregCorrection2Commit; Parent = $PreregCorrection1Commit },
+        [pscustomobject]@{ Child = $PreregCommit; Parent = $PreregCorrection2Commit }
     )
     foreach ($edge in $correctionChain) {
         $resolvedCorrection = Get-GitSingleLine -Arguments @("rev-parse", "--verify", "$($edge.Child)^{commit}")
@@ -545,7 +547,7 @@ function Assert-PushedCheckpoint {
         Throw-Code "PREREG_BLOB_DRIFT"
     }
     Assert-WorktreeBlob -Path $PreregPath -ExpectedBlob $PreregBlob
-    $preregRaw = Get-PlainFileBytes -Path $PreregPath -MaximumBytes 1048576
+    $preregRaw = Convert-CrlfToLf -Bytes (Get-PlainFileBytes -Path $PreregPath -MaximumBytes 1048576)
     if ($preregRaw.LongLength -ne $PreregBytes -or (Get-Sha256Hex -Bytes $preregRaw) -cne $PreregSha256) {
         Throw-Code "PREREG_RAW_IDENTITY_DRIFT"
     }
@@ -810,7 +812,7 @@ function New-SanitizedOuterFailure {
         process_exit_code = $ProcessExitCode
         raw_stderr_retained = $false
         raw_stdout_retained = $false
-        schema_version = "small-ranker-v2.22-outer-capture-failure.v1"
+        schema_version = "small-ranker-v2.22b-outer-capture-failure.v1"
         stderr_bytes = $StderrBytes
         stdout_bytes = $StdoutBytes
     }
@@ -937,7 +939,7 @@ function Assert-PriorPycachePrefix {
     $runtimeRoot = [System.IO.Path]::GetDirectoryName($full)
     if (
         [System.IO.Path]::GetFileName($full) -cne "pycache" -or
-        [System.IO.Path]::GetFileName($runtimeRoot) -cnotmatch "^v222-[0-9a-f]{32}$" -or
+        [System.IO.Path]::GetFileName($runtimeRoot) -cnotmatch "^v222b-[0-9a-f]{32}$" -or
         (Get-FullPathKey ([System.IO.Path]::GetDirectoryName($runtimeRoot))) -cne (Get-FullPathKey $RuntimeBase)
     ) { Throw-Code "PREFLIGHT_BOOTSTRAP_ATTESTATION" }
 }
@@ -965,8 +967,8 @@ function Assert-CandidatePrerequisite {
     Assert-ExactNames -Value $claim.preregistration -Expected @("blob", "commit")
     Assert-ExactNames -Value $claim.target_source_blobs -Expected @("bootstrap", "runner", "worker")
     if (
-        [string]$claim.schema_version -cne "small-ranker-v2.22-durable-one-shot-claim.v1" -or
-        [string]$claim.experiment_id -cne "SR-V2.22-TARGET-BLIND-MULTIVIEW-SPARSE-RRF-G0" -or
+        [string]$claim.schema_version -cne "small-ranker-v2.22b-durable-one-shot-claim.v1" -or
+        [string]$claim.experiment_id -cne "SR-V2.22B-TARGET-BLIND-MULTIVIEW-SPARSE-RRF-G0" -or
         [string]$claim.branch -cne $Branch -or [string]$claim.mode -cne "preflight" -or
         [string]$claim.implementation_commit -cne $Commit -or $claim.one_shot -isnot [bool] -or $claim.one_shot -ne $true -or
         $claim.attempt_consumed -isnot [bool] -or $claim.attempt_consumed -ne $true -or
@@ -1040,7 +1042,7 @@ function Assert-CandidatePrerequisite {
     $stages = @($targetReceipt.stages)
     if (
         [string]$targetReceipt.schema_version -cne $ProbeSchemaVersion -or
-        [string]$targetReceipt.experiment_id -cne "SR-V2.22-TARGET-BLIND-MULTIVIEW-SPARSE-RRF-G0" -or
+        [string]$targetReceipt.experiment_id -cne "SR-V2.22B-TARGET-BLIND-MULTIVIEW-SPARSE-RRF-G0" -or
         [string]$targetReceipt.mode -cne "preflight" -or [string]$targetReceipt.status -cne "TARGET_FREE_PREFLIGHT_COMPLETE" -or
         [string]$targetReceipt.recorded_on -cne $RecordedOn -or $targetReceipt.rerun_forbidden -isnot [bool] -or $targetReceipt.rerun_forbidden -ne $true -or
         [string]$targetReceipt.implementation.branch -cne $Branch -or [string]$targetReceipt.implementation.commit -cne $Commit -or
@@ -1086,7 +1088,7 @@ function Assert-CandidatePrerequisite {
     Assert-IdentityEqual -Observed $terminal.outer -Expected $outerIdentity -Code "PREFLIGHT_TERMINAL_OUTER_BINDING"
     Assert-CanonicalObjectEqual -Left $terminal.target_receipt -Right $targetReceipt -Code "PREFLIGHT_TERMINAL_RECEIPT_BINDING"
     if (
-        [string]$terminal.schema_version -cne "small-ranker-v2.22-durable-terminal.v1" -or
+        [string]$terminal.schema_version -cne "small-ranker-v2.22b-durable-terminal.v1" -or
         [string]$terminal.status -cne "COMPLETE" -or [string]$terminal.mode -cne "preflight" -or
         [string]$terminal.implementation_commit -cne $Commit -or [string]$terminal.recorded_on -cne $RecordedOn -or
         -not ($terminal.process_exit_code -is [int] -or $terminal.process_exit_code -is [long]) -or [int64]$terminal.process_exit_code -ne 0 -or
@@ -1169,7 +1171,7 @@ function New-FreshRuntime {
     }
     Assert-PlainExistingPath -Path $RuntimeBase -Kind Directory | Out-Null
     $nonce = [System.Guid]::NewGuid().ToString("N")
-    $runtimeRoot = Join-Path $RuntimeBase ("v222-" + $nonce)
+    $runtimeRoot = Join-Path $RuntimeBase ("v222b-" + $nonce)
     if (Test-LiteralPathExists $runtimeRoot) { Throw-Code "RUNTIME_COLLISION" }
     [void][System.IO.Directory]::CreateDirectory($runtimeRoot)
     Assert-PlainExistingPath -Path $runtimeRoot -Kind Directory | Out-Null
@@ -1460,7 +1462,7 @@ function Assert-FormalCommonReceipt {
     )
     if (
         [string]$Receipt.schema_version -cne $ProbeSchemaVersion -or
-        [string]$Receipt.experiment_id -cne "SR-V2.22-TARGET-BLIND-MULTIVIEW-SPARSE-RRF-G0" -or
+        [string]$Receipt.experiment_id -cne "SR-V2.22B-TARGET-BLIND-MULTIVIEW-SPARSE-RRF-G0" -or
         [string]$Receipt.mode -cne $Mode -or [string]$Receipt.recorded_on -cne $RecordedOn -or
         $Receipt.rerun_forbidden -isnot [bool] -or $Receipt.rerun_forbidden -ne $true
     ) { Throw-Code "FORMAL_RECEIPT_IDENTITY" }
@@ -2116,7 +2118,7 @@ function Assert-FormalTargetReceipt {
             "one immutable full-2000 candidate-recall receipt"
         }
         else {
-            "freeze v2.22 without candidate claim and choose an independent mechanism"
+            "freeze v2.22B without candidate claim and choose an independent mechanism"
         }
         if ($Receipt.next -isnot [string] -or [string]$Receipt.next -cne $expectedNext) { Throw-Code "FORMAL_PREFLIGHT_NEXT" }
         return
@@ -2264,7 +2266,7 @@ function Get-OuterTransactionReportBytes {
             status = $TerminalStatus
         }
         outer_transaction_wall_seconds = [double]$Stopwatch.Elapsed.TotalSeconds
-        schema_version = "small-ranker-v2.22-outer-transaction-report.v1"
+        schema_version = "small-ranker-v2.22b-outer-transaction-report.v1"
         status = "OUTER_TRANSACTION_RECORDED"
     })
 }
@@ -2311,14 +2313,14 @@ try {
     $claim = [ordered]@{
         attempt_consumed = $true
         branch = $Branch
-        experiment_id = "SR-V2.22-TARGET-BLIND-MULTIVIEW-SPARSE-RRF-G0"
+        experiment_id = "SR-V2.22B-TARGET-BLIND-MULTIVIEW-SPARSE-RRF-G0"
         implementation_commit = $ImplementationCommit
         mode = $Mode
         one_shot = $true
         preregistration = [ordered]@{ blob = $PreregBlob; commit = $PreregCommit }
         preregistration_commit = $PreregCommit
         recorded_on = $RecordedOn
-        schema_version = "small-ranker-v2.22-durable-one-shot-claim.v1"
+        schema_version = "small-ranker-v2.22b-durable-one-shot-claim.v1"
         target_source_blobs = [ordered]@{
             bootstrap = [string]$sourceBlobs[$BootstrapRelative]
             runner = [string]$sourceBlobs[$RunnerRelative]
@@ -2380,7 +2382,7 @@ try {
             process_exit_code = [int]$processCapture.ExitCode
             raw_stderr_retained = $false
             recorded_on = $RecordedOn
-            schema_version = "small-ranker-v2.22-durable-terminal.v1"
+            schema_version = "small-ranker-v2.22b-durable-terminal.v1"
             status = $(if ($complete) { "COMPLETE" } else { "INVALID_ONE_SHOT_CONSUMED" })
             target_exit_code = $(if ($null -ne $parsedOuter) { [int]$parsedOuter.target_exit_code } else { 2 })
             target_receipt = $(if ($null -ne $parsedOuter) { $parsedOuter.target_receipt } else { $null })
@@ -2436,7 +2438,7 @@ try {
                 preregistration = [ordered]@{ blob = $PreregBlob; commit = $PreregCommit }
                 raw_stderr_retained = $false
                 recorded_on = $RecordedOn
-                schema_version = "small-ranker-v2.22-durable-terminal.v1"
+                schema_version = "small-ranker-v2.22b-durable-terminal.v1"
                 status = "INVALID_ONE_SHOT_CONSUMED"
             }
             if ($outerWritten -and $null -ne $outerRaw) {
@@ -2456,7 +2458,7 @@ try {
                     implementation_commit = $ImplementationCommit
                     mode = $Mode
                     recorded_on = $RecordedOn
-                    schema_version = "small-ranker-v2.22-ephemeral-failure.v1"
+                    schema_version = "small-ranker-v2.22b-ephemeral-failure.v1"
                     status = "ONE_SHOT_CONSUMED_CRASH"
                 })
             }
@@ -2479,7 +2481,7 @@ catch {
         implementation_commit = $ImplementationCommit
         mode = $Mode
         recorded_on = $RecordedOn
-        schema_version = "small-ranker-v2.22-ephemeral-failure.v1"
+        schema_version = "small-ranker-v2.22b-ephemeral-failure.v1"
         status = $status
     })
     $finalExitCode = 2
@@ -2491,7 +2493,7 @@ if ($null -eq $finalBytes) {
         implementation_commit = $ImplementationCommit
         mode = $Mode
         recorded_on = $RecordedOn
-        schema_version = "small-ranker-v2.22-ephemeral-failure.v1"
+        schema_version = "small-ranker-v2.22b-ephemeral-failure.v1"
         status = $(if ($claimed) { "ONE_SHOT_CONSUMED_CRASH" } else { "PRELAUNCH_BLOCKED_NOT_CONSUMED" })
     })
     $finalExitCode = 2

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from fractions import Fraction
+import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -414,7 +415,7 @@ class SparseMultiviewG0Tests(unittest.TestCase):
         original_base = probe.RUNTIME_BASE
         probe.RUNTIME_BASE = runtime_base
         try:
-            root = runtime_base / "v222-test"
+            root = runtime_base / "v222b-test"
             root.mkdir()
             identity = probe._directory_identity(root.stat())
             (root / "pycache").mkdir()
@@ -432,7 +433,7 @@ class SparseMultiviewG0Tests(unittest.TestCase):
         probe.RUNTIME_BASE = runtime_base
         try:
             nonce = "a" * 32
-            root = runtime_base / f"v222-{nonce}"
+            root = runtime_base / f"v222b-{nonce}"
             root.mkdir()
             identity = probe._directory_identity(root.stat())
             (root / "pycache").mkdir()
@@ -447,7 +448,7 @@ class SparseMultiviewG0Tests(unittest.TestCase):
         finally:
             probe.RUNTIME_BASE = original_base
 
-    def test_probe_prereg_key_matches_v222_choreography(self) -> None:
+    def test_probe_prereg_key_matches_v222b_choreography(self) -> None:
         source = Path(probe.__file__).read_text(encoding="utf-8")
         self.assertIn(
             "implementation_exact_cumulative_changed_paths_no_renames", source
@@ -480,7 +481,7 @@ class SparseMultiviewG0Tests(unittest.TestCase):
             "C:/Program Files/Git/mingw64/bin/git.exe",
         )
 
-    def test_formal_sources_have_no_v221_or_old_prereg_identity(self) -> None:
+    def test_formal_sources_have_v222b_prereg_identity(self) -> None:
         root = Path(__file__).parents[1]
         sources = "\n".join(
             (root / relative).read_text(encoding="utf-8")
@@ -493,21 +494,119 @@ class SparseMultiviewG0Tests(unittest.TestCase):
 
         self.assertNotIn("techjam-v2-21-gloss-g0", sources)
         self.assertNotIn("b81351a0657411ab04810bb4740b35b407d175cc", sources)
-        self.assertIn("eaae35b32d5ee143b317872c60b230863b5c8e29", sources)
-        self.assertIn("small-ranker-v2.22-sparse-multiview", sources)
+        self.assertIn("a2e324e21730cf1c243dcc2647a894b30ad515d2", sources)
+        self.assertIn("small-ranker-v2.22b-sparse-multiview", sources)
         self.assertIn("mingw64", sources)
+        self.assertIn("include.path=/dev/null", sources)
+        self.assertNotIn("include.path=NUL", sources)
         self.assertEqual(
             probe.PREREG_COMMIT,
-            "eaae35b32d5ee143b317872c60b230863b5c8e29",
+            "a2e324e21730cf1c243dcc2647a894b30ad515d2",
+        )
+        self.assertEqual(
+            probe.PREREG_CORRECTION_CHAIN,
+            (
+                "14ac9f0b90b5dd6dbb9cc799ba99f6a1c8b0c0e5",
+                "68a84ab49c670716f65df24dd260724e00ba0661",
+                "eaae35b32d5ee143b317872c60b230863b5c8e29",
+                "a2e324e21730cf1c243dcc2647a894b30ad515d2",
+            ),
         )
         self.assertEqual(probe.PREREG_CORRECTION_CHAIN[-1], probe.PREREG_COMMIT)
-
-    def test_bootstrap_points_at_v222_worktree_and_modules(self) -> None:
         self.assertEqual(
-            probe.BRANCH, "small-ranker-v2.22-sparse-multiview"
+            probe.PREREG_BLOB,
+            "e534bc7a9a304a03869e951f290fa2b96d51dee7",
+        )
+
+    def test_v222b_identity_and_git_controls_are_frozen(self) -> None:
+        self.assertEqual(
+            probe.SCHEMA_VERSION,
+            "small-ranker-v2.22b-multiview-sparse-rrf-g0-probe.v1",
         )
         self.assertEqual(
-            bootstrap_project_root(), "D:/tiktok/techjam-v2-22-sparse-multiview"
+            probe.WORKER_SCHEMA_VERSION,
+            "small-ranker-v2.22b-multiview-sparse-rrf-g0-worker-summary.v1",
+        )
+        self.assertEqual(probe.WORKER_SCHEMA_VERSION, worker.SCHEMA_VERSION)
+        self.assertEqual(
+            worker.EXPECTED_PREREGISTRATION_BLOB_SHA1,
+            "e534bc7a9a304a03869e951f290fa2b96d51dee7",
+        )
+        self.assertEqual(
+            probe.EXPERIMENT_ID,
+            "SR-V2.22B-TARGET-BLIND-MULTIVIEW-SPARSE-RRF-G0",
+        )
+        self.assertEqual(str(probe.RUNTIME_BASE), r"D:\tiktok\.v222b_runtime")
+        self.assertEqual(
+            str(worker.EXPECTED_RUNTIME_ROOT), r"D:\tiktok\.v222b_runtime"
+        )
+        self.assertEqual(probe.GIT_PREFIX[-1], "include.path=/dev/null")
+        gitdir = probe.EXPECTED_GITDIR
+        self.assertEqual(
+            probe.EXPECTED_GIT_CONTROL_FILES[gitdir / "gitdir"],
+            {
+                "bytes": 47,
+                "sha256": "094e1cea6a66a0e4a994dbd565bc102377d8ef072a50c23fa259345800de595c",
+            },
+        )
+        self.assertEqual(
+            probe.EXPECTED_GIT_CONTROL_FILES[gitdir / "commondir"],
+            {
+                "bytes": 6,
+                "sha256": "340ddcb67a6204f742cd1e28e5b462622dde7daaa8ee36001897196aacdc6d47",
+            },
+        )
+        self.assertEqual(
+            probe.EXPECTED_GIT_CONTROL_FILES[gitdir / "HEAD"],
+            {
+                "bytes": 53,
+                "sha256": "a632024088a4dc2054b446066d167e9641cfec37f1db8c09b937eaf2d3dbe62a",
+            },
+        )
+        self.assertIn("v2_22b", probe.PREFLIGHT_CLAIM_PATH.name)
+        self.assertIn("v2_22b", probe.PREFLIGHT_OUTER_PATH.name)
+        self.assertIn("v2_22b", probe.PREFLIGHT_RESULT_PATH.name)
+        self.assertIn("v2_22b", probe.CANDIDATE_CLAIM_PATH.name)
+
+    def test_git_lf_prereg_identity_normalizes_crlf(self) -> None:
+        path = Path(self._tmpdir.name) / "prereg.json"
+        git_lf = b'{\n  "status": "frozen"\n}\n'
+        path.write_bytes(git_lf.replace(b"\n", b"\r\n"))
+        normalized, identity = probe._git_lf_identity(
+            path,
+            {
+                "bytes": len(git_lf),
+                "sha256": hashlib.sha256(git_lf).hexdigest(),
+            },
+        )
+        self.assertEqual(normalized, git_lf)
+        self.assertEqual(identity.rows, 3)
+        self.assertEqual(probe._git_blob_from_raw(normalized), probe._git_blob_from_raw(git_lf))
+
+    def test_v222b_guards_old_v222_namespaces(self) -> None:
+        old_artifact = (
+            r"D:\tiktok\techjam-v2-22b-sparse-multiview\experiments\fast_track"
+            r"\small_ranker_v2_22_preflight_20260831.json"
+        )
+        current_artifact = old_artifact.replace("v2_22_", "v2_22b_")
+        guard = probe._FormalAuditGuard()
+        with self.assertRaises(PermissionError):
+            guard.hook("open", (old_artifact,))
+        guard.hook("open", (current_artifact,))
+        with self.assertRaises(worker.SparseMultiviewG0WorkerError):
+            worker._guard_legacy_namespaces(PureWindowsPath(old_artifact))
+        with self.assertRaises(worker.SparseMultiviewG0WorkerError):
+            worker._guard_legacy_namespaces(
+                PureWindowsPath(r"D:\tiktok\small-ranker-v2.22-sparse-multiview")
+            )
+        worker._guard_legacy_namespaces(PureWindowsPath(current_artifact))
+
+    def test_bootstrap_points_at_v222b_worktree_and_modules(self) -> None:
+        self.assertEqual(
+            probe.BRANCH, "small-ranker-v2.22b-sparse-multiview"
+        )
+        self.assertEqual(
+            bootstrap_project_root(), "D:/tiktok/techjam-v2-22b-sparse-multiview"
         )
         self.assertEqual(
             probe.RUNNER_RELATIVE, "scripts/probe_sparse_multiview_g0.py"

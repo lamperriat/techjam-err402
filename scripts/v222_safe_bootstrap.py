@@ -1,4 +1,4 @@
-"""Sterile, source-only launcher for the v2.22 multiview sparse RRF G0 probe.
+"""Sterile, source-only launcher for the v2.22B multiview sparse RRF G0 probe.
 
 This file is deliberately self contained.  It is the first repository source
 executed by a formal process; its Git blob is checked by an external pre-launch
@@ -15,8 +15,8 @@ import os
 import sys
 
 
-PROJECT_ROOT = "D:/tiktok/techjam-v2-22-sparse-multiview"
-RUNTIME_BASE = "D:/tiktok/.v222_runtime"
+PROJECT_ROOT = "D:/tiktok/techjam-v2-22b-sparse-multiview"
+RUNTIME_BASE = "D:/tiktok/.v222b_runtime"
 PYTHON_EXECUTABLE = "D:/450/conda/envs/tiktok/python.exe"
 PYTHON_EXECUTABLE_BYTES = 93_184
 PYTHON_EXECUTABLE_SHA256 = (
@@ -50,12 +50,12 @@ RUNNER_PATH = PROJECT_ROOT + "/scripts/probe_sparse_multiview_g0.py"
 RUNNER_MODULE = "scripts.probe_sparse_multiview_g0"
 # Replaced exactly once after the final runner blob exists.  Keeping the value
 # conspicuous makes an unpatched implementation fail closed.
-RUNNER_BLOB = "9d47f0d0d1a0bfb22bdb5316525fd0a46672772a"
+RUNNER_BLOB = "7725808c9a4a7f19dbb405f941bef2253eb675c5"
 WORKER_PATH = PROJECT_ROOT + "/scripts/sparse_multiview_g0_worker.py"
 WORKER_MODULE = "scripts.sparse_multiview_g0_worker"
-WORKER_BLOB = "6a23e2de4655dab1dc49cd5b2d5c22a75e09c34b"
+WORKER_BLOB = "da5317bcf4974a989f9080a14c16ae590b9224a9"
 
-ATTESTATION_ATTRIBUTE = "_techjam_v222_bootstrap_attestation"
+ATTESTATION_ATTRIBUTE = "_techjam_v222b_bootstrap_attestation"
 MAX_CAPTURE_BYTES = 1 << 20
 
 _STDLIB_PATHS = (
@@ -130,7 +130,7 @@ _LOCAL_SOURCE_ROWS = {
     ),
     "starter.sparse_multiview_g0": (
         "starter/sparse_multiview_g0.py",
-        "2cbe8a0a48d7c13d346cc6849caad07206e85b42",
+        "fcc1c98aadbd0b9f94fd3dcfdd5f9bff61cb2d25",
         False,
     ),
 }
@@ -141,6 +141,7 @@ _DENIED_EXPERIMENT_PREFIXES = (
     "small_ranker_v2_20_",
     "small_ranker_v2_20b_",
     "small_ranker_v2_21_",
+    "small_ranker_v2_22_",
 )
 
 _ORIGINAL_FUNCTIONS: dict[str, object] = {}
@@ -455,7 +456,7 @@ def _validate_early_runtime(target: dict[str, str], target_arguments: tuple[str,
         raise BootstrapError("TEMP_ENVIRONMENT")
     temp_key = _path_key(folded_environment["TEMP"])
     if not (
-        temp_key.startswith(_path_key(RUNTIME_BASE) + "\\v222-")
+        temp_key.startswith(_path_key(RUNTIME_BASE) + "\\v222b-")
         and temp_key.endswith("\\temp")
     ):
         raise BootstrapError("TEMP_ENVIRONMENT")

@@ -1,4 +1,4 @@
-"""Deterministic four-view sparse candidate union for v2.22 G0.
+"""Deterministic four-view sparse candidate union for v2.22B G0.
 
 This module is deliberately target-blind, diagnostic-only, and default-off. An
 enabled runtime executes exactly four independently fielded registry-derived FTS

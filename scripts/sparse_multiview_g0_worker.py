@@ -1,4 +1,4 @@
-"""Target-free worker for the frozen v2.22 four-view sparse RRF G0 probe.
+"""Target-free worker for the frozen v2.22B four-view sparse RRF G0 probe.
 
 This module is deliberately a diagnostic worker, not a serving entrypoint.  It
 streams one complete candidate trace while preserving every sealed C200 row as
@@ -34,7 +34,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 
-SCHEMA_VERSION = "small-ranker-v2.22-multiview-sparse-rrf-g0-worker-summary.v1"
+SCHEMA_VERSION = "small-ranker-v2.22b-multiview-sparse-rrf-g0-worker-summary.v1"
 CONTEXT_SCHEMA_VERSION = "small-ranker-visible-context.v1"
 SESSION_COUNT = 2_000
 TURN_COUNT = 10
@@ -102,7 +102,7 @@ EXPECTED_EXECUTABLE = Path(r"D:\450\conda\envs\tiktok\python.exe")
 EXPECTED_PYTHON = "3.11.16"
 EXPECTED_SQLITE = "3.53.4"
 EXPECTED_PREREGISTRATION_BLOB_SHA1 = (
-    "c748fc6984c53f12ac61113a8bf8ebc5981416f8"
+    "e534bc7a9a304a03869e951f290fa2b96d51dee7"
 )
 EXPECTED_C200_CONTRACT_BLOB_SHA1 = (
     "b94fddcf5a9b20ddde540f3f43ea9962982cb096"
@@ -126,7 +126,7 @@ EXPECTED_C200_REFERENCE_PATHS = frozenset(
         ),
     }
 )
-EXPECTED_RUNTIME_ROOT = PureWindowsPath(r"D:\tiktok\.v222_runtime")
+EXPECTED_RUNTIME_ROOT = PureWindowsPath(r"D:\tiktok\.v222b_runtime")
 PREREGISTRATION_PATH = (
     PROJECT_ROOT
     / "configs"
@@ -364,10 +364,12 @@ def _guard_legacy_namespaces(path: Path | PureWindowsPath) -> None:
         "small_ranker_v2_20_",
         "small_ranker_v2_20b_",
         "small_ranker_v2_21_",
+        "small_ranker_v2_22_",
         "small-ranker-v2.19",
         "small-ranker-v2.20",
         "small-ranker-v2.20b",
         "small-ranker-v2.21",
+        "small-ranker-v2.22-",
     )
     if any(marker in joined for marker in forbidden):
         raise SparseMultiviewG0WorkerError("LEGACY_NAMESPACE_DENIED")

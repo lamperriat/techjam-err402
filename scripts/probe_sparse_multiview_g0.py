@@ -1,4 +1,4 @@
-"""Protected v2.22 multiview sparse RRF G0 preflight and candidate-recall probe.
+"""Protected v2.22B multiview sparse RRF G0 preflight and candidate-recall probe.
 
 The runner has two mutually exclusive modes.  ``preflight`` opens only the
 frozen target-free catalog/context/C200 inputs and compares one uncached direct
@@ -43,10 +43,10 @@ if Path.cwd().resolve() == ROOT and str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 sys.dont_write_bytecode = True
 
-SCHEMA_VERSION = "small-ranker-v2.22-multiview-sparse-rrf-g0-probe.v1"
-WORKER_SCHEMA_VERSION = "small-ranker-v2.22-multiview-sparse-rrf-g0-worker-summary.v1"
-EXPERIMENT_ID = "SR-V2.22-TARGET-BLIND-MULTIVIEW-SPARSE-RRF-G0"
-BRANCH = "small-ranker-v2.22-sparse-multiview"
+SCHEMA_VERSION = "small-ranker-v2.22b-multiview-sparse-rrf-g0-probe.v1"
+WORKER_SCHEMA_VERSION = "small-ranker-v2.22b-multiview-sparse-rrf-g0-worker-summary.v1"
+EXPERIMENT_ID = "SR-V2.22B-TARGET-BLIND-MULTIVIEW-SPARSE-RRF-G0"
+BRANCH = "small-ranker-v2.22b-sparse-multiview"
 REMOTE_URL = "https://github.com/lamperriat/techjam-err402.git"
 REMOTE_REF = f"refs/remotes/origin/{BRANCH}"
 
@@ -56,13 +56,14 @@ PREREG_CORRECTION_CHAIN = (
     ORIGINAL_PREREG_COMMIT,
     "68a84ab49c670716f65df24dd260724e00ba0661",
     "eaae35b32d5ee143b317872c60b230863b5c8e29",
+    "a2e324e21730cf1c243dcc2647a894b30ad515d2",
 )
 PREREG_COMMIT = PREREG_CORRECTION_CHAIN[-1]
 PREREG_RELATIVE = "configs/small_ranker_v2_22.multiview_sparse_rrf_g0_preregistration.json"
 PREREG_PATH = ROOT / PREREG_RELATIVE
-PREREG_BLOB = "c748fc6984c53f12ac61113a8bf8ebc5981416f8"
-PREREG_BYTES = 43_744
-PREREG_SHA256 = "28dc1885999bdeb81d862caa5ab3199a17e11e41f9c0e23b4ae849bb3914e933"
+PREREG_BLOB = "e534bc7a9a304a03869e951f290fa2b96d51dee7"
+PREREG_BYTES = 45_251
+PREREG_SHA256 = "2d0ebc1e29c3e4e273e54b147aa15d24add3a593f389d09f952a5fc48e22e096"
 
 IMPLEMENTATION_PATHS = frozenset(
     {
@@ -125,19 +126,19 @@ LABEL_IDENTITY = {
     "sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
 }
 
-RUNTIME_BASE = Path(r"D:\tiktok\.v222_runtime")
+RUNTIME_BASE = Path(r"D:\tiktok\.v222b_runtime")
 EXPERIMENT_ROOT = ROOT / "experiments" / "fast_track"
 PREFLIGHT_CLAIM_PATH = EXPERIMENT_ROOT / (
-    "small_ranker_v2_22_multiview_sparse_rrf_g0_preflight_claim_20260831.json"
+    "small_ranker_v2_22b_multiview_sparse_rrf_g0_preflight_claim_20260831.json"
 )
 PREFLIGHT_OUTER_PATH = EXPERIMENT_ROOT / (
-    "small_ranker_v2_22_multiview_sparse_rrf_g0_preflight_outer_20260831.json"
+    "small_ranker_v2_22b_multiview_sparse_rrf_g0_preflight_outer_20260831.json"
 )
 PREFLIGHT_RESULT_PATH = EXPERIMENT_ROOT / (
-    "small_ranker_v2_22_multiview_sparse_rrf_g0_preflight_20260831.json"
+    "small_ranker_v2_22b_multiview_sparse_rrf_g0_preflight_20260831.json"
 )
 CANDIDATE_CLAIM_PATH = EXPERIMENT_ROOT / (
-    "small_ranker_v2_22_multiview_sparse_rrf_g0_candidate_recall_claim_20260831.json"
+    "small_ranker_v2_22b_multiview_sparse_rrf_g0_candidate_recall_claim_20260831.json"
 )
 
 EXPECTED_EXECUTABLE = Path(r"D:\450\conda\envs\tiktok\python.exe")
@@ -168,7 +169,7 @@ EXPECTED_GIT_SHA256 = (
 )
 EXPECTED_GIT_VERSION = "git version 2.45.2.windows.1"
 EXPECTED_GITDIR = Path(
-    r"D:\tiktok\techjam-err402\.git\worktrees\techjam-v2-22-sparse-multiview"
+    r"D:\tiktok\techjam-err402\.git\worktrees\techjam-v2-22b-sparse-multiview"
 )
 EXPECTED_COMMON_GITDIR = Path(r"D:\tiktok\techjam-err402\.git")
 EXPECTED_GIT_CONTROL_FILES = {
@@ -177,29 +178,29 @@ EXPECTED_GIT_CONTROL_FILES = {
         "sha256": "13a2efcabcda2ab3e7ce75bfc886fdf70ac4aaf0a7589ec19a422e51fbc26b9b",
     },
     EXPECTED_GITDIR / "gitdir": {
-        "bytes": 46,
-        "sha256": "2b33735d24d0c161a48316c4033d51580b52f9fe43452abd215208fa11e4388c",
+        "bytes": 47,
+        "sha256": "094e1cea6a66a0e4a994dbd565bc102377d8ef072a50c23fa259345800de595c",
     },
     EXPECTED_GITDIR / "commondir": {
         "bytes": 6,
         "sha256": "340ddcb67a6204f742cd1e28e5b462622dde7daaa8ee36001897196aacdc6d47",
     },
     EXPECTED_GITDIR / "HEAD": {
-        "bytes": 52,
-        "sha256": "54034399008f60be6419e17a4a7699e8a9b2ca498a424751c0fe4f7d23ce488a",
+        "bytes": 53,
+        "sha256": "a632024088a4dc2054b446066d167e9641cfec37f1db8c09b937eaf2d3dbe62a",
     },
 }
 GIT_PREFIX = (
     "--no-pager",
     "--no-replace-objects",
     "--no-optional-locks",
-    "--git-dir=D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-22-sparse-multiview",
-    "--work-tree=D:/tiktok/techjam-v2-22-sparse-multiview",
+    "--git-dir=D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-22b-sparse-multiview",
+    "--work-tree=D:/tiktok/techjam-v2-22b-sparse-multiview",
     "-c", "core.hooksPath=NUL",
     "-c", "core.attributesFile=NUL",
-    "-c", "include.path=NUL",
+    "-c", "include.path=/dev/null",
 )
-BOOTSTRAP_ATTESTATION = "_techjam_v222_bootstrap_attestation"
+BOOTSTRAP_ATTESTATION = "_techjam_v222b_bootstrap_attestation"
 
 SESSION_COUNT = 2_000
 TURN_COUNT = 10
@@ -471,6 +472,40 @@ def _identity(path: Path, expected: Mapping[str, Any] | None = None) -> FileIden
     return value
 
 
+def _git_lf_identity(
+    path: Path,
+    expected: Mapping[str, Any] | None = None,
+) -> tuple[bytes, FileIdentity]:
+    """Return the authoritative Git-LF bytes and identity for a text file."""
+
+    resolved = _require_plain(path)
+    with resolved.open("rb") as handle:
+        before = _snapshot(os.fstat(handle.fileno()))
+        if before[0] < 0 or before[0] > (1 << 20):
+            raise SparseUnionProbeError("SOURCE_IDENTITY_DRIFT")
+        raw = handle.read((1 << 20) + 1)
+        after = _snapshot(os.fstat(handle.fileno()))
+    if (
+        before != after
+        or _snapshot(resolved.stat()) != after
+        or len(raw) != before[0]
+        or len(raw) > (1 << 20)
+    ):
+        raise SparseUnionProbeError("SOURCE_CHANGED_WHILE_HASHED")
+    normalized = raw.replace(b"\r\n", b"\n")
+    value = FileIdentity(
+        len(normalized),
+        normalized.count(b"\n"),
+        hashlib.sha256(normalized).hexdigest(),
+        after,
+    )
+    if expected is not None:
+        report = value.report()
+        if any(report.get(str(key)) != item for key, item in expected.items()):
+            raise SparseUnionProbeError("SOURCE_IDENTITY_DRIFT")
+    return normalized, value
+
+
 def _git_blob_from_raw(raw: bytes) -> str:
     normalized = raw.replace(b"\r\n", b"\n")
     header = b"blob " + str(len(normalized)).encode("ascii") + b"\0"
@@ -613,7 +648,7 @@ def _git_control_checkpoint() -> dict[str, dict[str, int | str]]:
         b"\r\n", b"\n"
     ) != b"../..\n" or _require_plain(EXPECTED_GITDIR / "gitdir").read_bytes().replace(
         b"\r\n", b"\n"
-    ) != b"D:/tiktok/techjam-v2-22-sparse-multiview/.git\n":
+    ) != b"D:/tiktok/techjam-v2-22b-sparse-multiview/.git\n":
         raise SparseUnionProbeError("GIT_CONTROL_CONTENT")
     for forbidden in (
         EXPECTED_COMMON_GITDIR / "info/grafts",
@@ -749,15 +784,15 @@ def _validate_runtime() -> dict[str, Any]:
 
 
 def _validate_preregistration() -> dict[str, Any]:
-    identity = _identity(
+    prereg_raw, identity = _git_lf_identity(
         PREREG_PATH,
         {"bytes": PREREG_BYTES, "sha256": PREREG_SHA256},
     )
-    if _git_blob_from_raw(PREREG_PATH.read_bytes()) != PREREG_BLOB:
+    if _git_blob_from_raw(prereg_raw) != PREREG_BLOB:
         raise SparseUnionProbeError("PREREG_WORKTREE_BLOB")
     try:
         value = json.loads(
-            PREREG_PATH.read_text(encoding="utf-8", errors="strict"),
+            prereg_raw.decode("utf-8", errors="strict"),
             object_pairs_hook=_unique_object,
             parse_constant=_reject_constant,
         )
@@ -786,12 +821,12 @@ def _validate_git_checkpoint(implementation_commit: str) -> dict[str, Any]:
         raise SparseUnionProbeError("IMPLEMENTATION_COMMIT_SHAPE")
     if _require_plain(ROOT / ".git").read_bytes().replace(b"\r\n", b"\n") != (
         b"gitdir: D:/tiktok/techjam-err402/.git/worktrees/"
-        b"techjam-v2-22-sparse-multiview\n"
+        b"techjam-v2-22b-sparse-multiview\n"
     ):
         raise SparseUnionProbeError("WORKTREE_POINTER")
     if _require_plain(EXPECTED_GITDIR / "HEAD").read_bytes().replace(
         b"\r\n", b"\n"
-    ) != b"ref: refs/heads/small-ranker-v2.22-sparse-multiview\n":
+    ) != b"ref: refs/heads/small-ranker-v2.22b-sparse-multiview\n":
         raise SparseUnionProbeError("WORKTREE_HEAD_CONTROL")
     resolved = _git("rev-parse", "--verify", f"{implementation_commit}^{{commit}}")
     local = _git("rev-parse", "--verify", f"refs/heads/{BRANCH}^{{commit}}")
@@ -977,7 +1012,7 @@ def _prepare_launch(
     ):
         raise SparseUnionProbeError("BOOTSTRAP_LAUNCH_CONTRACT")
     base = _require_plain(RUNTIME_BASE, directory=True)
-    runtime_root = Path(tempfile.mkdtemp(prefix="v222-", dir=base))
+    runtime_root = Path(tempfile.mkdtemp(prefix="v222b-", dir=base))
     runtime_identity = _directory_identity(runtime_root.stat())
     trace_path = runtime_root / trace_filename if trace_filename is not None else None
     try:
@@ -2107,7 +2142,7 @@ def _parse_durable_claim(
         mode not in {"preflight", "candidate"}
         or set(value) != expected_names
         or value.get("schema_version")
-        != "small-ranker-v2.22-durable-one-shot-claim.v1"
+        != "small-ranker-v2.22b-durable-one-shot-claim.v1"
         or value.get("experiment_id") != EXPERIMENT_ID
         or value.get("branch") != BRANCH
         or value.get("mode") != mode
@@ -2573,6 +2608,7 @@ class _FormalAuditGuard:
                     (
                         "small_ranker_v2_19_", "small_ranker_v2_20_",
                         "small_ranker_v2_20b_", "small_ranker_v2_21_",
+                        "small_ranker_v2_22_",
                     )
                 ):
                     raise PermissionError("old experiment namespace denied")
@@ -2618,7 +2654,7 @@ def _validate_prior_pycache_prefix(value: object) -> None:
     base = PureWindowsPath(str(RUNTIME_BASE))
     if (
         path.name.casefold() != "pycache"
-        or re.fullmatch(r"v222-[0-9a-f]{32}", path.parent.name) is None
+        or re.fullmatch(r"v222b-[0-9a-f]{32}", path.parent.name) is None
         or path.parent.parent.as_posix().casefold()
         != base.as_posix().casefold().rstrip("/")
     ):
@@ -2843,7 +2879,7 @@ def _validate_preflight_chain(
             "target_receipt",
         }
         or terminal.get("schema_version")
-        != "small-ranker-v2.22-durable-terminal.v1"
+        != "small-ranker-v2.22b-durable-terminal.v1"
         or terminal.get("status") != "COMPLETE"
         or terminal.get("mode") != "preflight"
         or terminal.get("implementation_commit") != implementation_commit
@@ -2958,7 +2994,7 @@ def _run_preflight(
         "next": (
             "one immutable full-2000 candidate-recall receipt"
             if information_available
-            else "freeze v2.22 without candidate claim and choose an independent mechanism"
+            else "freeze v2.22B without candidate claim and choose an independent mechanism"
         ),
     }
     _privacy_scan(result, catalog_ids)
@@ -3325,7 +3361,7 @@ def _runtime_cleanup_self_check(arguments: Sequence[str]) -> int | None:
         flags |= int(getattr(os, "O_BINARY", 0))
         descriptor = os.open(partial, flags, 0o600)
         try:
-            _write_all(descriptor, b"v222-synthetic-publication\n")
+            _write_all(descriptor, b"v222b-synthetic-publication\n")
             os.fsync(descriptor)
         finally:
             os.close(descriptor)
