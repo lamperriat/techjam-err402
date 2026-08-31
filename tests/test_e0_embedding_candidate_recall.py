@@ -111,6 +111,17 @@ def test_dense_tail_does_not_pad_when_query_route_is_empty() -> None:
     assert worker.append_dense_unseen_tail(c200, (), _catalog()) == c200
 
 
+def test_network_audit_allows_only_local_hostname_metadata() -> None:
+    audit = worker.OfflineNetworkAudit()
+    audit.hook("socket.gethostname", ())
+    assert audit.attempt_count == 0
+
+    with pytest.raises(PermissionError):
+        audit.hook("socket.connect", ())
+    assert audit.attempt_count == 1
+    assert audit.event_counts == {"socket.connect": 1}
+
+
 @pytest.mark.parametrize("limit", [399, 401, True])
 def test_dense_tail_rejects_any_nonfrozen_limit(limit: object) -> None:
     with pytest.raises(worker.E0WorkerError):

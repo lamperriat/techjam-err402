@@ -148,6 +148,12 @@ class OfflineNetworkAudit:
     def hook(self, event: str, _arguments: tuple[object, ...]) -> None:
         if not event.startswith("socket."):
             return
+        # ONNX Runtime asks Python for the already-local machine name while
+        # initializing telemetry metadata.  This performs no DNS lookup,
+        # socket creation, connection, send, or receive and is therefore not
+        # a network attempt.  Every other socket audit event remains denied.
+        if event == "socket.gethostname":
+            return
         self.attempt_count += 1
         self.event_counts[event] += 1
         raise PermissionError("network activity is disabled in the E0 worker")

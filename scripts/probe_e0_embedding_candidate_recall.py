@@ -49,6 +49,7 @@ REMOTE_REF = f"refs/remotes/{REMOTE}/{BRANCH}"
 
 BASE_COMMIT = "c94747edd890c56d4bf6a30edf86777f5868ded8"
 PREREG_COMMIT = "63fbff0143eee14e6a86da5d4dbc759b7874243a"
+INITIAL_IMPLEMENTATION_COMMIT = "8c79831f59b1e2f893e2529cdb3306b7dccaaf51"
 PREREG_RELATIVE = "configs/small_ranker_v2_18.frozen_embedding_e0_preregistration.json"
 PREREG_PATH = ROOT / PREREG_RELATIVE
 PREREG_BLOB = "6732644bc9120ed147296a51458d6462a22ec60a"
@@ -346,19 +347,24 @@ def _validate_git_checkpoint(implementation_commit: str) -> dict[str, Any]:
     status = _git("status", "--porcelain=v1", "--untracked-files=all")
     if not (
         head == implementation_commit
-        and _git("rev-parse", "HEAD^") == PREREG_COMMIT
+        and _git("rev-parse", "HEAD^") == INITIAL_IMPLEMENTATION_COMMIT
+        and _git("rev-parse", f"{INITIAL_IMPLEMENTATION_COMMIT}^") == PREREG_COMMIT
         and _git("rev-parse", f"{PREREG_COMMIT}^") == BASE_COMMIT
         and branch == BRANCH
         and _git("remote", "get-url", REMOTE) == REMOTE_URL
         and _git("rev-parse", REMOTE_REF) == head
         and not status
         and _changed_paths(PREREG_COMMIT) == PREREG_PATHS
+        and _changed_paths(INITIAL_IMPLEMENTATION_COMMIT) == IMPLEMENTATION_PATHS
+        and _changed_paths(head) == IMPLEMENTATION_PATHS
         and _diff_paths(PREREG_COMMIT, head) == IMPLEMENTATION_PATHS
         and pinned == PINNED_BLOBS
     ):
         raise E0ProbeError("Git checkpoint gate failed")
     return {
-        "branch": branch, "commit": head, "parent": PREREG_COMMIT,
+        "branch": branch, "commit": head, "parent": INITIAL_IMPLEMENTATION_COMMIT,
+        "implementation_chain": [INITIAL_IMPLEMENTATION_COMMIT, head],
+        "preregistration_parent": PREREG_COMMIT,
         "remote_equal": True, "clean": True, "exact_changed_paths": True,
         "implementation_blobs": {
             path: _git("rev-parse", f"HEAD:{path}") for path in sorted(IMPLEMENTATION_PATHS)
