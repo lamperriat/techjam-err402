@@ -1,0 +1,44 @@
+{
+  "schema_version": "fusion-core.teammate-v1-vendor.v1",
+  "source_commit": "5df5d51e7578e80616f45fcaa89ec977347845fa",
+  "source_scope": "submission/src/err402",
+  "copy_policy": "exact Git-blob bytes; no submission wrapper, V2/V3, attributes, LLM, or evaluator",
+  "files": {
+    "err402/__init__.py": {
+      "source_path": "submission/src/err402/__init__.py",
+      "git_blob": "e091fd0e7199e3ae9051275a89d7507bd4c0de99",
+      "bytes": 33,
+      "sha256": "599ac2f046d991ca5c56f81616006b1ac57097e28a60c977dff7574d0e1876a7"
+    },
+    "err402/agents/__init__.py": {
+      "source_path": "submission/src/err402/agents/__init__.py",
+      "git_blob": "f28f58d3f961a09c381df9c04667612539e0f5ca",
+      "bytes": 38,
+      "sha256": "f63c3f0aaf6b2e2ea9ece587faf35145451404c0381185423e1fc394fadca9b2"
+    },
+    "err402/agents/v1.py": {
+      "source_path": "submission/src/err402/agents/v1.py",
+      "git_blob": "9cecd19233990234ac104e8867a586d77f800503",
+      "bytes": 13848,
+      "sha256": "1b46451610025989bb49b968d34739ca2d1b6cf8e2304e3c16c963b6c395e333"
+    },
+    "err402/retrieval/__init__.py": {
+      "source_path": "submission/src/err402/retrieval/__init__.py",
+      "git_blob": "987de98184618c822a931f352ce64e72db48b48f",
+      "bytes": 51,
+      "sha256": "d61e910e61395911f14e0a80d8929ae042698c2570751bb2984f5fff32545f93"
+    },
+    "err402/retrieval/catalog.py": {
+      "source_path": "submission/src/err402/retrieval/catalog.py",
+      "git_blob": "9b56b7920b28ec215a1e149378589e0f4adb3c40",
+      "bytes": 14096,
+      "sha256": "76e90d8e6491d8ee7043c0c7b45ec59129c1ea42de3029a956593bbd96df4627"
+    },
+    "err402/retrieval/scoring.py": {
+      "source_path": "submission/src/err402/retrieval/scoring.py",
+      "git_blob": "073954497965f8b8551dc3d7440b1e99f9d64c0b",
+      "bytes": 10596,
+      "sha256": "d0b42d49e4343e3b79c7b0eea5c7fba3f95b1b6b076dd3a8b174d998f043852d"
+    }
+  }
+}

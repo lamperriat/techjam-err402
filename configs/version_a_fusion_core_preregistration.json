@@ -1,0 +1,69 @@
+{
+  "schema_version": "deadline-fusion.version-a-preregistration.v1",
+  "recorded_on": "2026-09-01",
+  "version": "A_FUSION_CORE",
+  "status": "IMPLEMENTATION_FROZEN_BEFORE_OUTCOME_ATTACH",
+  "parents": {
+    "ours": "acec2c3fe0579066e3b3ed61c3144690815c464e",
+    "teammate": "5df5d51e7578e80616f45fcaa89ec977347845fa",
+    "vendor_manifest_sha256": "4b4fb75c1fd882f9b2cebbe7bec703d78375f5d808a174c247bfd1532eea6505"
+  },
+  "implementation": {
+    "runtime_flag": "TECHJAM_FUSION_CORE_MODE=active",
+    "default": "off",
+    "factory": "starter.fusion_core:FusionCoreAgent",
+    "factory_flags": {
+      "catalog_path": "D:\\tiktok\\techjam-err402-fast-track\\data\\catalog.jsonl",
+      "mode": "active",
+      "force_v212_parent": true
+    },
+    "fusion_core_sha256": "dc89df4a1caa1563d3f00eda130b1e704f6bc4101a6dbc259f9cf5ea5a847521",
+    "runner_sha256": "92b5643400cbafaae27ff57db866d669ef1e7b9371e42aab074033b6ce22ab78",
+    "smoke_runner_sha256": "a2aa3eb4688917877f2daa3c1de4b4aaacfc4f60209d823e5c721fee5082093b",
+    "other_allowed": false,
+    "immediate_no_repeat": true,
+    "unknown_is_neutral": true,
+    "teammate_v1_weights_changed": false,
+    "outcome_tuned": false
+  },
+  "benchmark": {
+    "split": "train_explore_cached_2000_oof",
+    "proxy_sha256": "2175696171c0d874fca4b9aa456ff5fd7d570f2184f59ade6781198f6443198e",
+    "labels_sha256": "9cf8f76e88fa386cfe32cb0e262e6ffd0738ac90676473065cb7d1e4dfcc48eb",
+    "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+    "evaluator_sha256": "84ea899707452de249ca62abee77c4b40ab7a3139b5cc798ac30c9f521f91b30",
+    "metric_bridge_sha256": "b31d65144cc115a6d151962cfa4e72ac4bc34ede0bcd33c65dc4dc013d5fa911",
+    "incumbent": {
+      "hr_at_10": 0.991,
+      "mrr": 0.695795,
+      "mttc": 2.869,
+      "technical_score": 0.866858
+    },
+    "public_or_heldout_allowed": false
+  },
+  "pre_target_verification": {
+    "unit_tests": "19 passed",
+    "direct_and_module_import": true,
+    "smoke20_sha256": "0b3903e02273d682a37c136682857cfb0a174cd74912aa05eb469d1b09baa82d",
+    "smoke20_exact_repeat": true,
+    "smoke100_sha256": "7147008801470c4925b380cf031ffc5f914b72f2f992e55c55485c9b235b7694",
+    "smoke100_repeat_errors": 0,
+    "smoke100_wall_seconds": 121.794253,
+    "protected_outcome_opened": false
+  },
+  "promotion_gates": {
+    "hr_at_10_strictly_above": 0.991,
+    "hit_to_miss_exactly": 0,
+    "every_fold_non_regression": true,
+    "mrr_minimum": 0.695795,
+    "mttc_maximum": 2.869,
+    "technical_score_strictly_above": 0.866858,
+    "exact_repeat_required": true
+  },
+  "one_shot": {
+    "starts_at": "exclusive claim immediately before first proxy/label attach",
+    "candidate_runs_in_same_process": 2,
+    "failure_after_claim": "INVALID_ONE_SHOT_CONSUMED",
+    "no_post_outcome_tuning": true
+  }
+}
