@@ -159,7 +159,7 @@ function Get-PlainFileBytes {
 }
 
 function Get-Sha256Hex {
-    param([Parameter(Mandatory = $true)][byte[]]$Bytes)
+    param([Parameter(Mandatory = $true)][AllowEmptyCollection()][byte[]]$Bytes)
     $algorithm = [System.Security.Cryptography.SHA256]::Create()
     try {
         return ([System.BitConverter]::ToString($algorithm.ComputeHash($Bytes))).Replace("-", "").ToLowerInvariant()
@@ -170,7 +170,7 @@ function Get-Sha256Hex {
 }
 
 function Get-GitBlobHex {
-    param([Parameter(Mandatory = $true)][byte[]]$Bytes)
+    param([Parameter(Mandatory = $true)][AllowEmptyCollection()][byte[]]$Bytes)
     $header = [System.Text.Encoding]::ASCII.GetBytes("blob $($Bytes.LongLength)`0")
     $payload = New-Object byte[] ($header.Length + $Bytes.Length)
     [System.Buffer]::BlockCopy($header, 0, $payload, 0, $header.Length)
@@ -185,7 +185,7 @@ function Get-GitBlobHex {
 }
 
 function Convert-CrlfToLf {
-    param([Parameter(Mandatory = $true)][byte[]]$Bytes)
+    param([Parameter(Mandatory = $true)][AllowEmptyCollection()][byte[]]$Bytes)
     $stream = New-Object System.IO.MemoryStream
     try {
         for ($index = 0; $index -lt $Bytes.Length; $index++) {
@@ -656,8 +656,8 @@ function Assert-ReceiptPrivacy {
 
 function Test-BasicOuterEnvelope {
     param(
-        [Parameter(Mandatory = $true)][byte[]]$Stdout,
-        [Parameter(Mandatory = $true)][byte[]]$Stderr,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][byte[]]$Stdout,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][byte[]]$Stderr,
         [Parameter(Mandatory = $true)][bool]$TimedOut
     )
     if ($TimedOut -or $Stderr.Length -ne 0 -or $Stdout.Length -lt 32 -or $Stdout.Length -gt $MaximumCaptureBytes) { return $false }
@@ -693,6 +693,7 @@ function Parse-And-ValidateOuter {
         [Parameter(Mandatory = $true)][byte[]]$Raw,
         [Parameter(Mandatory = $true)][string]$ExpectedRunnerBlob,
         [Parameter(Mandatory = $true)][string]$ExpectedBootstrapBlob,
+        [Parameter(Mandatory = $true)][ValidateSet("direct", "module")][string]$ExpectedMode,
         [Parameter(Mandatory = $true)][string]$ExpectedPycache
     )
     $text = Convert-Utf8Strict -Bytes $Raw
@@ -702,7 +703,7 @@ function Parse-And-ValidateOuter {
     if (
         [string]$value.bootstrap.bootstrap_blob -cne $ExpectedBootstrapBlob -or
         [string]$value.bootstrap.target_blob -cne $ExpectedRunnerBlob -or
-        [string]$value.bootstrap.mode -cne "direct" -or
+        [string]$value.bootstrap.mode -cne $ExpectedMode -or
         $value.bootstrap.guarded_path -isnot [bool] -or $value.bootstrap.guarded_path -ne $true -or
         $value.bootstrap.source_only -isnot [bool] -or $value.bootstrap.source_only -ne $true -or
         (Get-FullPathKey ([string]$value.bootstrap.pycache_prefix)) -cne (Get-FullPathKey $ExpectedPycache)
@@ -1116,7 +1117,7 @@ function Invoke-PreclaimEntrypointCheck {
         if (-not (Test-BasicOuterEnvelope -Stdout $capture.Stdout -Stderr $capture.Stderr -TimedOut $capture.TimedOut)) {
             Throw-Code "PRECLAIM_ENTRYPOINT_ENVELOPE"
         }
-        $outer = Parse-And-ValidateOuter -Raw $capture.Stdout -ExpectedRunnerBlob $TargetBlob -ExpectedBootstrapBlob $BootstrapBlob -ExpectedPycache $checkRuntime.Pycache
+        $outer = Parse-And-ValidateOuter -Raw $capture.Stdout -ExpectedRunnerBlob $TargetBlob -ExpectedBootstrapBlob $BootstrapBlob -ExpectedMode $InvocationMode -ExpectedPycache $checkRuntime.Pycache
         if ($capture.ExitCode -ne 0 -or [int]$outer.target_exit_code -ne 0 -or $null -eq $outer.target_receipt) {
             Throw-Code "PRECLAIM_ENTRYPOINT_EXIT"
         }
@@ -1179,7 +1180,7 @@ function Invoke-PreclaimPrerequisiteCheck {
         if (-not (Test-BasicOuterEnvelope -Stdout $capture.Stdout -Stderr $capture.Stderr -TimedOut $capture.TimedOut)) {
             Throw-Code "PRECLAIM_PREREQUISITE_ENVELOPE"
         }
-        $outer = Parse-And-ValidateOuter -Raw $capture.Stdout -ExpectedRunnerBlob ([string]$Blobs[$RunnerRelative]) -ExpectedBootstrapBlob ([string]$Blobs[$BootstrapRelative]) -ExpectedPycache $checkRuntime.Pycache
+        $outer = Parse-And-ValidateOuter -Raw $capture.Stdout -ExpectedRunnerBlob ([string]$Blobs[$RunnerRelative]) -ExpectedBootstrapBlob ([string]$Blobs[$BootstrapRelative]) -ExpectedMode "direct" -ExpectedPycache $checkRuntime.Pycache
         if ($capture.ExitCode -ne 0 -or [int]$outer.target_exit_code -ne 0 -or $null -eq $outer.target_receipt) {
             Throw-Code "PRECLAIM_PREREQUISITE_EXIT"
         }
@@ -1289,7 +1290,7 @@ try {
         $outerWritten = $true
 
         if ($outerIsRawEnvelope) {
-            $parsedOuter = Parse-And-ValidateOuter -Raw $outerRaw -ExpectedRunnerBlob ([string]$sourceBlobs[$RunnerRelative]) -ExpectedBootstrapBlob ([string]$sourceBlobs[$BootstrapRelative]) -ExpectedPycache $runtime.Pycache
+            $parsedOuter = Parse-And-ValidateOuter -Raw $outerRaw -ExpectedRunnerBlob ([string]$sourceBlobs[$RunnerRelative]) -ExpectedBootstrapBlob ([string]$sourceBlobs[$BootstrapRelative]) -ExpectedMode "direct" -ExpectedPycache $runtime.Pycache
         }
         $complete = $outerIsRawEnvelope -and -not $processCapture.TimedOut -and $processCapture.ExitCode -eq 0 -and [int]$parsedOuter.target_exit_code -eq 0 -and $null -ne $parsedOuter.target_receipt
         $terminal = [ordered]@{

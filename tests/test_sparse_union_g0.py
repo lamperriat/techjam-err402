@@ -924,6 +924,8 @@ def test_runner_and_powershell_freeze_durable_claim_outer_terminal_protocol() ->
     assert "INVALID_ONE_SHOT_CONSUMED" in combined
     assert "COMPLETE" in combined
     assert "[AllowEmptyCollection()][byte[]]$Bytes" in powershell
+    assert "[AllowEmptyCollection()][byte[]]$Stdout" in powershell
+    assert "[AllowEmptyCollection()][byte[]]$Stderr" in powershell
     assert "$captured.Stderr.Length -ne 0" in powershell
     assert '"--min-parents=2", "$PreregCommit..$Commit"' in powershell
     git_checkpoint = inspect.getsource(probe._validate_git_checkpoint)
@@ -972,6 +974,8 @@ def test_runner_and_powershell_freeze_durable_claim_outer_terminal_protocol() ->
         )
     ]
     assert 'foreach ($invocationMode in @("direct", "module"))' in preclaim_checks
+    assert "-ExpectedMode $InvocationMode" in preclaim_checks
+    assert '[ValidateSet("direct", "module")][string]$ExpectedMode' in powershell
     assert 'Module = "scripts.probe_sparse_union_g0"' in preclaim_checks
     assert 'Module = "scripts.sparse_union_g0_worker"' in preclaim_checks
     assert '"evaluator_imported"' in preclaim_checks
