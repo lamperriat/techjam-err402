@@ -1,0 +1,49 @@
+{
+  "schema": "techjam.deadline-v3.3-public-safe-fusion.v1",
+  "branch": "deadline-v3.3-public-safe-fusion",
+  "implementation_commit": "bd89273",
+  "scope": "official Public200 only; no 2k evaluation was run",
+  "data": {
+    "public200_sha256": "571359a8a69014c43fc30d39c996c4a28e875dccc249dffc707358757beb16c0",
+    "catalog_sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67",
+    "sessions": 200
+  },
+  "winner": {
+    "name": "intent-routed forced-other fusion",
+    "factory": "starter.teammate_first_page_fusion:create_intent_routed_forced_other_fusion",
+    "metrics": {
+      "hr_at_10": 0.995,
+      "mrr": 0.724177,
+      "mttc": 1.87,
+      "technical_score": 0.897353,
+      "first_turn_hr": 0.495
+    },
+    "delta_vs_teammate_t0": {
+      "hr_at_10": 0.0,
+      "mrr": 0.020411,
+      "mttc": -0.24,
+      "technical_score": 0.010923,
+      "first_turn_hr": 0.005
+    },
+    "exact_repeat": true,
+    "ledger_sha256": "9f02c43df6806eacd51d3d5201db9285a15153dc965f90b3da5fbe36e4b68c34",
+    "wall_seconds": 54.48646,
+    "routes": {"open_teammate": 90, "explicit_fusion_b": 110},
+    "other_activation_turns": 338
+  },
+  "variants": [
+    {"name": "teammate T0", "hr": 0.995, "mrr": 0.703766, "mttc": 2.11, "score": 0.88643, "decision": "baseline"},
+    {"name": "qreset", "hr": 0.995, "mrr": 0.703766, "mttc": 2.135, "score": 0.88593, "decision": "NO_GO"},
+    {"name": "stable first-turn queue", "hr": 0.885, "mrr": 0.57754, "mttc": 3.105, "score": 0.773662, "decision": "NO_GO"},
+    {"name": "P11 direct Top10 reorder", "hr": 0.995, "mrr": 0.529752, "mttc": 2.11, "score": 0.834226, "decision": "NO_GO"},
+    {"name": "bounded other without replacement", "hr": 0.995, "mrr": 0.703766, "mttc": 2.11, "score": 0.88643, "decision": "IDENTITY"},
+    {"name": "Fusion-B", "hr": 0.995, "mrr": 0.714518, "mttc": 1.93, "score": 0.893255, "decision": "GO_COMPONENT"},
+    {"name": "T0 first page plus Fusion-B", "hr": 0.995, "mrr": 0.693093, "mttc": 1.91, "score": 0.887228, "decision": "NO_GO"},
+    {"name": "visible intent router", "hr": 0.995, "mrr": 0.72853, "mttc": 2.065, "score": 0.894759, "decision": "GO_COMPONENT"},
+    {"name": "T0 forced bounded-other", "hr": 0.995, "mrr": 0.714899, "mttc": 1.85, "score": 0.89497, "decision": "GO_COMPONENT"},
+    {"name": "intent-routed forced-other fusion", "hr": 0.995, "mrr": 0.724177, "mttc": 1.87, "score": 0.897353, "decision": "PUBLIC200_WINNER"}
+  ],
+  "tests": {"targeted": "22/22 passed", "exact_repeat_workers": 4},
+  "selection_warning": "The winner was selected on Public200 and is not evidence of private-set performance.",
+  "two_k_run": false
+}
