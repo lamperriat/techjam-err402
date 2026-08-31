@@ -5,6 +5,8 @@ import re
 import sqlite3
 from pathlib import Path
 
+from agents.v1 import AgentV1
+
 
 TOKEN_RE = re.compile(r"[a-z0-9]+", re.IGNORECASE)
 STOPWORDS = {
@@ -103,3 +105,6 @@ class BaselineAgent:
             "recommendations": recommendations,
             "usage": {"prompt_tokens": 0, "completion_tokens": 0},
         }
+
+
+Agent = AgentV1

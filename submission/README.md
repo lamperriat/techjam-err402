@@ -1,5 +1,7 @@
 # 2026 TikTok TechJam Conversational E-Commerce Search Challenge
 
+*Note: This file is identical to the readme at project root. This directory is simply for the purpose of submission.*
+
 By team err402.
 
 This project implements conversational search over the provided frozen 50K Amazon Reviews 2023 catalog. The retrieval pipeline combines category, lexical, constraint, rating, and popularity signals. V1 is the deterministic offline submission agent; V3 adds LLM-based parsing and question wording for natural interactive conversations.

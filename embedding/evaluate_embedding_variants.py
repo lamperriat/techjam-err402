@@ -9,7 +9,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from agents.v2_embedding import AgentV2Embedding
-from evaluator.local_evaluator import catalog_index, evaluate, load_jsonl
+from evaluator.agent_evaluator import catalog_index, evaluate, load_jsonl
 from retrieval.embeddings import QwenQueryEmbedder
 
 
