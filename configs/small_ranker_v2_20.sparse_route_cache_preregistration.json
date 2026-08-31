@@ -1,0 +1,244 @@
+{
+  "schema_version": "small-ranker-v2.20-sparse-route-cache-preregistration.v1",
+  "status": "PREREGISTERED_TARGET_FREE_ONLY",
+  "experiment_id": "SR-V2.20-SPARSE-ROUTE-CACHE",
+  "recorded_on": "2026-08-31",
+  "purpose": "Recover the frozen v2.19 sparse-route resource budget without changing any candidate, ordering, mask, paging, or outcome semantics. This stage is a target-free implementation experiment and cannot produce candidate-recall or served-ranking evidence.",
+  "parent_evidence": {
+    "direct_parent": "c51e18de717b58aed7bbefc8db63a4b783178c43",
+    "v2_19_status": "FROZEN_PRE_RECEIPT_IMPLEMENTATION_RESOURCE_BLOCKER",
+    "v2_19_formal_receipt_created": false,
+    "v2_19_formal_cache_created": false,
+    "v2_19_candidate_recall_computed": false,
+    "v2_19_proxy_opened": false,
+    "v2_19_fold_labels_opened": false,
+    "v2_19_algorithm_interpretation": "UNKNOWN_NOT_AN_ALGORITHM_NO_GO",
+    "frozen_20_session_trace": {
+      "rows": 200,
+      "bytes": 441241,
+      "sha256": "e5177f1a69fe1e79d5d9d4729952c9dfcfac0325689aa13e31dc860fbf38e45a",
+      "activated_turns": 116,
+      "tail_explicit_conflict_count": 0
+    },
+    "observed_v2_19_worker_wall_seconds": 17.85119,
+    "observed_v2_19_extra_route_and_mask_p95_milliseconds": 90.9441,
+    "bounded_problem_statement": "The frozen v2.19 pair must satisfy pair_100_wall_seconds * 20 * 1.5 <= 1800, equivalently pair_100_wall_seconds <= 60. The previous target-free 100-session stage reached RESOURCE_GATE before any outcome access."
+  },
+  "frozen_algorithm_semantics": {
+    "source_mechanism": "REGISTRY_CATEGORY_AND_CORE_ATTRIBUTE_REWRITE_TAIL",
+    "complete_prefix": "Each turn's sealed ordered variable-length C200 is re-read and remains an exact untouched prefix.",
+    "query": "The category AND canonical material/style/use_case FTS5 expression is freshly compiled from the current visible causal context on every turn.",
+    "route": "The exact v2.19 FTS_QUERY_SQL, tokenizer, bm25 weights, parent_asin tie-break, and LIMIT 120 remain unchanged.",
+    "mask": "Current-version hard-conflict rules are freshly compiled on every turn; only novel route members are masked; the final tail fixed-point audit executes on every activated expand call.",
+    "append": "Filtered route order is preserved and appended after C200 with the same cap and no backfill.",
+    "served_top10": "Unchanged and not read from the new tail.",
+    "default_off": true,
+    "training_or_reranking": false
+  },
+  "sole_implementation_variable": {
+    "name": "INSTANCE_LOCAL_EXACT_SEMANTIC_MEMOIZATION",
+    "enabled_only_by_v2_20_worker_flag": "--semantic-cache",
+    "public_constructor_api": "cache_enabled: bool = False",
+    "storage": "in-memory only, per SparseMultiviewExpander instance, never serialized or shared across processes",
+    "synchronization": "All lookup, fill, deterministic LRU promotion/eviction, diagnostics, clear, expand, and close transitions are serialized by the existing instance RLock.",
+    "layers": {
+      "fts_route": {
+        "capacity": 256,
+        "key": "exact RewriteQuery.expression str",
+        "value": "fully validated immutable ordered tuple of (rowid,parent_asin)",
+        "namespace": "the owning immutable in-memory catalog generation plus the frozen implementation commit, FTS schema/tokenizer/query constants, registry hash, parser blob, and classifier blobs/constants",
+        "fill": "execute the unchanged SQL and validate the entire route before one transactional cache insert"
+      },
+      "product_view": {
+        "capacity": 4096,
+        "key": "exact (rowid,parent_asin)",
+        "value": "frozen ProductAttributeView built from parent_asin plus title/categories/features/details/store/description; rowid is identity only and price is excluded",
+        "fill": "fetch and validate all requested cache misses, stage them locally, then insert in novel_route request order; insert none for this layer if its batch is incomplete or raises"
+      },
+      "mask_decision": {
+        "capacity": 16384,
+        "key": "exact (HardConflictRules,rowid,parent_asin)",
+        "value": "the two booleans negative_violation and positive_conflict from the unchanged classifier",
+        "fill": "for each mask invocation, look up decisions only after all views are available, stage every miss locally, and insert all staged decisions in novel_route request order only after the full invocation succeeds"
+      }
+    },
+    "never_cached": [
+      "raw or normalized user messages",
+      "visible-context records or intent versions",
+      "the C200 prefix or prefix membership",
+      "novel-route derivation",
+      "final tail, ExpansionResult, trace rows, targets, labels, outcomes, folds, or proxy values"
+    ],
+    "eviction": "strict deterministic least-recently-used within each layer; exact hits move to most-recently-used; capacities cannot adapt to data or outcomes",
+    "pipeline_order": "fresh prefix/context/query/rules validation, exact FTS cache lookup/fill, exact product-view lookup plus transactional miss fill, exact mask-decision lookup plus transactional miss fill, ordered mask reconstruction, tail slice, and a second fixed-point mask invocation",
+    "mask_reconstruction": "In novel_route order, drop iff negative_violation OR positive_conflict; increment the negative and positive counters independently by their booleans; conflict_count is len(dropped). The tail fixed-point audit reuses only exact immutable decisions and must reproduce every original field.",
+    "transaction_scope": "Atomicity is per cache-layer operation: a failed FTS query inserts no route; a failed view batch inserts no views from that batch; a failed mask invocation inserts no decisions staged by that invocation. Earlier successful layer fills and prior-hit LRU promotions/counters are not rolled back by a later-layer failure and cannot affect returned algorithm semantics.",
+    "lookup_statistics": "For each layer, lookups=hits+misses. A hit increments hits and avoided_operations and promotes its exact key; a miss increments misses; each capacity removal increments evictions. View lookup occurs before mask lookup, so mask hits never bypass view lookup.",
+    "immutability_and_drift": "After Agent catalog construction the connection is placed in SQLite query_only mode and its initial total_changes, row count, distinct identifier count, schema, tokenizer, registry hash, and frozen implementation dependencies form the generation invariant. Constructor validation and every explicit validate check these invariants. Any drift clears all layers under the lock and fails closed; it never silently continues.",
+    "failure_semantics": "Cache lookup cannot suppress input/context/prefix/query/rule validation. Exception-class parity is required for invalid inputs and first-fill failures under an open immutable instance; deliberate mutation after a successful cached fill is outside the valid runtime contract and is caught by explicit validation.",
+    "diagnostics": "Only aggregate integer lookups, hits, misses, evictions, current size, fixed capacity, avoided-operation counts, clears, and closed/enabled flags may be emitted; no key, query, rule, identifier, per-turn array, or sampled value."
+  },
+  "target_free_sources": {
+    "catalog": {
+      "path": "D:/tiktok/techjam-err402-fast-track/data/catalog.jsonl",
+      "rows": 50000,
+      "bytes": 60546327,
+      "sha256": "da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67"
+    },
+    "visible_context": {
+      "path": "D:/tiktok/techjam-v2-16-c200-recall/experiments/fast_track/c200_candidate_recall_cache_20260831/visible_context.jsonl",
+      "rows": 2000,
+      "turns": 20000,
+      "bytes": 47168882,
+      "sha256": "f30a98700da5d480731fe7e82c87c40a22f06de290e069e20dc68f9fefecd20f"
+    },
+    "c200_reference": {
+      "rows": 20000,
+      "bytes": 32226135,
+      "sha256": "a8589749376f48f019997a618481578dde36be4ca1fc723e8ed00056c23e40dc",
+      "replicas_must_be_byte_identical": true
+    },
+    "attribute_registry_sha256": "1d85fc42f49fd9374238d98b8feaeab8d76269b0987740256fe60e666757d2ca"
+  },
+  "protected_data_boundary": {
+    "target_proxy_label_fold_or_outcome_access": false,
+    "forbidden_before_and_during_v2_20": [
+      "train_explore proxy or any target/identifier oracle",
+      "labels_v2.npz or any fold/taxonomy outcome archive",
+      "old calibration",
+      "opened selection",
+      "sealed confirmation",
+      "released public",
+      "Amazon test or heldout",
+      "D:/tiktok/techjam-v2-20-sparse-cache/experiments/fast_track/small_ranker_v2_19_registry_ca_g0_20260831.json",
+      "D:/tiktok/techjam-v2-20-sparse-cache/experiments/fast_track/small_ranker_v2_19_registry_ca_g0_cache_20260831"
+    ],
+    "v2_19_namespace_rule": "The two exact lexical paths above and every lexical descendant of the cache root are denied before path resolution. The v2.20 runner must not resolve, stat, open, hash, read, create, rename, delete, or otherwise probe them; enforcing the lexical deny itself must not query their filesystem state.",
+    "known_prior_incident": "PRE_PREREG_PROTECTED_PATH_ACCESS_INCIDENT_RECORDED",
+    "qualification": "This target-free stage does not erase or relabel the earlier orchestration incident."
+  },
+  "device_selection": {
+    "selected": "CPU",
+    "selection_phase": "TARGET_FREE_PREFLIGHT",
+    "reason": "This variable is exact memoization around SQLite FTS5, Python catalog-view construction, branch-heavy hard-conflict classification, dedupe, and stable append. The local frozen stack has no semantically identical GPU implementation for these operations.",
+    "same_query_cpu_gpu_benchmark": "NOT_APPLICABLE_NO_EQUIVALENT_LOCAL_GPU_BACKEND",
+    "gpu_used": false,
+    "gpu_peak_bytes_maximum": 0,
+    "no_install_download_or_index_build": true,
+    "general_future_policy": "For each later experiment with equivalent CPU/GPU implementations, benchmark the same 100-1000 target-free queries. GPU may be selected only when it is idle, the existing local CUDA stack is sufficient, no process is stopped or preempted, the dry-run has no OOM/NaN, peak VRAM is <=11GB, every discrete candidate set/order/final hash is exact, any tolerance applies only to a separately preregistered continuous intermediate whose final discrete output remains exact, exact repeat holds, and GPU wall time is at least 1.5x faster. Query parsing/BM25/hard-mask/RRF/dedupe/tie-break default to CPU; embedding encoding/dense search/batched sparse matrix work may select GPU."
+  },
+  "implementation_choreography": {
+    "branch": "small-ranker-v2.20-sparse-cache",
+    "worktree": "D:/tiktok/techjam-v2-20-sparse-cache",
+    "remote": "origin",
+    "remote_url": "https://github.com/lamperriat/techjam-err402.git",
+    "preregistration_direct_parent": "c51e18de717b58aed7bbefc8db63a4b783178c43",
+    "preregistration_exact_changed_paths": [
+      "configs/small_ranker_v2_20.sparse_route_cache_preregistration.json"
+    ],
+    "implementation_direct_parent": "THIS_PREREGISTRATION_COMMIT",
+    "implementation_exact_changed_paths": [
+      "starter/sparse_multiview.py",
+      "scripts/sparse_multiview_candidate_worker.py",
+      "scripts/probe_sparse_multiview_cache_preflight.py",
+      "tests/test_sparse_multiview_cache.py"
+    ],
+    "must_push_preregistration_before_implementation": true,
+    "must_push_implementation_before_any_sealed_source_access": "After this preregistration is committed and pushed, implementation and synthetic tests may proceed. The implementation commit must then be pushed before any stat/open/hash/read of catalog, visible_context, C200 references, frozen v2.19 target-free diagnostic trace, or any 20/100 real-data smoke.",
+    "formal_git_gate": "Before any sealed source access, require clean worktree; HEAD equals the supplied full implementation commit and origin/small-ranker-v2.20-sparse-cache; HEAD^ equals this preregistration commit; preregistration^ equals c51e18de717b58aed7bbefc8db63a4b783178c43; each commit has the exact changed-path allowlist; and every frozen/new tracked blob matches. Recheck HEAD, remote equality, clean state, and blobs after each smoke stage.",
+    "history_rewrite_force_amend_old_artifact_overwrite": false
+  },
+  "frozen_ancestry": {
+    "v2_18_result": "f810642c1dd805df6543ce152904892207164c95",
+    "v2_19_preregistration": "c4e89db7a64b71e15aeab51049670de0bb8f8e6e",
+    "v2_19_implementation": "a572a2d5798277072132f4dcace3863c69919cfd",
+    "v2_19_blocker": "c51e18de717b58aed7bbefc8db63a4b783178c43",
+    "required_direct_chain": "f810642c1dd805df6543ce152904892207164c95 -> c4e89db7a64b71e15aeab51049670de0bb8f8e6e -> a572a2d5798277072132f4dcace3863c69919cfd -> c51e18de717b58aed7bbefc8db63a4b783178c43"
+  },
+  "frozen_parent_blobs": {
+    "configs/small_ranker_v2_19.registry_ca_g0_preregistration.json": "e480cb7efd7c3ed80f2751e843577052430ea599",
+    "configs/small_ranker_v2_19.registry_ca_g0_preflight_blocker.json": "0d2d7c2cd551e0150bc8cd6ec4e1aac399e44c39",
+    "evaluator/local_evaluator.py": "7c808347b31ef3121a9cbc4810ac3eb325f950ba",
+    "scripts/c200_candidate_worker.py": "b94fddcf5a9b20ddde540f3f43ea9962982cb096",
+    "scripts/probe_c200_candidate_recall.py": "0a57f63866683b476b9f49184673cf3154531911",
+    "scripts/probe_e0_embedding_candidate_recall.py": "5bb9ec7f38f90d814d0c121c9f8992267d3491d5",
+    "starter/agent.py": "421c6d43c598102b8fefb181b72bab5da4bf1294",
+    "starter/architecture_lab.py": "8d340d0dce3fc2f1bb987a5dd632444776a05667",
+    "starter/attributes.py": "92260323f077c9861aa4edd5242aff772c875760",
+    "starter/p8_negative.py": "719078234dba297ce59f68d8a2b1734ec53c9c63",
+    "starter/slot_ledger.py": "72975cff12af59e4044e52911c58294cd74a785a",
+    "starter/sparse_multiview.py": "82cbd10399ac02533a20057d3523e09ad729811b",
+    "scripts/sparse_multiview_candidate_worker.py": "59769b480c0357d535aa10afcf740152027acdbf",
+    "scripts/probe_sparse_multiview_candidate_recall.py": "ae96a43611c0d0f835c0e0c2dda5f9e798fc7827",
+    "tests/test_sparse_multiview_candidate_recall.py": "7e1c10f6b45f1c296b3616dc014ec16fde555356"
+  },
+  "verification_before_real_data": {
+    "required": [
+      "unit parity for cached versus uncached route, views, mask, every ExpansionResult field, and valid-contract exception classes",
+      "transactional no-fill on SQL, view-batch, and classifier failure",
+      "deterministic LRU capacity and eviction tests for all three layers",
+      "thread serialization, close race, idempotent close, and post-close rejection",
+      "aggregate diagnostics privacy scan and exact schema test",
+      "default-off and cache-flag isolation tests",
+      "cache flag omitted preserves the prior worker invocation, receipt schema, and trace behavior; --semantic-cache is the only enabling path",
+      "worker and runner direct-script plus python -m evaluator.local_evaluator regression, including direct script outside repository cwd",
+      "intentionally absent module fails nonzero without creating an output"
+    ],
+    "test_success_is_not_algorithm_gain": true
+  },
+  "target_free_preflight": {
+    "fixed_result_path": "experiments/fast_track/small_ranker_v2_20_sparse_cache_preflight_20260831.json",
+    "result_creation": "compact canonical LF JSON through exclusive create only after every target-free gate passes",
+    "stage_20": {
+      "workers": "one fresh cache-disabled semantic control plus fresh cached direct-script and cached python -m workers; the control uses only the v2.20 worker/temp namespace and omits --semantic-cache",
+      "sessions": 20,
+      "required_trace_rows": 200,
+      "required_trace_bytes": 441241,
+      "required_trace_sha256": "e5177f1a69fe1e79d5d9d4729952c9dfcfac0325689aa13e31dc860fbf38e45a",
+      "required_activated_turns": 116,
+      "direct_module_byte_identity": true,
+      "frozen_v2_19_byte_identity": true,
+      "semantic_control": "All three canonical candidate traces are byte-identical. Each worker also streams a SHA-256 over canonical per-turn ExpansionResult.as_dict() values in ordinal/turn order; only the digest is emitted, and all three digests must be exact."
+    },
+    "stage_100": {
+      "eligibility": "only after all stage_20 gates pass",
+      "workers": "one fresh cache-disabled semantic control followed by fresh cached direct-script and cached python -m workers over the same first 100 sealed sessions",
+      "sessions": 100,
+      "required_trace_rows": 1000,
+      "direct_module_byte_identity": true,
+      "exact_repeat": true,
+      "pair_wall_seconds_maximum": 60.0,
+      "pair_wall_definition": "Sum the two cached child processes' unrounded parent-observed elapsed seconds from immediately before process launch through process exit and successful receipt validation. It includes startup, import, source scanning, Agent/FTS construction, context processing, expand, trace write, close, stdout capture, and receipt validation; it excludes the uncached control and subsequent runner trace/source checks. Round only for reporting.",
+      "formal_extrapolation": "cached_pair_parent_wall_seconds * 20 * 1.5 <= 1800",
+      "semantic_control": "The uncached control trace and semantic digest must exactly equal both cached traces and digests; the uncached wall is reported separately and never included in the cached pair gate."
+    },
+    "all_stage_gates": [
+      "complete variable C200 exact ordered prefix on every turn",
+      "candidate traces and per-turn semantic digests prove exact cached-versus-uncached equality for route, novel_route, tail, candidates, activation, query, rules, and both conflict counts",
+      "tail duplicates and tail explicit hard conflicts equal zero",
+      "candidate cells union over C200 <=2.0 and canonical trace bytes union over C200 <=2.1",
+      "extra route-and-mask P95 <=100ms and per-turn P95 <=400ms",
+      "each worker peak working set <=1610612736 bytes",
+      "network attempts=0 and GPU peak bytes=0",
+      "source/config/Git identities unchanged before and after",
+      "for each cached worker in each stage, every layer has lookups=hits+misses, size<=capacity, nonnegative deterministic evictions, and matching avoided-operation accounting",
+      "for each cached worker in each stage, FTS hits>0, product-view hits>0, and mask-decision hits>0; mask hits caused by the mandatory fixed-point audit are valid and reported as avoided classifications",
+      "no identifier/query/rule/per-turn array in summary and result <=24KB"
+    ],
+    "failure": "Freeze v2.20 as TARGET_FREE_SEMANTIC_OR_RESOURCE_NO_GO_OR_IMPLEMENTATION_BLOCKER; do not create a candidate-recall receipt and do not access target/outcome.",
+    "pass": "Only authorizes a separate v2.21 preregistration and separate one-shot candidate-recall namespace using the unchanged algorithm plus the proven cache. It is not permission to open any outcome in v2.20."
+  },
+  "claims_forbidden": [
+    "candidate recall gain",
+    "served HR, MRR, MTTC, or TechnicalScore gain",
+    "private score",
+    "algorithm Go or No-Go from target-free timing alone",
+    "clean overall orchestration"
+  ],
+  "fallback_order_unchanged": [
+    "SR-V2.12-FIXED-TWO-PAGE-GRACE",
+    "v1.9",
+    "P11",
+    "R08"
+  ]
+}
