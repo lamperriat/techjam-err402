@@ -1,4 +1,4 @@
-"""Target-free v2.20 semantic-cache preflight.
+"""Target-free v2.20b protected-safe semantic-cache preflight.
 
 This runner is intentionally independent of the consumed v2.19 one-shot
 runner.  It opens only the preregistered catalog, visible-context cache, and
@@ -28,7 +28,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -38,40 +38,40 @@ if str(PROJECT_ROOT) not in sys.path:
 sys.dont_write_bytecode = True
 
 
-SCHEMA_VERSION = "small-ranker-v2.20-sparse-cache-preflight.v1"
+SCHEMA_VERSION = "small-ranker-v2.20b-sparse-cache-preflight.v1"
 WORKER_SCHEMA_VERSION = "small-ranker-registry-ca-g0-worker-summary.v1"
-EXPERIMENT_ID = "SR-V2.20-SPARSE-ROUTE-CACHE"
-BRANCH = "small-ranker-v2.20-sparse-cache"
+BOOTSTRAP_SCHEMA_VERSION = "small-ranker-v2.20b-safe-bootstrap-envelope.v1"
+EXPERIMENT_ID = "SR-V2.20B-SPARSE-ROUTE-CACHE"
+BRANCH = "small-ranker-v2.20b-sparse-cache"
 REMOTE = "origin"
 REMOTE_URL = "https://github.com/lamperriat/techjam-err402.git"
 REMOTE_REF = f"refs/remotes/{REMOTE}/{BRANCH}"
 
-V219_BLOCKER_COMMIT = "c51e18de717b58aed7bbefc8db63a4b783178c43"
-PREREG_COMMIT = "2a1aa5d51da4b9d621687b9101c26bafcac82ccb"
-PREREG_RELATIVE = "configs/small_ranker_v2_20.sparse_route_cache_preregistration.json"
+V220_BLOCKER_COMMIT = "546d9dfdd4ba6df92d901b33973527c61e335bfb"
+V220_IMPLEMENTATION_COMMIT = "d9e04b1ccb73bbbe132d3b5673931c6a40a279a4"
+PREREG_COMMIT = "d073ca9b766b61e529a74e2656c1fcb7bbce9d86"
+PREREG_RELATIVE = "configs/small_ranker_v2_20b.sparse_route_cache_preregistration.json"
 PREREG_PATH = ROOT / PREREG_RELATIVE
-PREREG_BLOB = "3cad1aba4f92d1107dd5179c24861d370d8e321b"
-PREREG_BYTES = 19_218
-PREREG_RAW_SHA256 = "2c1099566164f7e43ce3d268d755b6cf0984b0e9f3f1ac8f6a2f9cc261154016"
+PREREG_BLOB = "d329296ae0224d5329cd43dc77871d53555b4c3e"
+PREREG_BYTES = 24_488
+PREREG_RAW_SHA256 = "8f29e5f0da89f10cdff74c7b37e15a57ac3f20566f83f8e46802684db83dd593"
 PREREG_CANONICAL_SHA256 = (
-    "e5d0a47606b3f5d3590f33630ec4d5f40e0e39a68443ccfc625ee3d16c5cc083"
+    "2d3dc75a22c49b7cf4321c9b5874ba56a5fc9a0e3eebace111c0dcdf56203c94"
 )
 PREREG_PATHS = {PREREG_RELATIVE}
 
 IMPLEMENTATION_PATHS = {
-    "starter/sparse_multiview.py",
-    "scripts/sparse_multiview_candidate_worker.py",
+    "scripts/v220b_safe_bootstrap.py",
     "scripts/probe_sparse_multiview_cache_preflight.py",
     "tests/test_sparse_multiview_cache.py",
 }
 FROZEN_PARENT_BLOBS = {
-    "configs/small_ranker_v2_19.registry_ca_g0_preregistration.json": (
-        "e480cb7efd7c3ed80f2751e843577052430ea599"
+    "configs/small_ranker_v2_20.sparse_route_cache_preregistration.json": (
+        "3cad1aba4f92d1107dd5179c24861d370d8e321b"
     ),
-    "configs/small_ranker_v2_19.registry_ca_g0_preflight_blocker.json": (
-        "0d2d7c2cd551e0150bc8cd6ec4e1aac399e44c39"
-    ),
+    "evaluator/__init__.py": "36ae92f27844cf6288fd433bdb4b21ca4b2a6b07",
     "evaluator/local_evaluator.py": "7c808347b31ef3121a9cbc4810ac3eb325f950ba",
+    "scripts/__init__.py": "3571b1ee55a368c944442b55d00adc4aa8d0ebfd",
     "scripts/c200_candidate_worker.py": "b94fddcf5a9b20ddde540f3f43ea9962982cb096",
     "scripts/probe_c200_candidate_recall.py": "0a57f63866683b476b9f49184673cf3154531911",
     "scripts/probe_e0_embedding_candidate_recall.py": (
@@ -80,18 +80,20 @@ FROZEN_PARENT_BLOBS = {
     "starter/agent.py": "421c6d43c598102b8fefb181b72bab5da4bf1294",
     "starter/architecture_lab.py": "8d340d0dce3fc2f1bb987a5dd632444776a05667",
     "starter/attributes.py": "92260323f077c9861aa4edd5242aff772c875760",
+    "starter/__init__.py": "f4cea264f261c96c4ff2166ad00b28a8025a55e3",
+    "starter/clarification.py": "b648571dc873cb790455898a2ae3077cc9760c45",
+    "starter/coverage.py": "59a6507fef63afa0d9761323f5771a52741c811a",
     "starter/p8_negative.py": "719078234dba297ce59f68d8a2b1734ec53c9c63",
+    "starter/reranker.py": "f179e7c75d4c0c5189f3a62139de5f51c8ec231a",
     "starter/slot_ledger.py": "72975cff12af59e4044e52911c58294cd74a785a",
-    "starter/sparse_multiview.py": "82cbd10399ac02533a20057d3523e09ad729811b",
+    "starter/sparse_multiview.py": "4adf065b0384ab5d45f7bd4582bf7aaf217348a5",
     "scripts/sparse_multiview_candidate_worker.py": (
-        "59769b480c0357d535aa10afcf740152027acdbf"
+        "b44a0c2cbb4c9b4d34aedd6795dbed1ff24a5020"
     ),
-    "scripts/probe_sparse_multiview_candidate_recall.py": (
-        "ae96a43611c0d0f835c0e0c2dda5f9e798fc7827"
+    "scripts/probe_sparse_multiview_cache_preflight.py": (
+        "35110d5bb65c5b3d6f58fe303bd2bf7d9cc4e591"
     ),
-    "tests/test_sparse_multiview_candidate_recall.py": (
-        "7e1c10f6b45f1c296b3616dc014ec16fde555356"
-    ),
+    "tests/test_sparse_multiview_cache.py": "15dc470bc799d4fe4b96179c26185781e635ff69",
 }
 
 SOURCE_ROOT = Path(r"D:\tiktok\techjam-err402-fast-track")
@@ -114,18 +116,18 @@ C200_TRACE_BYTES = 32_226_135
 C200_TRACE_ROWS = 20_000
 C200_TRACE_SHA256 = "a8589749376f48f019997a618481578dde36be4ca1fc723e8ed00056c23e40dc"
 
-RESULT_PATH = ROOT / "experiments/fast_track/small_ranker_v2_20_sparse_cache_preflight_20260831.json"
+RESULT_PATH = ROOT / "experiments/fast_track/small_ranker_v2_20b_sparse_cache_preflight_20260831.json"
 WORKER_PATH = ROOT / "scripts/sparse_multiview_candidate_worker.py"
 RUNNER_PATH = Path(__file__).resolve()
+BOOTSTRAP_PATH = ROOT / "scripts/v220b_safe_bootstrap.py"
+RUNTIME_TEMP_ROOT = Path(r"D:\tiktok\.v220b_runtime")
 
 # These values are lexical sentinels only.  No code in this module resolves,
 # stats, opens, hashes, creates, or removes either path.
-V219_RESULT_DENIED_PATH = (
-    ROOT / "experiments/fast_track/small_ranker_v2_19_registry_ca_g0_20260831.json"
-)
-V219_CACHE_DENIED_ROOT = (
-    ROOT / "experiments/fast_track/small_ranker_v2_19_registry_ca_g0_cache_20260831"
-)
+V219_RESULT_BASENAME = "small_ranker_v2_19_registry_ca_g0_20260831.json"
+V219_CACHE_BASENAME = "small_ranker_v2_19_registry_ca_g0_cache_20260831"
+V219_RESULT_DENIED_PATH = ROOT / "experiments/fast_track" / V219_RESULT_BASENAME
+V219_CACHE_DENIED_ROOT = ROOT / "experiments/fast_track" / V219_CACHE_BASENAME
 
 # These lexical markers supplement exact allowlists.  They are deliberately
 # broader than the current source names because v2.20 is now fail-closed before
@@ -137,8 +139,19 @@ PROTECTED_PATH_MARKERS = (
 )
 
 EXPECTED_EXECUTABLE = Path(r"D:\450\conda\envs\tiktok\python.exe")
+EXPECTED_EXECUTABLE_SHA256 = "7819c841b9a6457da034e567563de1283dbc0b86482fd83d62b5d982d2a83a63"
+EXPECTED_EXECUTABLE_BYTES = 93_184
 EXPECTED_PYTHON = "3.11.16"
 EXPECTED_SQLITE = "3.53.4"
+EXPECTED_GIT = Path(r"C:\Program Files\Git\mingw64\bin\git.exe")
+EXPECTED_GIT_SHA256 = "3fe4878d8399f6fb7632b9325559d1bb38c3a17aac7a60f667c1e5f90b865248"
+EXPECTED_GIT_BYTES = 4_018_680
+EXPECTED_GIT_VERSION = "git version 2.45.2.windows.1"
+EXPECTED_GITDIR = Path(
+    r"D:\tiktok\techjam-err402\.git\worktrees\techjam-v2-20b-sparse-cache"
+)
+EXPECTED_COMMON_GITDIR = Path(r"D:\tiktok\techjam-err402\.git")
+BOOTSTRAP_ATTESTATION_ATTRIBUTE = "_techjam_v220b_bootstrap_attestation"
 SESSION_COUNT = 2_000
 TURN_COUNT = 10
 ALLOWED_STAGE_LIMITS = (20, 100)
@@ -234,6 +247,15 @@ class TraceValidation:
         }
 
 
+@dataclass(frozen=True)
+class BootstrapLaunch:
+    command: tuple[str, ...]
+    environment: Mapping[str, str]
+    runtime_root: Path
+    runtime_snapshot: tuple[int, int, int]
+    pycache_prefix: Path
+
+
 def _canonical_bytes(value: object) -> bytes:
     try:
         return json.dumps(
@@ -296,9 +318,24 @@ def _lexical_key(path: str | os.PathLike[str]) -> str:
 
 def _is_v219_denied_lexically(path: str | os.PathLike[str]) -> bool:
     key = _lexical_key(path)
-    result_key = _lexical_key(V219_RESULT_DENIED_PATH)
-    cache_key = _lexical_key(V219_CACHE_DENIED_ROOT)
-    return key == result_key or key == cache_key or key.startswith(cache_key + "\\")
+    parts = tuple(
+        part.casefold()
+        for part in ntpath.normpath(key).replace("/", "\\").split("\\")
+        if part
+    )
+    result_name = V219_RESULT_BASENAME.casefold()
+    cache_name = V219_CACHE_BASENAME.casefold()
+    for index in range(max(0, len(parts) - 2)):
+        if parts[index : index + 2] != ("experiments", "fast_track"):
+            continue
+        suffix = parts[index + 2 :]
+        aliases = tuple(
+            component.split(":", 1)[0].rstrip(" .")
+            for component in suffix
+        )
+        if aliases and aliases[0] in {result_name, cache_name}:
+            return True
+    return False
 
 
 def _guard_v219_namespace(path: str | os.PathLike[str]) -> None:
@@ -438,7 +475,18 @@ def _validate_path_policy() -> dict[str, bool]:
         _guard_experiment_data(path)
     # This is a purely lexical assertion.  It deliberately performs no stat,
     # resolve, exists, open, or hash operation on either forbidden namespace.
-    for denied in (V219_RESULT_DENIED_PATH, V219_CACHE_DENIED_ROOT):
+    denied_examples = (
+        ROOT / "experiments/fast_track" / V219_RESULT_BASENAME,
+        ROOT / "experiments/fast_track" / V219_CACHE_BASENAME,
+        Path(r"D:\tiktok\techjam-v2-20-sparse-cache")
+        / "experiments/fast_track"
+        / V219_RESULT_BASENAME,
+        Path(r"D:\tiktok\another-worktree")
+        / "experiments/fast_track"
+        / V219_CACHE_BASENAME
+        / "descendant.jsonl",
+    )
+    for denied in denied_examples:
         if not _is_v219_denied_lexically(denied):
             raise SparseCachePreflightError("v2.19 lexical deny drifted", "DATA_POLICY_FAILURE")
         try:
@@ -475,18 +523,187 @@ def _file_identity(path: Path, label: str) -> FileIdentity:
     return FileIdentity(byte_count, row_count, digest.hexdigest(), after)
 
 
-def _git(*args: str, binary: bool = False) -> Any:
-    environment = dict(os.environ)
-    environment["GIT_OPTIONAL_LOCKS"] = "0"
+_GIT_RUNTIME_REPORT: dict[str, Any] | None = None
+
+
+def _minimal_environment() -> dict[str, str]:
+    """Build a fresh process environment without inherited Python/Git controls."""
+
+    allowed = {
+        "COMSPEC", "PATHEXT", "SYSTEMDRIVE", "SYSTEMROOT", "TEMP", "TMP", "WINDIR"
+    }
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if key.upper() in allowed
+    }
+    environment["PATH"] = str(Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32")
+    return environment
+
+
+def _plain_file_identity(path: Path, label: str) -> dict[str, int | str]:
+    resolved = _require_plain(path)
+    digest = hashlib.sha256()
+    count = 0
+    with resolved.open("rb") as handle:
+        before = _snapshot(os.fstat(handle.fileno()))
+        while chunk := handle.read(1 << 20):
+            digest.update(chunk)
+            count += len(chunk)
+        after = _snapshot(os.fstat(handle.fileno()))
+    if before != after or _snapshot(resolved.stat()) != after or count != before[0]:
+        raise SparseCachePreflightError(f"{label} changed while hashed", "SOURCE_MUTATION")
+    return {"bytes": count, "sha256": digest.hexdigest()}
+
+
+def _git_environment() -> dict[str, str]:
+    environment = _minimal_environment()
+    environment.update({
+        "GIT_ATTR_NOSYSTEM": "1",
+        "GIT_CONFIG_GLOBAL": "NUL",
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_NO_REPLACE_OBJECTS": "1",
+        "GIT_OPTIONAL_LOCKS": "0",
+        "GIT_PAGER": "cat",
+        "GIT_TERMINAL_PROMPT": "0",
+        "LANG": "C",
+        "LC_ALL": "C",
+        "PAGER": "cat",
+    })
+    return environment
+
+
+def _read_small_control(path: Path, expected: bytes, label: str) -> None:
+    resolved = _require_plain(path)
+    raw = resolved.read_bytes()
+    if raw.replace(b"\r\n", b"\n") != expected:
+        raise SparseCachePreflightError(f"{label} drifted", "GIT_CONTROL_PLANE")
+
+
+def _validate_git_runtime() -> dict[str, Any]:
+    global _GIT_RUNTIME_REPORT
+    executable = _plain_file_identity(EXPECTED_GIT, "Git executable")
+    if executable != {"bytes": EXPECTED_GIT_BYTES, "sha256": EXPECTED_GIT_SHA256}:
+        raise SparseCachePreflightError("Git executable drifted", "GIT_CONTROL_PLANE")
     completed = subprocess.run(
-        ["git", *args],
-        cwd=ROOT,
-        env=environment,
+        [str(EXPECTED_GIT), "--version"],
+        cwd=Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32",
+        env=_git_environment(),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,
     )
-    if completed.returncode:
+    if (
+        completed.returncode != 0
+        or completed.stderr
+        or completed.stdout.decode("utf-8", errors="strict").strip() != EXPECTED_GIT_VERSION
+    ):
+        raise SparseCachePreflightError("Git version gate failed", "GIT_CONTROL_PLANE")
+
+    _read_small_control(
+        ROOT / ".git",
+        b"gitdir: D:/tiktok/techjam-err402/.git/worktrees/techjam-v2-20b-sparse-cache\n",
+        "worktree pointer",
+    )
+    _read_small_control(
+        EXPECTED_GITDIR / "HEAD",
+        b"ref: refs/heads/small-ranker-v2.20b-sparse-cache\n",
+        "worktree HEAD",
+    )
+    _read_small_control(EXPECTED_GITDIR / "commondir", b"../..\n", "common-dir pointer")
+    _read_small_control(
+        EXPECTED_GITDIR / "gitdir",
+        b"D:/tiktok/techjam-v2-20b-sparse-cache/.git\n",
+        "worktree backlink",
+    )
+    config_path = _require_plain(EXPECTED_COMMON_GITDIR / "config")
+    config = config_path.read_text(encoding="utf-8", errors="strict").casefold()
+    forbidden_config = (
+        "[include", "includeif", "hookspath", "fsmonitor", "insteadOf".casefold(),
+        "objects/info/alternates", "objects/info/http-alternates", "worktreeconfig",
+        "[extensions",
+    )
+    if any(marker in config for marker in forbidden_config):
+        raise SparseCachePreflightError("unsafe local Git config", "GIT_CONTROL_PLANE")
+    for forbidden in (
+        EXPECTED_COMMON_GITDIR / "info/grafts",
+        EXPECTED_COMMON_GITDIR / "objects/info/alternates",
+        EXPECTED_COMMON_GITDIR / "objects/info/http-alternates",
+        EXPECTED_COMMON_GITDIR / "shallow",
+        EXPECTED_COMMON_GITDIR / "refs/replace",
+        EXPECTED_COMMON_GITDIR / "config.worktree",
+        EXPECTED_GITDIR / "shallow",
+        EXPECTED_GITDIR / "config.worktree",
+    ):
+        if forbidden.exists() or forbidden.is_symlink():
+            raise SparseCachePreflightError("unsafe Git indirection", "GIT_CONTROL_PLANE")
+    packed_refs = EXPECTED_COMMON_GITDIR / "packed-refs"
+    if packed_refs.exists() or packed_refs.is_symlink():
+        packed_text = _require_plain(packed_refs).read_text(
+            encoding="utf-8", errors="strict"
+        ).casefold()
+        if " refs/replace/" in packed_text:
+            raise SparseCachePreflightError("packed replace ref denied", "GIT_CONTROL_PLANE")
+    report = {
+        "config_sha256": hashlib.sha256(config_path.read_bytes()).hexdigest(),
+        "executable": EXPECTED_GIT.as_posix(),
+        "executable_sha256": EXPECTED_GIT_SHA256,
+        "object_only": True,
+        "version": EXPECTED_GIT_VERSION,
+    }
+    _GIT_RUNTIME_REPORT = report
+    return report
+
+
+def _git_command_allowed(arguments: Sequence[str], binary: bool) -> bool:
+    values = tuple(arguments)
+    if values == ("symbolic-ref", "--short", "HEAD"):
+        return not binary
+    if values == ("config", "--local", "--no-includes", "--get-all", "remote.origin.url"):
+        return not binary
+    if len(values) == 2 and values[0] == "rev-parse":
+        subject = values[1]
+        if binary:
+            return False
+        if subject in {"HEAD", "HEAD^", REMOTE_REF, f"{PREREG_COMMIT}^"}:
+            return True
+        if COMMIT_RE.fullmatch(subject):
+            return True
+        matched = re.fullmatch(
+            r"(?:HEAD|[0-9a-f]{40}):([A-Za-z0-9_./-]+)", subject
+        )
+        allowed_paths = set(FROZEN_PARENT_BLOBS) | IMPLEMENTATION_PATHS | {
+            PREREG_RELATIVE
+        }
+        return matched is not None and matched.group(1) in allowed_paths
+    if (
+        len(values) in {5, 6}
+        and values[:4] == ("diff-tree", "--no-commit-id", "--name-only", "-r")
+        and all(COMMIT_RE.fullmatch(value) for value in values[4:])
+    ):
+        return not binary
+    if len(values) == 3 and values[:2] == ("cat-file", "blob"):
+        return binary and COMMIT_RE.fullmatch(values[2]) is not None
+    return False
+
+
+def _git(*args: str, binary: bool = False) -> Any:
+    if _GIT_RUNTIME_REPORT is None:
+        raise SparseCachePreflightError("Git runtime not attested", "GIT_CONTROL_PLANE")
+    if not _git_command_allowed(args, binary):
+        raise SparseCachePreflightError("Git command outside object-only allowlist", "GIT_COMMAND_DENIED")
+    completed = subprocess.run(
+        [
+            str(EXPECTED_GIT), "--no-replace-objects",
+            "-c", f"safe.directory={ROOT.as_posix()}", "-C", str(ROOT), *args,
+        ],
+        cwd=Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32",
+        env=_git_environment(),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if completed.returncode or completed.stderr:
         raise SparseCachePreflightError("Git identity command failed", "GIT_COMMAND_FAILED")
     if binary:
         return completed.stdout
@@ -500,7 +717,9 @@ def _changed_paths(commitish: str) -> set[str]:
 
 
 def _diff_paths(left: str, right: str) -> set[str]:
-    return set(filter(None, _git("diff", "--name-only", left, right).splitlines()))
+    return set(filter(None, _git(
+        "diff-tree", "--no-commit-id", "--name-only", "-r", left, right
+    ).splitlines()))
 
 
 def _worktree_blob(path: Path) -> str:
@@ -527,9 +746,9 @@ def _load_preregistration() -> dict[str, Any]:
         and _canonical_sha256(value) == PREREG_CANONICAL_SHA256
         and _canonical_sha256(worktree) == PREREG_CANONICAL_SHA256
         and value.get("schema_version")
-        == "small-ranker-v2.20-sparse-route-cache-preregistration.v1"
+        == "small-ranker-v2.20b-sparse-route-cache-preregistration.v1"
         and value.get("status") == "PREREGISTERED_TARGET_FREE_ONLY"
-        and value.get("parent_evidence", {}).get("direct_parent") == V219_BLOCKER_COMMIT
+        and value.get("parent_evidence", {}).get("direct_parent") == V220_BLOCKER_COMMIT
     ):
         raise SparseCachePreflightError("preregistration identity drifted", "PREREG_DRIFT")
     return value
@@ -538,6 +757,7 @@ def _load_preregistration() -> dict[str, Any]:
 def _validate_git_checkpoint(implementation_commit: str) -> dict[str, Any]:
     if COMMIT_RE.fullmatch(implementation_commit) is None:
         raise SparseCachePreflightError("implementation commit invalid", "GIT_CHECKPOINT")
+    git_runtime = _validate_git_runtime()
     head = _git("rev-parse", "HEAD")
     parent_blobs = {
         path: _git("rev-parse", f"{PREREG_COMMIT}:{path}")
@@ -564,22 +784,13 @@ def _validate_git_checkpoint(implementation_commit: str) -> dict[str, Any]:
         _worktree_blob(ROOT / path) == _git("rev-parse", f"HEAD:{path}")
         for path in worktree_paths
     )
-    # The frozen prereg's global-clean requirement conflicts with its stronger
-    # zero-probe rule for a leaf under experiments/fast_track.  Do not perform
-    # a worktree-wide Git traversal here.  These scoped checks are retained for
-    # diagnostics only; ``run`` blocks before this function can be reached.
-    scoped_index_diff = _git(
-        "diff", "--cached", "--name-only", "HEAD", "--", *worktree_paths
-    )
-    scoped_worktree_diff = _git(
-        "diff", "--name-only", "--", *worktree_paths
-    )
     if not (
         head == implementation_commit
         and _git("rev-parse", "HEAD^") == PREREG_COMMIT
-        and _git("rev-parse", f"{PREREG_COMMIT}^") == V219_BLOCKER_COMMIT
-        and _git("branch", "--show-current") == BRANCH
-        and _git("remote", "get-url", REMOTE) == REMOTE_URL
+        and _git("rev-parse", f"{PREREG_COMMIT}^") == V220_BLOCKER_COMMIT
+        and _git("symbolic-ref", "--short", "HEAD") == BRANCH
+        and _git("config", "--local", "--no-includes", "--get-all", "remote.origin.url")
+        == REMOTE_URL
         and _git("rev-parse", REMOTE_REF) == head
         and _changed_paths(PREREG_COMMIT) == PREREG_PATHS
         and _changed_paths(head) == IMPLEMENTATION_PATHS
@@ -587,8 +798,6 @@ def _validate_git_checkpoint(implementation_commit: str) -> dict[str, Any]:
         and parent_blobs == FROZEN_PARENT_BLOBS
         and unchanged_head_blobs == expected_unchanged
         and worktree_equal
-        and not scoped_index_diff
-        and not scoped_worktree_diff
     ):
         raise SparseCachePreflightError("Git checkpoint gate failed", "GIT_CHECKPOINT")
     return {
@@ -597,14 +806,45 @@ def _validate_git_checkpoint(implementation_commit: str) -> dict[str, Any]:
         "direct_parent": PREREG_COMMIT,
         "exact_changed_paths": True,
         "implementation_blobs": implementation_blobs,
+        "git_runtime": git_runtime,
         "parent_blobs_sha256": _canonical_sha256(parent_blobs),
         "remote_equal": True,
-        "scoped_execution_inputs_clean": True,
+        "allowlisted_execution_inputs_equal_committed_blobs": True,
         "ignored_artifact_tree_scanned": False,
     }
 
 
-def _validate_environment() -> dict[str, Any]:
+def _require_bootstrap_attestation() -> dict[str, Any]:
+    value = getattr(sys, BOOTSTRAP_ATTESTATION_ATTRIBUTE, None)
+    expected_keys = {
+        "mode", "bootstrap_blob", "target_blob", "source_only", "guarded_path",
+        "pycache_prefix",
+    }
+    if not isinstance(value, Mapping) or set(value) != expected_keys:
+        raise SparseCachePreflightError(
+            "bootstrap attestation missing or malformed", "BOOTSTRAP_ATTESTATION"
+        )
+    report = dict(value)
+    pycache = report.get("pycache_prefix")
+    if (
+        report.get("mode") not in {"direct", "module"}
+        or COMMIT_RE.fullmatch(str(report.get("bootstrap_blob"))) is None
+        or COMMIT_RE.fullmatch(str(report.get("target_blob"))) is None
+        or report.get("source_only") is not True
+        or report.get("guarded_path") is not True
+        or not isinstance(pycache, str)
+        or "\\" in pycache
+        or not ntpath.isabs(pycache)
+        or _lexical_key(pycache) == _lexical_key(RUNTIME_TEMP_ROOT)
+        or not _lexical_key(pycache).startswith(_lexical_key(RUNTIME_TEMP_ROOT) + "\\")
+    ):
+        raise SparseCachePreflightError(
+            "bootstrap attestation values drifted", "BOOTSTRAP_ATTESTATION"
+        )
+    return report
+
+
+def _validate_environment(attestation: Mapping[str, Any]) -> dict[str, Any]:
     try:
         expected = EXPECTED_EXECUTABLE.resolve(strict=True)
         actual = Path(sys.executable).resolve(strict=True)
@@ -612,22 +852,40 @@ def _validate_environment() -> dict[str, Any]:
         raise SparseCachePreflightError(
             "formal executable unavailable", "ENVIRONMENT_DRIFT"
         ) from error
+    executable_identity = _plain_file_identity(expected, "Python executable")
+    pycache = _require_plain(Path(str(attestation["pycache_prefix"])), directory=True)
+    if any(pycache.iterdir()):
+        raise SparseCachePreflightError("pycache prefix is not empty", "ENVIRONMENT_DRIFT")
+    exposed_paths = tuple(str(value) for value in sys.path)
     if not (
         _lexical_key(actual) == _lexical_key(expected)
+        and executable_identity
+        == {"bytes": EXPECTED_EXECUTABLE_BYTES, "sha256": EXPECTED_EXECUTABLE_SHA256}
         and sys.version.split()[0] == EXPECTED_PYTHON
         and sqlite3.sqlite_version == EXPECTED_SQLITE
         and os.getenv("PYTHONHASHSEED") == "0"
         and _lexical_key(Path.cwd()) == _lexical_key(ROOT)
+        and sys.flags.safe_path == 1
+        and sys.flags.no_site == 1
+        and sys.flags.no_user_site == 1
+        and sys.flags.hash_randomization == 0
+        and sys.dont_write_bytecode
+        and _lexical_key(str(sys.pycache_prefix)) == _lexical_key(pycache)
+        and str(ROOT) in sys.path
+        and all(_lexical_key(value) != _lexical_key(ROOT) for value in exposed_paths)
+        and all("site-packages" not in value.casefold() for value in exposed_paths)
         and not any(name in sys.modules for name in ("cupy", "tensorflow", "torch"))
     ):
         raise SparseCachePreflightError("runtime environment drifted", "ENVIRONMENT_DRIFT")
     return {
         "cpu_only": True,
         "executable": actual.as_posix(),
+        "executable_sha256": EXPECTED_EXECUTABLE_SHA256,
         "gpu_peak_bytes": 0,
         "network_attempt_count": 0,
         "python": EXPECTED_PYTHON,
         "pythonhashseed": "0",
+        "safe_bootstrap": dict(attestation),
         "sqlite": EXPECTED_SQLITE,
     }
 
@@ -697,11 +955,7 @@ def _source_checkpoint() -> tuple[frozenset[str], dict[str, Any]]:
 
 
 def _offline_environment() -> dict[str, str]:
-    environment = {
-        key: value
-        for key, value in os.environ.items()
-        if key.casefold() not in {"pythonpath", "pythonhome"}
-    }
+    environment = _minimal_environment()
     environment.update({
         "CUDA_VISIBLE_DEVICES": "",
         "HF_HUB_OFFLINE": "1",
@@ -717,13 +971,14 @@ def _offline_environment() -> dict[str, str]:
 
 
 def _run_subprocess(
-    command: Sequence[str], *, timeout: float, cwd: Path = ROOT
+    command: Sequence[str], *, timeout: float, cwd: Path = ROOT,
+    environment: Mapping[str, str] | None = None,
 ) -> subprocess.CompletedProcess[bytes]:
     try:
         return subprocess.run(
             list(command),
             cwd=cwd,
-            env=_offline_environment(),
+            env=dict(_offline_environment() if environment is None else environment),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             check=False,
@@ -733,7 +988,250 @@ def _run_subprocess(
         raise SparseCachePreflightError("isolated subprocess timed out", "WORKER_TIMEOUT") from error
 
 
+def _git_blob_bytes(raw: bytes) -> str:
+    normalized = raw.replace(b"\r\n", b"\n")
+    return hashlib.sha1(
+        b"blob " + str(len(normalized)).encode("ascii") + b"\0" + normalized
+    ).hexdigest()
+
+
+def _prepare_bootstrap_launch(
+    *,
+    mode: str,
+    target_path: Path,
+    target_module: str,
+    target_blob: str,
+    bootstrap_blob: str,
+    target_argv: Sequence[str],
+) -> BootstrapLaunch:
+    if mode not in {"direct", "module"}:
+        raise SparseCachePreflightError("bootstrap mode invalid", "BOOTSTRAP_CONTRACT")
+    if COMMIT_RE.fullmatch(target_blob) is None or COMMIT_RE.fullmatch(bootstrap_blob) is None:
+        raise SparseCachePreflightError("bootstrap blob invalid", "BOOTSTRAP_CONTRACT")
+    base = _require_plain(RUNTIME_TEMP_ROOT, directory=True)
+    runtime_root = Path(tempfile.mkdtemp(prefix="v220b-", dir=base))
+    initial_inode = int(getattr(runtime_root.lstat(), "st_ino", 0))
+    try:
+        if runtime_root.parent != base or _is_reparse(runtime_root):
+            raise SparseCachePreflightError("unsafe runtime directory", "BOOTSTRAP_CONTRACT")
+        return _materialize_bootstrap_launch(
+            mode=mode,
+            target_path=target_path,
+            target_module=target_module,
+            target_blob=target_blob,
+            bootstrap_blob=bootstrap_blob,
+            target_argv=target_argv,
+            runtime_root=runtime_root,
+        )
+    except BaseException:
+        _cleanup_unfinished_runtime(runtime_root, base, initial_inode)
+        raise
+
+
+def _cleanup_unfinished_runtime(root: Path, base: Path, expected_inode: int) -> None:
+    try:
+        observed = root.lstat()
+    except FileNotFoundError:
+        return
+    flag = getattr(stat_module, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    if (
+        root.parent != base
+        or _lexical_key(root) == _lexical_key(base)
+        or not _lexical_key(root).startswith(_lexical_key(base) + "\\")
+        or root.is_symlink()
+        or bool(getattr(observed, "st_file_attributes", 0) & flag)
+        or int(getattr(observed, "st_ino", 0)) != expected_inode
+        or not stat_module.S_ISDIR(observed.st_mode)
+    ):
+        raise SparseCachePreflightError("unfinished runtime identity drifted", "BOOTSTRAP_CONTRACT")
+    shutil.rmtree(root)
+
+
+def _materialize_bootstrap_launch(
+    *,
+    mode: str,
+    target_path: Path,
+    target_module: str,
+    target_blob: str,
+    bootstrap_blob: str,
+    target_argv: Sequence[str],
+    runtime_root: Path,
+) -> BootstrapLaunch:
+    pycache = runtime_root / "pycache"
+    os.mkdir(pycache, 0o700)
+    pycache = _require_plain(pycache, directory=True)
+    if any(pycache.iterdir()):
+        raise SparseCachePreflightError("fresh pycache is not empty", "BOOTSTRAP_CONTRACT")
+
+    bootstrap_raw = _require_plain(BOOTSTRAP_PATH).read_bytes()
+    if _git_blob_bytes(bootstrap_raw) != bootstrap_blob:
+        raise SparseCachePreflightError("bootstrap worktree blob drifted", "BOOTSTRAP_CONTRACT")
+    environment = _offline_environment()
+    prefix = [
+        str(EXPECTED_EXECUTABLE), "-P", "-S", "-s", "-B", "-X",
+        f"pycache_prefix={pycache.as_posix()}",
+    ]
+    if mode == "direct":
+        prefix.append(str(BOOTSTRAP_PATH))
+    else:
+        module_root = runtime_root / "module"
+        os.mkdir(module_root, 0o700)
+        module_path = module_root / "v220b_safe_bootstrap.py"
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+        if hasattr(os, "O_BINARY"):
+            flags |= os.O_BINARY
+        descriptor = os.open(module_path, flags, 0o600)
+        try:
+            _write_all(descriptor, bootstrap_raw)
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        if _git_blob_bytes(_require_plain(module_path).read_bytes()) != bootstrap_blob:
+            raise SparseCachePreflightError("bootstrap module copy drifted", "BOOTSTRAP_CONTRACT")
+        if tuple(path.name for path in module_root.iterdir()) != ("v220b_safe_bootstrap.py",):
+            raise SparseCachePreflightError("bootstrap module root drifted", "BOOTSTRAP_CONTRACT")
+        environment["PYTHONPATH"] = module_root.as_posix()
+        prefix.extend(["-m", "v220b_safe_bootstrap"])
+    command = (
+        *prefix,
+        "--mode", mode,
+        "--target-path", target_path.as_posix(),
+        "--target-module", target_module,
+        "--target-blob", target_blob,
+        "--bootstrap-blob", bootstrap_blob,
+        "--",
+        *target_argv,
+    )
+    runtime_snapshot = _snapshot(runtime_root.stat())
+    return BootstrapLaunch(
+        command=tuple(command),
+        environment=environment,
+        runtime_root=runtime_root,
+        runtime_snapshot=runtime_snapshot,
+        pycache_prefix=pycache,
+    )
+
+
+def _cleanup_bootstrap_launch(launch: BootstrapLaunch) -> None:
+    root = launch.runtime_root
+    base = _require_plain(RUNTIME_TEMP_ROOT, directory=True)
+    if (
+        root.parent != base
+        or _lexical_key(root) == _lexical_key(base)
+        or not _lexical_key(root).startswith(_lexical_key(base) + "\\")
+        or _is_reparse(root)
+        or _snapshot(root.stat()) != launch.runtime_snapshot
+    ):
+        raise SparseCachePreflightError("runtime cleanup identity drifted", "BOOTSTRAP_CONTRACT")
+    shutil.rmtree(root)
+
+
+def _validate_bootstrap_envelope(
+    completed: subprocess.CompletedProcess[bytes],
+    *,
+    mode: str,
+    target_blob: str,
+    bootstrap_blob: str,
+    pycache_prefix: Path,
+) -> tuple[int, dict[str, Any] | None]:
+    if completed.stderr:
+        raise SparseCachePreflightError("bootstrap emitted stderr", "BOOTSTRAP_CONTRACT")
+    envelope = _parse_json(completed.stdout, "bootstrap envelope")
+    if completed.stdout != _canonical_bytes(envelope) + b"\n" or set(envelope) != {
+        "bootstrap", "target_exit_code", "target_receipt"
+    }:
+        raise SparseCachePreflightError("bootstrap envelope drifted", "BOOTSTRAP_CONTRACT")
+    exit_code = envelope.get("target_exit_code")
+    receipt = envelope.get("target_receipt")
+    expected_attestation = {
+        "mode": mode,
+        "bootstrap_blob": bootstrap_blob,
+        "target_blob": target_blob,
+        "source_only": True,
+        "guarded_path": True,
+        "pycache_prefix": pycache_prefix.as_posix(),
+    }
+    if (
+        not isinstance(exit_code, int)
+        or isinstance(exit_code, bool)
+        or not 0 <= exit_code <= 255
+        or completed.returncode != exit_code
+        or envelope.get("bootstrap") != expected_attestation
+        or (receipt is not None and not isinstance(receipt, dict))
+        or (exit_code == 0 and not isinstance(receipt, dict))
+    ):
+        raise SparseCachePreflightError("bootstrap attestation drifted", "BOOTSTRAP_CONTRACT")
+    return exit_code, receipt
+
+
+def _invoke_bootstrap(
+    *,
+    mode: str,
+    target_path: Path,
+    target_module: str,
+    target_blob: str,
+    bootstrap_blob: str,
+    target_argv: Sequence[str],
+    timeout: float,
+    cwd: Path = ROOT,
+    receipt_validator: Callable[[dict[str, Any]], Any] | None = None,
+) -> dict[str, Any]:
+    started = time.perf_counter()
+    launch: BootstrapLaunch | None = None
+    completed: subprocess.CompletedProcess[bytes] | None = None
+    try:
+        launch = _prepare_bootstrap_launch(
+            mode=mode,
+            target_path=target_path,
+            target_module=target_module,
+            target_blob=target_blob,
+            bootstrap_blob=bootstrap_blob,
+            target_argv=target_argv,
+        )
+        completed = _run_subprocess(
+            launch.command,
+            timeout=timeout,
+            cwd=cwd,
+            environment=launch.environment,
+        )
+        exit_code, receipt = _validate_bootstrap_envelope(
+            completed,
+            mode=mode,
+            target_blob=target_blob,
+            bootstrap_blob=bootstrap_blob,
+            pycache_prefix=launch.pycache_prefix,
+        )
+        validated_receipt = (
+            receipt_validator(receipt)
+            if receipt_validator is not None and isinstance(receipt, dict)
+            else receipt
+        )
+        if receipt_validator is not None and not isinstance(receipt, dict):
+            raise SparseCachePreflightError("nested receipt missing", "BOOTSTRAP_CONTRACT")
+        if _worktree_blob(BOOTSTRAP_PATH) != bootstrap_blob:
+            raise SparseCachePreflightError("bootstrap changed after child", "SOURCE_MUTATION")
+        if _worktree_blob(target_path) != target_blob:
+            raise SparseCachePreflightError("target changed after child", "SOURCE_MUTATION")
+    finally:
+        if launch is not None:
+            _cleanup_bootstrap_launch(launch)
+    wall_seconds = time.perf_counter() - started
+    if completed is None:
+        raise SparseCachePreflightError("bootstrap did not launch", "BOOTSTRAP_CONTRACT")
+    return {
+        "exit_code": exit_code,
+        "receipt": receipt,
+        "validated_receipt": validated_receipt,
+        "parent_wall_seconds": wall_seconds,
+        "stderr": {
+            "bytes": len(completed.stderr),
+            "sha256": hashlib.sha256(completed.stderr).hexdigest(),
+        },
+    }
+
+
 def _entrypoint_self_check(required_module: str) -> dict[str, Any]:
+    _require_bootstrap_attestation()
     if not isinstance(required_module, str) or not required_module:
         raise SparseCachePreflightError("required module invalid", "ENTRYPOINT_FAILURE")
     importlib.import_module(required_module)
@@ -744,29 +1242,39 @@ def _entrypoint_self_check(required_module: str) -> dict[str, Any]:
     }
 
 
-def _self_check_command(subject: str, mode: str, required_module: str) -> list[str]:
+def _self_check_target(
+    subject: str,
+    mode: str,
+    required_module: str,
+    implementation_blobs: Mapping[str, str],
+) -> tuple[Path, str, str, tuple[str, ...]]:
     if subject == "runner":
         direct_path = RUNNER_PATH
         module_name = "scripts.probe_sparse_multiview_cache_preflight"
+        target_blob = implementation_blobs.get(
+            "scripts/probe_sparse_multiview_cache_preflight.py"
+        )
     elif subject == "worker":
         direct_path = WORKER_PATH
         module_name = "scripts.sparse_multiview_candidate_worker"
+        target_blob = FROZEN_PARENT_BLOBS["scripts/sparse_multiview_candidate_worker.py"]
     else:
         raise SparseCachePreflightError("entrypoint subject invalid", "ENTRYPOINT_FAILURE")
-    if mode == "direct":
-        prefix = [str(EXPECTED_EXECUTABLE), "-B", str(direct_path)]
-    elif mode == "module":
-        prefix = [str(EXPECTED_EXECUTABLE), "-B", "-m", module_name]
-    else:
+    if mode not in {"direct", "module"} or not isinstance(target_blob, str):
         raise SparseCachePreflightError("entrypoint mode invalid", "ENTRYPOINT_FAILURE")
-    return [*prefix, "--entrypoint-self-check", "--require-module", required_module]
+    return (
+        direct_path,
+        module_name,
+        target_blob,
+        ("--entrypoint-self-check", "--require-module", required_module),
+    )
 
 
-def _validate_self_check(completed: subprocess.CompletedProcess[bytes], label: str) -> None:
-    if completed.returncode != 0 or completed.stderr:
+def _validate_self_check(invocation: Mapping[str, Any], label: str) -> None:
+    if invocation.get("exit_code") != 0:
         raise SparseCachePreflightError(f"{label} self-check failed", "ENTRYPOINT_FAILURE")
-    value = _parse_json(completed.stdout, "entrypoint receipt")
-    if completed.stdout != _canonical_bytes(value) + b"\n" or value != {
+    value = invocation.get("receipt")
+    if value != {
         "project_root_bootstrapped": True,
         "required_module": "evaluator.local_evaluator",
         "status": "ENTRYPOINT_SELF_CHECK_PASS",
@@ -774,19 +1282,39 @@ def _validate_self_check(completed: subprocess.CompletedProcess[bytes], label: s
         raise SparseCachePreflightError("entrypoint receipt drifted", "ENTRYPOINT_FAILURE")
 
 
-def _verify_entrypoints() -> dict[str, bool]:
+def _verify_entrypoints(implementation_blobs: Mapping[str, str]) -> dict[str, bool]:
     required = "evaluator.local_evaluator"
+    bootstrap_blob = implementation_blobs.get("scripts/v220b_safe_bootstrap.py")
+    if not isinstance(bootstrap_blob, str):
+        raise SparseCachePreflightError("bootstrap blob missing", "GIT_CHECKPOINT")
     for subject in ("runner", "worker"):
         for mode in ("direct", "module"):
+            path, module, blob, argv = _self_check_target(
+                subject, mode, required, implementation_blobs
+            )
             _validate_self_check(
-                _run_subprocess(
-                    _self_check_command(subject, mode, required), timeout=60.0
+                _invoke_bootstrap(
+                    mode=mode,
+                    target_path=path,
+                    target_module=module,
+                    target_blob=blob,
+                    bootstrap_blob=bootstrap_blob,
+                    target_argv=argv,
+                    timeout=60.0,
                 ),
                 f"{subject}-{mode}",
             )
+        path, module, blob, argv = _self_check_target(
+            subject, "direct", required, implementation_blobs
+        )
         _validate_self_check(
-            _run_subprocess(
-                _self_check_command(subject, "direct", required),
+            _invoke_bootstrap(
+                mode="direct",
+                target_path=path,
+                target_module=module,
+                target_blob=blob,
+                bootstrap_blob=bootstrap_blob,
+                target_argv=argv,
                 timeout=60.0,
                 cwd=ROOT.parent,
             ),
@@ -795,33 +1323,34 @@ def _verify_entrypoints() -> dict[str, bool]:
     missing = "v220_intentionally_absent_required_module"
     for subject in ("runner", "worker"):
         for mode in ("direct", "module"):
-            completed = _run_subprocess(
-                _self_check_command(subject, mode, missing),
+            path, module, blob, argv = _self_check_target(
+                subject, mode, missing, implementation_blobs
+            )
+            invocation = _invoke_bootstrap(
+                mode=mode,
+                target_path=path,
+                target_module=module,
+                target_blob=blob,
+                bootstrap_blob=bootstrap_blob,
+                target_argv=argv,
                 timeout=60.0,
                 cwd=ROOT.parent if mode == "direct" else ROOT,
             )
-            if completed.returncode == 0 or completed.stderr:
+            if invocation.get("exit_code") != 2:
                 raise SparseCachePreflightError(
                     "missing-module check failed open", "ENTRYPOINT_FAILURE"
                 )
             if subject == "runner":
-                missing_receipt = _parse_json(
-                    completed.stdout, "missing-module runner receipt"
-                )
-                if (
-                    completed.stdout != _canonical_bytes(missing_receipt) + b"\n"
-                    or missing_receipt
-                    != {
+                if invocation.get("receipt") != {
                         "error_code": "UNEXPECTED_EXCEPTION",
                         "exception_class": "ModuleNotFoundError",
                         "raw_traceback_or_stderr_emitted": False,
                         "status": "ERROR",
-                    }
-                ):
+                    }:
                     raise SparseCachePreflightError(
                         "missing-module runner output drifted", "ENTRYPOINT_FAILURE"
                     )
-            elif completed.stdout:
+            elif invocation.get("receipt") is not None:
                 raise SparseCachePreflightError(
                     "missing-module worker emitted output", "ENTRYPOINT_FAILURE"
                 )
@@ -1095,10 +1624,9 @@ def _worker_command(
     cached: bool,
     implementation_blobs: Mapping[str, str],
 ) -> list[str]:
-    worker_blob = implementation_blobs.get(
-        "scripts/sparse_multiview_candidate_worker.py"
-    )
-    sparse_blob = implementation_blobs.get("starter/sparse_multiview.py")
+    del mode
+    worker_blob = FROZEN_PARENT_BLOBS["scripts/sparse_multiview_candidate_worker.py"]
+    sparse_blob = FROZEN_PARENT_BLOBS["starter/sparse_multiview.py"]
     if (
         not isinstance(worker_blob, str)
         or COMMIT_RE.fullmatch(worker_blob) is None
@@ -1108,17 +1636,7 @@ def _worker_command(
         raise SparseCachePreflightError(
             "worker source blob handshake invalid", "GIT_CHECKPOINT"
         )
-    if mode == "direct":
-        prefix = [str(EXPECTED_EXECUTABLE), "-B", str(WORKER_PATH)]
-    elif mode == "module":
-        prefix = [
-            str(EXPECTED_EXECUTABLE), "-B", "-m",
-            "scripts.sparse_multiview_candidate_worker",
-        ]
-    else:
-        raise SparseCachePreflightError("worker mode invalid", "WORKER_CONTRACT")
     command = [
-        *prefix,
         "--catalog", str(CATALOG_PATH),
         "--context", str(CONTEXT_PATH),
         "--c200-reference", str(reference),
@@ -1160,27 +1678,37 @@ def _run_worker(
         cached=cached,
         implementation_blobs=implementation_blobs,
     )
-    started = time.perf_counter()
-    completed = _run_subprocess(command, timeout=FORMAL_WALL_SECONDS_MAXIMUM)
-    if completed.returncode != 0 or completed.stderr:
-        raise SparseCachePreflightError("isolated worker failed", "WORKER_FAILURE")
-    receipt = _validate_worker_receipt(
-        completed.stdout,
-        nonce=nonce,
-        session_limit=session_limit,
-        cached=cached,
-        catalog_ids=catalog_ids,
+    bootstrap_blob = implementation_blobs.get("scripts/v220b_safe_bootstrap.py")
+    worker_blob = FROZEN_PARENT_BLOBS["scripts/sparse_multiview_candidate_worker.py"]
+    if not isinstance(bootstrap_blob, str):
+        raise SparseCachePreflightError("bootstrap blob missing", "GIT_CHECKPOINT")
+    invocation = _invoke_bootstrap(
+        mode=mode,
+        target_path=WORKER_PATH,
+        target_module="scripts.sparse_multiview_candidate_worker",
+        target_blob=worker_blob,
+        bootstrap_blob=bootstrap_blob,
+        target_argv=command,
+        timeout=FORMAL_WALL_SECONDS_MAXIMUM,
+        receipt_validator=lambda nested: _validate_worker_receipt(
+            _canonical_bytes(nested) + b"\n",
+            nonce=nonce,
+            session_limit=session_limit,
+            cached=cached,
+            catalog_ids=catalog_ids,
+        ),
     )
-    parent_wall_seconds = time.perf_counter() - started
+    if invocation["exit_code"] != 0 or not isinstance(invocation["receipt"], dict):
+        raise SparseCachePreflightError("isolated worker failed", "WORKER_FAILURE")
+    receipt = invocation["validated_receipt"]
+    if not isinstance(receipt, dict):
+        raise SparseCachePreflightError("validated worker receipt missing", "WORKER_FAILURE")
     return {
         "receipt": receipt,
         "mode": mode,
         "cached": cached,
-        "parent_wall_seconds": parent_wall_seconds,
-        "stderr": {
-            "bytes": len(completed.stderr),
-            "sha256": hashlib.sha256(completed.stderr).hexdigest(),
-        },
+        "parent_wall_seconds": invocation["parent_wall_seconds"],
+        "stderr": invocation["stderr"],
     }
 
 
@@ -1452,7 +1980,7 @@ def _worker_report(result: Mapping[str, Any]) -> dict[str, Any]:
         "cached": result["cached"],
         "latency": summary["latency"],
         "mode": result["mode"],
-        "parent_wall_seconds": round(float(result["parent_wall_seconds"]), 6),
+        "parent_wall_seconds": float(result["parent_wall_seconds"]),
         "resources": summary["resources"],
         "semantic_trace": summary["semantic_trace"],
         "stderr": result["stderr"],
@@ -1526,7 +2054,7 @@ def _run_stage(
                         "activated_records"
                     ]
                 ),
-                "cached_pair_parent_wall_seconds": round(cached_pair, 6),
+                "cached_pair_parent_wall_seconds": cached_pair,
                 "direct_module_control_trace_exact": True,
                 "semantic_trace_sha256": semantic_sha256,
                 "sessions": session_limit,
@@ -1600,24 +2128,29 @@ def _publish_result(value: Mapping[str, Any]) -> dict[str, int | str]:
 def run(implementation_commit: str) -> dict[str, Any]:
     """Run the pushed, target-free 20/100 cache preflight exactly once."""
 
-    del implementation_commit
-    raise SparseCachePreflightError(
-        "frozen clean-worktree and zero-probe requirements conflict",
-        "PREREGISTRATION_CONSTRAINT_CONFLICT",
-    )
-
+    attestation = _require_bootstrap_attestation()
     guard = _install_process_audit_guard()
     started = time.perf_counter()
     try:
         _assert_fresh_result()
         path_policy = _validate_path_policy()
-        environment = _validate_environment()
-        protocol = _load_preregistration()
+        environment = _validate_environment(attestation)
         git = _validate_git_checkpoint(implementation_commit)
-        entrypoints = _verify_entrypoints()
+        implementation_blobs = git["implementation_blobs"]
+        if not (
+            attestation["target_blob"]
+            == implementation_blobs.get("scripts/probe_sparse_multiview_cache_preflight.py")
+            and attestation["bootstrap_blob"]
+            == implementation_blobs.get("scripts/v220b_safe_bootstrap.py")
+        ):
+            raise SparseCachePreflightError(
+                "formal bootstrap is not bound to pushed Git objects",
+                "BOOTSTRAP_ATTESTATION",
+            )
+        protocol = _load_preregistration()
+        entrypoints = _verify_entrypoints(implementation_blobs)
 
         catalog_ids, initial_sources = _source_checkpoint()
-        implementation_blobs = git["implementation_blobs"]
         stage20 = _run_stage(20, catalog_ids, implementation_blobs)
         after20_ids, after20_sources = _source_checkpoint()
         after20_git = _validate_git_checkpoint(implementation_commit)
@@ -1634,6 +2167,9 @@ def run(implementation_commit: str) -> dict[str, Any]:
                 "source/Git changed during stage 100", "SOURCE_MUTATION"
             )
 
+        total_internal_wall = time.perf_counter() - started
+        if total_internal_wall > FORMAL_WALL_SECONDS_MAXIMUM:
+            raise SparseCachePreflightError("formal parent wall gate failed", "RESOURCE_GATE")
         result: dict[str, Any] = {
             "claims": {
                 "algorithm_go_or_no_go": False,
@@ -1662,13 +2198,15 @@ def run(implementation_commit: str) -> dict[str, Any]:
             "source_identities": initial_sources,
             "stages": [stage20, stage100],
             "status": "TARGET_FREE_CACHE_PREFLIGHT_PASS_ALLOW_V2_21_PREREGISTRATION",
-            "total_parent_wall_seconds": round(time.perf_counter() - started, 6),
+            "total_parent_wall_seconds": total_internal_wall,
         }
         if guard.network_attempt_count:
             raise SparseCachePreflightError(
                 "parent network attempt observed", "NETWORK_ATTEMPT"
             )
         _privacy_scan(result, catalog_ids)
+        if time.perf_counter() - started > FORMAL_WALL_SECONDS_MAXIMUM:
+            raise SparseCachePreflightError("formal parent wall gate failed", "RESOURCE_GATE")
         identity = _publish_result(result)
         return {**result, "published_result_identity": identity}
     finally:

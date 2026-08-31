@@ -3,7 +3,9 @@ from __future__ import annotations
 import hashlib
 import inspect
 import json
+import os
 import sqlite3
+import subprocess
 import threading
 from pathlib import Path
 from types import SimpleNamespace
@@ -13,6 +15,7 @@ import pytest
 
 from scripts import probe_sparse_multiview_cache_preflight as preflight
 from scripts import sparse_multiview_candidate_worker as worker
+from scripts import v220b_safe_bootstrap as bootstrap
 from starter import sparse_multiview as sparse
 from starter.slot_ledger import ACTIVE
 
@@ -605,8 +608,12 @@ def test_worker_source_blob_handshake_and_v219_trace_deny_are_presealed() -> Non
         cached=True,
         implementation_blobs=blobs,
     )
-    assert command[command.index("--expected-worker-blob") + 1] == "a" * 40
-    assert command[command.index("--expected-sparse-blob") + 1] == "b" * 40
+    assert command[command.index("--expected-worker-blob") + 1] == (
+        "b44a0c2cbb4c9b4d34aedd6795dbed1ff24a5020"
+    )
+    assert command[command.index("--expected-sparse-blob") + 1] == (
+        "4adf065b0384ab5d45f7bd4582bf7aaf217348a5"
+    )
 
     arguments = SimpleNamespace(
         semantic_audit=True,
@@ -1136,19 +1143,20 @@ def test_runner_frozen_constants_and_implementation_allowlist_match_prereg() -> 
         "mask_decision": 16384,
     }
     assert preflight.IMPLEMENTATION_PATHS == {
-        "starter/sparse_multiview.py",
-        "scripts/sparse_multiview_candidate_worker.py",
+        "scripts/v220b_safe_bootstrap.py",
         "scripts/probe_sparse_multiview_cache_preflight.py",
         "tests/test_sparse_multiview_cache.py",
     }
-    assert preflight.PREREG_COMMIT == "2a1aa5d51da4b9d621687b9101c26bafcac82ccb"
+    assert preflight.PREREG_COMMIT == "d073ca9b766b61e529a74e2656c1fcb7bbce9d86"
     git_gate_source = inspect.getsource(preflight._validate_git_checkpoint)
     assert '"status"' not in git_gate_source
-    assert '"diff", "--cached", "--name-only", "HEAD", "--"' in git_gate_source
+    assert '"diff", "--cached"' not in git_gate_source
+    assert '"diff", "--name-only"' not in git_gate_source
+    assert '"diff-tree"' in inspect.getsource(preflight._diff_paths)
     assert "worktree_paths" in git_gate_source
 
 
-def test_v220_formal_run_fails_closed_before_any_probe() -> None:
+def test_v220b_formal_run_requires_bootstrap_before_any_probe() -> None:
     with patch.object(
         preflight,
         "_assert_fresh_result",
@@ -1158,6 +1166,291 @@ def test_v220_formal_run_fails_closed_before_any_probe() -> None:
         "_install_process_audit_guard",
         side_effect=AssertionError("formal audit must not start"),
     ):
-        with pytest.raises(preflight.SparseCachePreflightError) as failure:
-            preflight.run("0" * 40)
-    assert failure.value.code == "PREREGISTRATION_CONSTRAINT_CONFLICT"
+        with patch.object(
+            preflight.sys,
+            preflight.BOOTSTRAP_ATTESTATION_ATTRIBUTE,
+            None,
+            create=True,
+        ):
+            with pytest.raises(preflight.SparseCachePreflightError) as failure:
+                preflight.run("0" * 40)
+    assert failure.value.code == "BOOTSTRAP_ATTESTATION"
+
+
+def test_v219_cross_worktree_deny_is_purely_lexical() -> None:
+    result = preflight.V219_RESULT_BASENAME
+    cache = preflight.V219_CACHE_BASENAME
+    denied = (
+        rf"D:\tiktok\techjam-v2-20b-sparse-cache\experiments\fast_track\{result}",
+        rf"d:/TIKTOK/old-worktree/EXPERIMENTS/FAST_TRACK/{cache}",
+        rf"D:/tiktok/arbitrary/experiments/fast_track/{cache}/nested/row.jsonl",
+        rf"D:/tiktok/arbitrary/experiments/fast_track/{result}:stream",
+        rf"D:/tiktok/arbitrary/experiments/fast_track/{result}. ",
+        rf"D:/tiktok/arbitrary/experiments/fast_track/{cache} :stream/nested",
+    )
+    with patch.object(Path, "stat", side_effect=AssertionError("filesystem probe")), patch.object(
+        Path, "resolve", side_effect=AssertionError("filesystem probe")
+    ):
+        assert all(preflight._is_v219_denied_lexically(path) for path in denied)
+        assert not preflight._is_v219_denied_lexically(
+            rf"D:/tiktok/arbitrary/experiments/fast_track/{result}.near"
+        )
+        assert not preflight._is_v219_denied_lexically(
+            rf"D:/tiktok/arbitrary/experiments/other/{cache}"
+        )
+
+
+def test_git_command_policy_is_object_only() -> None:
+    commit = "a" * 40
+    assert preflight._git_command_allowed(("rev-parse", "HEAD"), False)
+    assert preflight._git_command_allowed(
+        ("diff-tree", "--no-commit-id", "--name-only", "-r", commit), False
+    )
+    assert preflight._git_command_allowed(("cat-file", "blob", commit), True)
+    assert preflight._git_command_allowed(
+        ("config", "--local", "--no-includes", "--get-all", "remote.origin.url"),
+        False,
+    )
+    for denied in (
+        ("status", "--short"),
+        ("diff", "--name-only"),
+        ("ls-files", "--others"),
+        ("fetch", "origin"),
+        ("rev-parse", "HEAD:experiments"),
+    ):
+        assert not preflight._git_command_allowed(denied, False)
+
+
+def test_child_environment_drops_inherited_python_and_git_controls() -> None:
+    poisoned = {
+        "PYTHONPATH": "poison",
+        "PYTHONHOME": "poison",
+        "GIT_DIR": "poison",
+        "GIT_WORK_TREE": "poison",
+        "GIT_OBJECT_DIRECTORY": "poison",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES": "poison",
+        "GIT_CONFIG_GLOBAL": "poison",
+        "PATH": "poison",
+    }
+    with patch.dict(os.environ, poisoned, clear=True):
+        child = preflight._offline_environment()
+    assert not any(key.startswith("GIT_") for key in child)
+    assert child["PYTHONHASHSEED"] == "0"
+    assert child["PYTHONDONTWRITEBYTECODE"] == "1"
+    assert child["PYTHONNOUSERSITE"] == "1"
+    assert "poison" not in child.values()
+
+
+def test_outer_bootstrap_envelope_is_canonical_and_bound() -> None:
+    pycache = Path(r"D:\tiktok\.v220b_runtime\synthetic\pycache")
+    bootstrap_blob = "a" * 40
+    target_blob = "b" * 40
+    receipt = {"status": "PASS"}
+    envelope = {
+        "bootstrap": {
+            "mode": "direct",
+            "bootstrap_blob": bootstrap_blob,
+            "target_blob": target_blob,
+            "source_only": True,
+            "guarded_path": True,
+            "pycache_prefix": pycache.as_posix(),
+        },
+        "target_exit_code": 0,
+        "target_receipt": receipt,
+    }
+    completed = subprocess.CompletedProcess(
+        args=[], returncode=0, stdout=preflight._canonical_bytes(envelope) + b"\n", stderr=b""
+    )
+    assert preflight._validate_bootstrap_envelope(
+        completed,
+        mode="direct",
+        target_blob=target_blob,
+        bootstrap_blob=bootstrap_blob,
+        pycache_prefix=pycache,
+    ) == (0, receipt)
+
+    raw_receipt = subprocess.CompletedProcess(
+        args=[], returncode=0, stdout=preflight._canonical_bytes(receipt) + b"\n", stderr=b""
+    )
+    with pytest.raises(preflight.SparseCachePreflightError):
+        preflight._validate_bootstrap_envelope(
+            raw_receipt,
+            mode="direct",
+            target_blob=target_blob,
+            bootstrap_blob=bootstrap_blob,
+            pycache_prefix=pycache,
+        )
+
+
+def test_runtime_cleanup_identity_is_frozen_after_materialization(tmp_path: Path) -> None:
+    runtime_base = tmp_path / "runtime"
+    runtime_base.mkdir()
+    bootstrap = tmp_path / "bootstrap.py"
+    bootstrap.write_bytes(b"pass\n")
+    blob = preflight._git_blob_bytes(bootstrap.read_bytes())
+    with patch.object(preflight, "RUNTIME_TEMP_ROOT", runtime_base), patch.object(
+        preflight, "BOOTSTRAP_PATH", bootstrap
+    ):
+        launch = preflight._prepare_bootstrap_launch(
+            mode="module",
+            target_path=tmp_path / "target.py",
+            target_module="scripts.synthetic",
+            target_blob="b" * 40,
+            bootstrap_blob=blob,
+            target_argv=("--synthetic",),
+        )
+        allocated = launch.runtime_root
+        assert allocated.exists()
+        preflight._cleanup_bootstrap_launch(launch)
+        assert not allocated.exists()
+
+
+def test_prepare_failure_cleans_only_its_fresh_runtime(tmp_path: Path) -> None:
+    runtime_base = tmp_path / "runtime"
+    runtime_base.mkdir()
+    sentinel = runtime_base / "sentinel.txt"
+    sentinel.write_text("keep", encoding="utf-8")
+    with patch.object(preflight, "RUNTIME_TEMP_ROOT", runtime_base), patch.object(
+        preflight,
+        "_materialize_bootstrap_launch",
+        side_effect=preflight.SparseCachePreflightError("synthetic", "SYNTHETIC"),
+    ):
+        with pytest.raises(preflight.SparseCachePreflightError):
+            preflight._prepare_bootstrap_launch(
+                mode="direct",
+                target_path=tmp_path / "target.py",
+                target_module="scripts.synthetic",
+                target_blob="b" * 40,
+                bootstrap_blob="a" * 40,
+                target_argv=(),
+            )
+    assert tuple(path.name for path in runtime_base.iterdir()) == ("sentinel.txt",)
+
+
+def test_nested_receipt_validation_precedes_source_recheck_cleanup_and_timer_stop(
+    tmp_path: Path,
+) -> None:
+    events: list[str] = []
+    pycache = tmp_path / "pycache"
+    pycache.mkdir()
+    bootstrap_blob = "a" * 40
+    target_blob = "b" * 40
+    receipt = {"status": "PASS"}
+    envelope = {
+        "bootstrap": {
+            "mode": "direct",
+            "bootstrap_blob": bootstrap_blob,
+            "target_blob": target_blob,
+            "source_only": True,
+            "guarded_path": True,
+            "pycache_prefix": pycache.as_posix(),
+        },
+        "target_exit_code": 0,
+        "target_receipt": receipt,
+    }
+    launch = preflight.BootstrapLaunch(
+        command=("synthetic",),
+        environment={},
+        runtime_root=tmp_path,
+        runtime_snapshot=(0, 0, 0),
+        pycache_prefix=pycache,
+    )
+
+    def validate_nested(value: dict[str, object]) -> dict[str, object]:
+        events.append("nested")
+        return value
+
+    with patch.object(
+        preflight,
+        "_prepare_bootstrap_launch",
+        side_effect=lambda **_kwargs: (events.append("prepare") or launch),
+    ), patch.object(
+        preflight,
+        "_run_subprocess",
+        side_effect=lambda *_args, **_kwargs: (
+            events.append("launch")
+            or subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout=preflight._canonical_bytes(envelope) + b"\n",
+                stderr=b"",
+            )
+        ),
+    ), patch.object(
+        preflight,
+        "_worktree_blob",
+        side_effect=lambda path: (
+            events.append("source")
+            or (bootstrap_blob if path == preflight.BOOTSTRAP_PATH else target_blob)
+        ),
+    ), patch.object(
+        preflight,
+        "_cleanup_bootstrap_launch",
+        side_effect=lambda _launch: events.append("cleanup"),
+    ):
+        observed = preflight._invoke_bootstrap(
+            mode="direct",
+            target_path=preflight.WORKER_PATH,
+            target_module="scripts.sparse_multiview_candidate_worker",
+            target_blob=target_blob,
+            bootstrap_blob=bootstrap_blob,
+            target_argv=(),
+            timeout=1.0,
+            receipt_validator=validate_nested,
+        )
+    assert observed["validated_receipt"] == receipt
+    assert events == ["prepare", "launch", "nested", "source", "source", "cleanup"]
+    assert observed["parent_wall_seconds"] >= 0.0
+
+
+def test_formal_parent_has_unrounded_aggregate_wall_gate() -> None:
+    source = inspect.getsource(preflight.run)
+    assert "total_internal_wall > FORMAL_WALL_SECONDS_MAXIMUM" in source
+    assert "time.perf_counter() - started > FORMAL_WALL_SECONDS_MAXIMUM" in source
+
+
+def test_bootstrap_manifest_binds_final_runner_blob_and_rejects_aliases() -> None:
+    runner_raw = preflight.RUNNER_PATH.read_bytes()
+    assert bootstrap.RUNNER_BLOB == preflight._git_blob_bytes(runner_raw)
+    assert bootstrap.RUNNER_BLOB != "0" * 40
+    parsed = {
+        "--mode": "direct",
+        "--target-path": bootstrap.RUNNER_PATH,
+        "--target-module": bootstrap.RUNNER_MODULE,
+        "--target-blob": bootstrap.RUNNER_BLOB,
+        "--bootstrap-blob": "a" * 40,
+    }
+    assert bootstrap._match_target(parsed)["blob"] == bootstrap.RUNNER_BLOB
+    for bad_path in (
+        bootstrap.RUNNER_PATH + ".",
+        bootstrap.RUNNER_PATH + ":stream",
+        bootstrap.PROJECT_ROOT + "/scripts/../scripts/probe_sparse_multiview_cache_preflight.py",
+    ):
+        with pytest.raises(bootstrap.BootstrapError):
+            bootstrap._match_target({**parsed, "--target-path": bad_path})
+
+
+def test_bootstrap_guarded_path_virtual_root_and_mutators() -> None:
+    guarded = bootstrap.GuardedPath(("D:/450/conda/envs/tiktok/Lib",))
+    assert bootstrap.PROJECT_ROOT in guarded
+    assert bootstrap.PROJECT_ROOT not in tuple(guarded)
+    assert guarded[:] == ("D:/450/conda/envs/tiktok/Lib",)
+    for operation in (
+        lambda: guarded.append(bootstrap.PROJECT_ROOT),
+        lambda: guarded.insert(0, bootstrap.PROJECT_ROOT),
+        lambda: guarded.extend((bootstrap.PROJECT_ROOT,)),
+        lambda: guarded.__iadd__((bootstrap.PROJECT_ROOT,)),
+        lambda: guarded.__imul__(2),
+        lambda: guarded.__setitem__(slice(None), (bootstrap.PROJECT_ROOT,)),
+    ):
+        with pytest.raises(bootstrap.BootstrapError):
+            operation()
+    assert tuple(guarded) == ("D:/450/conda/envs/tiktok/Lib",)
+
+
+def test_bootstrap_v219_deny_covers_ads_tail_and_descendants() -> None:
+    base = bootstrap.PROJECT_ROOT + "/experiments/fast_track/"
+    assert bootstrap._is_v219_denied(base + bootstrap._V219_RESULT + ":stream")
+    assert bootstrap._is_v219_denied(base + bootstrap._V219_RESULT + ". ")
+    assert bootstrap._is_v219_denied(base + bootstrap._V219_CACHE + "/nested.jsonl")
+    assert not bootstrap._is_v219_denied(base + bootstrap._V219_RESULT + ".near")
