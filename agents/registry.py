@@ -8,6 +8,7 @@ from agents.v1 import AgentV1
 from agents.v1_tuned import AgentV1Tuned
 from agents.v2 import AgentV2
 from agents.v2_embedding import AgentV2Embedding
+from agents.v3 import AgentV3
 from starter.agent import BaselineAgent
 
 
@@ -73,6 +74,14 @@ AGENTS = {
             "the customer supplies a constraint."
         ),
         factory=AgentV2Embedding,
+    ),
+    "v3": AgentSpec(
+        name="v3",
+        description=(
+            "V2 retrieval with LLM-based conversational state parsing, continuous "
+            "buying-versus-browsing weight blending, and LLM-written questions."
+        ),
+        factory=AgentV3,
     ),
 }
 

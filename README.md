@@ -1,126 +1,102 @@
-# TechJam Conversational E-Commerce Search Challenge
-By team err402
+# 2026 Tiktok TechJam Conversational E-Commerce Search Challenge
+
+By team err402.
+
+This project implements conversational product search over the given frozen Amazon 2023 50K catalog. The deterministic retrieval pipeline combines category, lexical, constraint, rating, popularity, and optional dense signals, and outputs a recommendation score. V3 adds online LLM-based conversational parsing and question wording. 
+
+Note: due to the design of the benchmark, it is pointless to apply LLM to do the parsing because all the conversations have a fixed format and can be parsed by regex perfectly. However, for users in the real world, the input will be more complicated and an LLM will help improve the performance a lot. As a result, we present two versions. V1 is tuned for the benchmark, while V3 is designed for interacting with humans. V2 and V2 embedding are obsolete versions. They will be introduced in detail later.
 
 ## Get Started
 
-Select an agent explicitly with `--agent`:
-
-```bash
-python3 -m evaluator.local_evaluator --agent baseline
-python3 -m evaluator.local_evaluator --agent v1 --output results/v1_initial.json
-```
-
-`baseline` is the original stateless weighted-BM25 implementation. `v1` adds
-stateful intent routing, category and FTS candidate generation, documented
-intent-weighted reranking, popularity and Bayesian-rating priors, and
-deterministic information-gain clarification questions. No LLM involved in `v1`. 
-
-The evaluator prints the selected agent description and displays session
-progress with cumulative prompt, completion, and total token counts. Use
-`--quiet` to suppress the description and progress bar; stdout will contain
-only the aggregate JSON summary. The full per-session result is still written
-to the path specified by `--output`.
-
-Add versioned agents under `agents/` and register them in `agents/registry.py`.
-
-Result:
-| Agent | HitRate@10 | MRR | MTTC | Score | Tokens |
-|:------|:-----------|:----|:-----|:------|:-------|
-| Baseline (BM25) | 0.125 | 0.068034 | 9.81  | 0.10671  | 0 |
-| v1              | 0.98  | 0.67896  | 2.465 | 0.864388 | 0 |
-
-
-## Generate an Expanded Development Set
-
-With `local-data/valid_records.csv` available, generate 1,000 additional
-samples using purchase-frequency-weighted unique product sampling:
-
-```bash
-python3 generate_evaluation_set.py
-```
-
-The generator excludes public target products, uses the official scenario
-quotas, and writes `local-data/generated_set_1000.jsonl`. Its profile tags are
-sampled from the public profile distribution because metadata for most history
-ASINs is not present in the frozen catalog. Rating summaries use the selected
-purchase record's rating, matching the relationship observed in the public
-set; they are not verified averages of historical ratings. Change `--seed`,
-`--samples`, or the input/output paths through the documented CLI options.
-
-
-## LLM Client Configuration
-
-Install the OpenAI-compatible client dependencies:
+Install the project dependencies:
 
 ```bash
 python3 -m pip install -r requirements.txt
+cp .env.example .env
 ```
 
-Copy `.env.example` to `.env` and set `LLM_API_KEY`, `LLM_MODEL`, and, for a
-third-party OpenAI-compatible service, `LLM_BASE_URL`. The client sends
-non-streaming chat-completion requests in JSON-object mode and records the
-provider-reported prompt and completion token counts.
+For V3, add `LLM_API_KEY`, `LLM_BASE_URL`, and `LLM_MODEL` to the copied `.env` for an OpenAI-compatible service. For V1 and V2, no need to edit the `.env` as LLM is not called. 
 
-## Agent Interface
+### Interactive mode
 
-```python
-class Agent:
-    def reset(self, session_id: str, user_profile: dict) -> None:
-        ...
+Run the final V3 agent as an in-memory shopping REPL:
 
-    def respond(self, session_id: str, user_message: str, turn: int, top_k: int) -> dict:
-        return {
-            "message": "Do you have a material preference?",
-            "ask_attribute": "material",
-            "recommendations": [
-                {"parent_asin": "B000..."},
-                {"parent_asin": "B001..."}
-            ],
-            "usage": {"prompt_tokens": 120, "completion_tokens": 30}
-        }
+```bash
+python3 -m interactive
 ```
 
-`ask_attribute` is one of `category`, `material`, `color`, `size`, `style`, `brand`, `budget`, `feature`, `use_case`, `other`, or `null`. See `docs/agent_api_contract.json`.
+Enter shopping requests directly at the `You>` prompt. The REPL presents recommendations and asks up to two native facets per turn. Use `/quit` to leave. At the end of the conversation it reports provider-reported token cost. As our prompt is simple, usually the cost is about 1K token per round of conversation.
 
-## Technical Metrics
+### Benchmark mode
 
-- **Hit Rate@10:** fraction of sessions that find the target within 10 turns.
-- **MRR:** mean reciprocal rank of the target; a miss contributes zero.
-- **MTTC:** mean first-hit turn; a miss is assigned turn 11.
-- **Reported token usage:** prompt and completion tokens returned by the team's model client.
+Run any registered agent on the public evaluator. `v3` uses the live configured LLM and therefore incurs API cost; the other documented agents are local.
+
+```bash
+python3 -m evaluator.local_evaluator --agent v1 --output results/v1.json
+```
+
+To select a different catalog or evaluator input set, pass `--catalog` and
+`--dataset`. `--quiet` prints only the aggregate JSON to stdout.
+
+```bash
+python3 -m evaluator.local_evaluator \
+  --agent v1 \
+  --catalog data/catalog.jsonl \
+  --dataset data/public_set.jsonl \
+  --output results/v1_public.json \
+  --quiet
+```
+
+The primary agent choices are:
+- `baseline`: stateless BM25 provided by default.
+- `v1`: deterministic category-aware reranking and clarification. Recommended for benchmarking.
+- `v2`: V1 retrieval with offline-extracted fine-grained catalog attributes. The benchmark score is slightly lower than `v1` because the evaluator cannot take full use of the attribute generated.
+- `v2-embedding`: V2 plus local Qwen3 dense retrieval. This is not recommended as it costs higher but brings little performance boost.
+- `v3`: V2 retrieval with LLM intent probability, state parsing, profile updates, and context-aware question wording. Very slow for benchmark. 
+
+V2 and V3 require `results/catalog_attributes_processed.jsonl`. V2-embedding also requires its configured local embedding artifact. As V2-embedding is obsolete, the generated embedding file is not provided. 
+The `catalog_attributes_process.jsonl` can be found in the release page. 
+
+## Current Benchmark Results
+
+Current deterministic results. V3 is not included because it takes too long to benchmark. 
+
+| Dataset | Agent | HitRate@10 | MRR | MTTC | Score | Tokens |
+|:--|:--|--:|--:|--:|--:|--:|
+| Public 200 | Baseline (BM25) | 0.125 | 0.068034 | 9.810 | 0.106710 | 0 |
+| Public 200 | V1 | 0.995 | 0.703766 | 2.110 | 0.886430 | 0 |
+| Public 200 | V2 | 0.990 | 0.649599 | 2.205 | 0.865780 | 0 |
+| Public 200 | V2-embedding | 0.990 | 0.648002 | 2.205 | 0.865301 | 0 |
+| Generated 1,000 | V1 | 0.994 | 0.643010 | 2.232 | 0.865263 | 0 |
+| Generated 1,000 | V2 | 0.985 | 0.613687 | 2.418 | 0.848246 | 0 |
+| Generated 1,000 | V2-embedding | 0.985 | 0.618703 | 2.428 | 0.849551 | 0 |
+
+## Evaluation
+
+Each turn may return a message, one evaluator-facing `ask_attribute`, up to ten
+ranked `parent_asin` recommendations, and prompt/completion token counts. See
+[the agent contract](docs/agent_api_contract.json) for the complete interface.
+
+The evaluator reports:
+
+- **Hit Rate@10:** fraction of sessions that find the target within ten turns.
+- **MRR:** reciprocal rank of the target; a miss contributes zero.
+- **MTTC:** first-hit turn; a miss is assigned turn 11.
+- **Token usage:** provider-reported prompt and completion tokens.
 
 ```text
 TechnicalScore = 0.50 × HitRate@10 + 0.30 × MRR + 0.20 × Efficiency
 Efficiency = clip((11 - MTTC) / 10, 0, 1)
 ```
 
-Only exact `parent_asin` equality produces a hit. Core metrics are also reported by scenario.
+The public evaluator and scoring configuration are in
+[`evaluator/local_evaluator.py`](evaluator/local_evaluator.py) and
+[`docs/evaluation_config.json`](docs/evaluation_config.json). Submission and
+release requirements are in [`docs/submission_rules.md`](docs/submission_rules.md).
 
-## Model Choice and Cost
+## Data Attribution
 
-Teams may use any legally accessible LLM API or local model. Teams manage their own credentials and must never commit API keys. Model choice, estimated cost, token usage, and latency must be disclosed. Token usage is a feasibility metric, not part of the core technical score. The organizer does not provide or reimburse model API credits; teams are responsible for any costs incurred through optional external services.
-
-## Files
-
-```text
-data/public_set.jsonl             200 labeled development sessions
-docs/competition_specification.md participant rules and evaluation protocol
-docs/agent_api_contract.json      machine-readable Agent contract
-docs/evaluation_config.json       scoring configuration
-docs/baseline_results.json        reproducible weak-starter reference score
-starter/agent.py                  editable weak starter
-evaluator/local_evaluator.py      public-set simulator and scorer
-```
-
-## Judging and Submission Policy
-
-- Participant submission requirements: `docs/submission_rules.md`
-- Participant release checklist: `docs/participant_release_checklist.md`
-- Organizer-only final judging controls: `organizer/JUDGING_RUNBOOK.md`
-- Organizer private release checklist: `organizer/private_release_checklist.md`
-- Judging day operations SOP: `organizer/JUDGING_DAY_SOP.md`
-
-## Data Source
-
-The catalog and sessions are derived from Amazon Reviews 2023 by McAuley Lab, UCSD. See `DATA_ATTRIBUTION.md` before using or redistributing the data.
-Sessions are sampled deterministically from the official Clothing 5-core leave-last-out split and joined to the frozen catalog.
+The catalog and sessions are derived from Amazon Reviews 2023 by McAuley Lab,
+UCSD. See [DATA_ATTRIBUTION.md](DATA_ATTRIBUTION.md) before using or
+redistributing the data. Sessions are sampled deterministically from the
+official Clothing 5-core leave-last-out split and joined to the frozen catalog.

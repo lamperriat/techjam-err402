@@ -186,6 +186,8 @@ def first_detail(details: dict, keys: tuple[str, ...]) -> str | None:
 @dataclass(frozen=True)
 class ProductRecord:
     parent_asin: str
+    title: str
+    description: str
     category_path: tuple[str, ...]
     coarse_category: str
     category_terms: frozenset[str]
@@ -292,6 +294,8 @@ class CatalogIndex:
                 rating_number = int(product["rating_number"])
                 record = ProductRecord(
                     parent_asin=parent_asin,
+                    title=title,
+                    description=description,
                     category_path=tuple(categories),
                     coarse_category=category,
                     category_terms=frozenset(terms(" ".join(searchable_categories))),

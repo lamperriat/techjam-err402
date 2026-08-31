@@ -23,6 +23,7 @@ class QueryContext:
     constraints: tuple[str, ...]
     department: str | None
     budget: BudgetConstraint | None
+    browsing_probability: float | None = None
 
 
 @dataclass(frozen=True)
@@ -159,7 +160,7 @@ class ProductScorer:
 
     def score(self, pool: CandidatePool, context: QueryContext) -> list[ScoredProduct]:
         lexical_count = len(pool.lexical_ranks)
-        active_weights = dict(self.config.intent_weights[context.intent])
+        active_weights = self._intent_weights(context)
         if not context.constraints:
             active_weights.pop("constraint")
         if not context.department:
@@ -200,6 +201,21 @@ class ProductScorer:
             )
         )
         return scored
+
+    def _intent_weights(self, context: QueryContext) -> dict[str, float]:
+        browsing_probability = context.browsing_probability
+        if browsing_probability is None:
+            return dict(self.config.intent_weights[context.intent])
+        if not math.isfinite(browsing_probability) or not 0.0 <= browsing_probability <= 1.0:
+            raise ValueError("browsing_probability must be finite and in [0, 1]")
+        return {
+            component: (
+                browsing_probability * self.config.intent_weights["browsing"][component]
+                + (1.0 - browsing_probability)
+                * self.config.intent_weights["buying"][component]
+            )
+            for component in SCORING_COMPONENTS
+        }
 
     @staticmethod
     def _lexical_score(rank: int | None, result_count: int) -> float:

@@ -103,6 +103,7 @@ class Constraint:
     text: str
     hard: bool
     source: str
+    constraint_id: str | None = None
 
 
 @dataclass
