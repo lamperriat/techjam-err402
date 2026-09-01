@@ -7,6 +7,7 @@ from typing import Callable, Protocol
 from agents.v1 import AgentV1
 from agents.v1_tuned import AgentV1Tuned
 from agents.v2 import AgentV2
+from agents.v212 import AgentV212
 from agents.v2_embedding import AgentV2Embedding
 from agents.v3 import AgentV3
 from starter.agent import BaselineAgent
@@ -65,6 +66,14 @@ AGENTS = {
             "benchmark-compatible attribute names."
         ),
         factory=AgentV2,
+    ),
+    "v212": AgentSpec(
+        name="v212",
+        description=(
+            "Frozen offline v2.12 agent. It combines coverage retrieval, the P11 "
+            "Top-10 scorer, a fold-safe small ranker, and two-page unseen pagination."
+        ),
+        factory=AgentV212,
     ),
     "v2-embedding": AgentSpec(
         name="v2-embedding",

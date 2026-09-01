@@ -26,7 +26,7 @@ from starter.agent import Agent as CompatibleAgent
 root = Path.cwd().resolve()
 assert agent.Agent is agent.AgentV1
 assert CompatibleAgent is agent.AgentV1
-for implementation in (agent.AgentV1, agent.AgentV2, agent.AgentV3):
+for implementation in (agent.AgentV1, agent.AgentV2, agent.AgentV212, agent.AgentV3):
     module = __import__(implementation.__module__, fromlist=["__file__"])
     Path(module.__file__).resolve().relative_to(root)
 
@@ -54,6 +54,18 @@ with tempfile.TemporaryDirectory() as directory:
     )
     assert response["recommendations"][0]["parent_asin"] == "A"
     implementation.close()
+
+    v212 = agent.AgentV212(catalog_path)
+    v212.reset("v212-session", {})
+    response = v212.respond(
+        "v212-session",
+        "I'm looking for Women Shoes, but I'm still exploring.",
+        turn=1,
+        top_k=10,
+    )
+    assert response["recommendations"][0]["parent_asin"] == "A"
+    assert response["usage"] == {"prompt_tokens": 0, "completion_tokens": 0}
+    v212.close()
 """
 
         result = subprocess.run(

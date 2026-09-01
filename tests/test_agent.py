@@ -6,10 +6,15 @@ import unittest
 from pathlib import Path
 
 from agents.v1 import AgentV1
-from starter.agent import Agent, BaselineAgent
+from agents.v212 import AgentV212
+from starter.agent import Agent, AgentV212 as ExportedAgentV212, BaselineAgent
 
 
 class AgentTest(unittest.TestCase):
+    def test_v212_is_exported_without_changing_the_default(self) -> None:
+        self.assertIs(Agent, AgentV1)
+        self.assertIs(ExportedAgentV212, AgentV212)
+
     def test_default_export_implements_official_interface_with_v1(self) -> None:
         self.assertIs(Agent, AgentV1)
         with tempfile.TemporaryDirectory() as directory:

@@ -309,11 +309,12 @@ class AgentV1Test(unittest.TestCase):
     def test_registry_exposes_described_agents(self) -> None:
         self.assertEqual(
             agent_names(),
-            ("baseline", "v1", "v1-tuned", "v2", "v2-embedding", "v3"),
+            ("baseline", "v1", "v1-tuned", "v2", "v212", "v2-embedding", "v3"),
         )
         self.assertIn("Original non-LLM baseline", get_agent_spec("baseline").description)
         self.assertIn("First non-LLM agent", get_agent_spec("v1").description)
         self.assertIn("offline-LLM product attributes", get_agent_spec("v2").description)
+        self.assertIn("Frozen offline v2.12 agent", get_agent_spec("v212").description)
         self.assertIn("dense retrieval", get_agent_spec("v2-embedding").description)
         self.assertIn("LLM-based conversational state parsing", get_agent_spec("v3").description)
 

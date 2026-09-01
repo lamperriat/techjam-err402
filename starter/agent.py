@@ -6,6 +6,7 @@ import sqlite3
 from pathlib import Path
 
 from agents.v1 import AgentV1
+from agents.v212 import AgentV212
 
 
 TOKEN_RE = re.compile(r"[a-z0-9]+", re.IGNORECASE)
@@ -108,3 +109,5 @@ class BaselineAgent:
 
 
 Agent = AgentV1
+
+__all__ = ["Agent", "AgentV1", "AgentV212", "BaselineAgent"]
