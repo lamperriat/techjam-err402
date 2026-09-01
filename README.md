@@ -114,6 +114,8 @@ Limitations:
 - V3 should actually use a smaller model. The REPL and the chatting logic is not polished.
 - If time permits, we want to experiment more with the LLM attribute extraction. There are many papers published related to this technique. However, due to the limitation of the current benchmark, we cannot evaluate its effect properly.
 
+**Remark**: due to the design of the evaluator, we found that if directly asking for "others", the evaluator will provide useful unrevealed attributes, and help improve the score. BUT we regard this as a bug of the evaluator and did NOT adopt the strategy. 
+
 ## Contributions
 Qizhen Sun: development of agent V1, V2, V2-embedding, and V3 interactive; documentations.
 Zou Seak Pang: development agent V212 and visualization.
