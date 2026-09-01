@@ -41,6 +41,7 @@ python3 -m evaluator.local_evaluator --output results/v1.json
 The development evaluator adds agent selection, a progress bar, custom input paths, and `--quiet` JSON-only output:
 
 ```bash
+mkdir results
 python3 -m evaluator.agent_evaluator --agent v1 --output results/v1.json
 python3 -m evaluator.agent_evaluator --agent v212 --output results/v212.json
 python3 -m evaluator.agent_evaluator \
