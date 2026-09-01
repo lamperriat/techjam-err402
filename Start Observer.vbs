@@ -1,26 +1,12 @@
 Option Explicit
 
-Dim shell, files, root, pythonw, condaPrefix, command
+Dim shell, files, root, command, launcher
 Set shell = CreateObject("WScript.Shell")
 Set files = CreateObject("Scripting.FileSystemObject")
 root = files.GetParentFolderName(WScript.ScriptFullName)
 shell.CurrentDirectory = root
 
-condaPrefix = shell.ExpandEnvironmentStrings("%CONDA_PREFIX%")
-pythonw = ""
-
-If condaPrefix <> "%CONDA_PREFIX%" Then
-  If LCase(shell.ExpandEnvironmentStrings("%CONDA_DEFAULT_ENV%")) = "tiktok" Then
-    If files.FileExists(files.BuildPath(condaPrefix, "pythonw.exe")) Then
-      pythonw = files.BuildPath(condaPrefix, "pythonw.exe")
-    End If
-  End If
-End If
-
-If pythonw <> "" Then
-  command = """" & pythonw & """ -m observer.launcher"
-Else
-  command = "cmd.exe /d /s /c ""conda run -n tiktok pythonw -m observer.launcher"""
-End If
-
+' Keep interpreter discovery in one visible/debuggable entry point.
+launcher = files.BuildPath(root, "Start Observer.cmd")
+command = "cmd.exe /d /s /c " & Chr(34) & Chr(34) & launcher & Chr(34) & Chr(34)
 shell.Run command, 0, False

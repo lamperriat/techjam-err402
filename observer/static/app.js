@@ -21,6 +21,12 @@ const state = {
   fusionBenchmark: "public200",
   walkthrough: "page1",
   computeStage: 0,
+  fusionDemoVariant: "a",
+  fusionDemo: null,
+  fusionDemoHistory: [],
+  fusionDemoBusy: false,
+  fusionDemoNotice: "",
+  showcaseOnly: false,
 };
 
 const $ = selector => document.querySelector(selector);
@@ -79,7 +85,7 @@ function navigate(page) {
   if (window.location.hash !== `#${page}`) history.replaceState(null, "", `#${page}`);
   if (page === "sessions" && !state.selectedId && state.sessions.length) selectSession(state.sessions[0].sample_id);
   if (page === "catalog" && !state.catalog) loadCatalog(true);
-  if (page === "lab" && !state.lab) resetLab();
+  if (page === "lab" && !state.lab && !state.showcaseOnly) resetLab();
   if (page === "docs" && !state.selectedDocumentId && state.documents.length) selectDocument(state.documents[0].document_id);
 }
 
@@ -278,6 +284,128 @@ function renderFusion() {
     <article class="fusion-kpi ${index === 3 ? "primary" : ""}"><span>${esc(label)}</span><strong>${esc(value)}</strong><small>${esc(note)}</small></article>`).join("");
 }
 
+function renderFusionDemo() {
+  $$('[data-demo-variant]').forEach(button => {
+    button.classList.toggle("active", button.dataset.demoVariant === state.fusionDemoVariant);
+    button.disabled = state.fusionDemoBusy;
+  });
+  const demo = state.fusionDemo;
+  const active = Boolean(demo?.available && demo.variant === state.fusionDemoVariant);
+  const reachedLimit = Number(demo?.turn || 0) >= 10;
+  const input = $("#fusionDemoInput");
+  const submit = $("#fusionDemoForm button[type=submit]");
+  $("#fusionDemoStart").disabled = state.fusionDemoBusy;
+  input.disabled = state.fusionDemoBusy || !active || reachedLimit;
+  submit.disabled = input.disabled;
+
+  const notice = $("#fusionDemoNotice");
+  notice.classList.toggle("hidden", !state.fusionDemoNotice);
+  notice.textContent = state.fusionDemoNotice;
+  $("#fusionDemoStatus").textContent = state.fusionDemoBusy
+    ? `正在初始化 ${state.fusionDemoVariant.toUpperCase()}…`
+    : active
+      ? `${state.fusionDemoVariant.toUpperCase()} · turn ${demo.turn || 0}/10 · ${fmt(demo.catalog_products, 0)} products`
+      : "尚未开始";
+
+  $("#fusionDemoHistory").innerHTML = state.fusionDemoHistory.length
+    ? state.fusionDemoHistory.map(item => `
+      <div class="demo-message user"><span>YOU · TURN ${item.entry.turn}</span>${esc(item.message)}</div>
+      <div class="demo-message agent"><span>${esc(item.entry.variant.toUpperCase())} AGENT</span>${esc(item.entry.response.message)}<small>ask_attribute: ${esc(item.entry.response.ask_attribute ?? "null")} · Top10: ${item.entry.recommendations.length}</small></div>`).join("")
+    : `<div class="demo-empty">${state.showcaseOnly ? "冻结架构与结果可直接浏览；安装官方 catalog 后可在此现场运行 T0/A/B。" : "选择 T0、A 或 B，点击“开始”，再发送一个购物需求。"}</div>`;
+  $("#fusionDemoHistory").scrollTop = $("#fusionDemoHistory").scrollHeight;
+
+  const latest = state.fusionDemoHistory.at(-1)?.entry;
+  if (!latest) {
+    $("#fusionDemoRoute").textContent = "等待输入";
+    $("#fusionDemoEvents").innerHTML = `<div class="demo-empty">运行后显示 8 层计算路径。</div>`;
+    $("#fusionDemoState").textContent = "{}";
+    $("#fusionDemoRecommendations").innerHTML = "<li>等待运行</li>";
+    return;
+  }
+  const route = latest.events.find(event => event.layer === "Page router");
+  $("#fusionDemoRoute").textContent = route?.value || "route unavailable";
+  $("#fusionDemoEvents").innerHTML = latest.events.map((event, index) => `
+    <article class="demo-event ${esc(event.status)}">
+      <i>${String(index + 1).padStart(2, "0")}</i>
+      <span>${esc(event.layer)}</span>
+      <strong>${esc(event.value)}</strong>
+      <p>${event.kind === "observer-derived" ? "[OBSERVER-DERIVED] " : "[ACTUAL] "}${esc(event.detail)}</p>
+    </article>`).join("");
+  $("#fusionDemoState").textContent = JSON.stringify(latest.state, null, 2);
+  $("#fusionDemoRecommendations").innerHTML = latest.recommendations.map(product => `
+    <li><b>${product.rank}</b><span>${esc(product.title)}</span><code>${esc(product.parent_asin)}</code></li>`).join("") || "<li>No valid recommendations</li>";
+}
+
+function selectFusionDemoVariant(variant) {
+  if (!["t0", "a", "b"].includes(variant) || state.fusionDemoBusy) return;
+  state.fusionDemoVariant = variant;
+  state.fusionDemo = null;
+  state.fusionDemoHistory = [];
+  state.fusionDemoNotice = `已选择 ${variant.toUpperCase()}；点击“开始 / 重置会话”加载真实本地 Agent。`;
+  renderFusionDemo();
+}
+
+async function resetFusionDemo() {
+  if (state.fusionDemoBusy) return false;
+  state.fusionDemoBusy = true;
+  state.fusionDemoNotice = `正在加载 ${state.fusionDemoVariant.toUpperCase()} 的本地 catalog index；首次启动可能需要数秒。`;
+  state.fusionDemoHistory = [];
+  renderFusionDemo();
+  try {
+    const payload = await postJSON("/api/fusion-lab/reset", { variant: state.fusionDemoVariant });
+    if (!payload.available) {
+      state.fusionDemo = null;
+      state.fusionDemoNotice = `${payload.reason || "Live Lab unavailable"} ${payload.setup || ""} Path: ${payload.catalog_path || "data/catalog.jsonl"}`;
+      return false;
+    }
+    state.fusionDemo = payload;
+    state.fusionDemoNotice = `${payload.variant.toUpperCase()} 已就绪。输入只含当前对话可见信息；切换版本会关闭旧索引并开启新会话。`;
+    toast(`${payload.variant.toUpperCase()} Live Lab 已就绪`, "success");
+    return true;
+  } catch (error) {
+    state.fusionDemo = null;
+    state.fusionDemoNotice = `初始化失败：${error.message}`;
+    toast(error.message, "error");
+    return false;
+  } finally {
+    state.fusionDemoBusy = false;
+    renderFusionDemo();
+  }
+}
+
+async function sendFusionDemoMessage(message) {
+  if (state.fusionDemoBusy) return;
+  if (!state.fusionDemo?.available) {
+    const ready = await resetFusionDemo();
+    if (!ready) return;
+  }
+  state.fusionDemoBusy = true;
+  state.fusionDemoNotice = `正在执行 ${state.fusionDemoVariant.toUpperCase()}：state → retrieval → ranking → routing → Top10…`;
+  renderFusionDemo();
+  try {
+    const entry = await postJSON("/api/fusion-lab/respond", {
+      session_id: state.fusionDemo.session_id,
+      message,
+    });
+    if (!entry.available) {
+      state.fusionDemo = null;
+      state.fusionDemoNotice = `${entry.reason || "Live Lab unavailable"} ${entry.setup || ""}`;
+      return;
+    }
+    state.fusionDemo = { ...state.fusionDemo, turn: entry.turn };
+    state.fusionDemoHistory.push({ message, entry });
+    state.fusionDemoNotice = entry.turn >= 10
+      ? "已达到官方 10-turn 上限；请重置会话。"
+      : `真实响应完成；计算卡中 OBSERVER-DERIVED 项是对同一 visible state 的确定性重放。`;
+  } catch (error) {
+    state.fusionDemoNotice = `运行失败：${error.message}`;
+    toast(error.message, "error");
+  } finally {
+    state.fusionDemoBusy = false;
+    renderFusionDemo();
+  }
+}
+
 function renderOverview() {
   const overview = state.overview;
   if (!overview) return;
@@ -286,6 +414,7 @@ function renderOverview() {
   const rerankMode = overview.runtime?.rerank_mode || "off";
   $("#repoBadge").textContent = `${repository.branch || "no git"} @ ${repository.commit || "—"}${repository.dirty ? " · dirty" : ""} · retrieval ${retrievalMode} · rerank ${rerankMode}`;
   const runtime = overview.runtime;
+  state.showcaseOnly = Boolean(runtime.showcase_only);
   const sourceState = overview.source_state || { restart_required: false, files: {} };
   const agentSource = (sourceState.files || {}).agent || {};
   $("#runtimeFacts").innerHTML = [
@@ -294,13 +423,17 @@ function renderOverview() {
     ["Loaded Agent", agentSource.loaded_sha256 ? `${agentSource.loaded_sha256.slice(0, 12)}…` : "unavailable"],
   ].map(([label, value]) => `<div class="fact"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`).join("");
   const freshness = $("#codeFreshness");
-  freshness.classList.toggle("hidden", !sourceState.restart_required);
-  freshness.textContent = sourceState.restart_required
-    ? "检测到 Agent/attributes/reranker/coverage/slot-ledger/clarification/shadow-analysis/evaluator/generalization 源码或已加载的 catalog/public set 在 Workbench 启动后发生变化。为防止混用新旧代码或数据产生假实验，请先停止并重新双击 Start Observer.vbs；评测、泛化、重放和 Lab 已锁定。"
-    : "";
-  $$('[data-action="evaluation"], [data-action="generalization"]').forEach(button => { button.disabled = sourceState.restart_required; });
+  freshness.classList.toggle("hidden", !sourceState.restart_required && !state.showcaseOnly);
+  freshness.textContent = state.showcaseOnly
+    ? "SHOWCASE MODE：当前 fresh pull 尚未安装官方 data/catalog.jsonl。冻结的 T0/A/B 架构、Public200/2k 结果、说明文件与播放演示均可浏览；安装 50,000 商品目录并重启后，Live Lab、会话重放与评测控制会自动启用。"
+    : sourceState.restart_required
+      ? "检测到 Agent/Fusion-Lab/attributes/reranker/coverage/slot-ledger/clarification/shadow-analysis/evaluator/generalization 源码或已加载的 catalog/public set 在 Workbench 启动后发生变化。为防止混用新旧代码或数据产生假实验，请先停止并重新双击 Start Observer.vbs；评测、泛化、重放和 Lab 已锁定。"
+      : "";
+  $$('[data-action="evaluation"], [data-action="generalization"], [data-action="tests"]').forEach(button => {
+    button.disabled = sourceState.restart_required || state.showcaseOnly;
+  });
   [$("#refreshTrace"), $("#labReset"), $("#labInput")].forEach(element => {
-    if (element) element.disabled = sourceState.restart_required;
+    if (element) element.disabled = sourceState.restart_required || state.showcaseOnly;
   });
   $("#dataHealth").innerHTML = overview.data.map(item => `
     <article class="data-row ${item.exists ? "ok" : "bad"}">
@@ -348,7 +481,7 @@ function renderSessions() {
     <button class="session-item ${session.sample_id === state.selectedId ? "active" : ""}" data-id="${esc(session.sample_id)}">
       <div class="session-top"><span>${esc(session.sample_id)}</span><span class="result-dot ${session.hit === true ? "hit" : session.hit === false ? "miss" : ""}"></span></div>
       <div class="session-title">${esc(scenarioName(session.scenario_type))} · ${esc(session.target_title)}</div>
-    </button>`).join("") || `<div class="empty-row">没有符合条件的会话</div>`;
+    </button>`).join("") || `<div class="empty-row">${state.showcaseOnly ? "安装官方 catalog 后启用真实会话诊断" : "没有符合条件的会话"}</div>`;
   $$(".session-item").forEach(button => button.addEventListener("click", () => selectSession(button.dataset.id)));
 }
 
@@ -699,7 +832,10 @@ async function checkHealth() {
   const status = $("#runtimeStatus");
   try {
     const health = await requestJSON("/api/health");
-    status.classList.remove("offline"); status.querySelector("span:last-child").textContent = `${health.branch || "local"} @ ${health.commit || "—"} · retrieval ${health.retrieval_mode ?? "unrecorded"} · rerank ${health.rerank_mode ?? "unrecorded"}`;
+    status.classList.remove("offline");
+    status.querySelector("span:last-child").textContent = health.showcase_only
+      ? `${health.branch || "local"} @ ${health.commit || "—"} · SHOWCASE · catalog required for live runs`
+      : `${health.branch || "local"} @ ${health.commit || "—"} · retrieval ${health.retrieval_mode ?? "unrecorded"} · rerank ${health.rerank_mode ?? "unrecorded"}`;
     if (state.overview && health.restart_required !== state.overview.source_state?.restart_required) {
       state.overview = await requestJSON("/api/overview");
       renderOverview();
@@ -734,6 +870,22 @@ function bindEvents() {
   $$('[data-fusion-benchmark]').forEach(button => button.addEventListener("click", () => {
     state.fusionBenchmark = button.dataset.fusionBenchmark; renderFusion();
   }));
+  $$('[data-demo-variant]').forEach(button => button.addEventListener("click", () => {
+    selectFusionDemoVariant(button.dataset.demoVariant);
+  }));
+  $("#fusionDemoStart").addEventListener("click", resetFusionDemo);
+  $("#fusionDemoForm").addEventListener("submit", event => {
+    event.preventDefault();
+    const input = $("#fusionDemoInput");
+    const message = input.value.trim();
+    if (message) { input.value = ""; sendFusionDemoMessage(message); }
+  });
+  $$('[data-demo-prompt]').forEach(button => button.addEventListener("click", async () => {
+    if (!state.fusionDemo?.available) await resetFusionDemo();
+    const input = $("#fusionDemoInput");
+    input.value = button.dataset.demoPrompt;
+    if (!input.disabled) input.focus();
+  }));
   $$('[data-walkthrough]').forEach(button => button.addEventListener("click", () => {
     stopComputePlayback(); state.walkthrough = button.dataset.walkthrough; state.computeStage = 0; renderFusion();
   }));
@@ -758,7 +910,7 @@ function bindEvents() {
     ]);
     state.overview = overview; state.sessions = sessions.sessions; state.metrics = sessions.metrics;
     state.experiments = experiments.experiments; state.documents = documents.documents; state.jobs = jobs.jobs; state.fusion = fusion;
-    renderFusion(); renderOverview(); renderSessions(); renderExperiments(); renderDocuments(); renderJobs(); checkHealth();
+    renderFusion(); renderOverview(); renderFusionDemo(); renderSessions(); renderExperiments(); renderDocuments(); renderJobs(); checkHealth();
     navigate(window.location.hash.slice(1) || "fusion");
   } catch (error) {
     $("#overviewPage").innerHTML = `<div class="empty-state panel"><h2>Workbench 启动失败</h2><p>${esc(error.message)}</p></div>`;

@@ -126,9 +126,57 @@
             <div class="compute-index" id="computeIndex">01</div>
             <div><span>ACTIVE STAGE</span><h3 id="computeStageTitle"></h3><p id="computeDescription"></p></div>
           </div>
-          <p class="simulation-note">架构演示使用冻结定义，不读取 target，也不会触发 evaluator。真实逐轮事件请进入“会话诊断”。</p>
+          <p class="simulation-note">架构演示使用冻结定义，不读取 target，也不会触发 evaluator。真实 T0/A/B 响应请使用下方 Live Lab；“会话诊断”展示的是 legacy served Agent trace。</p>
         </aside>
       </div>
+
+      <section class="panel fusion-demo-panel">
+        <div class="fusion-demo-heading">
+          <div>
+            <div class="fusion-live-label"><span></span>LIVE · TARGET-BLIND · LOCAL ONLY</div>
+            <div class="eyebrow">REAL T0 / A / B EXECUTION</div>
+            <h2>现场运行算法，逐层讲解这一轮为什么这样输出</h2>
+            <p>选择版本后开始新会话。网页会实际调用对应 Agent，并展示 observer-derived 状态快照、确定性候选池重放、页面路由、问询 lifecycle 和真实 Top10，适合直接录制讲解视频。</p>
+          </div>
+          <div class="fusion-demo-actions">
+            <div class="segmented" id="fusionDemoVariantControls">
+              <button class="segment" data-demo-variant="t0">T0</button>
+              <button class="segment active" data-demo-variant="a">A</button>
+              <button class="segment" data-demo-variant="b">B</button>
+            </div>
+            <button id="fusionDemoStart" class="primary-button">开始 / 重置会话</button>
+          </div>
+        </div>
+        <div id="fusionDemoNotice" class="demo-notice hidden"></div>
+        <div class="demo-prompt-row" aria-label="Demo prompt presets">
+          <span>QUICK SCENARIOS</span>
+          <button data-demo-prompt="I'm looking for running shoes. A key requirement is: black and waterproof.">Buying</button>
+          <button data-demo-prompt="I'm looking for jewelry, but I'm still exploring.">Browsing</button>
+          <button data-demo-prompt="For that, what matters is: silver; minimalist." title="建议先运行 Buying 或 Browsing，再发送此回复">Clarification</button>
+          <button data-demo-prompt="Actually, ignore my earlier preference. What I need is: gold statement earrings." title="建议先运行 Buying 或 Browsing，再用此句展示 intent reset">Override</button>
+        </div>
+        <div class="fusion-demo-grid">
+          <div class="demo-chat-column">
+            <div class="demo-column-heading"><span>CONVERSATION</span><strong id="fusionDemoStatus">尚未开始</strong></div>
+            <div id="fusionDemoHistory" class="demo-history">
+              <div class="demo-empty">选择 T0、A 或 B，点击“开始”，再发送一个购物需求。</div>
+            </div>
+            <form id="fusionDemoForm" class="demo-form">
+              <input id="fusionDemoInput" class="input" autocomplete="off" placeholder="例如：I'm looking for running shoes..." disabled>
+              <button class="primary-button" type="submit" disabled>运行这一轮</button>
+            </form>
+          </div>
+          <div class="demo-compute-column">
+            <div class="demo-column-heading"><span>OBSERVER-DERIVED COMPUTE SNAPSHOT</span><strong id="fusionDemoRoute">等待输入</strong></div>
+            <div id="fusionDemoEvents" class="demo-event-flow"><div class="demo-empty">运行后显示 8 层计算路径。</div></div>
+            <div class="demo-inspector-grid">
+              <section><span>VISIBLE STATE</span><pre id="fusionDemoState" class="code-view">{}</pre></section>
+              <section><span>CATALOG-VALID TOP10</span><ol id="fusionDemoRecommendations" class="demo-products"><li>等待运行</li></ol></section>
+            </div>
+          </div>
+        </div>
+        <p class="demo-boundary-note">此 Lab 不接收 sample_id、target、scenario 或 evaluator state。候选数量是对同一可见 state 的确定性 observer 重放；Top10、问题和路由来自真实 T0/A/B 响应。</p>
+      </section>
 
       <section class="panel evidence-panel">
         <div class="section-heading evidence-heading">

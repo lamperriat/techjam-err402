@@ -6,13 +6,34 @@
 
 ## 如何启动
 
+先拉取完整交付分支（不要从 `main` 期待这套 A/B 网站）：
+
+```powershell
+git fetch origin
+git switch deadline-v3.5-ab-website
+git pull --ff-only origin deadline-v3.5-ab-website
+```
+
+网站源码、T0/A/B adapters、冻结指标 JSON、交接文档、P11 sidecar 和
+fold-safe ranker artifact 都在 Git 中；官方 catalog 由 organizer Release 单独
+分发，因此不会随普通 pull 进入工作树。
+
 ```powershell
 conda activate tiktok
-cd D:\tiktok\techjam-v3-evaluator-parallel
+cd <你的仓库目录>
 python -m observer.launcher
 ```
 
-Windows 也可双击 `Start Observer.vbs`。本地必须已有官方冻结 `data/catalog.jsonl`；网站不会下载或修改 catalog。启动后浏览器打开的第一页是 **Fusion A/B**。
+Windows 也可双击 `Start Observer.vbs`。fresh pull 即使尚未安装 `data/catalog.jsonl`，也会进入只读 **Showcase mode**，正常打开 Fusion A/B 架构、逐层播放器、冻结指标和资料库；它不会在缺少 catalog 时假装运行检索。放入官方冻结 catalog 并重启后，网站切换为完整本地模式，启用真实 T0/A/B Live Lab、商品索引、会话诊断和固定运行工具。网站不会下载、生成或修改 catalog。
+
+官方 catalog 应解压到：
+
+```text
+data/catalog.jsonl
+```
+
+应有 50,000 行，SHA-256 为
+`da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67`。`results.json` 和被忽略的完整 2k artifact 都不是打开网站或查看冻结结果的必要文件。
 
 ## 网站现在能看什么
 
@@ -24,6 +45,45 @@ Windows 也可双击 `Start Observer.vbs`。本地必须已有官方冻结 `data
 - **交互 Lab / 资料库**：目标盲手动对话，以及代码、规则、结果和本交接文档的只读查看。
 
 首页数据来自 `docs/teammate_ab_website.json`，原始严格 A/B 证据仍在 `docs/deadline_v3_4_strict_fusion_ab.json`。网页不自行计算或改写指标。
+
+## 真实 T0/A/B Live Lab
+
+安装官方 catalog 后，Fusion 首页可以直接选择 T0、A 或 B，点击“开始 / 重置会话”，再使用 Buying、Browsing、Clarification、Override 快捷场景或自行输入 evaluator 形式的可见消息。每轮实际调用对应的 tracked Agent factory；切换版本时关闭旧索引，并创建新的 opaque session。
+
+页面刻意区分三种资料：
+
+- **真实运行结果**：Agent message、`ask_attribute` 和实际有序 Top10；
+- **observer-derived 解释**：在相同可见 state 上确定性重放候选查询，并读取 session/page/ledger/question lifecycle，用来解释候选数、推断页面路由、fallback 与各层职责；它不是伪装成 Agent 原生发出的 trace；
+- **冻结评测证据**：从 tracked JSON 读取的 Public200/本地 2k OOF 汇总，不会因启动网站或使用 Lab 而重跑。
+
+Live Lab 只接收 profile、message、turn 和 `top_k=10`，不接收 `sample_id`、target、scenario、evaluator state 或既往结果。它没有评分 join，不能通过录屏输入泄漏 target。若无 catalog，页面会明确提示 Live Lab 不可用，但 Showcase 仍可演示。
+
+## 建议录屏流程（约 5–8 分钟）
+
+1. 打开首页，先说明这是本地 loopback Observer；无 catalog 也能展示，完整模式则读取官方 50k catalog。
+2. 依次切换 T0、A、B，说明 T0 的 FTS1000 + ProductScorer、A 的两页 T0 grace + 第三页 unseen expert tail、B 只增加 bounded `other` lifecycle。
+3. 播放 Page 1、Page 2、Page 3+ 与 Override，指着高亮节点说明每轮经历的状态、召回、排序、去重、路由和问询。
+4. 切换 Public200 / 2k OOF 结果；明确 2k 是本地 `train_explore` OOF，不是官方 private 800，T0 也没有可比较的完整 2k artifact。
+5. 在 Live Lab 分别新建 T0、A、B 会话，使用相同 Buying/Browsing prompt 展示真实 Top10；继续发送 Clarification，再用 Override 展示状态和 question lifecycle 重置。
+6. 说明右侧 Top10/response 来自真实 Agent；页面路由、候选数量和八层说明为 observer-derived；两者都不含 target。
+7. 最后回到冻结表格：A 的 Public HR 与 T0 持平但 MRR、MTTC、Score 更差，所以完整网站与 A/B 发布在新分支而不是 `main`。
+
+仅录制展示时不要点击“运行 200 会话评测”。使用架构播放器或 Live Lab 本身都不会启动 evaluator。
+
+## 交付验收记录（2026-09-01）
+
+本轮没有重跑 Public200 或 2k evaluator；下列是网站与手动 Live Lab 的 contract smoke：
+
+- 无 `data/catalog.jsonl` 实际启动成功：`/`、CSS、JS、health、overview、Fusion evidence、资料库均返回成功，Live Lab 明确返回 `available=false` 和安装说明；
+- 使用 SHA-256 与上文一致的官方 50,000 商品 catalog 实际启动成功；
+- T0、A、B 各自真实 reset/respond 均返回 8 个解释层和 10 个唯一 catalog-valid ID；
+- 相同首轮 Buying 输入下，`T0 == A == B` 的 Top10 顺序逐项一致；T0/A 保留具体属性问询，B 唯一改为 `ask_attribute=other`；
+- A 连续三轮路由依次为 T0 grace 1/2、T0 grace 2/2、v2.12 unseen expert tail；
+- B override 后 page 回到 grace 1/2，`other.version` 从 1 增至 2，asks 从 2 重置为 1；
+- 32 项相关自动化测试通过，包含 HTTP/token、Showcase、静态页面 marker、T0/A/B Live Lab、官方风格 Top10 normalization、variant 切换清理、10-turn、A/B grace/tail/override 与 response contract；
+- Python compile、JavaScript syntax、`git diff --check` 通过。
+
+这些 smoke 只验证可启动、可操作、算法边界和输出 contract，不替代冻结 benchmark，也不会产生新的成绩。
 
 ## 三个版本的架构
 
@@ -70,6 +130,7 @@ B 从 A 的冻结提交派生，**检索、排序、两页 grace、tail、served
 | Public200 | Teammate T0 | 0.9950 | 0.703766 | 2.1100 | 0.886430 |
 | Public200 | Fusion A | 0.9950 | 0.671333 | 2.1500 | 0.875900 |
 | Public200 | **Fusion B** | **0.9950** | **0.706280** | **1.8550** | **0.892284** |
+| local 2k OOF | Teammate T0 | — | — | — | 未运行，无可比较 artifact |
 | local 2k OOF | Fusion A | 0.9905 | 0.609388 | 2.4145 | 0.849776 |
 | local 2k OOF | **Fusion B** | **0.9915** | **0.626409** | **2.0285** | **0.863103** |
 | local 2k OOF | v2.12 incumbent | 0.9910 | **0.695795** | 2.8690 | **0.866858** |

@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import sys
 import traceback
 import urllib.error
 import urllib.request
@@ -62,6 +63,12 @@ def main() -> None:
             "off" if requested_p11 == "off" else "active"
         )
         os.environ.pop("TECHJAM_P11_SIDECAR_PATH", None)
+        if os.getenv("OBSERVER_NO_BROWSER", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+        } and "--no-browser" not in sys.argv:
+            sys.argv.append("--no-browser")
         serve()
     except Exception as exc:
         log_path.write_text(traceback.format_exc(), encoding="utf-8")

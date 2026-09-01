@@ -17,6 +17,7 @@ from typing import Any
 
 from evaluator.local_evaluator import MAX_TURNS, TOP_K, evaluate, normalize_recommendations
 from observer.events import TRACE_SCHEMA_VERSION
+from observer.fusion_demo import FusionDemo
 from observer.shadow_analysis import (
     SCHEMA_VERSION as SHADOW_ANALYSIS_SCHEMA_VERSION,
     ShadowPolicyRecorder,
@@ -76,6 +77,11 @@ DOCUMENTS = {
     "source_bounded_other": (
         "Bounded other lifecycle",
         "starter/teammate_bounded_other.py",
+        "Fusion A/B source",
+    ),
+    "source_fusion_demo": (
+        "Target-blind T0/A/B Live Lab runtime",
+        "observer/fusion_demo.py",
         "Fusion A/B source",
     ),
     "source_attributes": (
@@ -269,6 +275,7 @@ class WorkbenchRuntime:
         self._labs: dict[str, dict[str, Any]] = {}
         self._lock = threading.RLock()
         self._agent_lock = threading.RLock()
+        self.fusion_demo = FusionDemo(catalog_path, trace_runner.products)
         self._git = self._git_state()
         self.rerank_mode = _agent_rerank_mode(self.trace_runner.agent)
         self.retrieval_mode = _agent_retrieval_mode(self.trace_runner.agent)
@@ -286,6 +293,11 @@ class WorkbenchRuntime:
             "p11_bridge": self.project_root / "starter" / "p11_bridge.py",
             "p11_features": self.project_root / "starter" / "p11_features.py",
             "shadow_analysis": self.project_root / "observer" / "shadow_analysis.py",
+            "fusion_demo": self.project_root / "observer" / "fusion_demo.py",
+            "fusion_adapter": self.project_root / "starter" / "teammate_v212_fusion.py",
+            "bounded_other": self.project_root / "starter" / "teammate_bounded_other.py",
+            "teammate_t0": self.project_root / "vendor" / "teammate_v1" / "err402" / "agents" / "v1.py",
+            "fusion_evidence": self.project_root / "docs" / "teammate_ab_website.json",
             "evaluator": self.project_root / "evaluator" / "local_evaluator.py",
             "generalization": self.project_root / "scripts" / "evaluate_generalization.py",
         }
@@ -417,8 +429,8 @@ class WorkbenchRuntime:
     def _require_current_source(self) -> None:
         if self._source_state()["restart_required"]:
             raise StaleRuntimeError(
-                "Agent/attributes/reranker/coverage/slot-ledger/clarification/shadow-analysis/"
-                "p11-bridge/p11-features/evaluator/generalization "
+                "Agent/Fusion-Lab/attributes/reranker/coverage/slot-ledger/clarification/"
+                "shadow-analysis/p11-bridge/p11-features/evaluator/generalization "
                 "source or loaded catalog/dataset changed after Workbench startup; restart "
                 "Workbench before running it"
             )
@@ -445,7 +457,10 @@ class WorkbenchRuntime:
             if thread is not None and thread is not threading.current_thread():
                 thread.join(timeout=max(0.0, deadline - time.monotonic()))
         with self._agent_lock:
-            _close_agent(self.trace_runner.agent)
+            try:
+                self.fusion_demo.close()
+            finally:
+                _close_agent(self.trace_runner.agent)
 
     def overview(self) -> dict[str, Any]:
         agent = self.trace_runner.agent
@@ -1182,6 +1197,16 @@ class WorkbenchRuntime:
             "p11": _agent_p11_status(self.trace_runner.agent),
         }
 
+    def fusion_lab_reset(
+        self, variant: str, profile: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        self._require_current_source()
+        return self.fusion_demo.reset(str(variant or "a").lower(), profile)
+
+    def fusion_lab_respond(self, session_id: str, message: str) -> dict[str, Any]:
+        self._require_current_source()
+        return self.fusion_demo.respond(str(session_id), str(message))
+
     def lab_respond(self, session_id: str, message: str) -> dict[str, Any]:
         self._require_current_source()
         with self._lock:
@@ -1232,3 +1257,209 @@ class WorkbenchRuntime:
         temporary = path.with_suffix(path.suffix + ".tmp")
         temporary.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
         temporary.replace(path)
+
+
+class ShowcaseRuntime:
+    """Serve the tracked architecture/evidence UI before the catalog is installed."""
+
+    def __init__(
+        self,
+        project_root: str | Path,
+        catalog_path: str | Path = "data/catalog.jsonl",
+        dataset_path: str | Path = "data/public_set.jsonl",
+        results_path: str | Path = "results.json",
+    ) -> None:
+        self.project_root = Path(project_root).resolve()
+
+        def resolve(value: str | Path) -> Path:
+            path = Path(value)
+            return path.resolve() if path.is_absolute() else (self.project_root / path).resolve()
+
+        self.catalog_path = resolve(catalog_path)
+        self.dataset_path = resolve(dataset_path)
+        self.results_path = resolve(results_path)
+        self.started_at = _utc_now()
+        self.project_id = hashlib.sha256(
+            str(self.project_root).casefold().encode("utf-8")
+        ).hexdigest()[:16]
+        self.retrieval_mode = "catalog-required"
+        self.rerank_mode = "catalog-required"
+        self.p11_mode = "catalog-required"
+        self._git = self._git_state()
+
+    def _git_state(self) -> dict[str, Any]:
+        def run(*args: str) -> str | None:
+            try:
+                result = subprocess.run(
+                    ["git", "-c", f"safe.directory={self.project_root.as_posix()}", *args],
+                    cwd=self.project_root,
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                    check=True,
+                )
+            except (OSError, subprocess.SubprocessError):
+                return None
+            return result.stdout.strip()
+
+        return {
+            "branch": run("rev-parse", "--abbrev-ref", "HEAD"),
+            "commit": run("rev-parse", "--short", "HEAD"),
+            "dirty": bool(run("status", "--short")),
+        }
+
+    def health(self) -> dict[str, Any]:
+        return {
+            "status": "ok",
+            "showcase_only": True,
+            "started_at": self.started_at,
+            "branch": self._git.get("branch"),
+            "commit": self._git.get("commit"),
+            "trace_schema": TRACE_SCHEMA_VERSION,
+            "project_id": self.project_id,
+            "retrieval_mode": self.retrieval_mode,
+            "rerank_mode": self.rerank_mode,
+            "p11_mode": self.p11_mode,
+            "restart_required": False,
+        }
+
+    def overview(self) -> dict[str, Any]:
+        baseline_path = self.project_root / "docs" / "baseline_results.json"
+        baseline = (
+            json.loads(baseline_path.read_text(encoding="utf-8"))
+            if baseline_path.exists()
+            else {}
+        )
+        return {
+            "runtime": {
+                "python": platform.python_version(),
+                "executable": sys.executable,
+                "platform": platform.platform(),
+                "sqlite": sqlite3.sqlite_version,
+                "started_at": self.started_at,
+                "initialization_seconds": 0.0,
+                "trace_schema": TRACE_SCHEMA_VERSION,
+                "network_required": False,
+                "project_id": self.project_id,
+                "showcase_only": True,
+                "rerank_mode": self.rerank_mode,
+                "retrieval_mode": self.retrieval_mode,
+                "p11_mode": self.p11_mode,
+                "p11": {"mode": self.p11_mode},
+            },
+            "repository": self._git,
+            "source_state": {"restart_required": False, "files": {}},
+            "data": [
+                self._file_status("catalog (required for live demo)", self.catalog_path),
+                self._file_status("public sessions", self.dataset_path),
+                self._file_status("latest results", self.results_path),
+            ],
+            "index": {
+                "engine": "Showcase mode — catalog not installed",
+                "rows": 0,
+                "tokenizer": "unavailable",
+                "fields": [],
+                "bm25_weights": [],
+            },
+            "pipeline": [
+                {"layer": "Fusion Studio", "status": "implemented", "detail": "Tracked T0/A/B architecture, walkthrough, source map, and frozen evidence remain fully available.", "source": "docs/teammate_ab_website.json"},
+                {"layer": "Live T0/A/B demo", "status": "catalog required", "detail": "Install the official frozen catalog, then restart to execute real retrieval and ranking.", "source": "observer/fusion_demo.py"},
+            ],
+            "baseline_metrics": _metrics(baseline),
+            "latest_metrics": {},
+            "ground_truth_boundary": (
+                "Showcase mode reads tracked aggregate evidence only. It does not run an "
+                "Agent or expose target labels to runtime features."
+            ),
+        }
+
+    @staticmethod
+    def _file_status(label: str, path: Path) -> dict[str, Any]:
+        return {
+            "label": label,
+            "path": str(path),
+            "exists": path.exists(),
+            "bytes": path.stat().st_size if path.exists() else None,
+            "records": None,
+            "sha256": _sha256(path),
+        }
+
+    def fusion_showcase(self) -> dict[str, Any]:
+        path = self.project_root / "docs" / "teammate_ab_website.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict) or not isinstance(payload.get("benchmarks"), dict):
+            raise ValueError("Fusion A/B showcase evidence is malformed")
+        return payload
+
+    def documents(self) -> dict[str, Any]:
+        items = []
+        for document_id, (title, relative, group) in DOCUMENTS.items():
+            path = self.project_root / relative
+            if path.exists():
+                items.append({
+                    "document_id": document_id,
+                    "title": title,
+                    "path": relative,
+                    "group": group,
+                    "bytes": path.stat().st_size,
+                })
+        return {"documents": items}
+
+    def document(self, document_id: str) -> dict[str, Any]:
+        if document_id not in DOCUMENTS:
+            raise KeyError(f"Unknown document: {document_id}")
+        title, relative, group = DOCUMENTS[document_id]
+        path = self.project_root / relative
+        if not path.exists():
+            raise KeyError(f"Document is unavailable: {document_id}")
+        return {
+            "document_id": document_id,
+            "title": title,
+            "path": relative,
+            "group": group,
+            "content": path.read_text(encoding="utf-8"),
+        }
+
+    def list_sessions(self) -> dict[str, Any]:
+        return {"metrics": {}, "sessions": []}
+
+    def experiments(self) -> dict[str, Any]:
+        return {"experiments": []}
+
+    def jobs(self) -> dict[str, Any]:
+        return {"jobs": []}
+
+    def catalog(self, query: str = "", offset: int = 0, limit: int = 30) -> dict[str, Any]:
+        return {"query": query, "offset": offset, "limit": limit, "total": 0, "items": [], "available": False}
+
+    def product(self, parent_asin: str) -> dict[str, Any]:
+        raise KeyError("Catalog is unavailable in showcase mode")
+
+    def trace(self, sample_id: str, refresh: bool = False) -> dict[str, Any]:
+        raise KeyError("Session replay requires the official catalog")
+
+    def fusion_lab_reset(
+        self, variant: str, profile: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return {
+            "available": False,
+            "reason": "Live T0/A/B execution requires the official frozen catalog.",
+            "catalog_path": str(self.catalog_path),
+            "setup": "Extract the official release to data/catalog.jsonl and restart the Workbench.",
+        }
+
+    def fusion_lab_respond(self, session_id: str, message: str) -> dict[str, Any]:
+        return self.fusion_lab_reset("a")
+
+    def _requires_catalog(self, *_: Any, **__: Any) -> dict[str, Any]:
+        raise ValueError("This action requires data/catalog.jsonl; install it and restart")
+
+    start_evaluation = _requires_catalog
+    start_tests = _requires_catalog
+    start_generalization = _requires_catalog
+    cancel_job = _requires_catalog
+    lab_reset = _requires_catalog
+    lab_respond = _requires_catalog
+
+    def close(self) -> None:
+        return None

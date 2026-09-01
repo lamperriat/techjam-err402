@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from observer.runtime import StaleRuntimeError, WorkbenchRuntime
+from observer.runtime import ShowcaseRuntime, StaleRuntimeError, WorkbenchRuntime
 
 
 STATIC_FILES = {
@@ -230,6 +230,18 @@ def make_handler(
                         str(payload.get("message") or ""),
                     ))
                     return
+                if parsed.path == "/api/fusion-lab/reset":
+                    self._send_json(runtime.fusion_lab_reset(
+                        str(payload.get("variant") or "a"),
+                        payload.get("profile"),
+                    ))
+                    return
+                if parsed.path == "/api/fusion-lab/respond":
+                    self._send_json(runtime.fusion_lab_respond(
+                        str(payload.get("session_id") or ""),
+                        str(payload.get("message") or ""),
+                    ))
+                    return
                 if parsed.path == "/api/shutdown":
                     self._send_json({"status": "stopping"})
                     threading.Thread(target=self.server.shutdown, daemon=True).start()
@@ -284,17 +296,32 @@ def main() -> None:
     if args.host not in {"127.0.0.1", "localhost"}:
         parser.error("Layer Observer contains public labels and may bind only to a loopback host")
 
-    print("Loading catalog, public sessions, Agent index, and prior results...")
     project_root = Path(__file__).resolve().parents[1]
-    runtime = WorkbenchRuntime.from_paths(
-        args.catalog,
-        args.dataset,
-        args.results,
-        project_root=project_root,
-        rerank_mode=args.rerank_mode,
-        retrieval_mode=args.retrieval_mode,
-        p11_mode=args.p11_mode,
-    )
+    catalog_path = Path(args.catalog)
+    if not catalog_path.is_absolute():
+        catalog_path = project_root / catalog_path
+    if catalog_path.is_file():
+        print("Loading catalog, public sessions, Agent index, and prior results...")
+        runtime = WorkbenchRuntime.from_paths(
+            args.catalog,
+            args.dataset,
+            args.results,
+            project_root=project_root,
+            rerank_mode=args.rerank_mode,
+            retrieval_mode=args.retrieval_mode,
+            p11_mode=args.p11_mode,
+        )
+    else:
+        print(
+            "Catalog not found; starting read-only Fusion Studio showcase. "
+            "Install data/catalog.jsonl and restart to enable live T0/A/B execution."
+        )
+        runtime = ShowcaseRuntime(
+            project_root,
+            args.catalog,
+            args.dataset,
+            args.results,
+        )
     server = ExclusiveHTTPServer((args.host, args.port), make_handler(runtime))
     url = f"http://{args.host}:{args.port}"
     print(f"IntentGraph Layer Observer: {url}")

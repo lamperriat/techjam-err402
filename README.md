@@ -258,9 +258,32 @@ See `docs/development_workflow.md` for the project mental model, debugging funne
 
 ## Agent Workbench
 
+### Fresh pull, showcase mode, and live A/B mode
+
+A fresh checkout can open the Workbench even before the separately distributed
+50,000-product catalog is installed. In that state it starts in **showcase mode**:
+the tracked T0/A/B architecture graph, compute walkthrough, source map, handoff
+documents, and frozen Public200/local-2k-OOF evidence remain available. Showcase
+mode does not create an Agent index and cannot run retrieval, the live T0/A/B Lab,
+catalog search, session replay, or an evaluation.
+
+To enable the real target-blind T0/A/B demonstration, download the organizer's
+official `catalog.jsonl.gz` release, extract it to `data/catalog.jsonl`, and restart
+the Workbench. The expected file has 50,000 rows and SHA-256
+`da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67`.
+The Workbench never downloads or rewrites this file. No `results.json` or ignored
+2k artifact is needed: all reported A/B metrics are read from tracked compact
+evidence files.
+
+The complete deliverable is on branch `deadline-v3.5-ab-website`. A teammate can use
+`git fetch origin`, `git switch deadline-v3.5-ab-website`, and
+`git pull --ff-only origin deadline-v3.5-ab-website`; the website, T0/A/B adapters,
+compact evidence, P11 sidecar, and fold-safe ranker artifact are all tracked.
+
 On Windows, double-click `Start Observer.vbs` to start the local Workbench without opening
-a terminal. It uses the existing `tiktok` Conda environment, starts through
-`pythonw.exe`, and opens `http://127.0.0.1:8765`. The Workbench launcher uses the served
+a terminal. It selects any available Python 3.10+ (preferring the active Conda
+environment) and opens `http://127.0.0.1:8765`. Set `OBSERVER_PYTHON` to an absolute
+`python.exe` path for explicit interpreter selection. The Workbench launcher uses the served
 `coverage + rerank off + P11 active` path and labels the weighted-RRF `fused` control separately
 from the coverage-ordered `final` route. `Start Observer.cmd` and
 `python -m observer.launcher` are troubleshooting fallbacks.
@@ -270,6 +293,9 @@ The Workbench provides:
 - a read-only Fusion Studio for switching between teammate T0, strict Fusion A, and
   bounded-`other` Fusion B, including a step-through compute graph and the frozen
   Public200/local-2k-OOF result comparison;
+- after the official catalog is installed, a real target-blind T0/A/B Live Lab with
+  fixed scenario prompts, actual Agent responses and Top 10, page routing, visible
+  state, and an observer-derived compute snapshot suitable for recording a demo;
 - runtime, Git, data, catalog-hash, and FTS5-index health;
 - an honest algorithm registry that distinguishes implemented, baseline-only, and planned layers;
 - all 200 public sessions with actual Agent events and separately labelled post-hoc target diagnostics;
@@ -277,6 +303,22 @@ The Workbench provides:
 - browser controls for the complete public evaluator, fixed phrase/product-disjoint generalization gate, unit tests, progress, cancellation, logs, versioned local experiments, and cross-session target-blind shadow-policy analysis;
 - a target-free manual Agent playground and read-only project document library;
 - a safe in-page shutdown action.
+
+For a short recorded walkthrough: first show the T0/A/B switch and Public200 versus
+2k OOF evidence; play Page 1, Page 2, Page 3+, and Override in the compute walkthrough;
+then use the Live Lab to start T0, A, and B sessions and send the supplied Buying,
+Browsing, Clarification, and Override prompts. The response, question, and ordered
+Top 10 are produced by the chosen real Agent. The displayed route, candidate counts,
+and eight-layer compute explanation are deterministic observer-derived inspection of
+the same visible state, not native Agent trace events. The Live Lab receives no target,
+sample ID, scenario label, evaluator state, or prior result and does not run an
+evaluator.
+
+The frozen Public200 result for strict A ties teammate T0 on HR@10 (`0.995`) but is
+worse on MRR, MTTC, and TechnicalScore (`0.875900` versus `0.886430`). Therefore this
+complete A/B + website package belongs on `deadline-v3.5-ab-website`, not `main`.
+Fusion B has the best Public200 TechnicalScore (`0.892284`), while its local 2k OOF
+result is not an organizer-private score and includes measured fold/override harm.
 
 The server refuses non-loopback bind addresses, rejects cross-site API requests, requires
 an ephemeral local control token, and does not expose an arbitrary shell runner. It

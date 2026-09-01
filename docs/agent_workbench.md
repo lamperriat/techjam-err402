@@ -64,8 +64,9 @@ On this Windows development machine, double-click:
 Start Observer.vbs
 ```
 
-It launches the existing `tiktok` Conda environment through `pythonw.exe`, keeps the
-console hidden, and opens `http://127.0.0.1:8765`. The P4-aligned launcher explicitly
+It discovers any available Python 3.10+ (preferring `OBSERVER_PYTHON` or the currently
+active Conda environment), keeps the console hidden, and opens
+`http://127.0.0.1:8765`. No environment name is hard-coded. The P4-aligned launcher explicitly
 uses `retrieval_mode=coverage` and `rerank_mode=off`, matching the served Agent. The UI
 shows the weighted-RRF fused control separately from the coverage-ordered final route;
 it does not silently substitute the older shadow/control configuration.
@@ -75,6 +76,25 @@ Fallbacks:
 - double-click `Start Observer.cmd` if Windows Script Host is disabled;
 - run `python -m observer.launcher` for troubleshooting;
 - inspect ignored `observer_startup_error.log` if the hidden launch fails.
+
+### Two startup modes
+
+The launcher deliberately supports a clean checkout that does not yet contain the
+separately distributed catalog:
+
+- **Showcase mode (catalog absent):** the server and browser still open. Fusion A/B
+  diagrams, the step-through architecture player, frozen metrics, source map, and
+  tracked documents work. Catalog search, session replay, evaluation controls, the
+  legacy Lab, and real T0/A/B execution remain unavailable.
+- **Full local mode (catalog installed):** extract the organizer's official catalog to
+  `data/catalog.jsonl` and restart. The runtime builds its in-memory indexes and enables
+  catalog/session tools plus the real T0/A/B Live Lab. Expected catalog: 50,000 rows,
+  SHA-256 `da979b05a68af864cb0dcf9ee6a81c010c7e66a57978ad286c7a2e005fc69a67`.
+
+The Workbench does not download, generate, or modify the official catalog. A local
+`results.json` is optional, and ignored full-result artifacts are not required to view
+the frozen result tables. After adding or replacing the catalog, stop and restart the
+Workbench; do not continue with a process that loaded a different input fingerprint.
 
 If a Workbench instance is already healthy, the launcher opens that instance instead of starting another one. Use the red **停止** button in the page to stop it safely.
 
@@ -89,6 +109,27 @@ The launcher verifies a project-root fingerprint before reusing port 8765. If an
 - compare tracked Public200 and local `train_explore` 2k OOF metrics;
 - keep missing T0 2k evidence as unavailable and label 2k OOF as non-private;
 - link every layer to its implementation boundary and surface B's fold/override risk.
+
+With the official catalog installed, the same page also contains a **real T0/A/B Live
+Lab**. Selecting a variant starts a fresh opaque local session and invokes the tracked
+factory for teammate T0, strict Fusion A, or Fusion B. Only one variant index remains
+active at a time. The supplied prompt buttons use evaluator-shaped Buying, Browsing,
+Clarification, and Override messages so the state transitions can be demonstrated
+reliably without running an evaluator.
+
+The Live Lab distinguishes three evidence types:
+
+- **actual runtime output:** Agent message, `ask_attribute`, and ordered catalog-valid
+  Top 10 returned by T0/A/B;
+- **observer-derived inspection:** a deterministic replay of the candidate query and a
+  read-only snapshot of visible state, candidate counts, inferred page/route, ledger,
+  fallback diagnostics, and question lifecycle;
+- **frozen benchmark evidence:** aggregate metrics loaded from tracked JSON, never
+  recomputed merely by opening or using the page.
+
+Observer-derived values explain a real response but are not claimed as native trace
+events. The Lab has no target or scoring join, while the separate public-session page
+may add explicitly labelled post-hoc diagnostics after `Agent.respond`.
 
 The Fusion Studio reads `docs/teammate_ab_website.json`; it does not infer metrics from
 the currently loaded `results.json`. See `docs/teammate_ab_website_handoff.md` for the
@@ -162,6 +203,30 @@ The derived corpus is generated from catalog metadata after excluding every rele
 ### 交互 Lab
 
 This is a target-free manual playground. It calls the same `Agent.reset` and `Agent.respond` methods with an opaque lab session ID and shows recommendations plus actual state and retrieval events. It can demonstrate constraint accumulation, clarification, explicit override, category goal changes, and the current parser/slot limitations without exposing a target label.
+
+This legacy `starter.Agent` playground is separate from the T0/A/B Live Lab on the
+Fusion page. Use the latter when recording or comparing strict A and B; use this page
+when diagnosing R08/P11 and the legacy trace schema.
+
+## Suggested recording sequence
+
+1. Open **Fusion A/B** and show that the status is Showcase or Full local mode.
+2. Switch T0 → A → B and explain the highlighted layers and question-policy delta.
+3. Switch Public200 → 2k OOF. State explicitly that 2k is local `train_explore` OOF,
+   not the organizer's private 800, and that no comparable T0 2k artifact exists.
+4. Play Page 1, Page 2, Page 3+, and Override with the arrow/play controls.
+5. In full local mode, start a new T0 Live Lab session and send a supplied Buying or
+   Browsing prompt; point out ProductScorer, unseen pagination and specific questions.
+6. Start A and repeat the same visible prompt: pages 1–2 retain T0 exploitation, while
+   page 3+ can use the unseen v2.12 expert tail with T0 fallback.
+7. Start B and show that ranking is inherited from A while only the bounded `other`
+   question lifecycle changes; use Override to show lifecycle reset.
+8. End on the frozen result table and the branch decision: A did not beat T0 on the
+   full Public metric set, so this package is published on
+   `deadline-v3.5-ab-website` rather than `main`.
+
+Do not click **运行 200 会话评测** for a presentation that is intended only to reuse
+the frozen evidence. Starting or using either manual Lab does not invoke the evaluator.
 
 ### 资料库
 
@@ -241,6 +306,8 @@ POST /api/jobs/tests
 POST /api/jobs/<job_id>/cancel
 POST /api/lab/reset
 POST /api/lab/respond
+POST /api/fusion-lab/reset
+POST /api/fusion-lab/respond
 POST /api/shutdown
 ```
 

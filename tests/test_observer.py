@@ -15,7 +15,7 @@ from unittest.mock import patch
 from evaluator.local_evaluator import catalog_index
 from observer import launcher
 from observer.events import TRACE_SCHEMA_VERSION, TraceRecorder
-from observer.runtime import StaleRuntimeError, WorkbenchRuntime
+from observer.runtime import ShowcaseRuntime, StaleRuntimeError, WorkbenchRuntime
 from observer.server import ExclusiveHTTPServer, make_handler
 from observer.trace import TraceRunner, _agent_diagnostics
 from starter.agent import Agent
@@ -68,9 +68,23 @@ class ObserverTraceTest(unittest.TestCase):
             )
         )
 
-        for marker in ("Teammate T0", "Fusion A", "Fusion B", "2k OOF"):
+        for marker in (
+            "Teammate T0",
+            "Fusion A",
+            "Fusion B",
+            "2k OOF",
+            "LIVE · TARGET-BLIND · LOCAL ONLY",
+            "REAL T0 / A / B EXECUTION",
+            'id="fusionDemoStart"',
+            "OBSERVER-DERIVED COMPUTE SNAPSHOT",
+        ):
             self.assertIn(marker, page)
-        self.assertIn("/api/fusion-showcase", app)
+        for marker in (
+            "/api/fusion-showcase",
+            "/api/fusion-lab/reset",
+            "/api/fusion-lab/respond",
+        ):
+            self.assertIn(marker, app)
         self.assertIn("not the organizer private score", evidence["benchmarks"]["two_k_oof"]["semantics"])
         self.assertEqual(evidence["benchmarks"]["public200"]["rows"][1]["hr"], 0.995)
         self.assertEqual(evidence["benchmarks"]["two_k_oof"]["rows"][2]["hr"], 0.9915)
@@ -93,6 +107,47 @@ class ObserverTraceTest(unittest.TestCase):
         runtime = object.__new__(WorkbenchRuntime)
         runtime.project_root = project_root
         self.assertEqual(runtime.fusion_showcase()["schema"], evidence["schema"])
+
+    def test_showcase_runtime_keeps_fusion_evidence_available_without_catalog(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project_root = Path(directory)
+            docs = project_root / "docs"
+            docs.mkdir()
+            evidence = {
+                "schema": "fusion-showcase-test",
+                "benchmarks": {"public200": {"rows": []}},
+            }
+            (docs / "teammate_ab_website.json").write_text(
+                json.dumps(evidence), encoding="utf-8"
+            )
+            handoff = "# Fusion A/B handoff\n"
+            (docs / "teammate_ab_website_handoff.md").write_text(
+                handoff, encoding="utf-8"
+            )
+
+            runtime = ShowcaseRuntime(project_root)
+            health = runtime.health()
+            overview = runtime.overview()
+
+            self.assertEqual(health["status"], "ok")
+            self.assertTrue(health["showcase_only"])
+            self.assertEqual(health["retrieval_mode"], "catalog-required")
+            self.assertTrue(overview["runtime"]["showcase_only"])
+            self.assertEqual(overview["index"]["rows"], 0)
+            self.assertFalse(overview["data"][0]["exists"])
+            self.assertEqual(runtime.fusion_showcase(), evidence)
+
+            document_ids = {
+                item["document_id"] for item in runtime.documents()["documents"]
+            }
+            self.assertIn("fusion_handoff", document_ids)
+            self.assertIn("fusion_evidence", document_ids)
+            self.assertEqual(runtime.document("fusion_handoff")["content"], handoff)
+
+            reset = runtime.fusion_lab_reset("b", {"preference_tags": ["minimalist"]})
+            self.assertFalse(reset["available"])
+            self.assertIn("official frozen catalog", reset["reason"])
+            self.assertEqual(runtime.fusion_lab_respond("missing", "hello"), reset)
 
     def test_one_click_launcher_defaults_to_served_p11_preset(self) -> None:
         with (
@@ -133,17 +188,22 @@ class ObserverTraceTest(unittest.TestCase):
             self.assertNotIn("TECHJAM_P11_SIDECAR_PATH", os.environ)
             serve.assert_called_once_with()
 
-    def test_windows_launchers_do_not_embed_a_machine_specific_conda_path(self) -> None:
+    def test_windows_launchers_find_any_python_without_a_fixed_conda_env(self) -> None:
         project_root = Path(__file__).resolve().parents[1]
         cmd = (project_root / "Start Observer.cmd").read_text(encoding="utf-8")
         vbs = (project_root / "Start Observer.vbs").read_text(encoding="utf-8")
 
         self.assertNotIn("D:\\450\\conda", cmd)
         self.assertNotIn("D:\\450\\conda", vbs)
-        self.assertIn("CONDA_DEFAULT_ENV", cmd)
-        self.assertIn("CONDA_DEFAULT_ENV", vbs)
-        self.assertIn("conda run -n tiktok", cmd)
-        self.assertIn("conda run -n tiktok", vbs)
+        self.assertIn("OBSERVER_PYTHON", cmd)
+        self.assertIn("CONDA_PREFIX", cmd)
+        self.assertIn("py -3", cmd)
+        self.assertIn("where python", cmd)
+        self.assertNotIn("CONDA_DEFAULT_ENV", cmd)
+        self.assertNotIn("CONDA_DEFAULT_ENV", vbs)
+        self.assertNotIn("conda run -n tiktok", cmd)
+        self.assertNotIn("conda run -n tiktok", vbs)
+        self.assertIn("Start Observer.cmd", vbs)
 
     def test_coverage_retrieval_rejects_shadow_and_active_rerank(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -872,6 +932,22 @@ class ObserverTraceTest(unittest.TestCase):
             def fusion_showcase(self) -> dict:
                 return {"schema": "fusion-test", "benchmarks": {"public200": {}}}
 
+            def fusion_lab_reset(self, variant: str, profile: dict | None = None) -> dict:
+                return {
+                    "available": True,
+                    "variant": variant,
+                    "profile": profile,
+                    "session_id": "fusion-demo",
+                }
+
+            def fusion_lab_respond(self, session_id: str, message: str) -> dict:
+                return {
+                    "available": True,
+                    "session_id": session_id,
+                    "message": message,
+                    "turn": 1,
+                }
+
             def start_evaluation(self) -> dict:
                 return {"job_id": "evaluation_test", "status": "queued"}
 
@@ -901,6 +977,36 @@ class ObserverTraceTest(unittest.TestCase):
         with urllib.request.urlopen(fusion_request) as response:
             fusion = json.load(response)
         self.assertEqual(fusion["schema"], "fusion-test")
+
+        fusion_reset_request = urllib.request.Request(
+            f"{base_url}/api/fusion-lab/reset",
+            data=json.dumps({
+                "variant": "b",
+                "profile": {"preference_tags": ["minimalist"]},
+            }).encode("utf-8"),
+            headers={"Content-Type": "application/json", **auth_headers},
+            method="POST",
+        )
+        with urllib.request.urlopen(fusion_reset_request) as response:
+            fusion_reset = json.load(response)
+        self.assertEqual(fusion_reset["variant"], "b")
+        self.assertEqual(
+            fusion_reset["profile"], {"preference_tags": ["minimalist"]}
+        )
+
+        fusion_respond_request = urllib.request.Request(
+            f"{base_url}/api/fusion-lab/respond",
+            data=json.dumps({
+                "session_id": fusion_reset["session_id"],
+                "message": "I need black running shoes.",
+            }).encode("utf-8"),
+            headers={"Content-Type": "application/json", **auth_headers},
+            method="POST",
+        )
+        with urllib.request.urlopen(fusion_respond_request) as response:
+            fusion_response = json.load(response)
+        self.assertEqual(fusion_response["session_id"], "fusion-demo")
+        self.assertEqual(fusion_response["message"], "I need black running shoes.")
 
         with self.assertRaises(urllib.error.HTTPError) as context:
             urllib.request.urlopen(f"{base_url}/api/sessions")
