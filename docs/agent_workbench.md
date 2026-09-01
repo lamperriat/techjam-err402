@@ -167,7 +167,9 @@ The UI intentionally separates **actual** Agent events from **post-hoc** public-
 
 ### 运行与实验
 
-- start the fixed repository unit-test command;
+- start the fixed, portable 73-test release suite (Agent/evaluator contract,
+  T0/A/B, Live Lab, and Observer). Historical experiment tests that require ignored
+  P6/P8/P9 assets or optional `pytest` are intentionally left to their CLI environments;
 - start the released public evaluator, which preserves the official scoring behavior, with a fresh Agent index;
 - start the fixed target-blind robustness gate over the released public corpus and a deterministic public-target-disjoint derived corpus;
 - see current session, progress, elapsed time, and captured logs;

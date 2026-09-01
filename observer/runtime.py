@@ -117,6 +117,17 @@ DOCUMENTS = {
     "source_server": ("Workbench HTTP source", "observer/server.py", "Source"),
 }
 
+WORKBENCH_TEST_MODULES = (
+    "tests.test_agent",
+    "tests.test_evaluator",
+    "tests.test_response_contract",
+    "tests.test_teammate_v212_fusion",
+    "tests.test_teammate_bounded_other",
+    "tests.test_fusion_demo",
+    "tests.test_observer",
+    "tests.test_smoke_fusion_core",
+)
+
 
 class StaleRuntimeError(RuntimeError):
     """Raised when disk code or evaluation inputs no longer match the loaded runtime."""
@@ -1096,7 +1107,13 @@ class WorkbenchRuntime:
             executable = Path(sys.executable)
             if executable.name.lower() == "pythonw.exe" and executable.with_name("python.exe").exists():
                 executable = executable.with_name("python.exe")
-            command = [str(executable), "-m", "unittest", "discover", "-s", "tests", "-v"]
+            command = [
+                str(executable),
+                "-m",
+                "unittest",
+                "-v",
+                *WORKBENCH_TEST_MODULES,
+            ]
             flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
             environment = os.environ.copy()
             for name in (
@@ -1107,7 +1124,10 @@ class WorkbenchRuntime:
                 "TECHJAM_P11_SIDECAR_PATH",
             ):
                 environment.pop(name, None)
-            job.log("Running repository unit tests")
+            job.log(
+                "Running the portable 73-test release suite "
+                "(core Agent, evaluator contract, T0/A/B, Live Lab, and Observer)"
+            )
             job.process = subprocess.Popen(
                 command,
                 cwd=self.project_root,

@@ -80,7 +80,7 @@ Live Lab 只接收 profile、message、turn 和 `top_k=10`，不接收 `sample_i
 - 相同首轮 Buying 输入下，`T0 == A == B` 的 Top10 顺序逐项一致；T0/A 保留具体属性问询，B 唯一改为 `ask_attribute=other`；
 - A 连续三轮路由依次为 T0 grace 1/2、T0 grace 2/2、v2.12 unseen expert tail；
 - B override 后 page 回到 grace 1/2，`other.version` 从 1 增至 2，asks 从 2 重置为 1；
-- 32 项相关自动化测试通过，包含 HTTP/token、Showcase、静态页面 marker、T0/A/B Live Lab、官方风格 Top10 normalization、variant 切换清理、10-turn、A/B grace/tail/override 与 response contract；
+- Workbench 的 73 项可移植核心测试全部通过；其中 32 项直接覆盖 HTTP/token、Showcase、静态页面 marker、T0/A/B Live Lab、官方风格 Top10 normalization、variant 切换清理、10-turn、A/B grace/tail/override 与 response contract。需要 ignored P6/P8/P9 历史资产或可选 `pytest` 的研究测试仍由各自 CLI 环境运行，不会让网站按钮在 fresh pull 中误报失败；
 - Python compile、JavaScript syntax、`git diff --check` 通过。
 
 这些 smoke 只验证可启动、可操作、算法边界和输出 contract，不替代冻结 benchmark，也不会产生新的成绩。
