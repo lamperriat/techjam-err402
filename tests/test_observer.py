@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import shutil
+import subprocess
 import tempfile
 import threading
 import time
@@ -42,7 +45,87 @@ class ObserverTraceTest(unittest.TestCase):
             "blocked_attributes",
         ):
             self.assertIn(marker, app)
-        self.assertIn("slot ledger / 候选感知澄清 shadow", page)
+        self.assertIn("slot ledger, and candidate-aware clarification shadow", page)
+
+    def test_workbench_defaults_to_english_with_complete_global_i18n(self) -> None:
+        project_root = Path(__file__).resolve().parents[1]
+        static = project_root / "observer" / "static"
+        page = (static / "index.html").read_text(encoding="utf-8")
+        app = (static / "app.js").read_text(encoding="utf-8")
+        styles = (static / "styles.css").read_text(encoding="utf-8")
+        i18n = (static / "i18n.js").read_text(encoding="utf-8")
+        handoff = (project_root / "docs" / "teammate_ab_website_handoff.md").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn('<html lang="en">', page)
+        self.assertIn('data-language="en"', page)
+        self.assertIn('data-language="zh-Hans"', page)
+        self.assertLess(page.index('/i18n.js'), page.index('/app.js'))
+        self.assertNotRegex(page, r"[\u3400-\u9fff]")
+        self.assertNotRegex(app, r"[\u3400-\u9fff]")
+        self.assertNotIn(".top-actions { display: none; }", styles)
+        self.assertIn(".nav-tabs { order: 3;", styles)
+        self.assertIn(".runtime-status { display: none; }", styles)
+        self.assertIn(".language-option.active", styles)
+
+        en_block = i18n.split("  const en = {", 1)[1].split("\n  };", 1)[0]
+        zh_block = i18n.split("  const zh = {", 1)[1].split("\n  };", 1)[0]
+        key_pattern = re.compile(r'^\s+"([^"]+)":', re.MULTILINE)
+        en_keys = set(key_pattern.findall(en_block))
+        zh_keys = set(key_pattern.findall(zh_block))
+        self.assertEqual(en_keys, zh_keys)
+        used_keys = set(
+            re.findall(
+                r'data-i18n(?:-placeholder|-title|-aria)?="([^"]+)"', page
+            )
+        )
+        used_keys.update(re.findall(r'\bt\("([^"]+)"', app))
+        used_keys.update(re.findall(r'\bkey:\s*"([^"]+)"', app))
+        self.assertEqual(used_keys - en_keys, set())
+        entry_pattern = re.compile(
+            r'^\s+"([^"]+)":\s*"((?:\\.|[^"])*)",?$', re.MULTILINE
+        )
+        en_entries = dict(entry_pattern.findall(en_block))
+        zh_entries = dict(entry_pattern.findall(zh_block))
+        placeholder_pattern = re.compile(r"\{([a-zA-Z0-9_]+)\}")
+        for key in en_keys:
+            self.assertEqual(
+                set(placeholder_pattern.findall(en_entries[key])),
+                set(placeholder_pattern.findall(zh_entries[key])),
+                key,
+            )
+        self.assertIn("intentgraph.observer.locale.v1", i18n)
+        self.assertIn("DEFAULT_LOCALE = \"en\"", i18n)
+        node = shutil.which("node")
+        if node:
+            behavior = r'''
+const i = require("./observer/static/i18n.js");
+const values = new Map();
+const storage = {getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value)};
+if (i.loadLocale(storage) !== "en") throw new Error("default locale");
+i.saveLocale("zh-Hans", storage);
+if (i.loadLocale(storage) !== "zh-Hans") throw new Error("saved locale");
+if (i.normalize("unsupported") !== "en") throw new Error("invalid locale fallback");
+if (i.loadLocale({getItem() { throw new Error("blocked"); }}) !== "en") throw new Error("storage fallback");
+if (!i.translate("zh-Hans", "nav.runtime").includes("运行")) throw new Error("translation");
+if (!i.artifact("zh-Hans", "variant.a.tagline", "fallback").includes("T0")) throw new Error("artifact overlay");
+'''
+            subprocess.run(
+                [node, "-e", behavior],
+                cwd=project_root,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        for marker in (
+            "Language",
+            "EN / ZH",
+            "Start / Reset Session",
+            "Run this turn",
+            "关闭浏览器标签页不会停止",
+        ):
+            self.assertIn(marker, handoff)
 
     def test_static_workbench_exposes_strict_fusion_studio(self) -> None:
         project_root = Path(__file__).resolve().parents[1]
@@ -963,6 +1046,10 @@ class ObserverTraceTest(unittest.TestCase):
         with urllib.request.urlopen(f"{base_url}/api/token") as response:
             api_token = json.load(response)["token"]
         auth_headers = {"X-Observer-Token": api_token}
+
+        with urllib.request.urlopen(f"{base_url}/i18n.js") as response:
+            i18n_source = response.read().decode("utf-8")
+        self.assertIn('DEFAULT_LOCALE = "en"', i18n_source)
 
         sessions_request = urllib.request.Request(
             f"{base_url}/api/sessions", headers=auth_headers

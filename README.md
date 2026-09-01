@@ -288,6 +288,26 @@ environment) and opens `http://127.0.0.1:8765`. Set `OBSERVER_PYTHON` to an abso
 from the coverage-ordered `final` route. `Start Observer.cmd` and
 `python -m observer.launcher` are troubleshooting fallbacks.
 
+The website opens in **English by default**. Use the always-visible **Language** control
+with **EN** and **ZH** buttons in the upper-right corner to switch the core interface and Fusion explanation between English and
+Simplified Chinese without reloading the page or resetting the current session. The
+choice is saved in browser local storage; clear the site's storage to restore English.
+Algorithm identifiers, hashes, raw catalog records, user/Agent messages, source files,
+and document contents remain verbatim so that evidence is never silently rewritten.
+
+Quick operation:
+
+1. Open **Fusion A/B**, choose T0, A, or B, and use the page/override controls to play
+   the frozen compute walkthrough. This does not run an evaluator.
+2. With the official catalog installed, choose a variant in **Live T0/A/B Execution**,
+   click **Start / Reset Session**, then send a supplied scenario or your own request.
+3. Use **Session Diagnostics** for the legacy served-Agent replay, **Catalog & Index**
+   for product/FTS inspection, and **Agent Lab** for manual R08/P11 debugging.
+4. Use **Runs & Experiments** only when you intentionally want to start an allowlisted
+   test, public evaluation, or generalization job; the frozen score cards do not rerun.
+5. Click **Stop** in the upper-right to shut down safely. Closing the browser tab alone
+   does not stop the local server.
+
 The Workbench provides:
 
 - a read-only Fusion Studio for switching between teammate T0, strict Fusion A, and
@@ -298,7 +318,7 @@ The Workbench provides:
   state, and an observer-derived compute snapshot suitable for recording a demo;
 - runtime, Git, data, catalog-hash, and FTS5-index health;
 - an honest algorithm registry that distinguishes implemented, baseline-only, and planned layers;
-- all 200 public sessions with actual Agent events and separately labelled post-hoc target diagnostics;
+- in Full local mode, all 200 public sessions with actual Agent events and separately labelled post-hoc target diagnostics;
 - frozen-catalog search and raw product inspection;
 - browser controls for the complete public evaluator, fixed phrase/product-disjoint generalization gate, unit tests, progress, cancellation, logs, versioned local experiments, and cross-session target-blind shadow-policy analysis;
 - a target-free manual Agent playground and read-only project document library;

@@ -4,6 +4,10 @@ The Agent Workbench is a local, offline-first development control plane for the 
 
 ## Current truth
 
+This section describes the legacy `starter.Agent` used by **Runtime**, **Session
+Diagnostics**, and **Agent Lab**. It does not describe the separate teammate T0/Fusion
+A/Fusion B implementations shown and executed on the **Fusion A/B** page.
+
 The served Agent is a versioned stateful sparse system. It accumulates active
 conversation terms, handles explicit Override and Boundary/no-preference events,
 retrieves with broad and strict SQLite FTS5/BM25 routes, fuses them with weighted RRF,
@@ -96,9 +100,69 @@ The Workbench does not download, generate, or modify the official catalog. A loc
 the frozen result tables. After adding or replacing the catalog, stop and restart the
 Workbench; do not continue with a process that loaded a different input fingerprint.
 
-If a Workbench instance is already healthy, the launcher opens that instance instead of starting another one. Use the red **停止** button in the page to stop it safely.
+If a Workbench instance is already healthy, the launcher opens that instance instead of starting another one. Use the red **Stop** button in the page to stop it safely. Closing the browser tab does not stop the local server.
 
 The launcher verifies a project-root fingerprint before reusing port 8765. If another clone owns that port, startup stops with an explicit error instead of silently opening the wrong project.
+
+## Language and first use
+
+The first paint and the default interface language are **English**. The global
+**Language** control with **EN** and **ZH** buttons stays in the upper-right corner on desktop and mobile.
+Changing it updates static labels and JavaScript-generated statuses immediately, without
+reloading, changing the selected page/variant/turn, or resetting a Lab session. The
+selection is stored under `intentgraph.observer.locale.v1` in browser local storage.
+Removing this site's storage restores English on the next load.
+
+The switch translates interface chrome. Evidence-sensitive/raw values remain verbatim:
+algorithm IDs, API field names, hashes, product records, user messages, Agent responses,
+source code, logs, and opened document contents. This keeps recorded output identical to
+the underlying artifact instead of pretending that translated text came from the Agent.
+The Chinese Fusion architecture/walkthrough copy is a keyed display overlay in
+`observer/static/i18n.js`; it never edits `docs/teammate_ab_website.json`, and English
+mode continues to show the tracked source artifact text.
+
+### Five-minute operating checklist
+
+1. Start with `Start Observer.vbs` and wait for the green runtime indicator.
+2. Confirm the upper-right language control says **EN** (or select **ZH**).
+3. On **Fusion A/B**, switch T0/A/B and Page 1/Page 2/Page 3+/Override; press play to
+   animate the frozen computation. No evaluator runs in this step.
+4. In full local mode, select T0, A, or B under **Live T0/A/B Execution**, click
+   **Start / Reset Session**, choose a quick scenario, and click **Run this turn**.
+5. Use **Runs & Experiments** only when an actual evaluator/test job is intended. Use
+   **Cancel Active Job** to request cancellation and inspect **Job Logs** for completion.
+6. End with the upper-right **Stop** button; merely closing the tab leaves the loopback
+   process running.
+
+| Page | Mode | What to click | What it does | Side effects |
+|---|---|---|---|---|
+| Fusion A/B | Showcase + Full | T0/A/B, page tabs, arrows/play | Reads frozen architecture/evidence | None; no evaluator |
+| Fusion A/B Live Lab | Full only | Variant, Start / Reset Session, prompt, Run this turn | Calls the selected real local Agent | Creates/resets only an opaque Lab session |
+| Runtime | Full for jobs | Run buttons | Shows health; optionally starts an allowlisted job | Run buttons create local ignored artifacts |
+| Session Diagnostics | Full only | Session, turn, Rerun, Export Trace | Replays the legacy served Agent and shows post-hoc diagnostics | Rerun calls the public simulator; Export downloads JSON |
+| Catalog & Index | Full only | Search, row, Previous/Next | Searches FTS5 and opens raw product JSON | Read-only |
+| Runs & Experiments | Full only | Run/Cancel controls and job rows | Starts, requests cancellation, and inspects fixed jobs | Explicitly runs tests/evaluation/generalization |
+| Agent Lab | Full only | New Session, Send | Exercises the legacy R08/P11 Agent | Resets or advances a local opaque session |
+| Documents | Showcase + Full | Search and document row | Opens allowlisted tracked files | Read-only |
+
+For a fair T0/A/B Live Lab comparison, create a fresh session for each variant and send
+the identical visible message sequence. Selecting another variant invalidates the
+visible session; the next **Start / Reset Session** (or first run) initializes that
+variant and replaces the previous server-side index. Demonstrating Page 3 requires three
+messages in the same session without a reset. Send Override in that same B session to
+show the lifecycle reset. At turn 10, use **Start / Reset Session** before continuing.
+
+### Troubleshooting
+
+| Symptom | Resolution |
+|---|---|
+| `Start Observer.vbs` appears to do nothing | Open `http://127.0.0.1:8765` manually; then inspect ignored `observer_startup_error.log`, try `Start Observer.cmd`, or run `python -m observer.launcher`. |
+| Python startup fails | Use Python 3.10+ and set `OBSERVER_PYTHON` to the absolute `python.exe` path if auto-discovery selects the wrong interpreter. |
+| Live Lab, replay, catalog, or run controls are disabled | This is expected in Showcase mode. Install the exact 50,000-row catalog at `data/catalog.jsonl`, click Stop, and restart. |
+| Port 8765 belongs to another clone | Stop that clone's Workbench. The launcher intentionally refuses to reuse a server with a different project-root fingerprint. |
+| A stale-source warning appears | Click Stop and restart; do not continue with a process that loaded old code/data hashes. |
+| First variant start looks slow | Initial full-mode index construction can take several seconds. Wait for Ready instead of clicking repeatedly. |
+| `results.json` or a full 2k artifact is absent | This is not a website error; frozen A/B evidence is tracked separately and remains available. |
 
 ## Pages
 
@@ -135,7 +199,7 @@ The Fusion Studio reads `docs/teammate_ab_website.json`; it does not infer metri
 the currently loaded `results.json`. See `docs/teammate_ab_website_handoff.md` for the
 architecture and evidence interpretation.
 
-### 总览
+### Runtime
 
 - latest HR@10, MRR, MTTC, Efficiency, and TechnicalScore;
 - official-reference comparison;
@@ -144,9 +208,9 @@ architecture and evidence interpretation.
 - actual FTS5 index fields, tokenizer, BM25 weights, and row count;
 - an algorithm registry that labels every layer as implemented, baseline-only, or not implemented.
 
-### 会话诊断
+### Session Diagnostics
 
-- all 200 public sessions with scenario/result filtering;
+- in Full local mode, all 200 public sessions with scenario/result filtering;
 - deterministic replay for one public session;
 - actual Agent trace events for session, parse, retrieval, state, policy, and output;
 - per-turn elapsed time, token usage, five-route counts, fusion evidence, retrieval mode,
@@ -159,24 +223,27 @@ architecture and evidence interpretation.
 
 The UI intentionally separates **actual** Agent events from **post-hoc** public-label annotations.
 
-### 商品与索引
+### Catalog & Index
 
 - browse all 50,000 frozen catalog products;
 - run the same tokenization and field-weighted FTS5/BM25 search used by the current Agent;
 - inspect match counts, BM25 scores, catalog metadata, and complete raw product JSON.
 
-### 运行与实验
+### Runs & Experiments
 
-- start the fixed, portable 73-test release suite (Agent/evaluator contract,
+- start the fixed, portable 74-test release suite (Agent/evaluator contract,
   T0/A/B, Live Lab, and Observer). Historical experiment tests that require ignored
   P6/P8/P9 assets or optional `pytest` are intentionally left to their CLI environments;
 - start the released public evaluator, which preserves the official scoring behavior, with a fresh Agent index;
 - start the fixed target-blind robustness gate over the released public corpus and a deterministic public-target-disjoint derived corpus;
 - see current session, progress, elapsed time, and captured logs;
-- request cancellation;
+- request cooperative cancellation (it is not guaranteed to be instantaneous);
 - compare the official baseline, current `results.json`, and timestamped local experiments.
 
 The Workbench does not accept arbitrary shell commands. A successful evaluation writes ignored local artifacts under:
+
+Only one evaluation/generalization/test job can be active at a time. Merely viewing or
+recording the frozen evidence requires no job.
 
 ```text
 experiments/<timestamp>_public_eval/
@@ -202,7 +269,7 @@ use the dedicated resource artifact for controlled repeated RSS/P95 evidence.
 
 The derived corpus is generated from catalog metadata after excluding every released-public target. It is useful for product-disjoint stress testing, but it is not organizer private data and must not be presented as a hidden-leaderboard estimate.
 
-### 交互 Lab
+### Agent Lab
 
 This is a target-free manual playground. It calls the same `Agent.reset` and `Agent.respond` methods with an opaque lab session ID and shows recommendations plus actual state and retrieval events. It can demonstrate constraint accumulation, clarification, explicit override, category goal changes, and the current parser/slot limitations without exposing a target label.
 
@@ -227,10 +294,10 @@ when diagnosing R08/P11 and the legacy trace schema.
    full Public metric set, so this package is published on
    `deadline-v3.5-ab-website` rather than `main`.
 
-Do not click **运行 200 会话评测** for a presentation that is intended only to reuse
+Do not click **Run 200-Session Evaluation** for a presentation that is intended only to reuse
 the frozen evidence. Starting or using either manual Lab does not invoke the evaluator.
 
-### 资料库
+### Documents
 
 The page provides read-only access to an allowlist of project documents, official-kit material, and the current Agent/evaluator/Workbench source files. It does not expose arbitrary filesystem paths and does not provide a browser source editor.
 

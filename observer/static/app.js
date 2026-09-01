@@ -1,4 +1,6 @@
 const state = {
+  locale: ObserverI18n.loadLocale(),
+  initialized: false,
   overview: null,
   sessions: [],
   metrics: {},
@@ -15,6 +17,7 @@ const state = {
   documents: [],
   selectedDocumentId: null,
   lab: null,
+  labHasMessages: false,
   apiToken: "",
   fusion: null,
   fusionVariant: "a",
@@ -27,6 +30,8 @@ const state = {
   fusionDemoBusy: false,
   fusionDemoNotice: "",
   showcaseOnly: false,
+  health: null,
+  startupError: "",
 };
 
 const $ = selector => document.querySelector(selector);
@@ -48,6 +53,60 @@ const bytes = value => {
   while (number >= 1024 && index < units.length - 1) { number /= 1024; index += 1; }
   return `${number.toFixed(index ? 1 : 0)} ${units[index]}`;
 };
+const t = (key, variables = {}) => ObserverI18n.translate(state.locale, key, variables);
+const artifact = (key, fallback) => ObserverI18n.artifact(state.locale, key, fallback);
+
+function applyStaticTranslations() {
+  document.title = t("app.title");
+  $$('[data-i18n]').forEach(element => { element.innerHTML = t(element.dataset.i18n); });
+  $$('[data-i18n-placeholder]').forEach(element => { element.placeholder = t(element.dataset.i18nPlaceholder); });
+  $$('[data-i18n-title]').forEach(element => { element.title = t(element.dataset.i18nTitle); });
+  $$('[data-i18n-aria]').forEach(element => { element.setAttribute("aria-label", t(element.dataset.i18nAria)); });
+}
+
+function renderLocalizedState() {
+  applyStaticTranslations();
+  if (state.startupError) {
+    $("#overviewPage").innerHTML = `<div class="empty-state panel"><h2>${t("startup.failed")}</h2><p>${esc(state.startupError)}</p></div>`;
+  }
+  if (!state.initialized) return;
+  renderFusion();
+  renderFusionDemo();
+  renderOverview();
+  renderSessions();
+  if (state.trace) renderTrace();
+  if (state.catalog) renderCatalog();
+  renderJobs();
+  renderExperiments();
+  renderDocuments();
+  renderHealthStatus();
+  if (state.lab) {
+    const message = $("#labHistory .system-message");
+    if (message) message.textContent = t("lab.started", {
+      id: state.lab.session_id.slice(-8),
+      retrieval: state.lab.retrieval_mode ?? "unrecorded",
+      rerank: state.lab.rerank_mode ?? "unrecorded",
+    });
+    if (!state.labHasMessages) $("#labEvents").textContent = t("lab.waiting");
+  }
+}
+
+function setLocale(locale, persist = true) {
+  state.locale = ObserverI18n.normalize(locale);
+  if (persist) ObserverI18n.saveLocale(state.locale);
+  document.documentElement.lang = state.locale;
+  $$('[data-language]').forEach(button => {
+    const selected = button.dataset.language === state.locale;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+  renderLocalizedState();
+}
+
+function localizedNotice(notice) {
+  if (!notice) return "";
+  return typeof notice === "string" ? notice : t(notice.key, notice.variables);
+}
 
 async function requestJSON(url, options = {}) {
   const headers = new Headers(options.headers || {});
@@ -94,8 +153,8 @@ function renderMetrics() {
     const benchmark = state.fusion.benchmarks[state.fusionBenchmark];
     const row = benchmark.rows.find(item => item.id === state.fusionVariant) || {};
     const cards = [
-      ["Selected architecture", row.label || "—"],
-      ["Evidence", benchmark.label],
+      [t("fusion.metric.selected"), row.label || "—"],
+      [t("fusion.metric.evidence"), benchmark.label],
       ["Hit Rate@10", pct(row.hr)],
       ["MRR", fmt(row.mrr, 6)],
       ["TechnicalScore", fmt(row.score, 6)],
@@ -120,7 +179,7 @@ function stopComputePlayback() {
   clearInterval(computeTimer);
   computeTimer = null;
   const button = $("#computePlay");
-  if (button) { button.textContent = "▶"; button.setAttribute("aria-label", "Play compute stages"); }
+  if (button) { button.textContent = "▶"; button.setAttribute("aria-label", t("action.play_compute")); }
 }
 
 function stepCompute(direction) {
@@ -135,17 +194,17 @@ function toggleComputePlayback() {
   if (computeTimer) { stopComputePlayback(); return; }
   const button = $("#computePlay");
   button.textContent = "Ⅱ";
-  button.setAttribute("aria-label", "Pause compute stages");
+  button.setAttribute("aria-label", t("action.pause_compute"));
   computeTimer = setInterval(() => stepCompute(1), 1150);
 }
 
 const fusionStatus = value => ({
-  reference: "Public reference",
-  "strict-base": "Strict base",
-  "public-best": "Public best score",
-  "not-run": "No direct artifact",
-  "aggregate-hr-best": "Aggregate HR best",
-  "score-default": "Score incumbent",
+  reference: t("fusion.status.reference"),
+  "strict-base": t("fusion.status.strict_base"),
+  "public-best": t("fusion.status.public_best"),
+  "not-run": t("fusion.status.not_run"),
+  "aggregate-hr-best": t("fusion.status.aggregate_best"),
+  "score-default": t("fusion.status.score_default"),
 })[value] || value;
 
 function selectedFusionRow() {
@@ -165,16 +224,17 @@ function renderFusionArchitecture() {
   );
   $("#fusionPage").dataset.accent = variant.accent;
   $("#fusionVariantEyebrow").textContent = variant.label.toUpperCase();
-  $("#fusionVariantTitle").textContent = variant.tagline;
-  $("#fusionVariantSummary").textContent = variant.decision;
-  $("#fusionDecisionBadge").textContent = selected ? fusionStatus(selected.status) : variant.decision;
-  $("#fusionQuestionPolicy").textContent = variant.question_policy;
+  const variantKey = `variant.${state.fusionVariant}`;
+  $("#fusionVariantTitle").textContent = artifact(`${variantKey}.tagline`, variant.tagline);
+  $("#fusionVariantSummary").textContent = artifact(`${variantKey}.decision`, variant.decision);
+  $("#fusionDecisionBadge").textContent = selected ? fusionStatus(selected.status) : artifact(`${variantKey}.decision`, variant.decision);
+  $("#fusionQuestionPolicy").textContent = artifact(`${variantKey}.question_policy`, variant.question_policy);
   $("#fusionArchitecture").innerHTML = variant.layers.map((layer, index) => `
-    <article class="architecture-step ${index === activeLayer ? "active" : ""}" data-architecture-stage="${index}" role="button" tabindex="0" aria-label="Inspect ${esc(layer.name)}">
+    <article class="architecture-step ${index === activeLayer ? "active" : ""}" data-architecture-stage="${index}" role="button" tabindex="0" aria-label="${esc(artifact(`${variantKey}.layer.${index}.name`, layer.name))}">
       <div class="architecture-kicker">${esc(layer.kicker)}</div>
       <div class="architecture-node"><span>${String(index + 1).padStart(2, "0")}</span></div>
-      <h3>${esc(layer.name)}</h3>
-      <p>${esc(layer.detail)}</p>
+      <h3>${esc(artifact(`${variantKey}.layer.${index}.name`, layer.name))}</h3>
+      <p>${esc(artifact(`${variantKey}.layer.${index}.detail`, layer.detail))}</p>
       <code>${esc(layer.source)}</code>
     </article>`).join("");
   $$('[data-architecture-stage]').forEach(button => button.addEventListener("click", () => {
@@ -193,9 +253,9 @@ function renderFusionArchitecture() {
 function renderFusionEvidence() {
   if (!state.fusion) return;
   const benchmark = state.fusion.benchmarks[state.fusionBenchmark];
-  $("#benchmarkTitle").textContent = `${benchmark.label} 结果`;
-  $("#benchmarkSemantics").textContent = benchmark.semantics;
-  $("#fusionEvidenceStatus").innerHTML = `<span class="status-dot"></span>${esc(benchmark.label)} · exact repeat`;
+  $("#benchmarkTitle").textContent = t("fusion.results_title", { label: benchmark.label });
+  $("#benchmarkSemantics").textContent = artifact(`benchmark.${state.fusionBenchmark}.semantics`, benchmark.semantics);
+  $("#fusionEvidenceStatus").innerHTML = `<span class="status-dot"></span>${esc(benchmark.label)} · ${t("fusion.exact_repeat")}`;
   $("#fusionResultRows").innerHTML = benchmark.rows.map(row => `
     <tr class="${row.id === state.fusionVariant ? "selected-row" : ""}">
       <td><strong>${esc(row.label)}</strong>${row.id === state.fusionVariant ? "<span class=selected-marker>SELECTED</span>" : ""}</td>
@@ -203,7 +263,7 @@ function renderFusionEvidence() {
       <td><span class="evidence-chip ${esc(row.status)}">${esc(fusionStatus(row.status))}</span></td>
     </tr>`).join("");
   const chartRows = benchmark.rows.filter(row => row.score != null);
-  $("#fusionScoreChart").innerHTML = `<div class="score-chart-title"><span>TechnicalScore</span><small>higher is better</small></div>${chartRows.map(row => `
+  $("#fusionScoreChart").innerHTML = `<div class="score-chart-title"><span>TechnicalScore</span><small>${t("fusion.higher_better")}</small></div>${chartRows.map(row => `
     <div class="score-bar-row ${row.id === state.fusionVariant ? "selected" : ""}">
       <div class="score-bar-label"><span>${esc(row.label)}</span><strong>${fmt(row.score, 6)}</strong></div>
       <progress max="1" value="${Number(row.score)}">${fmt(row.score, 6)}</progress>
@@ -212,33 +272,45 @@ function renderFusionEvidence() {
     const a = benchmark.deltas.a_vs_t0;
     const b = benchmark.deltas.b_vs_a;
     $("#fusionDeltaStory").innerHTML = `
-      <article><span>A vs T0</span><strong>HR 持平，Score ${fmt(a.score, 5)}</strong><p>A 没有超过队友：MRR ${fmt(a.mrr, 6)}，MTTC +${fmt(a.mttc, 3)}。</p></article>
+      <article><span>A vs T0</span><strong>${t("fusion.delta.a_title", { score: fmt(a.score, 5) })}</strong><p>${t("fusion.delta.a_body", { mrr: fmt(a.mrr, 6), mttc: fmt(a.mttc, 3) })}</p></article>
       <div class="delta-arrow">→</div>
-      <article class="positive"><span>B vs A</span><strong>Score +${fmt(b.score, 6)}</strong><p>HR 保持 ${pct(benchmark.rows.find(row => row.id === "b").hr)}，MRR +${fmt(b.mrr, 6)}，MTTC ${fmt(b.mttc, 3)}。</p></article>`;
+      <article class="positive"><span>B vs A</span><strong>${t("fusion.delta.b_title", { score: fmt(b.score, 6) })}</strong><p>${t("fusion.delta.b_body", { hr: pct(benchmark.rows.find(row => row.id === "b").hr), mrr: fmt(b.mrr, 6), mttc: fmt(b.mttc, 3) })}</p></article>`;
   } else {
     const delta = benchmark.deltas.b_vs_a;
     const incumbent = benchmark.deltas.b_vs_v212;
     $("#fusionDeltaStory").innerHTML = `
-      <article class="positive"><span>B vs A</span><strong>${delta.miss_to_hit} rescue / ${delta.hit_to_miss} harm / net +${delta.net}</strong><p>HR +${fmt(delta.hr, 4)}，MRR +${fmt(delta.mrr, 6)}，MTTC ${fmt(delta.mttc, 4)}。</p></article>
+      <article class="positive"><span>B vs A</span><strong>${t("fusion.delta.rescue_title", { rescue: delta.miss_to_hit, harm: delta.hit_to_miss, net: delta.net })}</strong><p>${t("fusion.delta.metrics", { hr: fmt(delta.hr, 4), mrr: fmt(delta.mrr, 6), mttc: fmt(delta.mttc, 4) })}</p></article>
       <div class="delta-arrow">≠</div>
-      <article class="warning"><span>B vs v2.12</span><strong>HR +${fmt(incumbent.hr, 4)} · Score ${fmt(incumbent.score, 6)}</strong><p>${esc(benchmark.risk)}</p></article>`;
+      <article class="warning"><span>B vs v2.12</span><strong>HR +${fmt(incumbent.hr, 4)} · Score ${fmt(incumbent.score, 6)}</strong><p>${esc(artifact(`benchmark.${state.fusionBenchmark}.risk`, benchmark.risk))}</p></article>`;
   }
 }
 
 function walkthroughForVariant(flow, variant) {
-  if (state.fusionVariant !== "t0") return { ...flow, stages: flow.stages };
+  if (state.fusionVariant !== "t0") {
+    const key = `walkthrough.${state.walkthrough}`;
+    return {
+      ...flow,
+      label: artifact(`${key}.label`, flow.label),
+      title: artifact(`${key}.title`, flow.title),
+      description: artifact(`${key}.description`, flow.description),
+      stages: flow.stages.map((stage, index) => artifact(`${key}.stage.${index}`, stage)),
+    };
+  }
   const override = state.walkthrough === "override";
+  const stages = override
+    ? ["Detect visible override", "Remove old preference", "Clear shown IDs", "Add new hard constraint", "Rebuild FTS1000 pool", "Serve new Top10"]
+    : ["Parse visible message", "Update session state", "Build FTS1000 pool", "Run ProductScorer", "Exclude shown IDs", "Serve Top10 + question"];
+  const stageKey = override ? "walkthrough.t0.override.stage" : "walkthrough.t0.page.stage";
   return {
     ...flow,
+    label: artifact(`walkthrough.${state.walkthrough}.label`, flow.label),
     title: override
-      ? "T0 在可见 override 后直接重建新的会话意图"
-      : "T0 每一轮重复同一套状态化检索、排序与 unseen pagination",
+      ? t("fusion.t0.override_title")
+      : t("fusion.t0.page_title"),
     description: override
-      ? "移除旧的可覆盖偏好、清空已展示集合并以新硬约束继续 ProductScorer。"
-      : "T0 没有两页 grace 或 shadow rank expert；它每轮更新状态、重取 FTS1000、重排并排除已展示商品。",
-    stages: override
-      ? ["Detect visible override", "Remove old preference", "Clear shown IDs", "Add new hard constraint", "Rebuild FTS1000 pool", "Serve new Top10"]
-      : ["Parse visible message", "Update session state", "Build FTS1000 pool", "Run ProductScorer", "Exclude shown IDs", "Serve Top10 + question"],
+      ? t("fusion.t0.override_body")
+      : t("fusion.t0.page_body"),
+    stages: stages.map((stage, index) => artifact(`${stageKey}.${index}`, stage)),
   };
 }
 
@@ -275,10 +347,10 @@ function renderFusion() {
   renderWalkthrough();
   const row = selectedFusionRow() || {};
   const kpis = [
-    ["Hit Rate@10", pct(row.hr), "membership / 10 turns"],
-    ["MRR", fmt(row.mrr, 6), "target rank quality"],
-    ["MTTC", fmt(row.mttc, 4), "lower is faster"],
-    ["TechnicalScore", fmt(row.score, 6), "0.50 HR + 0.30 MRR + 0.20 efficiency"],
+    ["Hit Rate@10", pct(row.hr), t("fusion.kpi.membership")],
+    ["MRR", fmt(row.mrr, 6), t("fusion.kpi.rank")],
+    ["MTTC", fmt(row.mttc, 4), t("fusion.kpi.faster")],
+    ["TechnicalScore", fmt(row.score, 6), t("fusion.kpi.formula")],
   ];
   $("#fusionKpis").innerHTML = kpis.map(([label, value, note], index) => `
     <article class="fusion-kpi ${index === 3 ? "primary" : ""}"><span>${esc(label)}</span><strong>${esc(value)}</strong><small>${esc(note)}</small></article>`).join("");
@@ -300,26 +372,26 @@ function renderFusionDemo() {
 
   const notice = $("#fusionDemoNotice");
   notice.classList.toggle("hidden", !state.fusionDemoNotice);
-  notice.textContent = state.fusionDemoNotice;
+  notice.textContent = localizedNotice(state.fusionDemoNotice);
   $("#fusionDemoStatus").textContent = state.fusionDemoBusy
-    ? `正在初始化 ${state.fusionDemoVariant.toUpperCase()}…`
+    ? t("demo.initializing", { variant: state.fusionDemoVariant.toUpperCase() })
     : active
-      ? `${state.fusionDemoVariant.toUpperCase()} · turn ${demo.turn || 0}/10 · ${fmt(demo.catalog_products, 0)} products`
-      : "尚未开始";
+      ? t("demo.active", { variant: state.fusionDemoVariant.toUpperCase(), turn: demo.turn || 0, products: fmt(demo.catalog_products, 0) })
+      : t("status.not_started");
 
   $("#fusionDemoHistory").innerHTML = state.fusionDemoHistory.length
     ? state.fusionDemoHistory.map(item => `
       <div class="demo-message user"><span>YOU · TURN ${item.entry.turn}</span>${esc(item.message)}</div>
       <div class="demo-message agent"><span>${esc(item.entry.variant.toUpperCase())} AGENT</span>${esc(item.entry.response.message)}<small>ask_attribute: ${esc(item.entry.response.ask_attribute ?? "null")} · Top10: ${item.entry.recommendations.length}</small></div>`).join("")
-    : `<div class="demo-empty">${state.showcaseOnly ? "冻结架构与结果可直接浏览；安装官方 catalog 后可在此现场运行 T0/A/B。" : "选择 T0、A 或 B，点击“开始”，再发送一个购物需求。"}</div>`;
+    : `<div class="demo-empty">${state.showcaseOnly ? t("demo.showcase") : t("fusion.demo.empty")}</div>`;
   $("#fusionDemoHistory").scrollTop = $("#fusionDemoHistory").scrollHeight;
 
   const latest = state.fusionDemoHistory.at(-1)?.entry;
   if (!latest) {
-    $("#fusionDemoRoute").textContent = "等待输入";
-    $("#fusionDemoEvents").innerHTML = `<div class="demo-empty">运行后显示 8 层计算路径。</div>`;
+    $("#fusionDemoRoute").textContent = t("status.waiting_input");
+    $("#fusionDemoEvents").innerHTML = `<div class="demo-empty">${t("fusion.demo.events_empty")}</div>`;
     $("#fusionDemoState").textContent = "{}";
-    $("#fusionDemoRecommendations").innerHTML = "<li>等待运行</li>";
+    $("#fusionDemoRecommendations").innerHTML = `<li>${t("status.waiting_run")}</li>`;
     return;
   }
   const route = latest.events.find(event => event.layer === "Page router");
@@ -341,14 +413,14 @@ function selectFusionDemoVariant(variant) {
   state.fusionDemoVariant = variant;
   state.fusionDemo = null;
   state.fusionDemoHistory = [];
-  state.fusionDemoNotice = `已选择 ${variant.toUpperCase()}；点击“开始 / 重置会话”加载真实本地 Agent。`;
+  state.fusionDemoNotice = { key: "demo.selected", variables: { variant: variant.toUpperCase() } };
   renderFusionDemo();
 }
 
 async function resetFusionDemo() {
   if (state.fusionDemoBusy) return false;
   state.fusionDemoBusy = true;
-  state.fusionDemoNotice = `正在加载 ${state.fusionDemoVariant.toUpperCase()} 的本地 catalog index；首次启动可能需要数秒。`;
+  state.fusionDemoNotice = { key: "demo.loading", variables: { variant: state.fusionDemoVariant.toUpperCase() } };
   state.fusionDemoHistory = [];
   renderFusionDemo();
   try {
@@ -359,12 +431,12 @@ async function resetFusionDemo() {
       return false;
     }
     state.fusionDemo = payload;
-    state.fusionDemoNotice = `${payload.variant.toUpperCase()} 已就绪。输入只含当前对话可见信息；切换版本会关闭旧索引并开启新会话。`;
-    toast(`${payload.variant.toUpperCase()} Live Lab 已就绪`, "success");
+    state.fusionDemoNotice = { key: "demo.ready", variables: { variant: payload.variant.toUpperCase() } };
+    toast(t("demo.ready_toast", { variant: payload.variant.toUpperCase() }), "success");
     return true;
   } catch (error) {
     state.fusionDemo = null;
-    state.fusionDemoNotice = `初始化失败：${error.message}`;
+    state.fusionDemoNotice = { key: "demo.init_failed", variables: { error: error.message } };
     toast(error.message, "error");
     return false;
   } finally {
@@ -380,7 +452,7 @@ async function sendFusionDemoMessage(message) {
     if (!ready) return;
   }
   state.fusionDemoBusy = true;
-  state.fusionDemoNotice = `正在执行 ${state.fusionDemoVariant.toUpperCase()}：state → retrieval → ranking → routing → Top10…`;
+  state.fusionDemoNotice = { key: "demo.running", variables: { variant: state.fusionDemoVariant.toUpperCase() } };
   renderFusionDemo();
   try {
     const entry = await postJSON("/api/fusion-lab/respond", {
@@ -395,10 +467,10 @@ async function sendFusionDemoMessage(message) {
     state.fusionDemo = { ...state.fusionDemo, turn: entry.turn };
     state.fusionDemoHistory.push({ message, entry });
     state.fusionDemoNotice = entry.turn >= 10
-      ? "已达到官方 10-turn 上限；请重置会话。"
-      : `真实响应完成；计算卡中 OBSERVER-DERIVED 项是对同一 visible state 的确定性重放。`;
+      ? { key: "demo.turn_limit", variables: {} }
+      : { key: "demo.completed", variables: {} };
   } catch (error) {
-    state.fusionDemoNotice = `运行失败：${error.message}`;
+    state.fusionDemoNotice = { key: "demo.run_failed", variables: { error: error.message } };
     toast(error.message, "error");
   } finally {
     state.fusionDemoBusy = false;
@@ -418,16 +490,16 @@ function renderOverview() {
   const sourceState = overview.source_state || { restart_required: false, files: {} };
   const agentSource = (sourceState.files || {}).agent || {};
   $("#runtimeFacts").innerHTML = [
-    ["Python", runtime.python], ["SQLite", runtime.sqlite], ["初始化", `${fmt(runtime.initialization_seconds, 2)} s`],
-    ["Trace schema", runtime.trace_schema], ["Retrieval mode", retrievalMode], ["Rerank mode", rerankMode], ["网络", runtime.network_required ? "required" : "offline"], ["进程", runtime.executable],
+    ["Python", runtime.python], ["SQLite", runtime.sqlite], [t("overview.initialization"), `${fmt(runtime.initialization_seconds, 2)} s`],
+    ["Trace schema", runtime.trace_schema], ["Retrieval mode", retrievalMode], ["Rerank mode", rerankMode], [t("overview.network"), runtime.network_required ? "required" : "offline"], [t("overview.process"), runtime.executable],
     ["Loaded Agent", agentSource.loaded_sha256 ? `${agentSource.loaded_sha256.slice(0, 12)}…` : "unavailable"],
   ].map(([label, value]) => `<div class="fact"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`).join("");
   const freshness = $("#codeFreshness");
   freshness.classList.toggle("hidden", !sourceState.restart_required && !state.showcaseOnly);
   freshness.textContent = state.showcaseOnly
-    ? "SHOWCASE MODE：当前 fresh pull 尚未安装官方 data/catalog.jsonl。冻结的 T0/A/B 架构、Public200/2k 结果、说明文件与播放演示均可浏览；安装 50,000 商品目录并重启后，Live Lab、会话重放与评测控制会自动启用。"
+    ? t("overview.showcase")
     : sourceState.restart_required
-      ? "检测到 Agent/Fusion-Lab/attributes/reranker/coverage/slot-ledger/clarification/shadow-analysis/evaluator/generalization 源码或已加载的 catalog/public set 在 Workbench 启动后发生变化。为防止混用新旧代码或数据产生假实验，请先停止并重新双击 Start Observer.vbs；评测、泛化、重放和 Lab 已锁定。"
+      ? t("overview.restart")
       : "";
   $$('[data-action="evaluation"], [data-action="generalization"], [data-action="tests"]').forEach(button => {
     button.disabled = sourceState.restart_required || state.showcaseOnly;
@@ -481,7 +553,7 @@ function renderSessions() {
     <button class="session-item ${session.sample_id === state.selectedId ? "active" : ""}" data-id="${esc(session.sample_id)}">
       <div class="session-top"><span>${esc(session.sample_id)}</span><span class="result-dot ${session.hit === true ? "hit" : session.hit === false ? "miss" : ""}"></span></div>
       <div class="session-title">${esc(scenarioName(session.scenario_type))} · ${esc(session.target_title)}</div>
-    </button>`).join("") || `<div class="empty-row">${state.showcaseOnly ? "安装官方 catalog 后启用真实会话诊断" : "没有符合条件的会话"}</div>`;
+    </button>`).join("") || `<div class="empty-row">${state.showcaseOnly ? t("sessions.catalog_required") : t("sessions.no_match")}</div>`;
   $$(".session-item").forEach(button => button.addEventListener("click", () => selectSession(button.dataset.id)));
 }
 
@@ -491,7 +563,7 @@ async function selectSession(sampleId, refresh = false) {
   state.turnIndex = 0;
   renderSessions();
   $("#emptyState").classList.remove("hidden");
-  $("#emptyState").innerHTML = `<div class="loader-ring"></div><h2>运行 ${esc(sampleId)}</h2><p>使用 opaque session ID 经过当前 Agent 与公开模拟器。</p>`;
+  $("#emptyState").innerHTML = `<div class="loader-ring"></div><h2>${t("trace.running", { sample: esc(sampleId) })}</h2><p>${t("trace.running_body")}</p>`;
   $("#traceView").classList.add("hidden");
   try {
     const suffix = refresh ? "&refresh=1" : "";
@@ -502,7 +574,7 @@ async function selectSession(sampleId, refresh = false) {
     $("#traceView").classList.remove("hidden");
     renderTrace();
   } catch (error) {
-    $("#emptyState").innerHTML = `<h2>Trace 失败</h2><p>${esc(error.message)}</p>`;
+    $("#emptyState").innerHTML = `<h2>${t("trace.failed")}</h2><p>${esc(error.message)}</p>`;
   }
 }
 
@@ -657,18 +729,18 @@ async function loadCatalog(reset = false) {
   try {
     state.catalog = await requestJSON(`/api/catalog?q=${encodeURIComponent(query)}&offset=${state.catalogOffset}&limit=${state.catalogLimit}`);
     renderCatalog();
-  } catch (error) { toast(`目录搜索失败：${error.message}`, "error"); }
+  } catch (error) { toast(t("catalog.search_failed", { error: error.message }), "error"); }
 }
 
 function renderCatalog() {
   const catalog = state.catalog;
-  $("#catalogCount").textContent = `${catalog.total.toLocaleString()} matches`;
+  $("#catalogCount").textContent = t("catalog.matches", { count: catalog.total.toLocaleString() });
   $("#catalogRows").innerHTML = catalog.items.map(product => `
-    <tr class="catalog-row" data-asin="${esc(product.parent_asin)}"><td class="product-name">${esc(product.title)}</td><td class="asin">${esc(product.parent_asin)}</td><td>${esc((product.categories || []).slice(-2).join(" / "))}</td><td>${product.price == null ? "—" : `$${esc(product.price)}`}</td><td>${fmt(product.bm25_score, 6)}</td></tr>`).join("") || `<tr><td colspan="5" class="empty-row">没有匹配商品</td></tr>`;
+    <tr class="catalog-row" data-asin="${esc(product.parent_asin)}"><td class="product-name">${esc(product.title)}</td><td class="asin">${esc(product.parent_asin)}</td><td>${esc((product.categories || []).slice(-2).join(" / "))}</td><td>${product.price == null ? "—" : `$${esc(product.price)}`}</td><td>${fmt(product.bm25_score, 6)}</td></tr>`).join("") || `<tr><td colspan="5" class="empty-row">${t("catalog.no_match")}</td></tr>`;
   $$(".catalog-row").forEach(row => row.addEventListener("click", () => selectProduct(row.dataset.asin)));
   const first = catalog.total ? catalog.offset + 1 : 0;
   const last = Math.min(catalog.total, catalog.offset + catalog.items.length);
-  $("#catalogPageLabel").textContent = `${first}–${last} / ${catalog.total}`;
+  $("#catalogPageLabel").textContent = t("catalog.range", { first, last, total: catalog.total });
   $("#catalogPrev").disabled = catalog.offset === 0;
   $("#catalogNext").disabled = catalog.offset + catalog.limit >= catalog.total;
 }
@@ -676,12 +748,13 @@ function renderCatalog() {
 async function selectProduct(parentAsin) {
   try {
     const product = await requestJSON(`/api/product?parent_asin=${encodeURIComponent(parentAsin)}`);
+    $("#productDetail").removeAttribute("data-i18n");
     $("#productDetail").textContent = JSON.stringify(product, null, 2);
   } catch (error) { toast(error.message, "error"); }
 }
 
 function jobStatusLabel(job) {
-  return ({ queued: "排队", running: "运行中", cancelling: "取消中", cancelled: "已取消", completed: "完成", failed: "失败" })[job.status] || job.status;
+  return ({ queued: t("job.queued"), running: t("job.running"), cancelling: t("job.cancelling"), cancelled: t("job.cancelled"), completed: t("job.completed"), failed: t("job.failed") })[job.status] || job.status;
 }
 
 function renderJobs() {
@@ -689,7 +762,7 @@ function renderJobs() {
   const html = state.jobs.slice(0, 8).map(job => `
     <button class="job-row ${job.job_id === state.selectedJobId ? "active" : ""}" data-job-id="${esc(job.job_id)}">
       <span class="job-kind">${kindLabel[job.kind] || esc(job.kind)}</span><div><strong>${esc(job.message)}</strong><small>${esc(job.job_id)} · ${job.elapsed_seconds == null ? job.created_at : `${fmt(job.elapsed_seconds, 1)} s`}</small></div><span class="job-status ${job.status}">${jobStatusLabel(job)}</span>
-    </button>`).join("") || `<div class="empty-row">尚无运行记录</div>`;
+    </button>`).join("") || `<div class="empty-row">${t("runs.no_history")}</div>`;
   $("#runJobs").innerHTML = html;
   $("#overviewJobs").innerHTML = html;
   $$(".job-row").forEach(button => button.addEventListener("click", () => { state.selectedJobId = button.dataset.jobId; renderJobs(); renderSelectedJob(); }));
@@ -700,7 +773,7 @@ function renderSelectedJob() {
   const active = state.jobs.find(job => ["queued", "running", "cancelling"].includes(job.status));
   const selected = state.jobs.find(job => job.job_id === state.selectedJobId) || active || state.jobs[0];
   if (!selected) {
-    $("#jobProgressLabel").textContent = "—"; $("#jobProgress").style.width = "0%"; $("#jobLogs").textContent = "尚未运行任务。"; return;
+    $("#jobProgressLabel").textContent = "—"; $("#jobProgress").style.width = "0%"; $("#jobLogs").textContent = t("runs.logs_empty"); return;
   }
   state.selectedJobId = selected.job_id;
   $("#jobProgressLabel").textContent = `${jobStatusLabel(selected)} · ${Math.round((selected.progress || 0) * 100)}%`;
@@ -735,8 +808,8 @@ async function startJob(kind) {
   try {
     const job = await postJSON(`/api/jobs/${kind}`);
     state.selectedJobId = job.job_id;
-    const label = kind === "evaluation" ? "公开评测" : (kind === "generalization" ? "泛化压力测试" : "单元测试");
-    toast(`${label}已启动`, "success");
+    const label = kind === "evaluation" ? t("job.evaluation") : (kind === "generalization" ? t("job.generalization") : t("job.tests"));
+    toast(t("job.started", { label }), "success");
     navigate("runs");
     await loadJobs();
   } catch (error) { toast(error.message, "error"); }
@@ -745,7 +818,7 @@ async function startJob(kind) {
 async function cancelActiveJob() {
   const job = state.jobs.find(item => item.job_id === state.selectedJobId && ["queued", "running", "cancelling"].includes(item.status))
     || state.jobs.find(item => ["queued", "running", "cancelling"].includes(item.status));
-  if (!job) { toast("没有可取消的活动任务"); return; }
+  if (!job) { toast(t("job.no_active")); return; }
   try { await postJSON(`/api/jobs/${encodeURIComponent(job.job_id)}/cancel`); await loadJobs(); } catch (error) { toast(error.message, "error"); }
 }
 
@@ -779,11 +852,12 @@ async function reloadResults() {
 async function resetLab() {
   try {
     state.lab = await postJSON("/api/lab/reset");
+    state.labHasMessages = false;
     const retrievalMode = state.lab.retrieval_mode ?? "unrecorded";
     const rerankMode = state.lab.rerank_mode ?? "unrecorded";
     $("#labModeBadge").textContent = `retrieval ${retrievalMode} · rerank ${rerankMode}`;
-    $("#labHistory").innerHTML = `<div class="system-message">新会话 ${esc(state.lab.session_id.slice(-8))} · retrieval ${esc(retrievalMode)} · rerank ${esc(rerankMode)} · 当前 Agent 会累积对话约束；可用多轮消息观察状态、稀疏融合、Query-term Coverage 与独立的属性重排诊断。</div>`;
-    $("#labEvents").textContent = "等待第一条消息。";
+    $("#labHistory").innerHTML = `<div class="system-message">${t("lab.started", { id: esc(state.lab.session_id.slice(-8)), retrieval: esc(retrievalMode), rerank: esc(rerankMode) })}</div>`;
+    $("#labEvents").textContent = t("lab.waiting");
     $("#labInput").focus();
   } catch (error) { toast(error.message, "error"); }
 }
@@ -792,12 +866,14 @@ async function sendLabMessage(message) {
   if (!state.lab) await resetLab();
   try {
     const entry = await postJSON("/api/lab/respond", { session_id: state.lab.session_id, message });
+    state.labHasMessages = true;
     const retrievalMode = entry.retrieval_mode ?? state.lab.retrieval_mode ?? "unrecorded";
     const rerankMode = entry.rerank_mode ?? state.lab.rerank_mode ?? "unrecorded";
     $("#labModeBadge").textContent = `retrieval ${retrievalMode} · rerank ${rerankMode}`;
     const recommendations = entry.recommendations.map((product, index) => `<li><b>${index + 1}</b><span>${esc(product.title)}</span><code>${esc(product.parent_asin)}</code></li>`).join("");
     $("#labHistory").insertAdjacentHTML("beforeend", `<div class="bubble user"><span class="bubble-label">YOU · TURN ${entry.turn}</span>${esc(message)}</div><div class="bubble agent"><span class="bubble-label">AGENT</span>${esc(entry.response.message)}<small>ask_attribute: ${esc(entry.response.ask_attribute ?? "null")}</small></div><ol class="lab-recommendations">${recommendations || "<li>No results</li>"}</ol>`);
     $("#labHistory").scrollTop = $("#labHistory").scrollHeight;
+    $("#labEvents").removeAttribute("data-i18n");
     $("#labEvents").textContent = JSON.stringify(entry.events, null, 2);
   } catch (error) { toast(error.message, "error"); }
 }
@@ -806,7 +882,7 @@ function renderDocuments() {
   const query = $("#documentSearch").value.trim().toLowerCase();
   const documents = state.documents.filter(item => !query || `${item.title} ${item.path} ${item.group}`.toLowerCase().includes(query));
   $("#documentList").innerHTML = documents.map(item => `
-    <button class="document-item ${item.document_id === state.selectedDocumentId ? "active" : ""}" data-document-id="${esc(item.document_id)}"><span>${esc(item.group)}</span><strong>${esc(item.title)}</strong><small>${esc(item.path)} · ${bytes(item.bytes)}</small></button>`).join("") || `<div class="empty-row">没有匹配文档</div>`;
+    <button class="document-item ${item.document_id === state.selectedDocumentId ? "active" : ""}" data-document-id="${esc(item.document_id)}"><span>${esc(item.group)}</span><strong>${esc(item.title)}</strong><small>${esc(item.path)} · ${bytes(item.bytes)}</small></button>`).join("") || `<div class="empty-row">${t("docs.no_match")}</div>`;
   $$(".document-item").forEach(button => button.addEventListener("click", () => selectDocument(button.dataset.documentId)));
 }
 
@@ -815,6 +891,8 @@ async function selectDocument(documentId) {
     const document = await requestJSON(`/api/document?id=${encodeURIComponent(documentId)}`);
     state.selectedDocumentId = documentId;
     $("#documentGroup").textContent = document.group;
+    $("#documentTitle").removeAttribute("data-i18n");
+    $("#documentContent").removeAttribute("data-i18n");
     $("#documentTitle").textContent = document.title;
     $("#documentPath").textContent = document.path;
     $("#documentContent").textContent = document.content;
@@ -828,24 +906,37 @@ function exportTrace() {
   const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `${state.trace.sample_id}_trace.json`; link.click(); URL.revokeObjectURL(link.href);
 }
 
-async function checkHealth() {
+function renderHealthStatus() {
   const status = $("#runtimeStatus");
+  const health = state.health;
+  if (!health) {
+    status.classList.add("offline");
+    status.querySelector("span:last-child").textContent = t("status.disconnected");
+    return;
+  }
+  status.classList.remove("offline");
+  status.querySelector("span:last-child").textContent = health.showcase_only
+    ? t("health.showcase", { branch: health.branch || "local", commit: health.commit || "—" })
+    : t("health.live", { branch: health.branch || "local", commit: health.commit || "—", retrieval: health.retrieval_mode ?? "unrecorded", rerank: health.rerank_mode ?? "unrecorded" });
+}
+
+async function checkHealth() {
   try {
     const health = await requestJSON("/api/health");
-    status.classList.remove("offline");
-    status.querySelector("span:last-child").textContent = health.showcase_only
-      ? `${health.branch || "local"} @ ${health.commit || "—"} · SHOWCASE · catalog required for live runs`
-      : `${health.branch || "local"} @ ${health.commit || "—"} · retrieval ${health.retrieval_mode ?? "unrecorded"} · rerank ${health.rerank_mode ?? "unrecorded"}`;
+    state.health = health;
+    renderHealthStatus();
     if (state.overview && health.restart_required !== state.overview.source_state?.restart_required) {
       state.overview = await requestJSON("/api/overview");
       renderOverview();
     }
   } catch {
-    status.classList.add("offline"); status.querySelector("span:last-child").textContent = "已断开";
+    state.health = null;
+    renderHealthStatus();
   }
 }
 
 function bindEvents() {
+  $$('[data-language]').forEach(button => button.addEventListener("click", () => setLocale(button.dataset.language)));
   $$(".nav-tab").forEach(button => button.addEventListener("click", () => navigate(button.dataset.page)));
   $$('[data-page-jump]').forEach(button => button.addEventListener("click", () => navigate(button.dataset.pageJump)));
   $$('[data-action="evaluation"]').forEach(button => button.addEventListener("click", () => startJob("evaluation")));
@@ -893,27 +984,30 @@ function bindEvents() {
   $("#computeNext").addEventListener("click", () => { stopComputePlayback(); stepCompute(1); });
   $("#computePlay").addEventListener("click", toggleComputePlayback);
   $("#shutdownButton").addEventListener("click", async () => {
-    if (!window.confirm("停止本地 Agent Workbench？再次使用时双击 Start Observer.vbs。")) return;
-    await postJSON("/api/shutdown"); toast("Workbench 已停止"); setTimeout(checkHealth, 700);
+    if (!window.confirm(t("shutdown.confirm"))) return;
+    await postJSON("/api/shutdown"); toast(t("shutdown.stopped")); setTimeout(checkHealth, 700);
   });
 }
 
 (async function init() {
+  setLocale(state.locale, false);
   bindEvents();
   try {
     const tokenResponse = await fetch("/api/token", { cache: "no-store" });
     const tokenPayload = await tokenResponse.json();
-    if (!tokenResponse.ok || !tokenPayload.token) throw new Error(tokenPayload.error || "无法取得本机控制令牌");
+    if (!tokenResponse.ok || !tokenPayload.token) throw new Error(tokenPayload.error || t("auth.failed"));
     state.apiToken = tokenPayload.token;
     const [overview, sessions, experiments, documents, jobs, fusion] = await Promise.all([
       requestJSON("/api/overview"), requestJSON("/api/sessions"), requestJSON("/api/experiments"), requestJSON("/api/documents"), requestJSON("/api/jobs"), requestJSON("/api/fusion-showcase"),
     ]);
     state.overview = overview; state.sessions = sessions.sessions; state.metrics = sessions.metrics;
     state.experiments = experiments.experiments; state.documents = documents.documents; state.jobs = jobs.jobs; state.fusion = fusion;
+    state.initialized = true;
     renderFusion(); renderOverview(); renderFusionDemo(); renderSessions(); renderExperiments(); renderDocuments(); renderJobs(); checkHealth();
     navigate(window.location.hash.slice(1) || "fusion");
   } catch (error) {
-    $("#overviewPage").innerHTML = `<div class="empty-state panel"><h2>Workbench 启动失败</h2><p>${esc(error.message)}</p></div>`;
+    state.startupError = error.message;
+    renderLocalizedState();
   }
   setInterval(loadJobs, 1200);
   setInterval(checkHealth, 3500);

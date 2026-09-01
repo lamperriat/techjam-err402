@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hans">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -18,18 +18,23 @@
         <h1>Fusion Studio</h1>
       </div>
     </div>
-    <nav class="nav-tabs" aria-label="Workbench navigation">
+    <nav class="nav-tabs" aria-label="Workbench navigation" data-i18n-aria="nav.aria">
       <button class="nav-tab active" data-page="fusion">Fusion A/B</button>
-      <button class="nav-tab" data-page="overview">运行时</button>
-      <button class="nav-tab" data-page="sessions">会话诊断</button>
-      <button class="nav-tab" data-page="catalog">商品与索引</button>
-      <button class="nav-tab" data-page="runs">运行与实验</button>
-      <button class="nav-tab" data-page="lab">交互 Lab</button>
-      <button class="nav-tab" data-page="docs">资料库</button>
+      <button class="nav-tab" data-page="overview" data-i18n="nav.runtime">Runtime</button>
+      <button class="nav-tab" data-page="sessions" data-i18n="nav.sessions">Session Diagnostics</button>
+      <button class="nav-tab" data-page="catalog" data-i18n="nav.catalog">Catalog &amp; Index</button>
+      <button class="nav-tab" data-page="runs" data-i18n="nav.runs">Runs &amp; Experiments</button>
+      <button class="nav-tab" data-page="lab" data-i18n="nav.lab">Agent Lab</button>
+      <button class="nav-tab" data-page="docs" data-i18n="nav.docs">Documents</button>
     </nav>
     <div class="top-actions">
-      <div id="runtimeStatus" class="runtime-status"><span class="status-dot"></span><span>连接中</span></div>
-      <button id="shutdownButton" class="ghost-button danger">停止</button>
+      <div class="language-switch" role="group" aria-label="Language" data-i18n-aria="language.label">
+        <span data-i18n="language.label">Language</span>
+        <button class="language-option active" data-language="en" aria-pressed="true">EN</button>
+        <button class="language-option" data-language="zh-Hans" aria-pressed="false">ZH</button>
+      </div>
+      <div id="runtimeStatus" class="runtime-status"><span class="status-dot"></span><span data-i18n="status.connecting">Connecting</span></div>
+      <button id="shutdownButton" class="ghost-button danger" data-i18n="action.stop">Stop</button>
     </div>
   </header>
 
@@ -39,13 +44,13 @@
     <section id="fusionPage" class="page active">
       <section class="fusion-hero panel">
         <div class="fusion-hero-copy">
-          <div class="fusion-live-label"><span></span>FROZEN EVIDENCE · NO EVALUATOR RUN</div>
+          <div class="fusion-live-label" data-i18n="fusion.label.frozen"><span></span>FROZEN EVIDENCE · NO EVALUATOR RUN</div>
           <div class="eyebrow">TEAMMATE V1 × V2.12 / ARCHITECTURE OBSERVER</div>
-          <h2>从 50,000 个商品，到一次可解释的 Top 10</h2>
-          <p>用同一张计算图看清队友 T0、严格 Fusion A，以及只增加 bounded <code>other</code> 问询的 Fusion B。切换版本、意图页和评测集，观察每一层到底改变了什么。</p>
+          <h2 data-i18n="fusion.hero.title">From 50,000 products to one explainable Top 10</h2>
+          <p data-i18n="fusion.hero.body">Use one compute graph to compare teammate T0, strict Fusion A, and Fusion B, whose only addition is the bounded <code>other</code> question policy. Switch architecture, intent page, and benchmark to see exactly what changes at each layer.</p>
           <div class="fusion-hero-actions">
-            <button class="primary-button" data-page-jump="sessions">打开真实会话 Trace</button>
-            <button class="ghost-button" data-page-jump="docs">查看交接文档</button>
+            <button class="primary-button" data-page-jump="sessions" data-i18n="fusion.hero.trace">Open a real session trace</button>
+            <button class="ghost-button" data-page-jump="docs" data-i18n="fusion.hero.handoff">Read the handoff</button>
           </div>
         </div>
         <div class="fusion-orbit" aria-hidden="true">
@@ -59,9 +64,9 @@
         </div>
       </section>
 
-      <section class="fusion-toolbar panel" aria-label="Fusion display controls">
+      <section class="fusion-toolbar panel" aria-label="Fusion display controls" data-i18n-aria="fusion.controls.aria">
         <div class="control-cluster">
-          <span class="control-label">ARCHITECTURE</span>
+          <span class="control-label" data-i18n="fusion.controls.architecture">ARCHITECTURE</span>
           <div class="segmented" id="fusionVariantControls">
             <button class="segment" data-fusion-variant="t0">Teammate T0</button>
             <button class="segment active" data-fusion-variant="a">Fusion A</button>
@@ -69,13 +74,13 @@
           </div>
         </div>
         <div class="control-cluster">
-          <span class="control-label">EVIDENCE</span>
+          <span class="control-label" data-i18n="fusion.controls.evidence">EVIDENCE</span>
           <div class="segmented" id="fusionBenchmarkControls">
             <button class="segment active" data-fusion-benchmark="public200">Public200</button>
             <button class="segment" data-fusion-benchmark="two_k_oof">2k OOF</button>
           </div>
         </div>
-        <div id="fusionEvidenceStatus" class="evidence-status"><span class="status-dot"></span>Loading tracked artifact</div>
+        <div id="fusionEvidenceStatus" class="evidence-status"><span class="status-dot"></span><span data-i18n="fusion.controls.loading">Loading tracked artifact</span></div>
       </section>
 
       <section id="fusionKpis" class="fusion-kpis" aria-label="Selected architecture metrics"></section>
@@ -91,24 +96,24 @@
             <span id="fusionDecisionBadge" class="decision-badge"></span>
           </div>
           <div class="architecture-legend">
-            <span><i class="legend-dot shared"></i>shared computation</span>
-            <span><i class="legend-dot route"></i>routing boundary</span>
-            <span><i class="legend-dot guard"></i>fail-safe</span>
+            <span data-i18n="fusion.legend.shared"><i class="legend-dot shared"></i>shared computation</span>
+            <span data-i18n="fusion.legend.route"><i class="legend-dot route"></i>routing boundary</span>
+            <span data-i18n="fusion.legend.guard"><i class="legend-dot guard"></i>fail-safe</span>
           </div>
           <div id="fusionArchitecture" class="architecture-flow"></div>
           <div class="architecture-foot">
-            <span>QUESTION POLICY</span>
+            <span data-i18n="fusion.question_policy">QUESTION POLICY</span>
             <strong id="fusionQuestionPolicy"></strong>
           </div>
         </section>
 
         <aside class="panel compute-panel">
           <div class="compute-topline">
-            <div><div class="eyebrow">COMPUTE WALKTHROUGH</div><h2>这一轮经历了什么？</h2></div>
+            <div><div class="eyebrow">COMPUTE WALKTHROUGH</div><h2 data-i18n="fusion.walkthrough.title">What happened during this turn?</h2></div>
             <div class="compute-player">
-              <button id="computePrev" class="icon-button" aria-label="Previous compute stage">←</button>
+              <button id="computePrev" class="icon-button" aria-label="Previous compute stage" data-i18n-aria="action.previous_compute">←</button>
               <button id="computePlay" class="icon-button play-button" aria-label="Play compute stages">▶</button>
-              <button id="computeNext" class="icon-button" aria-label="Next compute stage">→</button>
+              <button id="computeNext" class="icon-button" aria-label="Next compute stage" data-i18n-aria="action.next_compute">→</button>
             </div>
           </div>
           <div class="page-scenario-tabs" id="walkthroughControls">
@@ -124,9 +129,9 @@
           <div id="computeStageRail" class="compute-stage-rail"></div>
           <div class="compute-detail">
             <div class="compute-index" id="computeIndex">01</div>
-            <div><span>ACTIVE STAGE</span><h3 id="computeStageTitle"></h3><p id="computeDescription"></p></div>
+            <div><span data-i18n="fusion.active_stage">ACTIVE STAGE</span><h3 id="computeStageTitle"></h3><p id="computeDescription"></p></div>
           </div>
-          <p class="simulation-note">架构演示使用冻结定义，不读取 target，也不会触发 evaluator。真实 T0/A/B 响应请使用下方 Live Lab；“会话诊断”展示的是 legacy served Agent trace。</p>
+          <p class="simulation-note" data-i18n="fusion.walkthrough.note">The architecture walkthrough uses frozen definitions, never reads a target, and never invokes the evaluator. Use the Live Lab below for real T0/A/B responses; Session Diagnostics shows the legacy served-Agent trace.</p>
         </aside>
       </div>
 
@@ -135,8 +140,8 @@
           <div>
             <div class="fusion-live-label"><span></span>LIVE · TARGET-BLIND · LOCAL ONLY</div>
             <div class="eyebrow">REAL T0 / A / B EXECUTION</div>
-            <h2>现场运行算法，逐层讲解这一轮为什么这样输出</h2>
-            <p>选择版本后开始新会话。网页会实际调用对应 Agent，并展示 observer-derived 状态快照、确定性候选池重放、页面路由、问询 lifecycle 和真实 Top10，适合直接录制讲解视频。</p>
+            <h2 data-i18n="fusion.demo.title">Run the real algorithm and explain every layer</h2>
+            <p data-i18n="fusion.demo.body">Choose a version and start a new session. The page calls that real Agent and shows an observer-derived state snapshot, deterministic candidate replay, page routing, question lifecycle, and the actual Top 10—ready for a recorded walkthrough.</p>
           </div>
           <div class="fusion-demo-actions">
             <div class="segmented" id="fusionDemoVariantControls">
@@ -144,50 +149,50 @@
               <button class="segment active" data-demo-variant="a">A</button>
               <button class="segment" data-demo-variant="b">B</button>
             </div>
-            <button id="fusionDemoStart" class="primary-button">开始 / 重置会话</button>
+            <button id="fusionDemoStart" class="primary-button" data-i18n="fusion.demo.start">Start / Reset Session</button>
           </div>
         </div>
         <div id="fusionDemoNotice" class="demo-notice hidden"></div>
         <div class="demo-prompt-row" aria-label="Demo prompt presets">
-          <span>QUICK SCENARIOS</span>
+          <span data-i18n="fusion.demo.quick">QUICK SCENARIOS</span>
           <button data-demo-prompt="I'm looking for running shoes. A key requirement is: black and waterproof.">Buying</button>
           <button data-demo-prompt="I'm looking for jewelry, but I'm still exploring.">Browsing</button>
-          <button data-demo-prompt="For that, what matters is: silver; minimalist." title="建议先运行 Buying 或 Browsing，再发送此回复">Clarification</button>
-          <button data-demo-prompt="Actually, ignore my earlier preference. What I need is: gold statement earrings." title="建议先运行 Buying 或 Browsing，再用此句展示 intent reset">Override</button>
+          <button data-demo-prompt="For that, what matters is: silver; minimalist." title="Run Buying or Browsing first, then send this reply" data-i18n-title="fusion.demo.clarification_hint">Clarification</button>
+          <button data-demo-prompt="Actually, ignore my earlier preference. What I need is: gold statement earrings." title="Run Buying or Browsing first, then use this to demonstrate intent reset" data-i18n-title="fusion.demo.override_hint">Override</button>
         </div>
         <div class="fusion-demo-grid">
           <div class="demo-chat-column">
-            <div class="demo-column-heading"><span>CONVERSATION</span><strong id="fusionDemoStatus">尚未开始</strong></div>
+            <div class="demo-column-heading"><span data-i18n="fusion.demo.conversation">CONVERSATION</span><strong id="fusionDemoStatus" data-i18n="status.not_started">Not started</strong></div>
             <div id="fusionDemoHistory" class="demo-history">
-              <div class="demo-empty">选择 T0、A 或 B，点击“开始”，再发送一个购物需求。</div>
+              <div class="demo-empty" data-i18n="fusion.demo.empty">Select T0, A, or B, click Start, then send a shopping request.</div>
             </div>
             <form id="fusionDemoForm" class="demo-form">
-              <input id="fusionDemoInput" class="input" autocomplete="off" placeholder="例如：I'm looking for running shoes..." disabled>
-              <button class="primary-button" type="submit" disabled>运行这一轮</button>
+              <input id="fusionDemoInput" class="input" autocomplete="off" placeholder="Example: I'm looking for running shoes..." data-i18n-placeholder="fusion.demo.placeholder" disabled>
+              <button class="primary-button" type="submit" data-i18n="fusion.demo.run_turn" disabled>Run this turn</button>
             </form>
           </div>
           <div class="demo-compute-column">
-            <div class="demo-column-heading"><span>OBSERVER-DERIVED COMPUTE SNAPSHOT</span><strong id="fusionDemoRoute">等待输入</strong></div>
-            <div id="fusionDemoEvents" class="demo-event-flow"><div class="demo-empty">运行后显示 8 层计算路径。</div></div>
+            <div class="demo-column-heading"><span data-i18n="fusion.demo.snapshot">OBSERVER-DERIVED COMPUTE SNAPSHOT</span><strong id="fusionDemoRoute" data-i18n="status.waiting_input">Waiting for input</strong></div>
+            <div id="fusionDemoEvents" class="demo-event-flow"><div class="demo-empty" data-i18n="fusion.demo.events_empty">Run a turn to show the 8-layer compute path.</div></div>
             <div class="demo-inspector-grid">
-              <section><span>VISIBLE STATE</span><pre id="fusionDemoState" class="code-view">{}</pre></section>
-              <section><span>CATALOG-VALID TOP10</span><ol id="fusionDemoRecommendations" class="demo-products"><li>等待运行</li></ol></section>
+              <section><span data-i18n="fusion.demo.visible_state">VISIBLE STATE</span><pre id="fusionDemoState" class="code-view">{}</pre></section>
+              <section><span data-i18n="fusion.demo.valid_top10">CATALOG-VALID TOP10</span><ol id="fusionDemoRecommendations" class="demo-products"><li data-i18n="status.waiting_run">Waiting to run</li></ol></section>
             </div>
           </div>
         </div>
-        <p class="demo-boundary-note">此 Lab 不接收 sample_id、target、scenario 或 evaluator state。候选数量是对同一可见 state 的确定性 observer 重放；Top10、问题和路由来自真实 T0/A/B 响应。</p>
+        <p class="demo-boundary-note" data-i18n="fusion.demo.boundary">This Lab never receives a sample ID, target, scenario, or evaluator state. Candidate counts come from a deterministic observer replay of the same visible state; the Top 10, question, and routing come from the real T0/A/B response.</p>
       </section>
 
       <section class="panel evidence-panel">
         <div class="section-heading evidence-heading">
-          <div><div class="eyebrow">FROZEN BENCHMARK EVIDENCE</div><h2 id="benchmarkTitle">Public200 结果</h2></div>
+          <div><div class="eyebrow" data-i18n="fusion.evidence.title">FROZEN BENCHMARK EVIDENCE</div><h2 id="benchmarkTitle">Public200 results</h2></div>
           <span id="benchmarkSemantics" class="semantics-pill"></span>
         </div>
         <div class="evidence-layout">
-          <div id="fusionScoreChart" class="score-chart" aria-label="TechnicalScore comparison chart"></div>
+          <div id="fusionScoreChart" class="score-chart" aria-label="TechnicalScore comparison chart" data-i18n-aria="fusion.evidence.chart_aria"></div>
           <div class="table-wrap fusion-table-wrap">
             <table class="fusion-results-table">
-              <thead><tr><th>Variant</th><th>HR@10</th><th>MRR</th><th>MTTC ↓</th><th>TechnicalScore</th><th>Evidence</th></tr></thead>
+              <thead><tr><th data-i18n="table.variant">Variant</th><th>HR@10</th><th>MRR</th><th>MTTC ↓</th><th>TechnicalScore</th><th data-i18n="table.evidence">Evidence</th></tr></thead>
               <tbody id="fusionResultRows"></tbody>
             </table>
           </div>
@@ -197,13 +202,13 @@
 
       <section class="fusion-boundary-grid">
         <article class="panel boundary-card">
-          <div class="boundary-icon">01</div><div><span>OFFICIAL CONTRACT</span><h3>后端 Agent 没有被网站改写</h3><p><code>reset/respond</code>、Top10、10-turn 与合法 ASIN 规则保持原样；展示层不进入提交依赖。</p></div>
+          <div class="boundary-icon">01</div><div><span>OFFICIAL CONTRACT</span><h3 data-i18n="fusion.boundary.contract_title">The website does not rewrite the backend Agent</h3><p data-i18n="fusion.boundary.contract_body">The <code>reset/respond</code> contract, Top 10, 10-turn limit, and valid-ASIN rules remain unchanged. The presentation layer is not a submission dependency.</p></div>
         </article>
         <article class="panel boundary-card">
-          <div class="boundary-icon">02</div><div><span>CAUSAL RUNTIME</span><h3>target 只存在于事后诊断</h3><p>检索与问询只接收可见 profile、message、turn、top_k；标签不会成为运行时特征。</p></div>
+          <div class="boundary-icon">02</div><div><span>CAUSAL RUNTIME</span><h3 data-i18n="fusion.boundary.causal_title">Targets exist only in post-hoc diagnostics</h3><p data-i18n="fusion.boundary.causal_body">Retrieval and questioning receive only visible profile, message, turn, and top_k inputs. Labels are never runtime features.</p></div>
         </article>
         <article class="panel boundary-card warning">
-          <div class="boundary-icon">03</div><div><span>BENCHMARK SEMANTICS</span><h3>2k OOF 不是 private 800</h3><p>网页明确分隔 released Public200、本地 train_explore OOF 与尚未获得的官方 private 成绩。</p></div>
+          <div class="boundary-icon">03</div><div><span>BENCHMARK SEMANTICS</span><h3 data-i18n="fusion.boundary.benchmark_title">2k OOF is not the private 800</h3><p data-i18n="fusion.boundary.benchmark_body">The site clearly separates released Public200 results, local train_explore OOF results, and unavailable official private results.</p></div>
         </article>
       </section>
     </section>
@@ -212,25 +217,25 @@
       <div class="hero panel">
         <div>
           <div class="eyebrow">LIVE LEGACY RUNTIME</div>
-          <h2>当前本机 Workbench 的真实 Agent 运行时</h2>
-          <p>这一页继续展示 <code>starter.Agent</code> 的 R08/P11 运行状态，以及 slot ledger / 候选感知澄清 shadow；它与 Fusion A/B 的冻结证据页分开，可用于开发诊断，但不是严格 A/B 结果的实时重放。</p>
+          <h2 data-i18n="overview.title">The live legacy Agent runtime on this machine</h2>
+          <p data-i18n="overview.body">This page shows <code>starter.Agent</code>'s R08/P11 runtime, slot ledger, and candidate-aware clarification shadow. It is separate from the frozen Fusion A/B evidence and is for development diagnostics, not a live replay of strict A/B results.</p>
           <p id="codeFreshness" class="boundary-note hidden"></p>
         </div>
         <div class="hero-actions">
-          <button class="primary-button" data-action="evaluation">运行 200 会话评测</button>
-          <button class="secondary-button" data-action="generalization">运行泛化压力测试</button>
-          <button class="secondary-button" data-action="tests">运行 73 项核心测试</button>
+          <button class="primary-button" data-action="evaluation" data-i18n="action.run_public">Run 200-Session Evaluation</button>
+          <button class="secondary-button" data-action="generalization" data-i18n="action.run_generalization">Run Generalization Stress Test</button>
+          <button class="secondary-button" data-action="tests" data-i18n="action.run_tests">Run 74 Core Tests</button>
         </div>
       </div>
 
       <div class="overview-grid">
         <section class="panel section-card">
-          <div class="section-heading"><div><div class="eyebrow">RUNTIME & DATA</div><h2>环境与数据健康</h2></div><span id="repoBadge" class="badge">—</span></div>
+          <div class="section-heading"><div><div class="eyebrow">RUNTIME &amp; DATA</div><h2 data-i18n="overview.health">Runtime &amp; Data Health</h2></div><span id="repoBadge" class="badge">—</span></div>
           <div id="runtimeFacts" class="fact-grid"></div>
           <div id="dataHealth" class="data-health"></div>
         </section>
         <section class="panel section-card">
-          <div class="section-heading"><div><div class="eyebrow">BASELINE COMPARISON</div><h2>官方参考 vs 当前结果</h2></div></div>
+          <div class="section-heading"><div><div class="eyebrow">BASELINE COMPARISON</div><h2 data-i18n="overview.baseline">Official Reference vs Current Result</h2></div></div>
           <div id="metricComparison" class="comparison-grid"></div>
           <p id="groundTruthBoundary" class="boundary-note"></p>
         </section>
@@ -238,14 +243,14 @@
 
       <section class="panel section-card">
         <div class="section-heading">
-          <div><div class="eyebrow">ALGORITHM REGISTRY</div><h2>当前算法层与真实实现状态</h2></div>
+          <div><div class="eyebrow">ALGORITHM REGISTRY</div><h2 data-i18n="overview.registry">Current Algorithm Layers and Implementation Status</h2></div>
           <span class="muted small">implemented ≠ planned</span>
         </div>
         <div id="pipelineRegistry" class="pipeline-registry"></div>
       </section>
 
       <section class="panel section-card">
-        <div class="section-heading"><div><div class="eyebrow">LIVE JOBS</div><h2>最近运行</h2></div><button class="ghost-button" data-page-jump="runs">打开运行中心</button></div>
+        <div class="section-heading"><div><div class="eyebrow">LIVE JOBS</div><h2 data-i18n="overview.recent_runs">Recent Runs</h2></div><button class="ghost-button" data-page-jump="runs" data-i18n="overview.open_runs">Open Runs</button></div>
         <div id="overviewJobs" class="job-list compact-list"></div>
       </section>
     </section>
@@ -254,47 +259,47 @@
       <div class="workspace">
         <aside class="sidebar panel">
           <div class="section-heading">
-            <div><div class="eyebrow">PUBLIC SET</div><h2>会话</h2></div>
+            <div><div class="eyebrow">PUBLIC SET</div><h2 data-i18n="sessions.title">Sessions</h2></div>
             <span id="sessionCount" class="badge">—</span>
           </div>
-          <input id="searchInput" class="input" type="search" placeholder="搜索 sample ID 或目标商品">
+          <input id="searchInput" class="input" type="search" placeholder="Search by sample ID or target product" data-i18n-placeholder="sessions.search">
           <div class="filter-row">
-            <select id="scenarioFilter" aria-label="场景过滤">
-              <option value="all">全部场景</option><option value="buying">Buying</option>
+            <select id="scenarioFilter" aria-label="Scenario filter" data-i18n-aria="sessions.scenario_filter">
+              <option value="all" data-i18n="sessions.all_scenarios">All scenarios</option><option value="buying">Buying</option>
               <option value="browsing">Browsing</option><option value="intent_override">Intent Override</option>
               <option value="boundary">Boundary</option>
             </select>
-            <select id="resultFilter" aria-label="结果过滤">
-              <option value="all">全部结果</option><option value="hit">Hit</option><option value="miss">Miss</option>
+            <select id="resultFilter" aria-label="Result filter" data-i18n-aria="sessions.result_filter">
+              <option value="all" data-i18n="sessions.all_results">All results</option><option value="hit">Hit</option><option value="miss">Miss</option>
             </select>
           </div>
           <div id="sessionList" class="session-list"></div>
         </aside>
 
         <div class="main-column">
-          <div id="emptyState" class="empty-state panel"><div class="loader-ring"></div><h2>准备会话诊断</h2><p>正在加载当前 Agent 与公开模拟器。</p></div>
+          <div id="emptyState" class="empty-state panel"><div class="loader-ring"></div><h2 data-i18n="sessions.preparing">Preparing Session Diagnostics</h2><p data-i18n="sessions.loading">Loading the current Agent and public simulator.</p></div>
           <div id="traceView" class="trace-view hidden">
             <section class="trace-header panel">
               <div><div id="traceEyebrow" class="eyebrow"></div><h2 id="traceTitle">Session</h2><p id="traceSubtitle" class="muted"></p></div>
-              <div class="trace-actions"><div id="traceResult" class="result-cluster"></div><button id="refreshTrace" class="secondary-button">重新运行</button><button id="exportTrace" class="ghost-button">导出 Trace</button></div>
+              <div class="trace-actions"><div id="traceResult" class="result-cluster"></div><button id="refreshTrace" class="secondary-button" data-i18n="trace.rerun">Rerun</button><button id="exportTrace" class="ghost-button" data-i18n="trace.export">Export Trace</button></div>
             </section>
             <section class="debug-warning"><span>PUBLIC LABELS / POST-HOC ONLY</span><p id="observerNote"></p></section>
             <section class="panel section-card">
-              <div class="section-heading"><div><div class="eyebrow">TIMELINE</div><h2>对话轮次</h2></div><div class="turn-controls"><button id="prevTurn" class="icon-button">←</button><span id="turnLabel">Turn —</span><button id="nextTurn" class="icon-button">→</button></div></div>
+              <div class="section-heading"><div><div class="eyebrow">TIMELINE</div><h2 data-i18n="trace.turns">Conversation Turns</h2></div><div class="turn-controls"><button id="prevTurn" class="icon-button">←</button><span id="turnLabel">Turn —</span><button id="nextTurn" class="icon-button">→</button></div></div>
               <div id="turnRail" class="turn-rail"></div>
             </section>
             <section class="panel section-card">
-              <div class="section-heading"><div><div class="eyebrow">ACTUAL FORWARD PASS + POST-HOC DIAGNOSTIC</div><h2>Agent 层</h2></div><span id="turnLatency" class="badge">—</span></div>
+              <div class="section-heading"><div><div class="eyebrow">ACTUAL FORWARD PASS + POST-HOC DIAGNOSTIC</div><h2 data-i18n="trace.layers">Agent Layers</h2></div><span id="turnLatency" class="badge">—</span></div>
               <div id="layerFlow" class="layer-flow"></div>
             </section>
             <div class="detail-grid three">
               <section class="panel section-card"><div class="section-heading"><h2>Conversation I/O</h2></div><div id="conversation"></div></section>
-              <section class="panel section-card"><div class="section-heading"><h2>Agent 实际事件</h2></div><pre id="agentEvents" class="code-view small-code"></pre></section>
-              <section class="panel section-card"><div class="section-heading"><h2>公开诊断上下文</h2></div><div id="targetCard"></div></section>
+              <section class="panel section-card"><div class="section-heading"><h2 data-i18n="trace.events">Actual Agent Events</h2></div><pre id="agentEvents" class="code-view small-code"></pre></section>
+              <section class="panel section-card"><div class="section-heading"><h2 data-i18n="trace.context">Public Diagnostic Context</h2></div><div id="targetCard"></div></section>
             </div>
             <section class="panel section-card">
-              <div class="section-heading"><div><div class="eyebrow">SCORING OUTPUT</div><h2>合法 Top 10</h2></div><div id="rankSummary" class="muted small"></div></div>
-              <div class="table-wrap"><table><thead><tr><th>Rank</th><th>Product</th><th>ASIN</th><th>Route score</th><th>Price</th><th>Rating</th><th>Signal</th></tr></thead><tbody id="recommendationRows"></tbody></table></div>
+              <div class="section-heading"><div><div class="eyebrow">SCORING OUTPUT</div><h2 data-i18n="trace.valid_top10">Valid Top 10</h2></div><div id="rankSummary" class="muted small"></div></div>
+              <div class="table-wrap"><table><thead><tr><th data-i18n="table.rank">Rank</th><th data-i18n="table.product">Product</th><th>ASIN</th><th data-i18n="table.route_score">Route score</th><th data-i18n="table.price">Price</th><th data-i18n="table.rating">Rating</th><th data-i18n="table.signal">Signal</th></tr></thead><tbody id="recommendationRows"></tbody></table></div>
             </section>
           </div>
         </div>
@@ -304,32 +309,32 @@
     <section id="catalogPage" class="page">
       <div class="catalog-layout">
         <section class="panel section-card catalog-list-panel">
-          <div class="section-heading"><div><div class="eyebrow">FROZEN CATALOG / FTS5</div><h2>50,000 商品与检索索引</h2></div><span id="catalogCount" class="badge">—</span></div>
-          <div class="search-row"><input id="catalogSearch" class="input" type="search" placeholder="输入商品、类别、品牌或属性"><button id="catalogSearchButton" class="primary-button">搜索</button></div>
+          <div class="section-heading"><div><div class="eyebrow">FROZEN CATALOG / FTS5</div><h2 data-i18n="catalog.title">50,000 Products and Retrieval Index</h2></div><span id="catalogCount" class="badge">—</span></div>
+          <div class="search-row"><input id="catalogSearch" class="input" type="search" placeholder="Search products, categories, brands, or attributes" data-i18n-placeholder="catalog.search_placeholder"><button id="catalogSearchButton" class="primary-button" data-i18n="catalog.search">Search</button></div>
           <div id="indexSummary" class="inline-facts"></div>
-          <div class="table-wrap catalog-table"><table><thead><tr><th>Product</th><th>ASIN</th><th>Category</th><th>Price</th><th>BM25</th></tr></thead><tbody id="catalogRows"></tbody></table></div>
-          <div class="pager"><button id="catalogPrev" class="ghost-button">上一页</button><span id="catalogPageLabel" class="muted small">—</span><button id="catalogNext" class="ghost-button">下一页</button></div>
+          <div class="table-wrap catalog-table"><table><thead><tr><th data-i18n="table.product">Product</th><th>ASIN</th><th data-i18n="table.category">Category</th><th data-i18n="table.price">Price</th><th>BM25</th></tr></thead><tbody id="catalogRows"></tbody></table></div>
+          <div class="pager"><button id="catalogPrev" class="ghost-button" data-i18n="action.previous">Previous</button><span id="catalogPageLabel" class="muted small">—</span><button id="catalogNext" class="ghost-button" data-i18n="action.next">Next</button></div>
         </section>
-        <aside class="panel section-card detail-panel"><div class="section-heading"><div><div class="eyebrow">RAW PRODUCT RECORD</div><h2>商品详情</h2></div></div><pre id="productDetail" class="code-view">选择一个商品查看完整 catalog JSON。</pre></aside>
+        <aside class="panel section-card detail-panel"><div class="section-heading"><div><div class="eyebrow">RAW PRODUCT RECORD</div><h2 data-i18n="catalog.details">Product Details</h2></div></div><pre id="productDetail" class="code-view" data-i18n="catalog.select">Select a product to view its complete catalog JSON.</pre></aside>
       </div>
     </section>
 
     <section id="runsPage" class="page">
       <div class="run-grid">
         <section class="panel section-card">
-          <div class="section-heading"><div><div class="eyebrow">CONTROL PLANE</div><h2>固定、安全的开发动作</h2></div></div>
-          <p class="muted">只允许运行仓库测试、released public evaluator 和固定的 target-blind 日常泛化套件（canonical + combined dev/challenge；audit 留给里程碑 CLI）；网页不会执行任意 shell 命令，也不会修改 evaluator 或公开标签。</p>
-          <div class="control-buttons"><button class="primary-button" data-action="evaluation">运行完整评测</button><button class="secondary-button" data-action="generalization">运行泛化压力测试</button><button class="secondary-button" data-action="tests">运行 73 项核心测试</button><button id="cancelJob" class="ghost-button danger">取消活动任务</button></div>
+          <div class="section-heading"><div><div class="eyebrow">CONTROL PLANE</div><h2 data-i18n="runs.title">Fixed, Safe Development Actions</h2></div></div>
+          <p class="muted" data-i18n="runs.body">Only the repository tests, released public evaluator, and fixed target-blind generalization suite can run here. The page cannot execute arbitrary shell commands or modify the evaluator or public labels.</p>
+          <div class="control-buttons"><button class="primary-button" data-action="evaluation" data-i18n="action.run_full">Run Full Evaluation</button><button class="secondary-button" data-action="generalization" data-i18n="action.run_generalization">Run Generalization Stress Test</button><button class="secondary-button" data-action="tests" data-i18n="action.run_tests">Run 74 Core Tests</button><button id="cancelJob" class="ghost-button danger" data-i18n="action.cancel_job">Cancel Active Job</button></div>
           <div id="runJobs" class="job-list"></div>
         </section>
         <section class="panel section-card log-panel">
-          <div class="section-heading"><div><div class="eyebrow">LIVE OUTPUT</div><h2>任务日志</h2></div><span id="jobProgressLabel" class="badge">—</span></div>
+          <div class="section-heading"><div><div class="eyebrow">LIVE OUTPUT</div><h2 data-i18n="runs.logs">Job Logs</h2></div><span id="jobProgressLabel" class="badge">—</span></div>
           <div class="progress-track"><div id="jobProgress" class="progress-fill"></div></div>
-          <pre id="jobLogs" class="code-view log-view">尚未运行任务。</pre>
+          <pre id="jobLogs" class="code-view log-view" data-i18n="runs.logs_empty">No jobs have run yet.</pre>
         </section>
       </div>
       <section class="panel section-card">
-        <div class="section-heading"><div><div class="eyebrow">EXPERIMENT REGISTRY</div><h2>结果历史与基线差异</h2></div></div>
+        <div class="section-heading"><div><div class="eyebrow">EXPERIMENT REGISTRY</div><h2 data-i18n="runs.history">Result History and Baseline Deltas</h2></div></div>
         <div id="experimentsTable" class="table-wrap"></div>
       </section>
     </section>
@@ -337,27 +342,28 @@
     <section id="labPage" class="page">
       <div class="lab-layout">
         <section class="panel section-card chat-panel">
-          <div class="section-heading"><div><div class="eyebrow">MANUAL AGENT PLAYGROUND</div><h2>直接体验当前 Agent</h2></div><div class="lab-heading-actions"><span id="labModeBadge" class="badge">retrieval — · rerank —</span><button id="labReset" class="secondary-button">新会话</button></div></div>
-          <div id="labHistory" class="lab-history"><div class="empty-row">点击“新会话”，然后输入购物需求。</div></div>
-          <form id="labForm" class="lab-form"><input id="labInput" class="input" autocomplete="off" placeholder="例如：I need comfortable black running shoes"><button class="primary-button" type="submit">发送</button></form>
+          <div class="section-heading"><div><div class="eyebrow">MANUAL AGENT PLAYGROUND</div><h2 data-i18n="lab.title">Try the Current Agent</h2></div><div class="lab-heading-actions"><span id="labModeBadge" class="badge">retrieval — · rerank —</span><button id="labReset" class="secondary-button" data-i18n="lab.new_session">New Session</button></div></div>
+          <div id="labHistory" class="lab-history"><div class="empty-row" data-i18n="lab.empty">Click New Session, then enter a shopping request.</div></div>
+          <form id="labForm" class="lab-form"><input id="labInput" class="input" autocomplete="off" placeholder="Example: I need comfortable black running shoes" data-i18n-placeholder="lab.placeholder"><button class="primary-button" type="submit" data-i18n="lab.send">Send</button></form>
         </section>
-        <aside class="panel section-card"><div class="section-heading"><div><div class="eyebrow">TRACE EVENTS</div><h2>最近一轮算法数据</h2></div></div><pre id="labEvents" class="code-view">尚无事件。</pre></aside>
+        <aside class="panel section-card"><div class="section-heading"><div><div class="eyebrow">TRACE EVENTS</div><h2 data-i18n="lab.events">Latest Turn Algorithm Data</h2></div></div><pre id="labEvents" class="code-view" data-i18n="lab.no_events">No events yet.</pre></aside>
       </div>
     </section>
 
     <section id="docsPage" class="page">
       <div class="docs-layout">
         <aside class="panel section-card docs-list-panel">
-          <div class="section-heading"><div><div class="eyebrow">KNOWLEDGE BASE</div><h2>项目资料库</h2></div></div>
-          <input id="documentSearch" class="input" type="search" placeholder="筛选文档">
+          <div class="section-heading"><div><div class="eyebrow">KNOWLEDGE BASE</div><h2 data-i18n="docs.title">Project Knowledge Base</h2></div></div>
+          <input id="documentSearch" class="input" type="search" placeholder="Filter documents" data-i18n-placeholder="docs.filter">
           <div id="documentList" class="document-list"></div>
         </aside>
-        <section class="panel section-card document-viewer"><div class="section-heading"><div><div id="documentGroup" class="eyebrow">DOCUMENT</div><h2 id="documentTitle">选择一份文档</h2></div><span id="documentPath" class="badge">—</span></div><pre id="documentContent" class="code-view document-content">这里会显示 README、开发流程、实现记录、官方协议与本地规划。</pre></section>
+        <section class="panel section-card document-viewer"><div class="section-heading"><div><div id="documentGroup" class="eyebrow">DOCUMENT</div><h2 id="documentTitle" data-i18n="docs.select">Select a document</h2></div><span id="documentPath" class="badge">—</span></div><pre id="documentContent" class="code-view document-content" data-i18n="docs.empty">README files, workflows, implementation notes, official contracts, and local plans appear here.</pre></section>
       </div>
     </section>
   </main>
 
   <div id="toast" class="toast hidden"></div>
+  <script src="/i18n.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

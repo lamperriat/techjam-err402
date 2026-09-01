@@ -26,6 +26,31 @@ python -m observer.launcher
 
 Windows 也可双击 `Start Observer.vbs`。fresh pull 即使尚未安装 `data/catalog.jsonl`，也会进入只读 **Showcase mode**，正常打开 Fusion A/B 架构、逐层播放器、冻结指标和资料库；它不会在缺少 catalog 时假装运行检索。放入官方冻结 catalog 并重启后，网站切换为完整本地模式，启用真实 T0/A/B Live Lab、商品索引、会话诊断和固定运行工具。网站不会下载、生成或修改 catalog。
 
+## 语言切换与基本操作
+
+网站**默认界面文案为英文**。右上角始终显示全局 **Language** 控件及 **EN / ZH** 两个按钮：
+
+- 选择 `EN` 显示英文，选择 `ZH` 显示简体中文；切换不会刷新页面，也不会重置当前版本、页面、turn 或 Lab 会话；
+- 选择结果保存在浏览器 local storage；清除 `127.0.0.1:8765` 的网站数据即可恢复英文默认值；
+- 算法 ID、API 字段、hash、商品原始记录、用户输入、Agent 原始回复、日志、源码和打开的文档内容保持原文，避免把翻译误当成真实 Agent 输出；
+- Fusion 架构、walkthrough 与 benchmark 说明的中文来自 `i18n.js` 中按稳定 key 管理的 display overlay；它不会修改 `docs/teammate_ab_website.json`，英文模式仍显示 tracked source 文案；
+- 窄屏与手机布局仍保留 EN/ZH 按钮，不会随运行状态栏一起隐藏。
+
+快速操作对照：
+
+| 英文页面 | 可用模式 | 如何操作 | 是否会启动计算/写入 |
+|---|---|---|---|
+| **Fusion A/B** | Showcase + Full | 切换 T0/A/B、Page 1/2/3+/Override，使用左右箭头或播放键 | 只读冻结架构与结果；不会运行 evaluator |
+| **Live T0/A/B Execution** | 仅 Full | 选择版本 → **Start / Reset Session** → 快捷场景/输入 → **Run this turn** | 调用真实本地 Agent；只建立 opaque Lab 会话 |
+| **Runtime** | 任务仅 Full | 查看运行时、数据 hash 与算法层；按需点击 run 按钮 | 只有明确点击 run 才启动固定任务 |
+| **Session Diagnostics** | 仅 Full | 选择会话/turn；可 **Rerun** 或 **Export Trace** | Rerun 调公开模拟器；Export 只下载 JSON |
+| **Catalog & Index** | 仅 Full | 搜索、翻页、点击商品 | 只读 FTS/catalog |
+| **Runs & Experiments** | 仅 Full | 启动固定任务、看进度日志、**Cancel Active Job** | 单次只允许运行一个任务；Cancel 是协作式取消请求 |
+| **Agent Lab** | 仅 Full | **New Session** → 输入需求 → **Send** | 运行 legacy `starter.Agent`，与严格 A/B Lab 不同 |
+| **Documents** | Showcase + Full | 筛选并点击文档 | 只读允许列表中的文件 |
+
+安全退出必须点击右上角 **Stop**。只关闭浏览器标签页不会停止本地 server；需要再次使用时重新双击 `Start Observer.vbs`。
+
 官方 catalog 应解压到：
 
 ```text
@@ -39,16 +64,30 @@ data/catalog.jsonl
 
 - **Fusion A/B**：切换 T0、A、B，查看每层职责、源码边界、问询策略、Public200/2k 指标与风险。
 - **Compute Walkthrough**：选择 intent page 1、page 2、page 3+ 或 override，再逐步播放该轮的状态、召回、排序、路由、去重和问询过程。这是冻结架构说明，不会触发 evaluator。
-- **会话诊断**：运行当前 `starter.Agent` 的真实逐轮 trace，并把 Agent 实际事件与 post-hoc target 诊断明确分开。
-- **商品与索引**：浏览 50,000 商品及本机 FTS5 检索结果。
-- **运行与实验**：仅允许仓库预定义动作；不能执行任意 shell。此次更新没有点击或运行任何 evaluator。
-- **交互 Lab / 资料库**：目标盲手动对话，以及代码、规则、结果和本交接文档的只读查看。
+- **Session Diagnostics**：运行当前 `starter.Agent` 的真实逐轮 trace，并把 Agent 实际事件与 post-hoc target 诊断明确分开。
+- **Catalog & Index**：浏览 50,000 商品及本机 FTS5 检索结果。
+- **Runs & Experiments**：仅允许仓库预定义动作；不能执行任意 shell。此次更新没有点击或运行任何 evaluator。
+- **Agent Lab / Documents**：目标盲手动对话，以及代码、规则、结果和本交接文档的只读查看。
 
 首页数据来自 `docs/teammate_ab_website.json`，原始严格 A/B 证据仍在 `docs/deadline_v3_4_strict_fusion_ab.json`。网页不自行计算或改写指标。
 
 ## 真实 T0/A/B Live Lab
 
-安装官方 catalog 后，Fusion 首页可以直接选择 T0、A 或 B，点击“开始 / 重置会话”，再使用 Buying、Browsing、Clarification、Override 快捷场景或自行输入 evaluator 形式的可见消息。每轮实际调用对应的 tracked Agent factory；切换版本时关闭旧索引，并创建新的 opaque session。
+安装官方 catalog 后，Fusion 首页可以直接选择 T0、A 或 B，点击 **Start / Reset Session**，再使用 Buying、Browsing、Clarification、Override 快捷场景或自行输入 evaluator 形式的可见消息。每轮实际调用对应的 tracked Agent factory。选择另一个版本会使当前可见会话失效；下一次 **Start / Reset Session**（或第一次 Run）才初始化新版本、替换旧的 server-side index，并创建新的 opaque session。
+
+公平比较 T0/A/B 时，应为每个版本分别新建会话，并发送完全相同的可见消息序列。展示 Page 3 时要在同一会话连续发送三轮且不要 reset；展示 B override 时也要在同一个 B 会话继续发送 Override。达到 turn 10 后必须 reset，不能继续追加。
+
+### 常见问题
+
+| 现象 | 处理方式 |
+|---|---|
+| 双击 VBS 没有打开页面 | 手动打开 `http://127.0.0.1:8765`；再检查 `observer_startup_error.log`，尝试 `Start Observer.cmd` 或 `python -m observer.launcher`。 |
+| Python 启动失败 | 需要 Python 3.10+；可把 `OBSERVER_PYTHON` 设为目标 `python.exe` 的绝对路径。 |
+| Live Lab / Catalog / Replay / Run 按钮禁用 | 当前是正常 Showcase mode；放入 hash/行数正确的 catalog 后点击 Stop 并重启。 |
+| 8765 被另一个 clone 占用 | 先停止那个 clone；launcher 会拒绝复用 project-root 不一致的服务。 |
+| 页面提示 source stale | 点击 Stop 后重启，不要让旧进程混用新代码或新数据。 |
+| 第一次启动某版本需要几秒 | 正在建立 full-mode index；等 Ready，不要连续重复点击。 |
+| 缺少 `results.json` / 完整 2k artifact | 不是故障；冻结 A/B 表格读取 tracked compact evidence。 |
 
 页面刻意区分三种资料：
 
@@ -68,19 +107,20 @@ Live Lab 只接收 profile、message、turn 和 `top_k=10`，不接收 `sample_i
 6. 说明右侧 Top10/response 来自真实 Agent；页面路由、候选数量和八层说明为 observer-derived；两者都不含 target。
 7. 最后回到冻结表格：A 的 Public HR 与 T0 持平但 MRR、MTTC、Score 更差，所以完整网站与 A/B 发布在新分支而不是 `main`。
 
-仅录制展示时不要点击“运行 200 会话评测”。使用架构播放器或 Live Lab 本身都不会启动 evaluator。
+仅录制展示时不要点击 **Run 200-Session Evaluation**。使用架构播放器或 Live Lab 本身都不会启动 evaluator。
 
 ## 交付验收记录（2026-09-01）
 
 本轮没有重跑 Public200 或 2k evaluator；下列是网站与手动 Live Lab 的 contract smoke：
 
-- 无 `data/catalog.jsonl` 实际启动成功：`/`、CSS、JS、health、overview、Fusion evidence、资料库均返回成功，Live Lab 明确返回 `available=false` 和安装说明；
+- 无 `data/catalog.jsonl` 实际启动成功：`/`、CSS、`i18n.js`、app JS、health、overview、Fusion evidence、资料库均返回成功；HTML 首屏为英文，Live Lab 明确返回 `available=false` 和安装说明；
 - 使用 SHA-256 与上文一致的官方 50,000 商品 catalog 实际启动成功；
 - T0、A、B 各自真实 reset/respond 均返回 8 个解释层和 10 个唯一 catalog-valid ID；
 - 相同首轮 Buying 输入下，`T0 == A == B` 的 Top10 顺序逐项一致；T0/A 保留具体属性问询，B 唯一改为 `ask_attribute=other`；
 - A 连续三轮路由依次为 T0 grace 1/2、T0 grace 2/2、v2.12 unseen expert tail；
 - B override 后 page 回到 grace 1/2，`other.version` 从 1 增至 2，asks 从 2 重置为 1；
-- Workbench 的 73 项可移植核心测试全部通过；其中 32 项直接覆盖 HTTP/token、Showcase、静态页面 marker、T0/A/B Live Lab、官方风格 Top10 normalization、variant 切换清理、10-turn、A/B grace/tail/override 与 response contract。需要 ignored P6/P8/P9 历史资产或可选 `pytest` 的研究测试仍由各自 CLI 环境运行，不会让网站按钮在 fresh pull 中误报失败；
+- Workbench 的 74 项可移植核心测试全部通过；其中 33 项直接覆盖 HTTP/token、Showcase、静态页面 marker、EN/ZH 全局切换、T0/A/B Live Lab、官方风格 Top10 normalization、variant 切换清理、10-turn、A/B grace/tail/override 与 response contract。需要 ignored P6/P8/P9 历史资产或可选 `pytest` 的研究测试仍由各自 CLI 环境运行，不会让网站按钮在 fresh pull 中误报失败；
+- EN/ZH catalog key、变量 placeholder 与延迟 notice key 完整性通过；Node 行为 smoke 验证英文 fallback、ZH 持久化、无效值/blocked storage 回退和冻结证据中文 overlay；
 - Python compile、JavaScript syntax、`git diff --check` 通过。
 
 这些 smoke 只验证可启动、可操作、算法边界和输出 contract，不替代冻结 benchmark，也不会产生新的成绩。

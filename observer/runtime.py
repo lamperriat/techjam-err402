@@ -309,6 +309,7 @@ class WorkbenchRuntime:
             "bounded_other": self.project_root / "starter" / "teammate_bounded_other.py",
             "teammate_t0": self.project_root / "vendor" / "teammate_v1" / "err402" / "agents" / "v1.py",
             "fusion_evidence": self.project_root / "docs" / "teammate_ab_website.json",
+            "website_i18n": self.project_root / "observer" / "static" / "i18n.js",
             "evaluator": self.project_root / "evaluator" / "local_evaluator.py",
             "generalization": self.project_root / "scripts" / "evaluate_generalization.py",
         }
@@ -1125,7 +1126,7 @@ class WorkbenchRuntime:
             ):
                 environment.pop(name, None)
             job.log(
-                "Running the portable 73-test release suite "
+                "Running the portable 74-test release suite "
                 "(core Agent, evaluator contract, T0/A/B, Live Lab, and Observer)"
             )
             job.process = subprocess.Popen(
