@@ -5,7 +5,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from utils.llm_client import LLMClient, LLMConfig, TokenUsage
+from utils.llm_client import LLMClient, LLMConfig, TokenUsage, parse_json_object
 
 
 class LLMConfigTest(unittest.TestCase):
@@ -93,6 +93,29 @@ class LLMClientTest(unittest.TestCase):
         self.assertEqual(client.total_usage, TokenUsage(30, 6))
 
     @patch("utils.llm_client.OpenAI")
+    def test_passes_optional_generation_controls(self, openai: Mock) -> None:
+        openai.return_value = self.sdk_client
+        self.sdk_client.chat.completions.create.return_value = self._response("{}")
+        client = LLMClient(self.config)
+
+        client.generate_json(
+            [{"role": "user", "content": "Return JSON"}],
+            temperature=0,
+            max_tokens=800,
+            extra_body={"thinking": {"type": "disabled"}},
+        )
+
+        self.sdk_client.chat.completions.create.assert_called_once_with(
+            model="test-model",
+            messages=[{"role": "user", "content": "Return JSON"}],
+            response_format={"type": "json_object"},
+            stream=False,
+            temperature=0,
+            max_tokens=800,
+            extra_body={"thinking": {"type": "disabled"}},
+        )
+
+    @patch("utils.llm_client.OpenAI")
     def test_logs_when_response_omits_usage(self, openai: Mock) -> None:
         openai.return_value = self.sdk_client
         response = self._response("{}")
@@ -124,6 +147,49 @@ class LLMClientTest(unittest.TestCase):
         self.assertIn("returned invalid JSON", logs.output[0])
         self.assertEqual(client.last_usage, TokenUsage(8, 2))
         self.assertEqual(client.total_usage, TokenUsage(8, 2))
+
+    @patch("utils.llm_client.OpenAI")
+    def test_repairs_invalid_literal_backslash_escapes(self, openai: Mock) -> None:
+        openai.return_value = self.sdk_client
+        self.sdk_client.chat.completions.create.return_value = self._response(
+            r'{"size": "6\' wide"}',
+            prompt_tokens=8,
+            completion_tokens=4,
+        )
+        client = LLMClient(self.config)
+
+        with self.assertLogs("utils.llm_client", level="WARNING") as logs:
+            result = client.generate_json([{"role": "user", "content": "Return JSON"}])
+
+        self.assertEqual(result, {"size": "6\\' wide"})
+        self.assertIn("invalid escape characters", logs.output[0])
+        self.assertEqual(client.last_usage, TokenUsage(8, 4))
+
+    @patch("utils.llm_client.OpenAI")
+    def test_discards_text_after_one_complete_json_object(self, openai: Mock) -> None:
+        openai.return_value = self.sdk_client
+        self.sdk_client.chat.completions.create.return_value = self._response(
+            '{"intent": "buying"}\nExplanation',
+        )
+        client = LLMClient(self.config)
+
+        with self.assertLogs("utils.llm_client", level="WARNING") as logs:
+            result = client.generate_json([{"role": "user", "content": "Return JSON"}])
+
+        self.assertEqual(result, {"intent": "buying"})
+        self.assertIn("discarded the trailing text", logs.output[0])
+
+    def test_removes_stray_quote_immediately_before_object_key(self) -> None:
+        content = '{"value": "Leather", " "evidence": "Textile/Leather sole"}'
+
+        with self.assertLogs("utils.llm_client", level="WARNING") as logs:
+            result = parse_json_object(content, "test-model")
+
+        self.assertEqual(
+            result,
+            {"value": "Leather", "evidence": "Textile/Leather sole"},
+        )
+        self.assertIn("stray quote", logs.output[0])
 
     @patch("utils.llm_client.OpenAI")
     def test_rejects_json_with_non_object_root(self, openai: Mock) -> None:

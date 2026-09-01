@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from evaluator.local_evaluator import (
+from evaluator.agent_evaluator import (
     catalog_index,
     evaluate,
     main,
@@ -127,7 +127,6 @@ class EvaluatorTest(unittest.TestCase):
                 "--catalog", str(catalog_path),
                 "--dataset", str(dataset_path),
                 "--output", str(output_path),
-                "--agent", "baseline",
                 "--quiet",
             ]
 
